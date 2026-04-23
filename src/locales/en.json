@@ -1,0 +1,83 @@
+{
+  "app": {
+    "title": "Extrusion Calculator",
+    "subtitle": "Polycarbonate sheet production time"
+  },
+  "language": {
+    "label": "Language",
+    "it": "Italiano",
+    "en": "English",
+    "es": "Español"
+  },
+  "settings": {
+    "title": "Global settings",
+    "startMode": {
+      "label": "Start point",
+      "now": "Now",
+      "manual": "Set date and time manually"
+    },
+    "startAt": "Start date and time",
+    "startAtPastWarning": "The start date is in the past.",
+    "speedMode": {
+      "label": "Speed",
+      "global": "One speed for all orders",
+      "perOrder": "Separate speed per order"
+    },
+    "globalSpeed": "Extruder speed (m/min)",
+    "gapMode": {
+      "label": "Gaps between orders",
+      "continuous": "Continuous (no breaks)",
+      "withGaps": "With gaps between orders"
+    }
+  },
+  "orders": {
+    "title": "Order queue",
+    "add": "+ Add order",
+    "remove": "Remove",
+    "number": "#",
+    "sheets": "Sheets (pcs)",
+    "sheetLength": "Sheet length (mm)",
+    "speed": "Speed (m/min)",
+    "gapAfter": "Gap after (min)",
+    "minRequired": "At least one order is required."
+  },
+  "actions": {
+    "calculate": "Calculate",
+    "reset": "New calculation",
+    "print": "Print",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "results": {
+    "title": "Result",
+    "totalProduction": "Total net production time",
+    "totalGap": "Total gap time",
+    "endAt": "Queue finish",
+    "totalDuration": "Total duration",
+    "breakdown": "Per-order breakdown",
+    "col": {
+      "number": "#",
+      "sheets": "Sheets",
+      "sheetLength": "Length (mm)",
+      "speed": "Speed (m/min)",
+      "productionTime": "Production time",
+      "start": "Start",
+      "end": "End"
+    },
+    "empty": "Enter orders and click «Calculate»."
+  },
+  "units": {
+    "day": "d",
+    "hour": "h",
+    "minute": "min"
+  },
+  "validation": {
+    "required": "Required field",
+    "positive": "Must be greater than 0",
+    "nonNegative": "Must be ≥ 0",
+    "integer": "Must be an integer"
+  },
+  "footer": {
+    "madeBy": "AKRAPLAST Sistemi S.r.l."
+  }
+}

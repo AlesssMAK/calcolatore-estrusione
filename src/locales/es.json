@@ -1,0 +1,83 @@
+{
+  "app": {
+    "title": "Calculadora de Extrusión",
+    "subtitle": "Tiempo de producción de láminas de policarbonato"
+  },
+  "language": {
+    "label": "Idioma",
+    "it": "Italiano",
+    "en": "English",
+    "es": "Español"
+  },
+  "settings": {
+    "title": "Ajustes globales",
+    "startMode": {
+      "label": "Punto de inicio",
+      "now": "Ahora",
+      "manual": "Fijar fecha y hora manualmente"
+    },
+    "startAt": "Fecha y hora de inicio",
+    "startAtPastWarning": "La fecha de inicio está en el pasado.",
+    "speedMode": {
+      "label": "Velocidad",
+      "global": "Una velocidad para todos los pedidos",
+      "perOrder": "Velocidad separada por pedido"
+    },
+    "globalSpeed": "Velocidad del extrusor (m/min)",
+    "gapMode": {
+      "label": "Pausas entre pedidos",
+      "continuous": "Continuo (sin pausas)",
+      "withGaps": "Con pausas entre pedidos"
+    }
+  },
+  "orders": {
+    "title": "Cola de pedidos",
+    "add": "+ Añadir pedido",
+    "remove": "Eliminar",
+    "number": "N°",
+    "sheets": "Láminas (uds)",
+    "sheetLength": "Longitud de lámina (mm)",
+    "speed": "Velocidad (m/min)",
+    "gapAfter": "Pausa después (min)",
+    "minRequired": "Se requiere al menos un pedido."
+  },
+  "actions": {
+    "calculate": "Calcular",
+    "reset": "Nuevo cálculo",
+    "print": "Imprimir",
+    "copy": "Copiar",
+    "copied": "¡Copiado!"
+  },
+  "results": {
+    "title": "Resultado",
+    "totalProduction": "Tiempo neto de producción",
+    "totalGap": "Tiempo total de pausas",
+    "endAt": "Fin de la cola",
+    "totalDuration": "Duración total",
+    "breakdown": "Desglose por pedido",
+    "col": {
+      "number": "#",
+      "sheets": "Láminas",
+      "sheetLength": "Longitud (mm)",
+      "speed": "Velocidad (m/min)",
+      "productionTime": "Tiempo de producción",
+      "start": "Inicio",
+      "end": "Fin"
+    },
+    "empty": "Introduce los pedidos y pulsa «Calcular»."
+  },
+  "units": {
+    "day": "d",
+    "hour": "h",
+    "minute": "min"
+  },
+  "validation": {
+    "required": "Campo obligatorio",
+    "positive": "Debe ser mayor que 0",
+    "nonNegative": "Debe ser ≥ 0",
+    "integer": "Debe ser un entero"
+  },
+  "footer": {
+    "madeBy": "AKRAPLAST Sistemi S.r.l."
+  }
+}

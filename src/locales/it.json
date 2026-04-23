@@ -1,0 +1,83 @@
+{
+  "app": {
+    "title": "Calcolatore di Estrusione",
+    "subtitle": "Tempo di produzione lastre in policarbonato"
+  },
+  "language": {
+    "label": "Lingua",
+    "it": "Italiano",
+    "en": "English",
+    "es": "Español"
+  },
+  "settings": {
+    "title": "Impostazioni globali",
+    "startMode": {
+      "label": "Punto di inizio",
+      "now": "Adesso",
+      "manual": "Imposta data e ora"
+    },
+    "startAt": "Data e ora di inizio",
+    "startAtPastWarning": "La data di inizio è nel passato.",
+    "speedMode": {
+      "label": "Velocità",
+      "global": "Una velocità per tutti gli ordini",
+      "perOrder": "Velocità separata per ogni ordine"
+    },
+    "globalSpeed": "Velocità estrusore (m/min)",
+    "gapMode": {
+      "label": "Pause tra gli ordini",
+      "continuous": "Continuo (senza pause)",
+      "withGaps": "Con pause tra gli ordini"
+    }
+  },
+  "orders": {
+    "title": "Ordini in coda",
+    "add": "+ Aggiungi ordine",
+    "remove": "Rimuovi",
+    "number": "N°",
+    "sheets": "Lastre (pz)",
+    "sheetLength": "Lunghezza lastra (mm)",
+    "speed": "Velocità (m/min)",
+    "gapAfter": "Pausa dopo (min)",
+    "minRequired": "Almeno un ordine è richiesto."
+  },
+  "actions": {
+    "calculate": "Calcola",
+    "reset": "Nuovo calcolo",
+    "print": "Stampa",
+    "copy": "Copia",
+    "copied": "Copiato!"
+  },
+  "results": {
+    "title": "Risultato",
+    "totalProduction": "Tempo netto di produzione",
+    "totalGap": "Tempo totale di pause",
+    "endAt": "Fine della coda",
+    "totalDuration": "Durata totale",
+    "breakdown": "Dettaglio per ordine",
+    "col": {
+      "number": "#",
+      "sheets": "Lastre",
+      "sheetLength": "Lunghezza (mm)",
+      "speed": "Velocità (m/min)",
+      "productionTime": "Tempo produzione",
+      "start": "Inizio",
+      "end": "Fine"
+    },
+    "empty": "Inserisci gli ordini e premi «Calcola»."
+  },
+  "units": {
+    "day": "g",
+    "hour": "h",
+    "minute": "min"
+  },
+  "validation": {
+    "required": "Campo obbligatorio",
+    "positive": "Deve essere maggiore di 0",
+    "nonNegative": "Deve essere ≥ 0",
+    "integer": "Deve essere un numero intero"
+  },
+  "footer": {
+    "madeBy": "AKRAPLAST Sistemi S.r.l."
+  }
+}
