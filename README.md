@@ -1,83 +1,111 @@
 # Calcolatore di Estrusione
 
-Calcolatore del tempo di produzione per lastre in policarbonato sulla linea di estrusione di **AKRAPLAST Sistemi S.r.l.**
+Production-time calculator for polycarbonate sheets and profiles on the extrusion line of **AKRAPLAST Sistemi S.r.l.**
 
-L'applicazione calcola il tempo totale di produzione di una coda di ordini e la data/ora di fine lavorazione, considerando che la linea funziona 24/7.
+The app computes the total production time of a queue of orders and the finish date/time, assuming the line runs 24/7.
+
+## Features
+
+- **Two calculator types** in tabs: **Sheets** (default) and **Profiles** (with package count output).
+- **Simplified settings panel** with three toggles that flip the default behaviors:
+  - ⚡ **Per-order speed** → off: single global speed; on: speed field per order.
+  - 🗓 **Set time** → off: start now; on: manual date/time via calendar.
+  - ⏸ **Gaps between orders** → off: continuous run; on: gap field per order.
+- **Calendar** (`react-datepicker`) with past dates and times disabled. On mobile (≤ 480px) it opens as a full-width modal with body scroll-lock.
+- **Responsive layout**:
+  - Mobile (< 768px): icon-only toggles, 2-column order rows, results as cards.
+  - Desktop (≥ 768px): toggles with labels, inline order rows, results as a table.
+  - `min-width: 320px` to prevent layout breakage on ultra-narrow viewports.
+- **3 UI languages**: Italian (default), English, Spanish — auto-detected via `i18next-browser-languagedetector`.
+- **Print** + **copy to clipboard** for the result.
 
 ## Stack
 
-- **React 19** + **TypeScript** + **Vite**
-- **Tailwind CSS 4**
+- **React 19** + **TypeScript** + **Vite 8**
+- **Tailwind CSS 4** (configured via `@theme` in `index.css`, `@tailwindcss/vite` plugin)
 - **react-i18next** (IT · EN · ES)
-- **react-hook-form** + **zod**
-- **date-fns**
-- **Vitest** per i test di unità
+- **react-hook-form** + **zod** + **@hookform/resolvers**
+- **react-datepicker** + **date-fns** (IT/EN/ES locales registered)
+- **Vitest** for unit tests (`--pool=threads` on Windows)
 
-Non esiste backend: tutti i calcoli avvengono nel browser e i risultati non vengono salvati.
+No backend: all computation happens client-side and nothing is persisted.
 
-## Avvio locale
+## Local setup
 
 ```bash
 npm install
 npm run dev
 ```
 
-L'app sarà disponibile su http://localhost:5173
+The app runs at http://localhost:5173
 
-## Script disponibili
+## Available scripts
 
-| Comando | Descrizione |
+| Command | Description |
 |---|---|
-| `npm run dev` | Avvia il server di sviluppo con HMR |
-| `npm run build` | Build di produzione in `dist/` |
-| `npm run preview` | Anteprima del build di produzione |
-| `npm run test` | Esegue i test una volta |
-| `npm run test:watch` | Test in modalità watch |
-| `npm run typecheck` | Controllo dei tipi TypeScript |
-| `npm run lint` | Esegue ESLint |
+| `npm run dev` | Start dev server with HMR |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm run test` | Run tests once (`vitest run --pool=threads`) |
+| `npm run test:watch` | Tests in watch mode |
+| `npm run typecheck` | TypeScript type-check |
+| `npm run lint` | Run ESLint |
 
-## Logica di calcolo
+## Calculation logic
 
 ```
-Lunghezza ordine (m) = (lastre × lunghezza_mm) / 1000
-Tempo produzione (min) = lunghezza_m / velocità_m_per_min
+Order length (m)       = (pieces × length_mm) / 1000
+Production time (min)  = length_m / speed_m_per_min
 
-Inizio ordine #N   = Fine #(N-1) + Pausa dopo #(N-1)
-Fine ordine #N     = Inizio #N + Tempo produzione #N
-Durata totale      = Fine ultimo ordine − Inizio primo ordine
+Order #N start         = #(N-1) end + #(N-1) gap-after
+Order #N end           = #N start + #N production time
+Total duration         = last end − first start
+
+Packages (profiles)    = ⌈ pieces / profiles_per_package ⌉
 ```
 
-La funzione principale è [`calculateSchedule`](src/utils/calculator.ts) — funzione pura, coperta dai test in [`calculator.test.ts`](src/utils/calculator.test.ts).
+The core function is [`calculateSchedule(settings, orders, { now?, mode? })`](src/utils/calculator.ts) — pure, covered by tests in [`calculator.test.ts`](src/utils/calculator.test.ts) (20 tests).
 
-## Deploy su Vercel
+## Vercel deployment
 
-1. Importare il repository su Vercel.
+1. Import the repo into Vercel.
 2. Framework preset: **Vite**.
 3. Build command: `npm run build` — output directory: `dist`.
-4. Non sono richieste variabili d'ambiente.
+4. No environment variables required.
 
-## Struttura del progetto
+## Project structure
 
 ```
 src/
 ├── components/
 │   ├── Header.tsx
 │   ├── LanguageSwitcher.tsx
-│   ├── GlobalSettingsPanel.tsx
-│   ├── OrdersList.tsx
-│   ├── ResultsPanel.tsx
+│   ├── Tabs.tsx                # Sheets / Profiles selector
+│   ├── GlobalSettingsPanel.tsx # toggles + DatePicker
+│   ├── CalculatorForm.tsx      # FormProvider, dynamic schema
+│   ├── OrdersList.tsx          # useFieldArray, mobile/desktop layout
+│   ├── ResultsPanel.tsx        # mobile cards + desktop table
 │   └── FieldError.tsx
 ├── locales/
 │   ├── it.json
 │   ├── en.json
 │   └── es.json
 ├── utils/
-│   ├── calculator.ts        # logica pura + test
-│   ├── calculator.test.ts
-│   └── format.ts            # formattazione date/durata
+│   ├── calculator.ts           # pure logic
+│   ├── calculator.test.ts      # 20 tests
+│   ├── defaults.ts             # buildEmptyDefaults(), makeEmptyOrder()
+│   └── format.ts               # date/duration formatting
 ├── types.ts
-├── formSchema.ts            # schema zod per il form
+├── formSchema.ts               # buildFormSchema(mode) — zod factory
 ├── i18n.ts
-├── App.tsx
-└── main.tsx
+├── App.tsx                     # mode state + formKey for remount
+├── main.tsx
+└── index.css                   # Tailwind 4 @theme + DatePicker overrides
 ```
+
+## Technical notes
+
+- **Form reset**: the "New calculation" button and tab switching bump `formKey` on `<CalculatorForm key={formKey}>` to unmount/remount the form. RHF with uncontrolled inputs and `undefined` defaults doesn't reliably sync DOM inputs via `reset()` — remount is the safe pattern.
+- **Dynamic schema**: `buildFormSchema(mode)` returns a different zod schema for `sheets` vs `profiles` (in `profiles`, `profilesPerPackage` is required).
+- **Mobile DatePicker**: `withPortal` is enabled only below 480px via `useMediaQuery`; the body is locked (`position: fixed`) to prevent background scroll under the modal.
+- **Vitest on Windows**: the default `forks` pool times out — `--pool=threads` is required in the `test` script.

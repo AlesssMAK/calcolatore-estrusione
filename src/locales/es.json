@@ -33,6 +33,11 @@
       "label": "Pausas entre pedidos",
       "continuous": "Continuo (sin pausas)",
       "withGaps": "Con pausas entre pedidos"
+    },
+    "toggle": {
+      "manualStart": "Fijar hora",
+      "perOrderSpeed": "Velocidad por pedido",
+      "gaps": "Pausas entre pedidos"
     }
   },
   "orders": {

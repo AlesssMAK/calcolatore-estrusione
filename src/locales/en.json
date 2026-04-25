@@ -33,6 +33,11 @@
       "label": "Gaps between orders",
       "continuous": "Continuous (no breaks)",
       "withGaps": "With gaps between orders"
+    },
+    "toggle": {
+      "manualStart": "Set time",
+      "perOrderSpeed": "Speed per order",
+      "gaps": "Gaps between orders"
     }
   },
   "orders": {
