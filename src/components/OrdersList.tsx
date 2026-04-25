@@ -39,11 +39,11 @@ function OrdersList() {
           onClick={() =>
             append({
               id: genId(),
-              sheets: 1,
-              sheetLengthMm: 6000,
-              speedMPerMin: speedMode === 'perOrder' ? 5 : undefined,
-              gapAfterMin: gapMode === 'withGaps' ? 0 : undefined,
-            })
+              sheets: undefined,
+              sheetLengthMm: undefined,
+              speedMPerMin: undefined,
+              gapAfterMin: undefined,
+            } as unknown as FormValues['orders'][number])
           }
           className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
         >

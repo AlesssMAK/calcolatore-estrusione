@@ -1,30 +1,28 @@
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 
-function LogoMark() {
-  return (
-    <div
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-lg font-bold text-white shadow-sm"
-      aria-hidden
-    >
-      AK
-    </div>
-  );
-}
-
 function Header() {
   const { t } = useTranslation();
 
   return (
     <header className="no-print border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-5">
-        <div className="flex items-center gap-3">
-          <LogoMark />
-          <div>
-            <div className="text-xs font-semibold tracking-[0.18em] text-brand-600 uppercase">
-              AKRAPLAST
-            </div>
-            <h1 className="text-lg font-semibold text-ink sm:text-xl">
+        <div className="flex items-center gap-4">
+          <a
+            href="https://akraplast.com"
+            target="_blank"
+            rel="noreferrer"
+            className="block shrink-0"
+            aria-label="AKRAPLAST Sistemi S.r.l."
+          >
+            <img
+              src="/logo.png"
+              alt="AKRAPLAST Sistemi S.r.l."
+              className="h-10 w-auto sm:h-10"
+            />
+          </a>
+          <div className="hidden pl-4 sm:block">
+            <h1 className="text-base font-semibold text-ink sm:text-lg">
               {t('app.title')}
             </h1>
           </div>
