@@ -9,6 +9,11 @@
     "en": "English",
     "es": "Español"
   },
+  "tabs": {
+    "label": "Calculator type",
+    "sheets": "Sheets",
+    "profiles": "Profiles"
+  },
   "settings": {
     "title": "Global settings",
     "startMode": {
@@ -32,13 +37,16 @@
   },
   "orders": {
     "title": "Order queue",
-    "add": "+ Add order",
+    "add": "+ Add",
     "remove": "Remove",
     "number": "#",
     "sheets": "Sheets (pcs)",
+    "profiles": "Profiles (pcs)",
     "sheetLength": "Sheet length (mm)",
+    "profileLength": "Profile length (mm)",
     "speed": "Speed (m/min)",
     "gapAfter": "Gap after (min)",
+    "profilesPerPackage": "Profiles per package",
     "minRequired": "At least one order is required."
   },
   "actions": {
@@ -54,13 +62,16 @@
     "totalGap": "Total gap time",
     "endAt": "Queue finish",
     "totalDuration": "Total duration",
+    "totalPackages": "Total packages",
     "breakdown": "Per-order breakdown",
     "col": {
       "number": "#",
       "sheets": "Sheets",
+      "profiles": "Profiles",
       "sheetLength": "Length (mm)",
       "speed": "Speed (m/min)",
       "productionTime": "Production time",
+      "packages": "Packages",
       "start": "Start",
       "end": "End"
     },

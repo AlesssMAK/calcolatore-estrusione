@@ -1,18 +1,24 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ScheduleResult } from '../types';
-import { formatDateTime, formatShortDateTime, formatDuration } from '../utils/format';
+import type { CalculatorMode, ScheduleResult } from '../types';
+import {
+  formatDateTime,
+  formatShortDateTime,
+  formatDuration,
+} from '../utils/format';
 
 interface Props {
   result: ScheduleResult;
+  mode: CalculatorMode;
   onReset: () => void;
 }
 
-function ResultsPanel({ result, onReset }: Props) {
+function ResultsPanel({ result, mode, onReset }: Props) {
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const lang = i18n.resolvedLanguage ?? 'it';
+  const isProfiles = mode === 'profiles';
   const units = {
     day: t('units.day'),
     hour: t('units.hour'),
@@ -37,12 +43,21 @@ function ResultsPanel({ result, onReset }: Props) {
     lines.push(
       `${t('results.endAt')}: ${formatDateTime(result.endAt, lang)}`,
     );
+    if (isProfiles && result.totalPackages !== undefined) {
+      lines.push(
+        `${t('results.totalPackages')}: ${result.totalPackages}`,
+      );
+    }
     lines.push('');
     lines.push(t('results.breakdown'));
 
     result.rows.forEach((row, idx) => {
+      const pkgPart =
+        isProfiles && row.packages !== undefined
+          ? `  →  ${row.packages} ${t('results.col.packages')}`
+          : '';
       lines.push(
-        `#${idx + 1}  ${row.order.sheets} × ${row.order.sheetLengthMm} mm  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.productionMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})`,
+        `#${idx + 1}  ${row.order.sheets} × ${row.order.sheetLengthMm} mm  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.productionMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
     });
 
@@ -59,10 +74,14 @@ function ResultsPanel({ result, onReset }: Props) {
     }
   };
 
+  const countColLabel = isProfiles
+    ? t('results.col.profiles')
+    : t('results.col.sheets');
+
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm print:border-0 print:shadow-none">
+    <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-ink">
+        <h2 className="text-base font-semibold text-ink sm:text-lg">
           {t('results.title')}
         </h2>
         <div className="no-print flex flex-wrap gap-2">
@@ -115,6 +134,14 @@ function ResultsPanel({ result, onReset }: Props) {
           value={formatDateTime(result.endAt, lang)}
           accent
         />
+        {isProfiles && result.totalPackages !== undefined && (
+          <SummaryItem
+            icon="📦"
+            label={t('results.totalPackages')}
+            value={String(result.totalPackages)}
+            accent
+          />
+        )}
       </dl>
 
       <div className="mt-6 overflow-x-auto">
@@ -125,10 +152,15 @@ function ResultsPanel({ result, onReset }: Props) {
           <thead>
             <tr className="border-b border-neutral-200 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
               <th className="py-2 pr-3">{t('results.col.number')}</th>
-              <th className="py-2 pr-3">{t('results.col.sheets')}</th>
+              <th className="py-2 pr-3">{countColLabel}</th>
               <th className="py-2 pr-3">{t('results.col.sheetLength')}</th>
               <th className="py-2 pr-3">{t('results.col.speed')}</th>
-              <th className="py-2 pr-3">{t('results.col.productionTime')}</th>
+              <th className="py-2 pr-3">
+                {t('results.col.productionTime')}
+              </th>
+              {isProfiles && (
+                <th className="py-2 pr-3">{t('results.col.packages')}</th>
+              )}
               <th className="py-2 pr-3">{t('results.col.start')}</th>
               <th className="py-2">{t('results.col.end')}</th>
             </tr>
@@ -148,6 +180,11 @@ function ResultsPanel({ result, onReset }: Props) {
                 <td className="py-2 pr-3 font-medium">
                   {formatDuration(row.productionMinutes, units)}
                 </td>
+                {isProfiles && (
+                  <td className="py-2 pr-3 font-medium text-brand-700">
+                    {row.packages ?? '—'}
+                  </td>
+                )}
                 <td className="py-2 pr-3 whitespace-nowrap">
                   {formatShortDateTime(row.start, lang)}
                 </td>

@@ -9,6 +9,11 @@
     "en": "English",
     "es": "Español"
   },
+  "tabs": {
+    "label": "Tipo de calculadora",
+    "sheets": "Láminas",
+    "profiles": "Perfiles"
+  },
   "settings": {
     "title": "Ajustes globales",
     "startMode": {
@@ -32,13 +37,16 @@
   },
   "orders": {
     "title": "Cola de pedidos",
-    "add": "+ Añadir pedido",
+    "add": "+ Añadir",
     "remove": "Eliminar",
     "number": "N°",
     "sheets": "Láminas (uds)",
+    "profiles": "Perfiles (uds)",
     "sheetLength": "Longitud de lámina (mm)",
+    "profileLength": "Longitud de perfil (mm)",
     "speed": "Velocidad (m/min)",
     "gapAfter": "Pausa después (min)",
+    "profilesPerPackage": "Perfiles por paquete",
     "minRequired": "Se requiere al menos un pedido."
   },
   "actions": {
@@ -54,13 +62,16 @@
     "totalGap": "Tiempo total de pausas",
     "endAt": "Fin de la cola",
     "totalDuration": "Duración total",
+    "totalPackages": "Paquetes totales",
     "breakdown": "Desglose por pedido",
     "col": {
       "number": "#",
       "sheets": "Láminas",
+      "profiles": "Perfiles",
       "sheetLength": "Longitud (mm)",
       "speed": "Velocidad (m/min)",
       "productionTime": "Tiempo de producción",
+      "packages": "Paquetes",
       "start": "Inicio",
       "end": "Fin"
     },

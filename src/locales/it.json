@@ -9,6 +9,11 @@
     "en": "English",
     "es": "Español"
   },
+  "tabs": {
+    "label": "Tipo di calcolatore",
+    "sheets": "Lastre",
+    "profiles": "Profili"
+  },
   "settings": {
     "title": "Impostazioni globali",
     "startMode": {
@@ -32,13 +37,16 @@
   },
   "orders": {
     "title": "Ordini in coda",
-    "add": "+ Aggiungi ordine",
+    "add": "+ Aggiungi",
     "remove": "Rimuovi",
     "number": "N°",
     "sheets": "Lastre (pz)",
+    "profiles": "Profili (pz)",
     "sheetLength": "Lunghezza lastra (mm)",
+    "profileLength": "Lunghezza profilo (mm)",
     "speed": "Velocità (m/min)",
     "gapAfter": "Pausa dopo (min)",
+    "profilesPerPackage": "Profili per pacco",
     "minRequired": "Almeno un ordine è richiesto."
   },
   "actions": {
@@ -54,13 +62,16 @@
     "totalGap": "Tempo totale di pause",
     "endAt": "Fine della coda",
     "totalDuration": "Durata totale",
+    "totalPackages": "Pacchi totali",
     "breakdown": "Dettaglio per ordine",
     "col": {
       "number": "#",
       "sheets": "Lastre",
+      "profiles": "Profili",
       "sheetLength": "Lunghezza (mm)",
       "speed": "Velocità (m/min)",
       "productionTime": "Tempo produzione",
+      "packages": "Pacchi",
       "start": "Inizio",
       "end": "Fine"
     },

@@ -1,5 +1,6 @@
 import { addMinutes } from 'date-fns';
 import type {
+  CalculatorMode,
   GlobalSettings,
   Order,
   ScheduleResult,
@@ -18,6 +19,14 @@ export function calculateProductionMinutes(
     throw new Error('speed must be > 0');
   }
   return calculateOrderLengthM(order) / speedMPerMin;
+}
+
+export function calculatePackages(
+  count: number,
+  perPackage: number | undefined,
+): number | undefined {
+  if (!perPackage || perPackage <= 0) return undefined;
+  return Math.ceil(count / perPackage);
 }
 
 function resolveStartDate(settings: GlobalSettings, now: Date): Date {
@@ -47,20 +56,29 @@ function resolveSpeed(settings: GlobalSettings, order: Order): number {
   return order.speedMPerMin;
 }
 
+interface ScheduleOptions {
+  now?: Date;
+  mode?: CalculatorMode;
+}
+
 export function calculateSchedule(
   settings: GlobalSettings,
   orders: Order[],
-  now: Date = new Date(),
+  options: ScheduleOptions = {},
 ): ScheduleResult {
   if (orders.length === 0) {
     throw new Error('at least one order is required');
   }
+
+  const now = options.now ?? new Date();
+  const mode: CalculatorMode = options.mode ?? 'sheets';
 
   const startAt = resolveStartDate(settings, now);
   let cursor = startAt;
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
   let totalGapMinutes = 0;
+  let totalPackages: number | undefined = mode === 'profiles' ? 0 : undefined;
 
   orders.forEach((order, idx) => {
     const speedMPerMin = resolveSpeed(settings, order);
@@ -76,6 +94,15 @@ export function calculateSchedule(
         ? Math.max(0, order.gapAfterMin ?? 0)
         : 0;
 
+    let packages: number | undefined;
+    if (mode === 'profiles') {
+      if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
+        throw new Error('profilesPerPackage required in profiles mode');
+      }
+      packages = Math.ceil(order.sheets / order.profilesPerPackage);
+      totalPackages = (totalPackages ?? 0) + packages;
+    }
+
     rows.push({
       order,
       speedMPerMin,
@@ -84,6 +111,7 @@ export function calculateSchedule(
       start,
       end,
       gapAfterMin,
+      packages,
     });
 
     totalProductionMinutes += productionMinutes;
@@ -100,6 +128,8 @@ export function calculateSchedule(
     totalProductionMinutes,
     totalGapMinutes,
     totalDurationMinutes: (endAt.getTime() - startAt.getTime()) / 60_000,
+    totalPackages,
+    mode,
   };
 }
 

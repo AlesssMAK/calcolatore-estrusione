@@ -1,6 +1,7 @@
 export type StartMode = 'now' | 'manual';
 export type SpeedMode = 'global' | 'perOrder';
 export type GapMode = 'continuous' | 'withGaps';
+export type CalculatorMode = 'sheets' | 'profiles';
 
 export interface Order {
   id: string;
@@ -8,6 +9,7 @@ export interface Order {
   sheetLengthMm: number;
   speedMPerMin?: number;
   gapAfterMin?: number;
+  profilesPerPackage?: number;
 }
 
 export interface GlobalSettings {
@@ -26,6 +28,7 @@ export interface ScheduledOrder {
   start: Date;
   end: Date;
   gapAfterMin: number;
+  packages?: number;
 }
 
 export interface ScheduleResult {
@@ -35,4 +38,6 @@ export interface ScheduleResult {
   totalProductionMinutes: number;
   totalGapMinutes: number;
   totalDurationMinutes: number;
+  totalPackages?: number;
+  mode: CalculatorMode;
 }

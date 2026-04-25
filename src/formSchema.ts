@@ -1,19 +1,23 @@
 import { z } from 'zod';
+import type { CalculatorMode } from './types';
 
-export const orderSchema = z.object({
+const orderSchema = z.object({
   id: z.string(),
   sheets: z
     .number({ error: 'required' })
     .int('integer')
     .positive('positive'),
-  sheetLengthMm: z
-    .number({ error: 'required' })
-    .positive('positive'),
+  sheetLengthMm: z.number({ error: 'required' }).positive('positive'),
   speedMPerMin: z.number().positive('positive').optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
+  profilesPerPackage: z
+    .number()
+    .int('integer')
+    .positive('positive')
+    .optional(),
 });
 
-export const settingsSchema = z.object({
+const settingsSchema = z.object({
   startMode: z.enum(['now', 'manual']),
   startAt: z.string().optional(),
   speedMode: z.enum(['global', 'perOrder']),
@@ -21,58 +25,69 @@ export const settingsSchema = z.object({
   gapMode: z.enum(['continuous', 'withGaps']),
 });
 
-export const formSchema = z
-  .object({
-    settings: settingsSchema,
-    orders: z.array(orderSchema).min(1, 'minRequired'),
-  })
-  .superRefine((data, ctx) => {
-    const { settings, orders } = data;
+export const buildFormSchema = (mode: CalculatorMode) =>
+  z
+    .object({
+      settings: settingsSchema,
+      orders: z.array(orderSchema).min(1, 'minRequired'),
+    })
+    .superRefine((data, ctx) => {
+      const { settings, orders } = data;
 
-    if (settings.startMode === 'manual') {
-      if (!settings.startAt) {
+      if (settings.startMode === 'manual' && !settings.startAt) {
         ctx.addIssue({
           code: 'custom',
           path: ['settings', 'startAt'],
           message: 'required',
         });
       }
-    }
 
-    if (settings.speedMode === 'global') {
-      if (!settings.globalSpeed || settings.globalSpeed <= 0) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['settings', 'globalSpeed'],
-          message: 'positive',
-        });
-      }
-    }
-
-    if (settings.speedMode === 'perOrder') {
-      orders.forEach((order, idx) => {
-        if (!order.speedMPerMin || order.speedMPerMin <= 0) {
+      if (settings.speedMode === 'global') {
+        if (!settings.globalSpeed || settings.globalSpeed <= 0) {
           ctx.addIssue({
             code: 'custom',
-            path: ['orders', idx, 'speedMPerMin'],
+            path: ['settings', 'globalSpeed'],
             message: 'positive',
           });
         }
-      });
-    }
+      }
 
-    if (settings.gapMode === 'withGaps') {
-      orders.forEach((order, idx) => {
-        if (idx === orders.length - 1) return;
-        if (order.gapAfterMin === undefined || order.gapAfterMin < 0) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['orders', idx, 'gapAfterMin'],
-            message: 'nonNegative',
-          });
-        }
-      });
-    }
-  });
+      if (settings.speedMode === 'perOrder') {
+        orders.forEach((order, idx) => {
+          if (!order.speedMPerMin || order.speedMPerMin <= 0) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'speedMPerMin'],
+              message: 'positive',
+            });
+          }
+        });
+      }
 
-export type FormValues = z.infer<typeof formSchema>;
+      if (settings.gapMode === 'withGaps') {
+        orders.forEach((order, idx) => {
+          if (idx === orders.length - 1) return;
+          if (order.gapAfterMin === undefined || order.gapAfterMin < 0) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'gapAfterMin'],
+              message: 'nonNegative',
+            });
+          }
+        });
+      }
+
+      if (mode === 'profiles') {
+        orders.forEach((order, idx) => {
+          if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'profilesPerPackage'],
+              message: 'positive',
+            });
+          }
+        });
+      }
+    });
+
+export type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;

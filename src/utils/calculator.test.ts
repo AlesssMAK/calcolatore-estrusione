@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateOrderLengthM,
+  calculatePackages,
   calculateProductionMinutes,
   calculateSchedule,
   splitDuration,
@@ -38,6 +39,19 @@ describe('calculateProductionMinutes', () => {
   });
 });
 
+describe('calculatePackages', () => {
+  it('returns ceil(count / perPackage)', () => {
+    expect(calculatePackages(100, 50)).toBe(2);
+    expect(calculatePackages(101, 50)).toBe(3);
+    expect(calculatePackages(50, 50)).toBe(1);
+  });
+
+  it('returns undefined when perPackage missing or invalid', () => {
+    expect(calculatePackages(100, undefined)).toBeUndefined();
+    expect(calculatePackages(100, 0)).toBeUndefined();
+  });
+});
+
 describe('calculateSchedule — spec example', () => {
   const start = new Date('2026-04-23T14:00:00Z');
   const settings: GlobalSettings = {
@@ -52,7 +66,7 @@ describe('calculateSchedule — spec example', () => {
     { id: 'b', sheets: 50, sheetLengthMm: 3000 },
   ];
 
-  const result = calculateSchedule(settings, orders, start);
+  const result = calculateSchedule(settings, orders, { now: start });
 
   it('order #1 takes 120 min', () => {
     expect(result.rows[0]!.productionMinutes).toBe(120);
@@ -73,6 +87,11 @@ describe('calculateSchedule — spec example', () => {
   it('no gaps in continuous mode', () => {
     expect(result.totalGapMinutes).toBe(0);
   });
+
+  it('mode defaults to "sheets" with no totalPackages', () => {
+    expect(result.mode).toBe('sheets');
+    expect(result.totalPackages).toBeUndefined();
+  });
 });
 
 describe('calculateSchedule — per-order speed', () => {
@@ -80,7 +99,7 @@ describe('calculateSchedule — per-order speed', () => {
     const result = calculateSchedule(
       {
         startMode: 'manual',
-        startAt: '2026-04-23T10:00:00',
+        startAt: '2026-04-23T10:00:00Z',
         speedMode: 'perOrder',
         gapMode: 'continuous',
       },
@@ -88,7 +107,7 @@ describe('calculateSchedule — per-order speed', () => {
         { id: 'a', sheets: 100, sheetLengthMm: 6000, speedMPerMin: 5 },
         { id: 'b', sheets: 100, sheetLengthMm: 6000, speedMPerMin: 10 },
       ],
-      new Date('2026-04-23T10:00:00'),
+      { now: new Date('2026-04-23T10:00:00Z') },
     );
 
     expect(result.rows[0]!.productionMinutes).toBe(120);
@@ -112,7 +131,7 @@ describe('calculateSchedule — with gaps', () => {
         { id: 'a', sheets: 100, sheetLengthMm: 6000, gapAfterMin: 30 },
         { id: 'b', sheets: 50, sheetLengthMm: 3000, gapAfterMin: 99 },
       ],
-      start,
+      { now: start },
     );
 
     expect(result.totalGapMinutes).toBe(30);
@@ -134,7 +153,7 @@ describe('calculateSchedule — 24/7 rollover', () => {
         gapMode: 'continuous',
       },
       [{ id: 'a', sheets: 10, sheetLengthMm: 6000 }],
-      start,
+      { now: start },
     );
     expect(result.rows[0]!.productionMinutes).toBe(60);
     expect(result.endAt.toISOString()).toBe('2026-04-24T00:00:00.000Z');
@@ -143,7 +162,7 @@ describe('calculateSchedule — 24/7 rollover', () => {
 
 describe('calculateSchedule — "now" mode', () => {
   it('uses the provided "now" when startMode is "now"', () => {
-    const now = new Date('2026-04-23T08:00:00');
+    const now = new Date('2026-04-23T08:00:00Z');
     const result = calculateSchedule(
       {
         startMode: 'now',
@@ -152,9 +171,49 @@ describe('calculateSchedule — "now" mode', () => {
         gapMode: 'continuous',
       },
       [{ id: 'a', sheets: 100, sheetLengthMm: 6000 }],
-      now,
+      { now },
     );
     expect(result.startAt.toISOString()).toBe(now.toISOString());
+  });
+});
+
+describe('calculateSchedule — profiles mode', () => {
+  it('returns packages per row and total packages', () => {
+    const start = new Date('2026-04-23T08:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        { id: 'a', sheets: 100, sheetLengthMm: 6000, profilesPerPackage: 25 },
+        { id: 'b', sheets: 51, sheetLengthMm: 3000, profilesPerPackage: 10 },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+
+    expect(result.mode).toBe('profiles');
+    expect(result.rows[0]!.packages).toBe(4);
+    expect(result.rows[1]!.packages).toBe(6);
+    expect(result.totalPackages).toBe(10);
+  });
+
+  it('throws if profilesPerPackage missing in profiles mode', () => {
+    expect(() =>
+      calculateSchedule(
+        {
+          startMode: 'now',
+          speedMode: 'global',
+          globalSpeed: 5,
+          gapMode: 'continuous',
+        },
+        [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],
+        { mode: 'profiles' },
+      ),
+    ).toThrow();
   });
 });
 
