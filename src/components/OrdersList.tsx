@@ -86,7 +86,7 @@ function OrdersList({ mode }: Props) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
                 <span className="hidden h-9 items-center justify-center rounded-md bg-brand-600 px-2.5 text-sm font-bold text-white sm:flex">
                   #{idx + 1}
                 </span>
@@ -100,7 +100,7 @@ function OrdersList({ mode }: Props) {
                     inputMode="numeric"
                     className={`${inputBase} mt-1`}
                     {...register(`orders.${idx}.sheets`, {
-                      setValueAs: (v) =>
+                      setValueAs: v =>
                         v === '' || v === null || v === undefined
                           ? undefined
                           : Number(v),
@@ -124,7 +124,7 @@ function OrdersList({ mode }: Props) {
                     inputMode="numeric"
                     className={`${inputBase} mt-1`}
                     {...register(`orders.${idx}.sheetLengthMm`, {
-                      setValueAs: (v) =>
+                      setValueAs: v =>
                         v === '' || v === null || v === undefined
                           ? undefined
                           : Number(v),
@@ -149,7 +149,7 @@ function OrdersList({ mode }: Props) {
                       inputMode="decimal"
                       className={`${inputBase} mt-1`}
                       {...register(`orders.${idx}.speedMPerMin`, {
-                        setValueAs: (v) =>
+                        setValueAs: v =>
                           v === '' || v === null || v === undefined
                             ? undefined
                             : Number(v),
@@ -167,9 +167,7 @@ function OrdersList({ mode }: Props) {
 
                 {showGap && (
                   <div className="sm:min-w-[110px] sm:flex-1">
-                    <label className={labelBase}>
-                      {t('orders.gapAfter')}
-                    </label>
+                    <label className={labelBase}>{t('orders.gapAfter')}</label>
                     <input
                       type="number"
                       min="0"
@@ -177,7 +175,7 @@ function OrdersList({ mode }: Props) {
                       inputMode="numeric"
                       className={`${inputBase} mt-1`}
                       {...register(`orders.${idx}.gapAfterMin`, {
-                        setValueAs: (v) =>
+                        setValueAs: v =>
                           v === '' || v === null || v === undefined
                             ? undefined
                             : Number(v),
@@ -194,7 +192,7 @@ function OrdersList({ mode }: Props) {
                 )}
 
                 {isProfiles && (
-                  <div className="col-span-2 sm:col-span-1 sm:min-w-[140px] sm:flex-1">
+                  <div className="sm:col-span-1 sm:min-w-[140px] sm:flex-1">
                     <label className={labelBase}>
                       {t('orders.profilesPerPackage')}
                     </label>
@@ -205,7 +203,7 @@ function OrdersList({ mode }: Props) {
                       inputMode="numeric"
                       className={`${inputBase} mt-1`}
                       {...register(`orders.${idx}.profilesPerPackage`, {
-                        setValueAs: (v) =>
+                        setValueAs: v =>
                           v === '' || v === null || v === undefined
                             ? undefined
                             : Number(v),

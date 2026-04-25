@@ -12,7 +12,7 @@ function LanguageSwitcher() {
       role="radiogroup"
       aria-label={t('language.label')}
     >
-      {SUPPORTED_LANGUAGES.map((lng) => {
+      {SUPPORTED_LANGUAGES.map(lng => {
         const active = current === lng;
         return (
           <button
