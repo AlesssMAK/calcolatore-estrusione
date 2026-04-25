@@ -7,7 +7,8 @@ import FieldError from './FieldError';
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
-const labelBase = 'text-xs font-medium tracking-wide text-ink-soft uppercase';
+const labelBase =
+  'block text-xs font-medium tracking-wide text-ink-soft uppercase';
 
 interface Props {
   mode: CalculatorMode;

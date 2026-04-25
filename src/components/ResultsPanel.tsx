@@ -144,57 +144,104 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         )}
       </dl>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6">
         <h3 className="mb-2 text-sm font-semibold tracking-wide text-ink-soft uppercase">
           {t('results.breakdown')}
         </h3>
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
-              <th className="py-2 pr-3">{t('results.col.number')}</th>
-              <th className="py-2 pr-3">{countColLabel}</th>
-              <th className="py-2 pr-3">{t('results.col.sheetLength')}</th>
-              <th className="py-2 pr-3">{t('results.col.speed')}</th>
-              <th className="py-2 pr-3">
-                {t('results.col.productionTime')}
-              </th>
-              {isProfiles && (
-                <th className="py-2 pr-3">{t('results.col.packages')}</th>
-              )}
-              <th className="py-2 pr-3">{t('results.col.start')}</th>
-              <th className="py-2">{t('results.col.end')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.rows.map((row, idx) => (
-              <tr
-                key={row.order.id}
-                className="border-b border-neutral-100 last:border-b-0"
-              >
-                <td className="py-2 pr-3 font-semibold text-brand-600">
+
+        {/* Mobile: stacked cards */}
+        <ul className="space-y-2 sm:hidden">
+          {result.rows.map((row, idx) => (
+            <li
+              key={row.order.id}
+              className="rounded-lg border border-neutral-200 bg-surface-alt p-3"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
                   #{idx + 1}
-                </td>
-                <td className="py-2 pr-3">{row.order.sheets}</td>
-                <td className="py-2 pr-3">{row.order.sheetLengthMm}</td>
-                <td className="py-2 pr-3">{row.speedMPerMin}</td>
-                <td className="py-2 pr-3 font-medium">
+                </span>
+                <span className="text-sm font-semibold text-brand-700">
                   {formatDuration(row.productionMinutes, units)}
-                </td>
+                </span>
+              </div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                <dt className="text-ink-soft">{countColLabel}</dt>
+                <dd className="font-medium text-ink">{row.order.sheets}</dd>
+                <dt className="text-ink-soft">{t('results.col.sheetLength')}</dt>
+                <dd className="font-medium text-ink">{row.order.sheetLengthMm}</dd>
+                <dt className="text-ink-soft">{t('results.col.speed')}</dt>
+                <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
                 {isProfiles && (
-                  <td className="py-2 pr-3 font-medium text-brand-700">
-                    {row.packages ?? '—'}
-                  </td>
+                  <>
+                    <dt className="text-ink-soft">{t('results.col.packages')}</dt>
+                    <dd className="font-medium text-brand-700">
+                      {row.packages ?? '—'}
+                    </dd>
+                  </>
                 )}
-                <td className="py-2 pr-3 whitespace-nowrap">
+                <dt className="text-ink-soft">{t('results.col.start')}</dt>
+                <dd className="font-medium text-ink">
                   {formatShortDateTime(row.start, lang)}
-                </td>
-                <td className="py-2 whitespace-nowrap">
+                </dd>
+                <dt className="text-ink-soft">{t('results.col.end')}</dt>
+                <dd className="font-medium text-ink">
                   {formatShortDateTime(row.end, lang)}
-                </td>
+                </dd>
+              </dl>
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop: table */}
+        <div className="hidden sm:block sm:overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                <th className="py-2 pr-3">{t('results.col.number')}</th>
+                <th className="py-2 pr-3">{countColLabel}</th>
+                <th className="py-2 pr-3">{t('results.col.sheetLength')}</th>
+                <th className="py-2 pr-3">{t('results.col.speed')}</th>
+                <th className="py-2 pr-3">
+                  {t('results.col.productionTime')}
+                </th>
+                {isProfiles && (
+                  <th className="py-2 pr-3">{t('results.col.packages')}</th>
+                )}
+                <th className="py-2 pr-3">{t('results.col.start')}</th>
+                <th className="py-2">{t('results.col.end')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {result.rows.map((row, idx) => (
+                <tr
+                  key={row.order.id}
+                  className="border-b border-neutral-100 last:border-b-0"
+                >
+                  <td className="py-2 pr-3 font-semibold text-brand-600">
+                    #{idx + 1}
+                  </td>
+                  <td className="py-2 pr-3">{row.order.sheets}</td>
+                  <td className="py-2 pr-3">{row.order.sheetLengthMm}</td>
+                  <td className="py-2 pr-3">{row.speedMPerMin}</td>
+                  <td className="py-2 pr-3 font-medium">
+                    {formatDuration(row.productionMinutes, units)}
+                  </td>
+                  {isProfiles && (
+                    <td className="py-2 pr-3 font-medium text-brand-700">
+                      {row.packages ?? '—'}
+                    </td>
+                  )}
+                  <td className="py-2 pr-3 whitespace-nowrap">
+                    {formatShortDateTime(row.start, lang)}
+                  </td>
+                  <td className="py-2 whitespace-nowrap">
+                    {formatShortDateTime(row.end, lang)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );
