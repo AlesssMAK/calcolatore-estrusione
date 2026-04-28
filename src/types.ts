@@ -4,8 +4,8 @@ export type GapMode = 'continuous' | 'withGaps';
 export type CalculatorMode = 'sheets' | 'profiles';
 
 export interface OrderSize {
-  sheets: number;
-  length: number;
+  sheets?: number;
+  length?: number;
 }
 
 export interface Order {

@@ -2,11 +2,8 @@ import { z } from 'zod';
 import type { CalculatorMode } from './types';
 
 const sizeSchema = z.object({
-  sheets: z
-    .number({ error: 'required' })
-    .int('integer')
-    .positive('positive'),
-  length: z.number({ error: 'required' }).positive('positive'),
+  sheets: z.number().int('integer').positive('positive').optional(),
+  length: z.number().positive('positive').optional(),
 });
 
 const orderSchema = z.object({
@@ -81,13 +78,34 @@ export const buildFormSchema = (mode: CalculatorMode) =>
                 message: 'positive',
               });
             }
-          } else if (!order.sizes || order.sizes.length === 0) {
+            return;
+          }
+
+          if (!order.sizes || order.sizes.length === 0) {
             ctx.addIssue({
               code: 'custom',
               path: ['orders', idx, 'sizes'],
               message: 'minRequired',
             });
+            return;
           }
+
+          order.sizes.forEach((size, sIdx) => {
+            if (!size.sheets || size.sheets <= 0) {
+              ctx.addIssue({
+                code: 'custom',
+                path: ['orders', idx, 'sizes', sIdx, 'sheets'],
+                message: 'positive',
+              });
+            }
+            if (!size.length || size.length <= 0) {
+              ctx.addIssue({
+                code: 'custom',
+                path: ['orders', idx, 'sizes', sIdx, 'length'],
+                message: 'positive',
+              });
+            }
+          });
         });
       }
 

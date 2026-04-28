@@ -16,7 +16,7 @@ export function calculateOrderLengthM(order: Order): number {
   }
   if (order.sizes && order.sizes.length > 0) {
     return order.sizes.reduce(
-      (sum, s) => sum + (s.sheets * s.length) / 1000,
+      (sum, s) => sum + ((s.sheets ?? 0) * (s.length ?? 0)) / 1000,
       0,
     );
   }
