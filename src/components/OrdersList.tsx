@@ -235,6 +235,16 @@ function OrdersList({ mode }: Props) {
           );
         })}
       </div>
+
+      <div className="mt-3 flex justify-center sm:mt-4">
+        <button
+          type="button"
+          onClick={() => append(makeEmptyOrder())}
+          className="w-full rounded-md border border-dashed border-brand-300 bg-white px-3 py-2.5 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:w-auto sm:px-6"
+        >
+          + {t('orders.add')}
+        </button>
+      </div>
     </section>
   );
 }

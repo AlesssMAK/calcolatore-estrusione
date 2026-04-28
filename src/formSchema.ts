@@ -52,29 +52,15 @@ export const buildFormSchema = (mode: CalculatorMode) =>
         }
       }
 
-      if (settings.speedMode === 'perOrder') {
-        orders.forEach((order, idx) => {
-          if (!order.speedMPerMin || order.speedMPerMin <= 0) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['orders', idx, 'speedMPerMin'],
-              message: 'positive',
-            });
-          }
-        });
-      }
-
-      if (settings.gapMode === 'withGaps') {
-        orders.forEach((order, idx) => {
-          if (idx === orders.length - 1) return;
-          if (order.gapAfterMin === undefined || order.gapAfterMin < 0) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['orders', idx, 'gapAfterMin'],
-              message: 'nonNegative',
-            });
-          }
-        });
+      if (settings.speedMode === 'perOrder' && orders.length > 0) {
+        const first = orders[0];
+        if (!first.speedMPerMin || first.speedMPerMin <= 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', 0, 'speedMPerMin'],
+            message: 'positive',
+          });
+        }
       }
 
       if (mode === 'profiles') {

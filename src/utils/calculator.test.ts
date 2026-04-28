@@ -114,6 +114,29 @@ describe('calculateSchedule — per-order speed', () => {
     expect(result.rows[1]!.productionMinutes).toBe(60);
     expect(result.totalProductionMinutes).toBe(180);
   });
+
+  it('falls back to last filled speed when later order omits it', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: '2026-04-23T10:00:00Z',
+        speedMode: 'perOrder',
+        gapMode: 'continuous',
+      },
+      [
+        { id: 'a', sheets: 100, sheetLengthMm: 6000, speedMPerMin: 5 },
+        { id: 'b', sheets: 100, sheetLengthMm: 6000 },
+        { id: 'c', sheets: 100, sheetLengthMm: 6000, speedMPerMin: 10 },
+        { id: 'd', sheets: 100, sheetLengthMm: 6000 },
+      ],
+      { now: new Date('2026-04-23T10:00:00Z') },
+    );
+
+    expect(result.rows[0]!.speedMPerMin).toBe(5);
+    expect(result.rows[1]!.speedMPerMin).toBe(5);
+    expect(result.rows[2]!.speedMPerMin).toBe(10);
+    expect(result.rows[3]!.speedMPerMin).toBe(10);
+  });
 });
 
 describe('calculateSchedule — with gaps', () => {
