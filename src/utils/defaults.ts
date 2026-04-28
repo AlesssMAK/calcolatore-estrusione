@@ -1,8 +1,31 @@
 import type { FormValues } from '../formSchema';
+import type { CalculatorMode } from '../types';
 
 export const genId = () => Math.random().toString(36).slice(2, 10);
 
-export function makeEmptyOrder(): FormValues['orders'][number] {
+export function makeEmptySize(): NonNullable<
+  FormValues['orders'][number]['sizes']
+>[number] {
+  return {
+    sheets: undefined,
+    length: undefined,
+  } as unknown as NonNullable<FormValues['orders'][number]['sizes']>[number];
+}
+
+export function makeEmptyOrder(
+  mode: CalculatorMode = 'sheets',
+  inheritUseTotalLength = false,
+): FormValues['orders'][number] {
+  if (mode === 'sheets') {
+    return {
+      id: genId(),
+      useTotalLength: inheritUseTotalLength,
+      totalLengthM: undefined,
+      sizes: [makeEmptySize()],
+      speedMPerMin: undefined,
+      gapAfterMin: undefined,
+    } as unknown as FormValues['orders'][number];
+  }
   return {
     id: genId(),
     sheets: undefined,
@@ -13,7 +36,9 @@ export function makeEmptyOrder(): FormValues['orders'][number] {
   } as unknown as FormValues['orders'][number];
 }
 
-export function buildEmptyDefaults(): FormValues {
+export function buildEmptyDefaults(
+  mode: CalculatorMode = 'sheets',
+): FormValues {
   return {
     settings: {
       startMode: 'now',
@@ -22,6 +47,6 @@ export function buildEmptyDefaults(): FormValues {
       globalSpeed: undefined,
       gapMode: 'continuous',
     },
-    orders: [makeEmptyOrder()],
+    orders: [makeEmptyOrder(mode)],
   } as unknown as FormValues;
 }

@@ -3,10 +3,18 @@ export type SpeedMode = 'global' | 'perOrder';
 export type GapMode = 'continuous' | 'withGaps';
 export type CalculatorMode = 'sheets' | 'profiles';
 
+export interface OrderSize {
+  sheets: number;
+  length: number;
+}
+
 export interface Order {
   id: string;
-  sheets: number;
-  sheetLengthMm: number;
+  useTotalLength?: boolean;
+  totalLengthM?: number;
+  sizes?: OrderSize[];
+  sheets?: number;
+  sheetLengthMm?: number;
   speedMPerMin?: number;
   gapAfterMin?: number;
   profilesPerPackage?: number;

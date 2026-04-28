@@ -8,7 +8,22 @@ import type {
 } from '../types';
 
 export function calculateOrderLengthM(order: Order): number {
-  return (order.sheets * order.sheetLengthMm) / 1000;
+  if (order.useTotalLength) {
+    if (order.totalLengthM === undefined || order.totalLengthM <= 0) {
+      throw new Error('totalLengthM required when useTotalLength is true');
+    }
+    return order.totalLengthM;
+  }
+  if (order.sizes && order.sizes.length > 0) {
+    return order.sizes.reduce(
+      (sum, s) => sum + (s.sheets * s.length) / 1000,
+      0,
+    );
+  }
+  if (order.sheets !== undefined && order.sheetLengthMm !== undefined) {
+    return (order.sheets * order.sheetLengthMm) / 1000;
+  }
+  throw new Error('order needs sizes[], totalLengthM, or sheets+sheetLengthMm');
 }
 
 export function calculateProductionMinutes(
@@ -43,17 +58,25 @@ function resolveStartDate(settings: GlobalSettings, now: Date): Date {
   return parsed;
 }
 
-function resolveSpeed(settings: GlobalSettings, order: Order): number {
+function resolveSpeed(
+  settings: GlobalSettings,
+  order: Order,
+  fallback: number | undefined,
+): number {
   if (settings.speedMode === 'global') {
     if (!settings.globalSpeed || settings.globalSpeed <= 0) {
       throw new Error('globalSpeed required in "global" mode');
     }
     return settings.globalSpeed;
   }
-  if (!order.speedMPerMin || order.speedMPerMin <= 0) {
+  const candidate =
+    order.speedMPerMin && order.speedMPerMin > 0
+      ? order.speedMPerMin
+      : fallback;
+  if (!candidate || candidate <= 0) {
     throw new Error('speedMPerMin required in "perOrder" mode');
   }
-  return order.speedMPerMin;
+  return candidate;
 }
 
 interface ScheduleOptions {
@@ -79,9 +102,11 @@ export function calculateSchedule(
   let totalProductionMinutes = 0;
   let totalGapMinutes = 0;
   let totalPackages: number | undefined = mode === 'profiles' ? 0 : undefined;
+  let lastSpeed: number | undefined;
 
   orders.forEach((order, idx) => {
-    const speedMPerMin = resolveSpeed(settings, order);
+    const speedMPerMin = resolveSpeed(settings, order, lastSpeed);
+    lastSpeed = speedMPerMin;
     const totalLengthM = calculateOrderLengthM(order);
     const productionMinutes = totalLengthM / speedMPerMin;
 
@@ -98,6 +123,9 @@ export function calculateSchedule(
     if (mode === 'profiles') {
       if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
         throw new Error('profilesPerPackage required in profiles mode');
+      }
+      if (order.sheets === undefined) {
+        throw new Error('sheets required in profiles mode');
       }
       packages = Math.ceil(order.sheets / order.profilesPerPackage);
       totalPackages = (totalPackages ?? 0) + packages;
