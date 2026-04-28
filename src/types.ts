@@ -8,6 +8,10 @@ export interface OrderSize {
   length?: number;
 }
 
+export interface ProducedEntry {
+  value?: number;
+}
+
 export interface Order {
   id: string;
   useTotalLength?: boolean;
@@ -18,6 +22,15 @@ export interface Order {
   speedMPerMin?: number;
   gapAfterMin?: number;
   profilesPerPackage?: number;
+  producedProfiles?: ProducedEntry[];
+  producedPackages?: ProducedEntry[];
+}
+
+export interface ProducedSummary {
+  producedProfiles: number;
+  producedPackages: number;
+  producedFraction: number;
+  source: 'profiles' | 'packages';
 }
 
 export interface GlobalSettings {
