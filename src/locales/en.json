@@ -54,8 +54,8 @@
     "profilesPerPackage": "Profiles per package",
     "addSize": "Add size",
     "removeSize": "Remove size",
-    "toggleTotalLength": "Total length",
-    "totalLength": "Total length (m)",
+    "toggleTotalLength": "Total meters",
+    "totalLength": "Total meters",
     "minRequired": "At least one order is required."
   },
   "actions": {
@@ -78,7 +78,7 @@
       "sheets": "Sheets",
       "profiles": "Profiles",
       "sheetLength": "Length (mm)",
-      "totalLength": "Total length (m)",
+      "totalLength": "Total meters",
       "speed": "Speed (m/min)",
       "productionTime": "Production time",
       "packages": "Packages",

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   useFieldArray,
   useFormContext,
@@ -30,6 +31,7 @@ function OrdersList({ mode }: Props) {
   const {
     formState: { errors },
     control,
+    setValue,
   } = useFormContext<FormValues>();
 
   const { fields, append, remove } = useFieldArray({
@@ -48,10 +50,25 @@ function OrdersList({ mode }: Props) {
 
   const appendOrder = () => {
     const last = watchedOrders?.[watchedOrders.length - 1];
-    const inherit =
-      mode === 'sheets' ? Boolean(last?.useTotalLength) : false;
+    const inherit = mode === 'sheets' ? Boolean(last?.useTotalLength) : false;
     append(makeEmptyOrder(mode, inherit));
   };
+
+  const topButtonRef = useRef<HTMLButtonElement>(null);
+  const [showBottomButton, setShowBottomButton] = useState(false);
+
+  useEffect(() => {
+    const node = topButtonRef.current;
+    if (!node) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        setShowBottomButton(!entry.isIntersecting);
+      },
+      { threshold: 0 }
+    );
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-5">
@@ -60,6 +77,7 @@ function OrdersList({ mode }: Props) {
           {t('orders.title')}
         </h2>
         <button
+          ref={topButtonRef}
           type="button"
           onClick={appendOrder}
           className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:text-sm"
@@ -86,20 +104,50 @@ function OrdersList({ mode }: Props) {
               key={field.id}
               className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
             >
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white sm:h-8 sm:text-sm">
                   #{idx + 1}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => remove(idx)}
-                  disabled={fields.length <= 1}
-                  className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
-                  aria-label={t('orders.remove')}
-                >
-                  🗑{' '}
-                  <span className="hidden sm:inline">{t('orders.remove')}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {!isProfiles && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setValue(
+                          `orders.${idx}.useTotalLength`,
+                          !watchedOrders?.[idx]?.useTotalLength,
+                          { shouldValidate: true }
+                        )
+                      }
+                      aria-pressed={Boolean(
+                        watchedOrders?.[idx]?.useTotalLength
+                      )}
+                      title={t('orders.toggleTotalLength')}
+                      className={
+                        watchedOrders?.[idx]?.useTotalLength
+                          ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+                          : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+                      }
+                    >
+                      Σ{' '}
+                      <span className="hidden sm:inline">
+                        {t('orders.toggleTotalLength')}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => remove(idx)}
+                    disabled={fields.length <= 1}
+                    className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+                    aria-label={t('orders.remove')}
+                  >
+                    🗑{' '}
+                    <span className="hidden sm:inline">
+                      {t('orders.remove')}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {isProfiles ? (
@@ -124,15 +172,17 @@ function OrdersList({ mode }: Props) {
         })}
       </div>
 
-      <div className="mt-3 flex justify-center sm:mt-4">
-        <button
-          type="button"
-          onClick={appendOrder}
-          className="w-full rounded-md border border-dashed border-brand-300 bg-white px-3 py-2.5 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:w-auto sm:px-6"
-        >
-          + {t('orders.add')}
-        </button>
-      </div>
+      {showBottomButton && (
+        <div className="mt-3 flex justify-end sm:mt-4">
+          <button
+            type="button"
+            onClick={appendOrder}
+            className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+          >
+            {t('orders.add')}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -145,7 +195,13 @@ interface FieldsProps {
   t: TFunction;
 }
 
-function ProfilesOrderFields({ idx, rowErr, showSpeed, showGap, t }: FieldsProps) {
+function ProfilesOrderFields({
+  idx,
+  rowErr,
+  showSpeed,
+  showGap,
+  t,
+}: FieldsProps) {
   const { register } = useFormContext<FormValues>();
 
   return (
@@ -262,36 +318,21 @@ function ProfilesOrderFields({ idx, rowErr, showSpeed, showGap, t }: FieldsProps
   );
 }
 
-function SheetsOrderFields({ idx, rowErr, showSpeed, showGap, t }: FieldsProps) {
-  const { register, setValue, control } = useFormContext<FormValues>();
+function SheetsOrderFields({
+  idx,
+  rowErr,
+  showSpeed,
+  showGap,
+  t,
+}: FieldsProps) {
+  const { register, control } = useFormContext<FormValues>();
   const useTotalLength = useWatch({
     control,
     name: `orders.${idx}.useTotalLength`,
   });
 
-  const toggleTotalLength = () => {
-    setValue(`orders.${idx}.useTotalLength`, !useTotalLength, {
-      shouldValidate: true,
-    });
-  };
-
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={toggleTotalLength}
-          aria-pressed={Boolean(useTotalLength)}
-          className={
-            useTotalLength
-              ? 'inline-flex items-center gap-1.5 rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition'
-              : 'inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink'
-          }
-        >
-          ∑ {t('orders.toggleTotalLength')}
-        </button>
-      </div>
-
       {useTotalLength ? (
         <div>
           <label className={labelBase}>{t('orders.totalLength')}</label>
@@ -370,13 +411,7 @@ function SheetsOrderFields({ idx, rowErr, showSpeed, showGap, t }: FieldsProps) 
   );
 }
 
-function SizesFieldArray({
-  orderIdx,
-  t,
-}: {
-  orderIdx: number;
-  t: TFunction;
-}) {
+function SizesFieldArray({ orderIdx, t }: { orderIdx: number; t: TFunction }) {
   const {
     register,
     formState: { errors },
@@ -412,9 +447,9 @@ function SizesFieldArray({
           return (
             <div
               key={sizeField.id}
-              className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 sm:gap-3"
+              className="grid grid-cols-[1fr_1fr_auto_auto] items-end gap-2 sm:gap-3"
             >
-              <div>
+              <div className="min-w-0">
                 <label className={labelBase}>{t('orders.sheets')}</label>
                 <input
                   type="number"
@@ -435,7 +470,7 @@ function SizesFieldArray({
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className={labelBase}>{t('orders.sheetLength')}</label>
                 <input
                   type="number"
@@ -460,24 +495,26 @@ function SizesFieldArray({
                 type="button"
                 onClick={() => removeSize(sIdx)}
                 disabled={sizeFields.length <= 1}
-                className="mb-[2px] flex h-9 items-center justify-center rounded-md border border-neutral-300 bg-white px-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft"
+                className="mb-[2px] flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft"
                 aria-label={t('orders.removeSize')}
                 title={t('orders.removeSize')}
               >
                 −
               </button>
+
+              <button
+                type="button"
+                onClick={() => appendSize(makeEmptySize())}
+                className="mb-[2px] flex h-9 w-9 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50"
+                aria-label={t('orders.addSize')}
+                title={t('orders.addSize')}
+              >
+                +
+              </button>
             </div>
           );
         })}
       </div>
-
-      <button
-        type="button"
-        onClick={() => appendSize(makeEmptySize())}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-dashed border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
-      >
-        + {t('orders.addSize')}
-      </button>
     </div>
   );
 }

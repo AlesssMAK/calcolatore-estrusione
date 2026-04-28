@@ -54,8 +54,8 @@
     "profilesPerPackage": "Profili per pacco",
     "addSize": "Aggiungi misura",
     "removeSize": "Rimuovi misura",
-    "toggleTotalLength": "Lunghezza totale",
-    "totalLength": "Lunghezza totale (m)",
+    "toggleTotalLength": "Metri totali",
+    "totalLength": "Metri totali",
     "minRequired": "Almeno un ordine è richiesto."
   },
   "actions": {
@@ -78,7 +78,7 @@
       "sheets": "Lastre",
       "profiles": "Profili",
       "sheetLength": "Lunghezza (mm)",
-      "totalLength": "Lunghezza totale (m)",
+      "totalLength": "Metri totali",
       "speed": "Velocità (m/min)",
       "productionTime": "Tempo produzione",
       "packages": "Pacchi",
