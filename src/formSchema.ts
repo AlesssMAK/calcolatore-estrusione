@@ -68,71 +68,54 @@ export const buildFormSchema = (mode: CalculatorMode) =>
         }
       }
 
-      if (mode === 'sheets') {
-        orders.forEach((order, idx) => {
-          if (order.useTotalLength) {
-            if (!order.totalLengthM || order.totalLengthM <= 0) {
-              ctx.addIssue({
-                code: 'custom',
-                path: ['orders', idx, 'totalLengthM'],
-                message: 'positive',
-              });
-            }
-            return;
-          }
-
-          if (!order.sizes || order.sizes.length === 0) {
+      orders.forEach((order, idx) => {
+        if (order.useTotalLength) {
+          if (!order.totalLengthM || order.totalLengthM <= 0) {
             ctx.addIssue({
               code: 'custom',
-              path: ['orders', idx, 'sizes'],
-              message: 'minRequired',
+              path: ['orders', idx, 'totalLengthM'],
+              message: 'positive',
             });
-            return;
           }
+          return;
+        }
 
-          order.sizes.forEach((size, sIdx) => {
-            if (!size.sheets || size.sheets <= 0) {
-              ctx.addIssue({
-                code: 'custom',
-                path: ['orders', idx, 'sizes', sIdx, 'sheets'],
-                message: 'positive',
-              });
-            }
-            if (!size.length || size.length <= 0) {
-              ctx.addIssue({
-                code: 'custom',
-                path: ['orders', idx, 'sizes', sIdx, 'length'],
-                message: 'positive',
-              });
-            }
+        if (!order.sizes || order.sizes.length === 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', idx, 'sizes'],
+            message: 'minRequired',
           });
-        });
-      }
+          return;
+        }
 
-      if (mode === 'profiles') {
-        orders.forEach((order, idx) => {
-          if (!order.sheets || order.sheets <= 0) {
+        order.sizes.forEach((size, sIdx) => {
+          if (!size.sheets || size.sheets <= 0) {
             ctx.addIssue({
               code: 'custom',
-              path: ['orders', idx, 'sheets'],
+              path: ['orders', idx, 'sizes', sIdx, 'sheets'],
               message: 'positive',
             });
           }
-          if (!order.sheetLengthMm || order.sheetLengthMm <= 0) {
+          if (!size.length || size.length <= 0) {
             ctx.addIssue({
               code: 'custom',
-              path: ['orders', idx, 'sheetLengthMm'],
-              message: 'positive',
-            });
-          }
-          if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['orders', idx, 'profilesPerPackage'],
+              path: ['orders', idx, 'sizes', sIdx, 'length'],
               message: 'positive',
             });
           }
         });
+      });
+
+      if (mode === 'profiles' && orders.length > 0) {
+        const first = orders[0];
+        if (!first.profilesPerPackage || first.profilesPerPackage <= 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', 0, 'profilesPerPackage'],
+            message: 'positive',
+          });
+        }
       }
     });
 

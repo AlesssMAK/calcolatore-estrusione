@@ -56,6 +56,7 @@
     "removeSize": "Eliminar medida",
     "toggleTotalLength": "Metros totales",
     "totalLength": "Metros totales",
+    "optionalInherit": "opc. — hereda",
     "minRequired": "Se requiere al menos un pedido."
   },
   "actions": {
@@ -78,7 +79,8 @@
       "sheets": "Láminas",
       "profiles": "Perfiles",
       "sheetLength": "Longitud (mm)",
-      "totalLength": "Longitud total (m)",
+      "totalLength": "Metros totales",
+      "meters": "Metros",
       "speed": "Velocidad (m/min)",
       "productionTime": "Tiempo de producción",
       "packages": "Paquetes",

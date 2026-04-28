@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CalculatorMode, ScheduleResult } from '../types';
+import type { CalculatorMode, ScheduleResult, ScheduledOrder } from '../types';
+import { calculateTotalProfiles } from '../utils/calculator';
 import {
   formatDateTime,
   formatShortDateTime,
@@ -28,6 +29,9 @@ function ResultsPanel({ result, mode, onReset }: Props) {
   const formatLength = (m: number) =>
     m >= 100 ? m.toFixed(0) : m.toFixed(2).replace(/\.?0+$/, '');
 
+  const profilesCountFor = (row: ScheduledOrder): number | undefined =>
+    isProfiles ? calculateTotalProfiles(row.order) : undefined;
+
   const buildPlainText = () => {
     const lines: string[] = [];
     lines.push(t('app.title'));
@@ -43,25 +47,24 @@ function ResultsPanel({ result, mode, onReset }: Props) {
     lines.push(
       `${t('results.totalDuration')}: ${formatDuration(result.totalDurationMinutes, units)}`,
     );
-    lines.push(
-      `${t('results.endAt')}: ${formatDateTime(result.endAt, lang)}`,
-    );
+    lines.push(`${t('results.endAt')}: ${formatDateTime(result.endAt, lang)}`);
     if (isProfiles && result.totalPackages !== undefined) {
-      lines.push(
-        `${t('results.totalPackages')}: ${result.totalPackages}`,
-      );
+      lines.push(`${t('results.totalPackages')}: ${result.totalPackages}`);
     }
     lines.push('');
     lines.push(t('results.breakdown'));
 
     result.rows.forEach((row, idx) => {
+      const meters = `${formatLength(row.totalLengthM)} m`;
+      const profilesCount = profilesCountFor(row);
+      const head =
+        profilesCount !== undefined
+          ? `${profilesCount} ${t('results.col.profiles').toLowerCase()}, ${meters}`
+          : meters;
       const pkgPart =
         isProfiles && row.packages !== undefined
-          ? `  →  ${row.packages} ${t('results.col.packages')}`
+          ? `  →  ${row.packages} ${t('results.col.packages').toLowerCase()}`
           : '';
-      const head = isProfiles
-        ? `${row.order.sheets} × ${row.order.sheetLengthMm} mm`
-        : `${formatLength(row.totalLengthM)} m`;
       lines.push(
         `#${idx + 1}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.productionMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
@@ -79,10 +82,6 @@ function ResultsPanel({ result, mode, onReset }: Props) {
       /* ignore */
     }
   };
-
-  const countColLabel = isProfiles
-    ? t('results.col.profiles')
-    : t('results.col.totalLength');
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none">
@@ -157,57 +156,60 @@ function ResultsPanel({ result, mode, onReset }: Props) {
 
         {/* Mobile: stacked cards */}
         <ul className="space-y-2 sm:hidden">
-          {result.rows.map((row, idx) => (
-            <li
-              key={row.order.id}
-              className="rounded-lg border border-neutral-200 bg-surface-alt p-3"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
-                  #{idx + 1}
-                </span>
-                <span className="text-sm font-semibold text-brand-700">
-                  {formatDuration(row.productionMinutes, units)}
-                </span>
-              </div>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                <dt className="text-ink-soft">{countColLabel}</dt>
-                <dd className="font-medium text-ink">
-                  {isProfiles
-                    ? row.order.sheets
-                    : `${formatLength(row.totalLengthM)} m`}
-                </dd>
-                {isProfiles && (
-                  <>
-                    <dt className="text-ink-soft">
-                      {t('results.col.sheetLength')}
-                    </dt>
-                    <dd className="font-medium text-ink">
-                      {row.order.sheetLengthMm}
-                    </dd>
-                  </>
-                )}
-                <dt className="text-ink-soft">{t('results.col.speed')}</dt>
-                <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
-                {isProfiles && (
-                  <>
-                    <dt className="text-ink-soft">{t('results.col.packages')}</dt>
-                    <dd className="font-medium text-brand-700">
-                      {row.packages ?? '—'}
-                    </dd>
-                  </>
-                )}
-                <dt className="text-ink-soft">{t('results.col.start')}</dt>
-                <dd className="font-medium text-ink">
-                  {formatShortDateTime(row.start, lang)}
-                </dd>
-                <dt className="text-ink-soft">{t('results.col.end')}</dt>
-                <dd className="font-medium text-ink">
-                  {formatShortDateTime(row.end, lang)}
-                </dd>
-              </dl>
-            </li>
-          ))}
+          {result.rows.map((row, idx) => {
+            const profilesCount = profilesCountFor(row);
+            return (
+              <li
+                key={row.order.id}
+                className="rounded-lg border border-neutral-200 bg-surface-alt p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
+                    #{idx + 1}
+                  </span>
+                  <span className="text-sm font-semibold text-brand-700">
+                    {formatDuration(row.productionMinutes, units)}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  {isProfiles && (
+                    <>
+                      <dt className="text-ink-soft">
+                        {t('results.col.profiles')}
+                      </dt>
+                      <dd className="font-medium text-ink">
+                        {profilesCount ?? '—'}
+                      </dd>
+                    </>
+                  )}
+                  <dt className="text-ink-soft">{t('results.col.meters')}</dt>
+                  <dd className="font-medium text-ink">
+                    {formatLength(row.totalLengthM)} m
+                  </dd>
+                  <dt className="text-ink-soft">{t('results.col.speed')}</dt>
+                  <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
+                  {isProfiles && (
+                    <>
+                      <dt className="text-ink-soft">
+                        {t('results.col.packages')}
+                      </dt>
+                      <dd className="font-medium text-brand-700">
+                        {row.packages ?? '—'}
+                      </dd>
+                    </>
+                  )}
+                  <dt className="text-ink-soft">{t('results.col.start')}</dt>
+                  <dd className="font-medium text-ink">
+                    {formatShortDateTime(row.start, lang)}
+                  </dd>
+                  <dt className="text-ink-soft">{t('results.col.end')}</dt>
+                  <dd className="font-medium text-ink">
+                    {formatShortDateTime(row.end, lang)}
+                  </dd>
+                </dl>
+              </li>
+            );
+          })}
         </ul>
 
         {/* Desktop: table */}
@@ -216,14 +218,12 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             <thead>
               <tr className="border-b border-neutral-200 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
                 <th className="py-2 pr-3">{t('results.col.number')}</th>
-                <th className="py-2 pr-3">{countColLabel}</th>
                 {isProfiles && (
-                  <th className="py-2 pr-3">{t('results.col.sheetLength')}</th>
+                  <th className="py-2 pr-3">{t('results.col.profiles')}</th>
                 )}
+                <th className="py-2 pr-3">{t('results.col.meters')}</th>
                 <th className="py-2 pr-3">{t('results.col.speed')}</th>
-                <th className="py-2 pr-3">
-                  {t('results.col.productionTime')}
-                </th>
+                <th className="py-2 pr-3">{t('results.col.productionTime')}</th>
                 {isProfiles && (
                   <th className="py-2 pr-3">{t('results.col.packages')}</th>
                 )}
@@ -232,39 +232,40 @@ function ResultsPanel({ result, mode, onReset }: Props) {
               </tr>
             </thead>
             <tbody>
-              {result.rows.map((row, idx) => (
-                <tr
-                  key={row.order.id}
-                  className="border-b border-neutral-100 last:border-b-0"
-                >
-                  <td className="py-2 pr-3 font-semibold text-brand-600">
-                    #{idx + 1}
-                  </td>
-                  <td className="py-2 pr-3">
-                    {isProfiles
-                      ? row.order.sheets
-                      : `${formatLength(row.totalLengthM)} m`}
-                  </td>
-                  {isProfiles && (
-                    <td className="py-2 pr-3">{row.order.sheetLengthMm}</td>
-                  )}
-                  <td className="py-2 pr-3">{row.speedMPerMin}</td>
-                  <td className="py-2 pr-3 font-medium">
-                    {formatDuration(row.productionMinutes, units)}
-                  </td>
-                  {isProfiles && (
-                    <td className="py-2 pr-3 font-medium text-brand-700">
-                      {row.packages ?? '—'}
+              {result.rows.map((row, idx) => {
+                const profilesCount = profilesCountFor(row);
+                return (
+                  <tr
+                    key={row.order.id}
+                    className="border-b border-neutral-100 last:border-b-0"
+                  >
+                    <td className="py-2 pr-3 font-semibold text-brand-600">
+                      #{idx + 1}
                     </td>
-                  )}
-                  <td className="py-2 pr-3 whitespace-nowrap">
-                    {formatShortDateTime(row.start, lang)}
-                  </td>
-                  <td className="py-2 whitespace-nowrap">
-                    {formatShortDateTime(row.end, lang)}
-                  </td>
-                </tr>
-              ))}
+                    {isProfiles && (
+                      <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
+                    )}
+                    <td className="py-2 pr-3">
+                      {formatLength(row.totalLengthM)} m
+                    </td>
+                    <td className="py-2 pr-3">{row.speedMPerMin}</td>
+                    <td className="py-2 pr-3 font-medium">
+                      {formatDuration(row.productionMinutes, units)}
+                    </td>
+                    {isProfiles && (
+                      <td className="py-2 pr-3 font-medium text-brand-700">
+                        {row.packages ?? '—'}
+                      </td>
+                    )}
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {formatShortDateTime(row.start, lang)}
+                    </td>
+                    <td className="py-2 whitespace-nowrap">
+                      {formatShortDateTime(row.end, lang)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

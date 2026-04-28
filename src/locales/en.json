@@ -56,6 +56,7 @@
     "removeSize": "Remove size",
     "toggleTotalLength": "Total meters",
     "totalLength": "Total meters",
+    "optionalInherit": "optional — inherits",
     "minRequired": "At least one order is required."
   },
   "actions": {
@@ -79,6 +80,7 @@
       "profiles": "Profiles",
       "sheetLength": "Length (mm)",
       "totalLength": "Total meters",
+      "meters": "Meters",
       "speed": "Speed (m/min)",
       "productionTime": "Production time",
       "packages": "Packages",
