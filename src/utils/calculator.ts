@@ -8,7 +8,16 @@ import type {
 } from '../types';
 
 export function calculateOrderLengthM(order: Order): number {
-  return (order.sheets * order.sheetLengthMm) / 1000;
+  if (order.sizes && order.sizes.length > 0) {
+    return order.sizes.reduce(
+      (sum, s) => sum + (s.sheets * s.length) / 1000,
+      0,
+    );
+  }
+  if (order.sheets !== undefined && order.sheetLengthMm !== undefined) {
+    return (order.sheets * order.sheetLengthMm) / 1000;
+  }
+  throw new Error('order needs sizes[] or sheets+sheetLengthMm');
 }
 
 export function calculateProductionMinutes(
@@ -108,6 +117,9 @@ export function calculateSchedule(
     if (mode === 'profiles') {
       if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
         throw new Error('profilesPerPackage required in profiles mode');
+      }
+      if (order.sheets === undefined) {
+        throw new Error('sheets required in profiles mode');
       }
       packages = Math.ceil(order.sheets / order.profilesPerPackage);
       totalPackages = (totalPackages ?? 0) + packages;

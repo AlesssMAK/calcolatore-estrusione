@@ -17,6 +17,29 @@ describe('calculateOrderLengthM', () => {
       calculateOrderLengthM({ id: '1', sheets: 50, sheetLengthMm: 3000 }),
     ).toBe(150);
   });
+
+  it('sums sizes[] when present', () => {
+    expect(
+      calculateOrderLengthM({
+        id: '1',
+        sizes: [
+          { sheets: 100, length: 6000 },
+          { sheets: 50, length: 3000 },
+        ],
+      }),
+    ).toBe(750);
+  });
+
+  it('prefers sizes[] over sheets/sheetLengthMm if both present', () => {
+    expect(
+      calculateOrderLengthM({
+        id: '1',
+        sheets: 999,
+        sheetLengthMm: 9999,
+        sizes: [{ sheets: 10, length: 1000 }],
+      }),
+    ).toBe(10);
+  });
 });
 
 describe('calculateProductionMinutes', () => {

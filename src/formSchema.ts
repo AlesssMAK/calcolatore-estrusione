@@ -1,13 +1,19 @@
 import { z } from 'zod';
 import type { CalculatorMode } from './types';
 
-const orderSchema = z.object({
-  id: z.string(),
+const sizeSchema = z.object({
   sheets: z
     .number({ error: 'required' })
     .int('integer')
     .positive('positive'),
-  sheetLengthMm: z.number({ error: 'required' }).positive('positive'),
+  length: z.number({ error: 'required' }).positive('positive'),
+});
+
+const orderSchema = z.object({
+  id: z.string(),
+  sizes: z.array(sizeSchema).optional(),
+  sheets: z.number().int('integer').positive('positive').optional(),
+  sheetLengthMm: z.number().positive('positive').optional(),
   speedMPerMin: z.number().positive('positive').optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
   profilesPerPackage: z
@@ -63,8 +69,34 @@ export const buildFormSchema = (mode: CalculatorMode) =>
         }
       }
 
+      if (mode === 'sheets') {
+        orders.forEach((order, idx) => {
+          if (!order.sizes || order.sizes.length === 0) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'sizes'],
+              message: 'minRequired',
+            });
+          }
+        });
+      }
+
       if (mode === 'profiles') {
         orders.forEach((order, idx) => {
+          if (!order.sheets || order.sheets <= 0) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'sheets'],
+              message: 'positive',
+            });
+          }
+          if (!order.sheetLengthMm || order.sheetLengthMm <= 0) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'sheetLengthMm'],
+              message: 'positive',
+            });
+          }
           if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
             ctx.addIssue({
               code: 'custom',

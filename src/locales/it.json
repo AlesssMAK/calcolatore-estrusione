@@ -52,6 +52,8 @@
     "speed": "Velocità (m/min)",
     "gapAfter": "Pausa dopo (min)",
     "profilesPerPackage": "Profili per pacco",
+    "addSize": "Aggiungi misura",
+    "removeSize": "Rimuovi misura",
     "minRequired": "Almeno un ordine è richiesto."
   },
   "actions": {
@@ -74,6 +76,7 @@
       "sheets": "Lastre",
       "profiles": "Profili",
       "sheetLength": "Lunghezza (mm)",
+      "totalLength": "Lunghezza totale (m)",
       "speed": "Velocità (m/min)",
       "productionTime": "Tempo produzione",
       "packages": "Pacchi",

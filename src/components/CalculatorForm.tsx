@@ -20,7 +20,7 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
 
   const methods = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(mode)),
-    defaultValues: buildEmptyDefaults(),
+    defaultValues: buildEmptyDefaults(mode),
     mode: 'onBlur',
   });
 

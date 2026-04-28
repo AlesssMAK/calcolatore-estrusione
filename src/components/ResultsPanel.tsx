@@ -25,6 +25,9 @@ function ResultsPanel({ result, mode, onReset }: Props) {
     minute: t('units.minute'),
   };
 
+  const formatLength = (m: number) =>
+    m >= 100 ? m.toFixed(0) : m.toFixed(2).replace(/\.?0+$/, '');
+
   const buildPlainText = () => {
     const lines: string[] = [];
     lines.push(t('app.title'));
@@ -56,8 +59,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         isProfiles && row.packages !== undefined
           ? `  →  ${row.packages} ${t('results.col.packages')}`
           : '';
+      const head = isProfiles
+        ? `${row.order.sheets} × ${row.order.sheetLengthMm} mm`
+        : `${formatLength(row.totalLengthM)} m`;
       lines.push(
-        `#${idx + 1}  ${row.order.sheets} × ${row.order.sheetLengthMm} mm  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.productionMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
+        `#${idx + 1}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.productionMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
     });
 
@@ -76,7 +82,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
 
   const countColLabel = isProfiles
     ? t('results.col.profiles')
-    : t('results.col.sheets');
+    : t('results.col.totalLength');
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none">
@@ -166,9 +172,21 @@ function ResultsPanel({ result, mode, onReset }: Props) {
               </div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                 <dt className="text-ink-soft">{countColLabel}</dt>
-                <dd className="font-medium text-ink">{row.order.sheets}</dd>
-                <dt className="text-ink-soft">{t('results.col.sheetLength')}</dt>
-                <dd className="font-medium text-ink">{row.order.sheetLengthMm}</dd>
+                <dd className="font-medium text-ink">
+                  {isProfiles
+                    ? row.order.sheets
+                    : `${formatLength(row.totalLengthM)} m`}
+                </dd>
+                {isProfiles && (
+                  <>
+                    <dt className="text-ink-soft">
+                      {t('results.col.sheetLength')}
+                    </dt>
+                    <dd className="font-medium text-ink">
+                      {row.order.sheetLengthMm}
+                    </dd>
+                  </>
+                )}
                 <dt className="text-ink-soft">{t('results.col.speed')}</dt>
                 <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
                 {isProfiles && (
@@ -199,7 +217,9 @@ function ResultsPanel({ result, mode, onReset }: Props) {
               <tr className="border-b border-neutral-200 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
                 <th className="py-2 pr-3">{t('results.col.number')}</th>
                 <th className="py-2 pr-3">{countColLabel}</th>
-                <th className="py-2 pr-3">{t('results.col.sheetLength')}</th>
+                {isProfiles && (
+                  <th className="py-2 pr-3">{t('results.col.sheetLength')}</th>
+                )}
                 <th className="py-2 pr-3">{t('results.col.speed')}</th>
                 <th className="py-2 pr-3">
                   {t('results.col.productionTime')}
@@ -220,8 +240,14 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   <td className="py-2 pr-3 font-semibold text-brand-600">
                     #{idx + 1}
                   </td>
-                  <td className="py-2 pr-3">{row.order.sheets}</td>
-                  <td className="py-2 pr-3">{row.order.sheetLengthMm}</td>
+                  <td className="py-2 pr-3">
+                    {isProfiles
+                      ? row.order.sheets
+                      : `${formatLength(row.totalLengthM)} m`}
+                  </td>
+                  {isProfiles && (
+                    <td className="py-2 pr-3">{row.order.sheetLengthMm}</td>
+                  )}
                   <td className="py-2 pr-3">{row.speedMPerMin}</td>
                   <td className="py-2 pr-3 font-medium">
                     {formatDuration(row.productionMinutes, units)}
