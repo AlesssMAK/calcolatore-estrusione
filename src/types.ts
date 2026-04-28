@@ -10,6 +10,8 @@ export interface OrderSize {
 
 export interface Order {
   id: string;
+  useTotalLength?: boolean;
+  totalLengthM?: number;
   sizes?: OrderSize[];
   sheets?: number;
   sheetLengthMm?: number;

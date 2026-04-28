@@ -39,11 +39,19 @@ function OrdersList({ mode }: Props) {
 
   const speedMode = useWatch({ control, name: 'settings.speedMode' });
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
+  const watchedOrders = useWatch({ control, name: 'orders' });
 
   const rootError =
     typeof errors.orders?.message === 'string' ? errors.orders.message : null;
 
   const isProfiles = mode === 'profiles';
+
+  const appendOrder = () => {
+    const last = watchedOrders?.[watchedOrders.length - 1];
+    const inherit =
+      mode === 'sheets' ? Boolean(last?.useTotalLength) : false;
+    append(makeEmptyOrder(mode, inherit));
+  };
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-5">
@@ -53,7 +61,7 @@ function OrdersList({ mode }: Props) {
         </h2>
         <button
           type="button"
-          onClick={() => append(makeEmptyOrder(mode))}
+          onClick={appendOrder}
           className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:text-sm"
         >
           {t('orders.add')}
@@ -119,7 +127,7 @@ function OrdersList({ mode }: Props) {
       <div className="mt-3 flex justify-center sm:mt-4">
         <button
           type="button"
-          onClick={() => append(makeEmptyOrder(mode))}
+          onClick={appendOrder}
           className="w-full rounded-md border border-dashed border-brand-300 bg-white px-3 py-2.5 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:w-auto sm:px-6"
         >
           + {t('orders.add')}
@@ -255,11 +263,59 @@ function ProfilesOrderFields({ idx, rowErr, showSpeed, showGap, t }: FieldsProps
 }
 
 function SheetsOrderFields({ idx, rowErr, showSpeed, showGap, t }: FieldsProps) {
-  const { register } = useFormContext<FormValues>();
+  const { register, setValue, control } = useFormContext<FormValues>();
+  const useTotalLength = useWatch({
+    control,
+    name: `orders.${idx}.useTotalLength`,
+  });
+
+  const toggleTotalLength = () => {
+    setValue(`orders.${idx}.useTotalLength`, !useTotalLength, {
+      shouldValidate: true,
+    });
+  };
 
   return (
     <div className="space-y-2">
-      <SizesFieldArray orderIdx={idx} t={t} />
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={toggleTotalLength}
+          aria-pressed={Boolean(useTotalLength)}
+          className={
+            useTotalLength
+              ? 'inline-flex items-center gap-1.5 rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition'
+              : 'inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink'
+          }
+        >
+          ∑ {t('orders.toggleTotalLength')}
+        </button>
+      </div>
+
+      {useTotalLength ? (
+        <div>
+          <label className={labelBase}>{t('orders.totalLength')}</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            className={`${inputBase} mt-1 sm:max-w-xs`}
+            {...register(`orders.${idx}.totalLengthM`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+          <FieldError
+            message={
+              rowErr?.totalLengthM?.message
+                ? t(`validation.${rowErr.totalLengthM.message}`)
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        <SizesFieldArray orderIdx={idx} t={t} />
+      )}
 
       {(showSpeed || showGap) && (
         <div className="grid grid-cols-1 gap-2 pt-1 sm:flex sm:flex-wrap sm:items-end sm:gap-3">

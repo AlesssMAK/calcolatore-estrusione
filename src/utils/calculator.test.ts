@@ -40,6 +40,17 @@ describe('calculateOrderLengthM', () => {
       }),
     ).toBe(10);
   });
+
+  it('uses totalLengthM directly when useTotalLength is true', () => {
+    expect(
+      calculateOrderLengthM({
+        id: '1',
+        useTotalLength: true,
+        totalLengthM: 425.5,
+        sizes: [{ sheets: 999, length: 9999 }],
+      }),
+    ).toBe(425.5);
+  });
 });
 
 describe('calculateProductionMinutes', () => {

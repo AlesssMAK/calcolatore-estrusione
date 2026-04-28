@@ -54,6 +54,8 @@
     "profilesPerPackage": "Profili per pacco",
     "addSize": "Aggiungi misura",
     "removeSize": "Rimuovi misura",
+    "toggleTotalLength": "Lunghezza totale",
+    "totalLength": "Lunghezza totale (m)",
     "minRequired": "Almeno un ordine è richiesto."
   },
   "actions": {

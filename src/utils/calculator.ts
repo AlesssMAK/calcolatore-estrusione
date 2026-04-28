@@ -8,6 +8,12 @@ import type {
 } from '../types';
 
 export function calculateOrderLengthM(order: Order): number {
+  if (order.useTotalLength) {
+    if (order.totalLengthM === undefined || order.totalLengthM <= 0) {
+      throw new Error('totalLengthM required when useTotalLength is true');
+    }
+    return order.totalLengthM;
+  }
   if (order.sizes && order.sizes.length > 0) {
     return order.sizes.reduce(
       (sum, s) => sum + (s.sheets * s.length) / 1000,
@@ -17,7 +23,7 @@ export function calculateOrderLengthM(order: Order): number {
   if (order.sheets !== undefined && order.sheetLengthMm !== undefined) {
     return (order.sheets * order.sheetLengthMm) / 1000;
   }
-  throw new Error('order needs sizes[] or sheets+sheetLengthMm');
+  throw new Error('order needs sizes[], totalLengthM, or sheets+sheetLengthMm');
 }
 
 export function calculateProductionMinutes(

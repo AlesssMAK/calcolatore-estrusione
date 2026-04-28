@@ -14,10 +14,13 @@ export function makeEmptySize(): NonNullable<
 
 export function makeEmptyOrder(
   mode: CalculatorMode = 'sheets',
+  inheritUseTotalLength = false,
 ): FormValues['orders'][number] {
   if (mode === 'sheets') {
     return {
       id: genId(),
+      useTotalLength: inheritUseTotalLength,
+      totalLengthM: undefined,
       sizes: [makeEmptySize()],
       speedMPerMin: undefined,
       gapAfterMin: undefined,

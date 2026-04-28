@@ -54,6 +54,8 @@
     "profilesPerPackage": "Profiles per package",
     "addSize": "Add size",
     "removeSize": "Remove size",
+    "toggleTotalLength": "Total length",
+    "totalLength": "Total length (m)",
     "minRequired": "At least one order is required."
   },
   "actions": {

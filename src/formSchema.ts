@@ -11,6 +11,8 @@ const sizeSchema = z.object({
 
 const orderSchema = z.object({
   id: z.string(),
+  useTotalLength: z.boolean().optional(),
+  totalLengthM: z.number().positive('positive').optional(),
   sizes: z.array(sizeSchema).optional(),
   sheets: z.number().int('integer').positive('positive').optional(),
   sheetLengthMm: z.number().positive('positive').optional(),
@@ -71,7 +73,15 @@ export const buildFormSchema = (mode: CalculatorMode) =>
 
       if (mode === 'sheets') {
         orders.forEach((order, idx) => {
-          if (!order.sizes || order.sizes.length === 0) {
+          if (order.useTotalLength) {
+            if (!order.totalLengthM || order.totalLengthM <= 0) {
+              ctx.addIssue({
+                code: 'custom',
+                path: ['orders', idx, 'totalLengthM'],
+                message: 'positive',
+              });
+            }
+          } else if (!order.sizes || order.sizes.length === 0) {
             ctx.addIssue({
               code: 'custom',
               path: ['orders', idx, 'sizes'],
