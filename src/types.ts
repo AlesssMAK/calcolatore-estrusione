@@ -4,8 +4,12 @@ export type GapMode = 'continuous' | 'withGaps';
 export type CalculatorMode = 'sheets' | 'profiles';
 
 export interface OrderSize {
-  sheets: number;
-  length: number;
+  sheets?: number;
+  length?: number;
+}
+
+export interface ProducedEntry {
+  value?: number;
 }
 
 export interface Order {
@@ -18,6 +22,15 @@ export interface Order {
   speedMPerMin?: number;
   gapAfterMin?: number;
   profilesPerPackage?: number;
+  producedProfiles?: ProducedEntry[];
+  producedPackages?: ProducedEntry[];
+}
+
+export interface ProducedSummary {
+  producedProfiles: number;
+  producedPackages: number;
+  producedFraction: number;
+  source: 'profiles' | 'packages';
 }
 
 export interface GlobalSettings {

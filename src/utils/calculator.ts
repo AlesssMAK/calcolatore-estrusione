@@ -7,6 +7,15 @@ import type {
   ScheduledOrder,
 } from '../types';
 
+export function calculateTotalProfiles(order: Order): number | undefined {
+  if (order.useTotalLength) return undefined;
+  if (order.sizes && order.sizes.length > 0) {
+    return order.sizes.reduce((sum, s) => sum + (s.sheets ?? 0), 0);
+  }
+  if (order.sheets !== undefined) return order.sheets;
+  return undefined;
+}
+
 export function calculateOrderLengthM(order: Order): number {
   if (order.useTotalLength) {
     if (order.totalLengthM === undefined || order.totalLengthM <= 0) {
@@ -16,7 +25,7 @@ export function calculateOrderLengthM(order: Order): number {
   }
   if (order.sizes && order.sizes.length > 0) {
     return order.sizes.reduce(
-      (sum, s) => sum + (s.sheets * s.length) / 1000,
+      (sum, s) => sum + ((s.sheets ?? 0) * (s.length ?? 0)) / 1000,
       0,
     );
   }
@@ -103,6 +112,7 @@ export function calculateSchedule(
   let totalGapMinutes = 0;
   let totalPackages: number | undefined = mode === 'profiles' ? 0 : undefined;
   let lastSpeed: number | undefined;
+  let lastPerPackage: number | undefined;
 
   orders.forEach((order, idx) => {
     const speedMPerMin = resolveSpeed(settings, order, lastSpeed);
@@ -121,14 +131,20 @@ export function calculateSchedule(
 
     let packages: number | undefined;
     if (mode === 'profiles') {
-      if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
+      const perPackage =
+        order.profilesPerPackage && order.profilesPerPackage > 0
+          ? order.profilesPerPackage
+          : lastPerPackage;
+      if (!perPackage || perPackage <= 0) {
         throw new Error('profilesPerPackage required in profiles mode');
       }
-      if (order.sheets === undefined) {
-        throw new Error('sheets required in profiles mode');
+      lastPerPackage = perPackage;
+
+      const totalProfiles = calculateTotalProfiles(order);
+      if (totalProfiles !== undefined) {
+        packages = Math.ceil(totalProfiles / perPackage);
+        totalPackages = (totalPackages ?? 0) + packages;
       }
-      packages = Math.ceil(order.sheets / order.profilesPerPackage);
-      totalPackages = (totalPackages ?? 0) + packages;
     }
 
     rows.push({

@@ -46,11 +46,9 @@ function OrdersList({ mode }: Props) {
   const rootError =
     typeof errors.orders?.message === 'string' ? errors.orders.message : null;
 
-  const isProfiles = mode === 'profiles';
-
   const appendOrder = () => {
     const last = watchedOrders?.[watchedOrders.length - 1];
-    const inherit = mode === 'sheets' ? Boolean(last?.useTotalLength) : false;
+    const inherit = Boolean(last?.useTotalLength);
     append(makeEmptyOrder(mode, inherit));
   };
 
@@ -64,7 +62,7 @@ function OrdersList({ mode }: Props) {
       ([entry]) => {
         setShowBottomButton(!entry.isIntersecting);
       },
-      { threshold: 0 }
+      { threshold: 0 },
     );
     obs.observe(node);
     return () => obs.disconnect();
@@ -109,32 +107,30 @@ function OrdersList({ mode }: Props) {
                   #{idx + 1}
                 </span>
                 <div className="flex items-center gap-2">
-                  {!isProfiles && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setValue(
-                          `orders.${idx}.useTotalLength`,
-                          !watchedOrders?.[idx]?.useTotalLength,
-                          { shouldValidate: true }
-                        )
-                      }
-                      aria-pressed={Boolean(
-                        watchedOrders?.[idx]?.useTotalLength
-                      )}
-                      title={t('orders.toggleTotalLength')}
-                      className={
-                        watchedOrders?.[idx]?.useTotalLength
-                          ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-                          : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
-                      }
-                    >
-                      Σ{' '}
-                      <span className="hidden sm:inline">
-                        {t('orders.toggleTotalLength')}
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setValue(
+                        `orders.${idx}.useTotalLength`,
+                        !watchedOrders?.[idx]?.useTotalLength,
+                        { shouldValidate: true },
+                      )
+                    }
+                    aria-pressed={Boolean(
+                      watchedOrders?.[idx]?.useTotalLength,
+                    )}
+                    title={t('orders.toggleTotalLength')}
+                    className={
+                      watchedOrders?.[idx]?.useTotalLength
+                        ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+                        : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+                    }
+                  >
+                    Σ{' '}
+                    <span className="hidden sm:inline">
+                      {t('orders.toggleTotalLength')}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => remove(idx)}
@@ -150,23 +146,14 @@ function OrdersList({ mode }: Props) {
                 </div>
               </div>
 
-              {isProfiles ? (
-                <ProfilesOrderFields
-                  idx={idx}
-                  rowErr={rowErr}
-                  showSpeed={showSpeed}
-                  showGap={showGap}
-                  t={t}
-                />
-              ) : (
-                <SheetsOrderFields
-                  idx={idx}
-                  rowErr={rowErr}
-                  showSpeed={showSpeed}
-                  showGap={showGap}
-                  t={t}
-                />
-              )}
+              <OrderFields
+                idx={idx}
+                rowErr={rowErr}
+                showSpeed={showSpeed}
+                showGap={showGap}
+                mode={mode}
+                t={t}
+              />
             </div>
           );
         })}
@@ -192,144 +179,17 @@ interface FieldsProps {
   rowErr: OrderError | undefined;
   showSpeed: boolean;
   showGap: boolean;
+  mode: CalculatorMode;
   t: TFunction;
 }
 
-function ProfilesOrderFields({
-  idx,
-  rowErr,
-  showSpeed,
-  showGap,
-  t,
-}: FieldsProps) {
-  const { register } = useFormContext<FormValues>();
-
-  return (
-    <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
-      <div className="sm:min-w-[110px] sm:flex-1">
-        <label className={labelBase}>{t('orders.profiles')}</label>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          inputMode="numeric"
-          className={`${inputBase} mt-1`}
-          {...register(`orders.${idx}.sheets`, {
-            setValueAs: numericSetValueAs,
-          })}
-        />
-        <FieldError
-          message={
-            rowErr?.sheets?.message
-              ? t(`validation.${rowErr.sheets.message}`)
-              : undefined
-          }
-        />
-      </div>
-
-      <div className="sm:min-w-[120px] sm:flex-1">
-        <label className={labelBase}>{t('orders.profileLength')}</label>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          inputMode="numeric"
-          className={`${inputBase} mt-1`}
-          {...register(`orders.${idx}.sheetLengthMm`, {
-            setValueAs: numericSetValueAs,
-          })}
-        />
-        <FieldError
-          message={
-            rowErr?.sheetLengthMm?.message
-              ? t(`validation.${rowErr.sheetLengthMm.message}`)
-              : undefined
-          }
-        />
-      </div>
-
-      {showSpeed && (
-        <div className="sm:min-w-[110px] sm:flex-1">
-          <label className={labelBase}>{t('orders.speed')}</label>
-          <input
-            type="number"
-            min="0"
-            step="0.1"
-            inputMode="decimal"
-            className={`${inputBase} mt-1`}
-            {...register(`orders.${idx}.speedMPerMin`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.speedMPerMin?.message
-                ? t(`validation.${rowErr.speedMPerMin.message}`)
-                : undefined
-            }
-          />
-        </div>
-      )}
-
-      {showGap && (
-        <div className="sm:min-w-[110px] sm:flex-1">
-          <label className={labelBase}>{t('orders.gapAfter')}</label>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            inputMode="numeric"
-            className={`${inputBase} mt-1`}
-            {...register(`orders.${idx}.gapAfterMin`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.gapAfterMin?.message
-                ? t(`validation.${rowErr.gapAfterMin.message}`)
-                : undefined
-            }
-          />
-        </div>
-      )}
-
-      <div className="sm:min-w-[140px] sm:flex-1">
-        <label className={labelBase}>{t('orders.profilesPerPackage')}</label>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          inputMode="numeric"
-          className={`${inputBase} mt-1`}
-          {...register(`orders.${idx}.profilesPerPackage`, {
-            setValueAs: numericSetValueAs,
-          })}
-        />
-        <FieldError
-          message={
-            rowErr?.profilesPerPackage?.message
-              ? t(`validation.${rowErr.profilesPerPackage.message}`)
-              : undefined
-          }
-        />
-      </div>
-    </div>
-  );
-}
-
-function SheetsOrderFields({
-  idx,
-  rowErr,
-  showSpeed,
-  showGap,
-  t,
-}: FieldsProps) {
+function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) {
   const { register, control } = useFormContext<FormValues>();
   const useTotalLength = useWatch({
     control,
     name: `orders.${idx}.useTotalLength`,
   });
+  const isProfiles = mode === 'profiles';
 
   return (
     <div className="space-y-2">
@@ -355,14 +215,51 @@ function SheetsOrderFields({
           />
         </div>
       ) : (
-        <SizesFieldArray orderIdx={idx} t={t} />
+        <SizesFieldArray orderIdx={idx} mode={mode} t={t} />
+      )}
+
+      {isProfiles && (
+        <div className="pt-1">
+          <label className={labelBase}>
+            {t('orders.profilesPerPackage')}
+            {idx > 0 && (
+              <span className="ml-1 normal-case text-ink-soft">
+                ({t('orders.optionalInherit')})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            className={`${inputBase} mt-1 sm:max-w-xs`}
+            {...register(`orders.${idx}.profilesPerPackage`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+          <FieldError
+            message={
+              rowErr?.profilesPerPackage?.message
+                ? t(`validation.${rowErr.profilesPerPackage.message}`)
+                : undefined
+            }
+          />
+        </div>
       )}
 
       {(showSpeed || showGap) && (
-        <div className="grid grid-cols-1 gap-2 pt-1 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+        <div className="flex flex-wrap items-end gap-2 pt-1 sm:gap-3">
           {showSpeed && (
-            <div className="sm:min-w-[140px] sm:flex-1">
-              <label className={labelBase}>{t('orders.speed')}</label>
+            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+              <label className={labelBase}>
+                {t('orders.speed')}
+                {idx > 0 && (
+                  <span className="ml-1 normal-case text-ink-soft">
+                    ({t('orders.optionalInherit')})
+                  </span>
+                )}
+              </label>
               <input
                 type="number"
                 min="0"
@@ -384,7 +281,7 @@ function SheetsOrderFields({
           )}
 
           {showGap && (
-            <div className="sm:min-w-[140px] sm:flex-1">
+            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
               <label className={labelBase}>{t('orders.gapAfter')}</label>
               <input
                 type="number"
@@ -411,7 +308,15 @@ function SheetsOrderFields({
   );
 }
 
-function SizesFieldArray({ orderIdx, t }: { orderIdx: number; t: TFunction }) {
+function SizesFieldArray({
+  orderIdx,
+  mode,
+  t,
+}: {
+  orderIdx: number;
+  mode: CalculatorMode;
+  t: TFunction;
+}) {
   const {
     register,
     formState: { errors },
@@ -433,6 +338,12 @@ function SizesFieldArray({ orderIdx, t }: { orderIdx: number; t: TFunction }) {
       ? orderErr.sizes.message
       : null;
 
+  const isProfiles = mode === 'profiles';
+  const sheetsLabel = isProfiles ? t('orders.profiles') : t('orders.sheets');
+  const lengthLabel = isProfiles
+    ? t('orders.profileLength')
+    : t('orders.sheetLength');
+
   return (
     <div>
       {sizesRootError && (
@@ -450,7 +361,7 @@ function SizesFieldArray({ orderIdx, t }: { orderIdx: number; t: TFunction }) {
               className="grid grid-cols-[1fr_1fr_auto_auto] items-end gap-2 sm:gap-3"
             >
               <div className="min-w-0">
-                <label className={labelBase}>{t('orders.sheets')}</label>
+                <label className={labelBase}>{sheetsLabel}</label>
                 <input
                   type="number"
                   min="1"
@@ -471,7 +382,7 @@ function SizesFieldArray({ orderIdx, t }: { orderIdx: number; t: TFunction }) {
               </div>
 
               <div className="min-w-0">
-                <label className={labelBase}>{t('orders.sheetLength')}</label>
+                <label className={labelBase}>{lengthLabel}</label>
                 <input
                   type="number"
                   min="1"

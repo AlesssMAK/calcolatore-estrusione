@@ -2,11 +2,8 @@ import { z } from 'zod';
 import type { CalculatorMode } from './types';
 
 const sizeSchema = z.object({
-  sheets: z
-    .number({ error: 'required' })
-    .int('integer')
-    .positive('positive'),
-  length: z.number({ error: 'required' }).positive('positive'),
+  sheets: z.number().int('integer').positive('positive').optional(),
+  length: z.number().positive('positive').optional(),
 });
 
 const orderSchema = z.object({
@@ -71,50 +68,54 @@ export const buildFormSchema = (mode: CalculatorMode) =>
         }
       }
 
-      if (mode === 'sheets') {
-        orders.forEach((order, idx) => {
-          if (order.useTotalLength) {
-            if (!order.totalLengthM || order.totalLengthM <= 0) {
-              ctx.addIssue({
-                code: 'custom',
-                path: ['orders', idx, 'totalLengthM'],
-                message: 'positive',
-              });
-            }
-          } else if (!order.sizes || order.sizes.length === 0) {
+      orders.forEach((order, idx) => {
+        if (order.useTotalLength) {
+          if (!order.totalLengthM || order.totalLengthM <= 0) {
             ctx.addIssue({
               code: 'custom',
-              path: ['orders', idx, 'sizes'],
-              message: 'minRequired',
+              path: ['orders', idx, 'totalLengthM'],
+              message: 'positive',
             });
           }
-        });
-      }
+          return;
+        }
 
-      if (mode === 'profiles') {
-        orders.forEach((order, idx) => {
-          if (!order.sheets || order.sheets <= 0) {
+        if (!order.sizes || order.sizes.length === 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', idx, 'sizes'],
+            message: 'minRequired',
+          });
+          return;
+        }
+
+        order.sizes.forEach((size, sIdx) => {
+          if (!size.sheets || size.sheets <= 0) {
             ctx.addIssue({
               code: 'custom',
-              path: ['orders', idx, 'sheets'],
+              path: ['orders', idx, 'sizes', sIdx, 'sheets'],
               message: 'positive',
             });
           }
-          if (!order.sheetLengthMm || order.sheetLengthMm <= 0) {
+          if (!size.length || size.length <= 0) {
             ctx.addIssue({
               code: 'custom',
-              path: ['orders', idx, 'sheetLengthMm'],
-              message: 'positive',
-            });
-          }
-          if (!order.profilesPerPackage || order.profilesPerPackage <= 0) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['orders', idx, 'profilesPerPackage'],
+              path: ['orders', idx, 'sizes', sIdx, 'length'],
               message: 'positive',
             });
           }
         });
+      });
+
+      if (mode === 'profiles' && orders.length > 0) {
+        const first = orders[0];
+        if (!first.profilesPerPackage || first.profilesPerPackage <= 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', 0, 'profilesPerPackage'],
+            message: 'positive',
+          });
+        }
       }
     });
 

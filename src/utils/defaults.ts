@@ -16,24 +16,21 @@ export function makeEmptyOrder(
   mode: CalculatorMode = 'sheets',
   inheritUseTotalLength = false,
 ): FormValues['orders'][number] {
-  if (mode === 'sheets') {
-    return {
-      id: genId(),
-      useTotalLength: inheritUseTotalLength,
-      totalLengthM: undefined,
-      sizes: [makeEmptySize()],
-      speedMPerMin: undefined,
-      gapAfterMin: undefined,
-    } as unknown as FormValues['orders'][number];
-  }
-  return {
+  const base = {
     id: genId(),
-    sheets: undefined,
-    sheetLengthMm: undefined,
+    useTotalLength: inheritUseTotalLength,
+    totalLengthM: undefined,
+    sizes: [makeEmptySize()],
     speedMPerMin: undefined,
     gapAfterMin: undefined,
-    profilesPerPackage: undefined,
-  } as unknown as FormValues['orders'][number];
+  };
+  if (mode === 'profiles') {
+    return {
+      ...base,
+      profilesPerPackage: undefined,
+    } as unknown as FormValues['orders'][number];
+  }
+  return base as unknown as FormValues['orders'][number];
 }
 
 export function buildEmptyDefaults(

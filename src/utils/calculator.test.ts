@@ -4,6 +4,7 @@ import {
   calculatePackages,
   calculateProductionMinutes,
   calculateSchedule,
+  calculateTotalProfiles,
   splitDuration,
 } from './calculator';
 import type { GlobalSettings, Order } from '../types';
@@ -50,6 +51,120 @@ describe('calculateOrderLengthM', () => {
         sizes: [{ sheets: 999, length: 9999 }],
       }),
     ).toBe(425.5);
+  });
+});
+
+describe('calculateTotalProfiles', () => {
+  it('returns sum of sizes[].sheets when present', () => {
+    expect(
+      calculateTotalProfiles({
+        id: '1',
+        sizes: [
+          { sheets: 100, length: 6000 },
+          { sheets: 50, length: 3000 },
+        ],
+      }),
+    ).toBe(150);
+  });
+
+  it('returns undefined when useTotalLength is true', () => {
+    expect(
+      calculateTotalProfiles({
+        id: '1',
+        useTotalLength: true,
+        totalLengthM: 100,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('falls back to legacy sheets field', () => {
+    expect(
+      calculateTotalProfiles({ id: '1', sheets: 42, sheetLengthMm: 1000 }),
+    ).toBe(42);
+  });
+});
+
+describe('calculateSchedule — profiles mode', () => {
+  it('packages from sizes[] sum / profilesPerPackage', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: '2026-04-23T10:00:00Z',
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [
+            { sheets: 100, length: 6000 },
+            { sheets: 50, length: 3000 },
+          ],
+          profilesPerPackage: 20,
+        },
+      ],
+      { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
+    );
+
+    expect(result.rows[0]!.packages).toBe(8);
+    expect(result.totalPackages).toBe(8);
+  });
+
+  it('profilesPerPackage falls back to last filled when omitted', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: '2026-04-23T10:00:00Z',
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000 }],
+          profilesPerPackage: 25,
+        },
+        { id: 'b', sizes: [{ sheets: 60, length: 6000 }] },
+        {
+          id: 'c',
+          sizes: [{ sheets: 40, length: 6000 }],
+          profilesPerPackage: 10,
+        },
+        { id: 'd', sizes: [{ sheets: 30, length: 6000 }] },
+      ],
+      { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
+    );
+
+    expect(result.rows[0]!.packages).toBe(4);
+    expect(result.rows[1]!.packages).toBe(3);
+    expect(result.rows[2]!.packages).toBe(4);
+    expect(result.rows[3]!.packages).toBe(3);
+  });
+
+  it('packages undefined when useTotalLength is on (count unknown)', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: '2026-04-23T10:00:00Z',
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 600,
+          profilesPerPackage: 20,
+        },
+      ],
+      { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
+    );
+
+    expect(result.rows[0]!.packages).toBeUndefined();
+    expect(result.totalPackages).toBe(0);
   });
 });
 

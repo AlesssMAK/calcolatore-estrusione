@@ -56,6 +56,7 @@
     "removeSize": "Rimuovi misura",
     "toggleTotalLength": "Metri totali",
     "totalLength": "Metri totali",
+    "optionalInherit": "opz. — eredita",
     "minRequired": "Almeno un ordine è richiesto."
   },
   "actions": {
@@ -79,6 +80,7 @@
       "profiles": "Profili",
       "sheetLength": "Lunghezza (mm)",
       "totalLength": "Metri totali",
+      "meters": "Metri",
       "speed": "Velocità (m/min)",
       "productionTime": "Tempo produzione",
       "packages": "Pacchi",
