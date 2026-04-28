@@ -359,9 +359,9 @@ function SheetsOrderFields({
       )}
 
       {(showSpeed || showGap) && (
-        <div className="grid grid-cols-1 gap-2 pt-1 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+        <div className="flex flex-wrap items-end gap-2 pt-1 sm:gap-3">
           {showSpeed && (
-            <div className="sm:min-w-[140px] sm:flex-1">
+            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
               <label className={labelBase}>{t('orders.speed')}</label>
               <input
                 type="number"
@@ -384,7 +384,7 @@ function SheetsOrderFields({
           )}
 
           {showGap && (
-            <div className="sm:min-w-[140px] sm:flex-1">
+            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
               <label className={labelBase}>{t('orders.gapAfter')}</label>
               <input
                 type="number"
