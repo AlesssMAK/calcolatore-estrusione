@@ -57,6 +57,14 @@
     "toggleTotalLength": "Metros totales",
     "totalLength": "Metros totales",
     "optionalInherit": "opc. — hereda",
+    "advancedToggle": "Cálculo avanzado",
+    "advanced": {
+      "profilesProduced": "Perfiles producidos",
+      "packagesProduced": "Paquetes producidos",
+      "sheetsProduced": "Láminas producidas",
+      "sheetsPerPallet": "Láminas por palet",
+      "palletsProduced": "Palets producidos"
+    },
     "minRequired": "Se requiere al menos un pedido."
   },
   "actions": {
@@ -87,7 +95,9 @@
       "start": "Inicio",
       "end": "Fin"
     },
-    "empty": "Introduce los pedidos y pulsa «Calcular»."
+    "empty": "Introduce los pedidos y pulsa «Calcular».",
+    "produced": "Producidos",
+    "remaining": "Pendientes"
   },
   "units": {
     "day": "d",

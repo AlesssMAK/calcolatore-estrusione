@@ -57,6 +57,14 @@
     "toggleTotalLength": "Metri totali",
     "totalLength": "Metri totali",
     "optionalInherit": "opz. — eredita",
+    "advancedToggle": "Calcolo avanzato",
+    "advanced": {
+      "profilesProduced": "Profili prodotti",
+      "packagesProduced": "Pacchi prodotti",
+      "sheetsProduced": "Lastre prodotte",
+      "sheetsPerPallet": "Lastre per bancale",
+      "palletsProduced": "Bancali prodotti"
+    },
     "minRequired": "Almeno un ordine è richiesto."
   },
   "actions": {
@@ -87,7 +95,9 @@
       "start": "Inizio",
       "end": "Fine"
     },
-    "empty": "Inserisci gli ordini e premi «Calcola»."
+    "empty": "Inserisci gli ordini e premi «Calcola».",
+    "produced": "Prodotti",
+    "remaining": "Rimanenti"
   },
   "units": {
     "day": "g",

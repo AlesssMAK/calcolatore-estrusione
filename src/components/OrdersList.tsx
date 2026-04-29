@@ -304,6 +304,187 @@ function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) 
           )}
         </div>
       )}
+
+      <AdvancedSection idx={idx} mode={mode} t={t} />
+    </div>
+  );
+}
+
+type ProducedFieldName =
+  | 'producedProfiles'
+  | 'producedPackages'
+  | 'producedSheets'
+  | 'sheetsPerPallet'
+  | 'producedPallets';
+
+function AdvancedSection({
+  idx,
+  mode,
+  t,
+}: {
+  idx: number;
+  mode: CalculatorMode;
+  t: TFunction;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { control } = useFormContext<FormValues>();
+
+  const isProfiles = mode === 'profiles';
+
+  const watchProfiles = useWatch({
+    control,
+    name: `orders.${idx}.producedProfiles`,
+  });
+  const watchPackages = useWatch({
+    control,
+    name: `orders.${idx}.producedPackages`,
+  });
+  const watchSheets = useWatch({
+    control,
+    name: `orders.${idx}.producedSheets`,
+  });
+  const watchPerPallet = useWatch({
+    control,
+    name: `orders.${idx}.sheetsPerPallet`,
+  });
+  const watchPallets = useWatch({
+    control,
+    name: `orders.${idx}.producedPallets`,
+  });
+
+  const sumOf = (arr: { value?: number }[] | undefined) =>
+    (arr ?? []).reduce((sum, e) => sum + (e?.value ?? 0), 0);
+
+  const profilesEntered = sumOf(watchProfiles) > 0;
+  const packagesEntered = sumOf(watchPackages) > 0;
+  const sheetsEntered = sumOf(watchSheets) > 0;
+  const perPalletEntered = sumOf(watchPerPallet) > 0;
+  const palletsEntered = sumOf(watchPallets) > 0;
+
+  return (
+    <div className="pt-2">
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        aria-expanded={expanded}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
+      >
+        {expanded ? '▾' : '▸'} {t('orders.advancedToggle')}
+      </button>
+
+      {expanded && (
+        <div className="mt-2 space-y-3 rounded-md border border-brand-100 bg-brand-50/40 p-3">
+          {isProfiles ? (
+            <>
+              <ProducedEntriesArray
+                fieldName="producedProfiles"
+                orderIdx={idx}
+                label={t('orders.advanced.profilesProduced')}
+                disabled={packagesEntered}
+                t={t}
+              />
+              <ProducedEntriesArray
+                fieldName="producedPackages"
+                orderIdx={idx}
+                label={t('orders.advanced.packagesProduced')}
+                disabled={profilesEntered}
+                t={t}
+              />
+            </>
+          ) : (
+            <>
+              <ProducedEntriesArray
+                fieldName="producedSheets"
+                orderIdx={idx}
+                label={t('orders.advanced.sheetsProduced')}
+                disabled={palletsEntered}
+                t={t}
+              />
+              <ProducedEntriesArray
+                fieldName="sheetsPerPallet"
+                orderIdx={idx}
+                label={t('orders.advanced.sheetsPerPallet')}
+                t={t}
+              />
+              <ProducedEntriesArray
+                fieldName="producedPallets"
+                orderIdx={idx}
+                label={t('orders.advanced.palletsProduced')}
+                disabled={!perPalletEntered || sheetsEntered}
+                t={t}
+              />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProducedEntriesArray({
+  fieldName,
+  orderIdx,
+  label,
+  disabled = false,
+  t,
+}: {
+  fieldName: ProducedFieldName;
+  orderIdx: number;
+  label: string;
+  disabled?: boolean;
+  t: TFunction;
+}) {
+  const { register, control } = useFormContext<FormValues>();
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.${fieldName}`,
+  });
+
+  return (
+    <div className={disabled ? 'pointer-events-none opacity-40' : ''}>
+      <label className={labelBase}>{label}</label>
+      <div className="mt-1 space-y-2">
+        {fields.map((field, sIdx) => (
+          <div
+            key={field.id}
+            className="grid grid-cols-[1fr_auto_auto] items-center gap-2"
+          >
+            <input
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              disabled={disabled}
+              className={inputBase}
+              {...register(
+                `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
+                { setValueAs: numericSetValueAs },
+              )}
+            />
+            <button
+              type="button"
+              onClick={() => remove(sIdx)}
+              disabled={disabled || fields.length <= 1}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft"
+              aria-label={t('orders.removeSize')}
+              title={t('orders.removeSize')}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={() => append({ value: undefined })}
+              disabled={disabled}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={t('orders.addSize')}
+              title={t('orders.addSize')}
+            >
+              +
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

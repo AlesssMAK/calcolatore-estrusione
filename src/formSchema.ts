@@ -6,6 +6,10 @@ const sizeSchema = z.object({
   length: z.number().positive('positive').optional(),
 });
 
+const producedEntrySchema = z.object({
+  value: z.number().min(0, 'nonNegative').optional(),
+});
+
 const orderSchema = z.object({
   id: z.string(),
   useTotalLength: z.boolean().optional(),
@@ -20,6 +24,11 @@ const orderSchema = z.object({
     .int('integer')
     .positive('positive')
     .optional(),
+  producedProfiles: z.array(producedEntrySchema).optional(),
+  producedPackages: z.array(producedEntrySchema).optional(),
+  producedSheets: z.array(producedEntrySchema).optional(),
+  sheetsPerPallet: z.array(producedEntrySchema).optional(),
+  producedPallets: z.array(producedEntrySchema).optional(),
 });
 
 const settingsSchema = z.object({

@@ -57,6 +57,14 @@
     "toggleTotalLength": "Total meters",
     "totalLength": "Total meters",
     "optionalInherit": "optional — inherits",
+    "advancedToggle": "Advanced calculation",
+    "advanced": {
+      "profilesProduced": "Profiles produced",
+      "packagesProduced": "Packages produced",
+      "sheetsProduced": "Sheets produced",
+      "sheetsPerPallet": "Sheets per pallet",
+      "palletsProduced": "Pallets produced"
+    },
     "minRequired": "At least one order is required."
   },
   "actions": {
@@ -87,7 +95,9 @@
       "start": "Start",
       "end": "End"
     },
-    "empty": "Enter orders and click «Calculate»."
+    "empty": "Enter orders and click «Calculate».",
+    "produced": "Produced",
+    "remaining": "Remaining"
   },
   "units": {
     "day": "d",
