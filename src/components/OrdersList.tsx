@@ -373,7 +373,11 @@ function AdvancedSection({
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-3 rounded-md border border-brand-100 bg-brand-50/40 p-3">
+        <div
+          className={`mt-2 grid items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
+            isProfiles ? 'grid-cols-2' : 'grid-cols-3'
+          }`}
+        >
           {isProfiles ? (
             <>
               <ProducedEntriesArray
@@ -442,13 +446,15 @@ function ProducedEntriesArray({
   });
 
   return (
-    <div className={disabled ? 'pointer-events-none opacity-40' : ''}>
+    <div
+      className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
+    >
       <label className={labelBase}>{label}</label>
-      <div className="mt-1 space-y-2">
+      <div className="mt-1 space-y-1.5">
         {fields.map((field, sIdx) => (
           <div
             key={field.id}
-            className="grid grid-cols-[1fr_auto_auto] items-center gap-2"
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-2"
           >
             <input
               type="number"
@@ -456,7 +462,7 @@ function ProducedEntriesArray({
               step="1"
               inputMode="numeric"
               disabled={disabled}
-              className={inputBase}
+              className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
               {...register(
                 `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
                 { setValueAs: numericSetValueAs },
@@ -466,7 +472,7 @@ function ProducedEntriesArray({
               type="button"
               onClick={() => remove(sIdx)}
               disabled={disabled || fields.length <= 1}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-300 bg-white text-sm font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9 sm:text-base"
               aria-label={t('orders.removeSize')}
               title={t('orders.removeSize')}
             >
@@ -476,7 +482,7 @@ function ProducedEntriesArray({
               type="button"
               onClick={() => append({ value: undefined })}
               disabled={disabled}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-brand-300 bg-white text-sm font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base"
               aria-label={t('orders.addSize')}
               title={t('orders.addSize')}
             >

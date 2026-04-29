@@ -39,7 +39,7 @@ const settingsSchema = z.object({
   gapMode: z.enum(['continuous', 'withGaps']),
 });
 
-export const buildFormSchema = (mode: CalculatorMode) =>
+export const buildFormSchema = (_mode: CalculatorMode) =>
   z
     .object({
       settings: settingsSchema,
@@ -116,16 +116,6 @@ export const buildFormSchema = (mode: CalculatorMode) =>
         });
       });
 
-      if (mode === 'profiles' && orders.length > 0) {
-        const first = orders[0];
-        if (!first.profilesPerPackage || first.profilesPerPackage <= 0) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['orders', 0, 'profilesPerPackage'],
-            message: 'positive',
-          });
-        }
-      }
     });
 
 export type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;

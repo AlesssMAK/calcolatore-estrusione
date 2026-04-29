@@ -226,7 +226,7 @@ describe('calculateSchedule — profiles mode', () => {
     );
 
     expect(result.rows[0]!.packages).toBe(8);
-    expect(result.totalPackages).toBe(8);
+    expect(result.totalPackages).toBeUndefined();
   });
 
   it('profilesPerPackage falls back to last filled when omitted', () => {
@@ -282,7 +282,7 @@ describe('calculateSchedule — profiles mode', () => {
     );
 
     expect(result.rows[0]!.packages).toBeUndefined();
-    expect(result.totalPackages).toBe(0);
+    expect(result.totalPackages).toBeUndefined();
   });
 });
 
@@ -488,22 +488,21 @@ describe('calculateSchedule — profiles mode', () => {
     expect(result.mode).toBe('profiles');
     expect(result.rows[0]!.packages).toBe(4);
     expect(result.rows[1]!.packages).toBe(6);
-    expect(result.totalPackages).toBe(10);
+    expect(result.totalPackages).toBeUndefined();
   });
 
-  it('throws if profilesPerPackage missing in profiles mode', () => {
-    expect(() =>
-      calculateSchedule(
-        {
-          startMode: 'now',
-          speedMode: 'global',
-          globalSpeed: 5,
-          gapMode: 'continuous',
-        },
-        [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],
-        { mode: 'profiles' },
-      ),
-    ).toThrow();
+  it('packages undefined when profilesPerPackage missing (now optional)', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'now',
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],
+      { mode: 'profiles' },
+    );
+    expect(result.rows[0]!.packages).toBeUndefined();
   });
 });
 

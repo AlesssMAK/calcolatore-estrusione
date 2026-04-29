@@ -230,7 +230,7 @@ export function calculateSchedule(
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
   let totalGapMinutes = 0;
-  let totalPackages: number | undefined = mode === 'profiles' ? 0 : undefined;
+  const totalPackages: number | undefined = undefined;
   let lastSpeed: number | undefined;
   let lastPerPackage: number | undefined;
 
@@ -265,24 +265,24 @@ export function calculateSchedule(
         order.profilesPerPackage && order.profilesPerPackage > 0
           ? order.profilesPerPackage
           : lastPerPackage;
-      if (!perPackage || perPackage <= 0) {
-        throw new Error('profilesPerPackage required in profiles mode');
-      }
-      lastPerPackage = perPackage;
 
       totalProfiles = calculateTotalProfiles(order);
-      if (totalProfiles !== undefined) {
-        packages = Math.ceil(totalProfiles / perPackage);
-        totalPackages = (totalPackages ?? 0) + packages;
-      }
 
-      const produced = calculateProducedProfiles(order, perPackage);
-      if (produced) {
-        producedProfiles = produced.producedProfiles;
-        producedPackages = produced.producedPackages;
-        remainingProfiles = produced.remainingProfiles;
-        remainingPackages = produced.remainingPackages;
-        fraction = produced.fraction;
+      if (perPackage && perPackage > 0) {
+        lastPerPackage = perPackage;
+
+        if (totalProfiles !== undefined) {
+          packages = Math.ceil(totalProfiles / perPackage);
+        }
+
+        const produced = calculateProducedProfiles(order, perPackage);
+        if (produced) {
+          producedProfiles = produced.producedProfiles;
+          producedPackages = produced.producedPackages;
+          remainingProfiles = produced.remainingProfiles;
+          remainingPackages = produced.remainingPackages;
+          fraction = produced.fraction;
+        }
       }
     } else {
       const produced = calculateProducedSheets(order);
