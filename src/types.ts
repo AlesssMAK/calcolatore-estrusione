@@ -24,6 +24,9 @@ export interface Order {
   profilesPerPackage?: number;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
+  producedSheets?: ProducedEntry[];
+  sheetsPerPallet?: ProducedEntry[];
+  producedPallets?: ProducedEntry[];
 }
 
 export interface ProducedSummary {
@@ -46,10 +49,22 @@ export interface ScheduledOrder {
   speedMPerMin: number;
   totalLengthM: number;
   productionMinutes: number;
+  remainingMinutes: number;
   start: Date;
   end: Date;
   gapAfterMin: number;
   packages?: number;
+  totalProfiles?: number;
+  producedProfiles?: number;
+  producedPackages?: number;
+  remainingProfiles?: number;
+  remainingPackages?: number;
+  totalSheets?: number;
+  producedSheets?: number;
+  producedPallets?: number;
+  remainingSheets?: number;
+  remainingPallets?: number;
+  sheetsPerPallet?: number;
 }
 
 export interface ScheduleResult {

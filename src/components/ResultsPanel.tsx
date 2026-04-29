@@ -66,8 +66,40 @@ function ResultsPanel({ result, mode, onReset }: Props) {
           ? `  →  ${row.packages} ${t('results.col.packages').toLowerCase()}`
           : '';
       lines.push(
-        `#${idx + 1}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.productionMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
+        `#${idx + 1}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
+
+      if (
+        row.producedProfiles !== undefined ||
+        row.producedSheets !== undefined
+      ) {
+        const parts: string[] = [];
+        if (row.producedProfiles !== undefined) {
+          parts.push(
+            `${t('results.produced')}: ${row.producedProfiles}/${row.totalProfiles ?? '?'} prof.`,
+          );
+          if (row.producedPackages !== undefined) {
+            parts.push(`${row.producedPackages} pacchi`);
+          }
+          if (row.remainingProfiles !== undefined) {
+            parts.push(`${t('results.remaining')}: ${row.remainingProfiles}`);
+          }
+        }
+        if (row.producedSheets !== undefined) {
+          parts.push(
+            `${t('results.produced')}: ${row.producedSheets}${row.totalSheets ? `/${row.totalSheets}` : ''} pz.`,
+          );
+          if (row.producedPallets !== undefined) {
+            parts.push(`${row.producedPallets} bancali`);
+          }
+          if (row.remainingSheets !== undefined) {
+            parts.push(`${t('results.remaining')}: ${row.remainingSheets}`);
+          }
+        }
+        if (parts.length > 0) {
+          lines.push(`     ${parts.join(' · ')}`);
+        }
+      }
     });
 
     return lines.join('\n');
@@ -168,7 +200,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                     #{idx + 1}
                   </span>
                   <span className="text-sm font-semibold text-brand-700">
-                    {formatDuration(row.productionMinutes, units)}
+                    {formatDuration(row.remainingMinutes, units)}
                   </span>
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
@@ -207,6 +239,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                     {formatShortDateTime(row.end, lang)}
                   </dd>
                 </dl>
+
+                {(row.producedProfiles !== undefined ||
+                  row.producedSheets !== undefined) && (
+                  <ProducedRemainingBlock row={row} t={t} mode={mode} />
+                )}
               </li>
             );
           })}
@@ -250,7 +287,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                     </td>
                     <td className="py-2 pr-3">{row.speedMPerMin}</td>
                     <td className="py-2 pr-3 font-medium">
-                      {formatDuration(row.productionMinutes, units)}
+                      {formatDuration(row.remainingMinutes, units)}
                     </td>
                     {isProfiles && (
                       <td className="py-2 pr-3 font-medium text-brand-700">
@@ -306,6 +343,90 @@ function SummaryItem({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+function ProducedRemainingBlock({
+  row,
+  t,
+  mode,
+}: {
+  row: ScheduledOrder;
+  t: ReturnType<typeof useTranslation>['t'];
+  mode: CalculatorMode;
+}) {
+  const isProfiles = mode === 'profiles';
+  return (
+    <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
+      {isProfiles && row.producedProfiles !== undefined && (
+        <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
+          <dt className="text-ink-soft">{t('orders.advanced.profilesProduced')}</dt>
+          <dd className="font-medium text-ink">
+            {row.producedProfiles}
+            {row.totalProfiles !== undefined && (
+              <span className="text-ink-soft"> / {row.totalProfiles}</span>
+            )}
+          </dd>
+          <dd className="text-right font-semibold text-brand-700">
+            {row.remainingProfiles !== undefined
+              ? `↓ ${row.remainingProfiles}`
+              : '—'}
+          </dd>
+
+          {row.producedPackages !== undefined && (
+            <>
+              <dt className="text-ink-soft">
+                {t('orders.advanced.packagesProduced')}
+              </dt>
+              <dd className="font-medium text-ink">
+                {row.producedPackages}
+                {row.packages !== undefined && (
+                  <span className="text-ink-soft"> / {row.packages}</span>
+                )}
+              </dd>
+              <dd className="text-right font-semibold text-brand-700">
+                {row.remainingPackages !== undefined
+                  ? `↓ ${row.remainingPackages}`
+                  : '—'}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+
+      {!isProfiles && row.producedSheets !== undefined && (
+        <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
+          <dt className="text-ink-soft">
+            {t('orders.advanced.sheetsProduced')}
+          </dt>
+          <dd className="font-medium text-ink">
+            {row.producedSheets}
+            {row.totalSheets !== undefined && (
+              <span className="text-ink-soft"> / {row.totalSheets}</span>
+            )}
+          </dd>
+          <dd className="text-right font-semibold text-brand-700">
+            {row.remainingSheets !== undefined
+              ? `↓ ${row.remainingSheets}`
+              : '—'}
+          </dd>
+
+          {row.producedPallets !== undefined && (
+            <>
+              <dt className="text-ink-soft">
+                {t('orders.advanced.palletsProduced')}
+              </dt>
+              <dd className="font-medium text-ink">{row.producedPallets}</dd>
+              <dd className="text-right font-semibold text-brand-700">
+                {row.remainingPallets !== undefined
+                  ? `↓ ${row.remainingPallets}`
+                  : '—'}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
     </div>
   );
 }

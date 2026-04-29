@@ -3,9 +3,15 @@ import type {
   CalculatorMode,
   GlobalSettings,
   Order,
+  ProducedEntry,
   ScheduleResult,
   ScheduledOrder,
 } from '../types';
+
+export function sumEntries(entries: ProducedEntry[] | undefined): number {
+  if (!entries) return 0;
+  return entries.reduce((sum, e) => sum + (e?.value ?? 0), 0);
+}
 
 export function calculateTotalProfiles(order: Order): number | undefined {
   if (order.useTotalLength) return undefined;
@@ -88,6 +94,120 @@ function resolveSpeed(
   return candidate;
 }
 
+export interface ProducedProfilesResult {
+  totalProfiles: number;
+  producedProfiles: number;
+  producedPackages: number;
+  remainingProfiles: number;
+  remainingPackages: number;
+  fraction: number;
+}
+
+export interface ProducedSheetsResult {
+  totalSheets?: number;
+  producedSheets: number;
+  producedPallets?: number;
+  sheetsPerPallet?: number;
+  remainingSheets?: number;
+  remainingPallets?: number;
+  fraction: number;
+}
+
+export function calculateProducedProfiles(
+  order: Order,
+  perPackage: number,
+): ProducedProfilesResult | undefined {
+  if (order.useTotalLength) return undefined;
+  const total = calculateTotalProfiles(order);
+  if (total === undefined || total <= 0) return undefined;
+
+  const profilesEntered = sumEntries(order.producedProfiles);
+  const packagesEntered = sumEntries(order.producedPackages);
+
+  let producedProfiles = 0;
+  if (profilesEntered > 0) {
+    producedProfiles = profilesEntered;
+  } else if (packagesEntered > 0) {
+    producedProfiles = packagesEntered * perPackage;
+  }
+
+  const cappedProduced = Math.min(producedProfiles, total);
+  const producedPackages = Math.ceil(cappedProduced / perPackage);
+  const totalPackages = Math.ceil(total / perPackage);
+  const fraction = total > 0 ? cappedProduced / total : 0;
+
+  return {
+    totalProfiles: total,
+    producedProfiles: cappedProduced,
+    producedPackages,
+    remainingProfiles: Math.max(0, total - cappedProduced),
+    remainingPackages: Math.max(0, totalPackages - producedPackages),
+    fraction,
+  };
+}
+
+export function calculateProducedSheets(
+  order: Order,
+): ProducedSheetsResult | undefined {
+  const totalSheets = order.useTotalLength
+    ? undefined
+    : calculateTotalProfiles(order);
+
+  const sheetsEntered = sumEntries(order.producedSheets);
+  const palletsEntered = sumEntries(order.producedPallets);
+  const perPalletSum = sumEntries(order.sheetsPerPallet);
+  const sheetsPerPallet = perPalletSum > 0 ? perPalletSum : undefined;
+
+  let producedSheets = 0;
+  if (sheetsEntered > 0) {
+    producedSheets = sheetsEntered;
+  } else if (palletsEntered > 0 && sheetsPerPallet) {
+    producedSheets = palletsEntered * sheetsPerPallet;
+  }
+
+  if (
+    producedSheets === 0 &&
+    sheetsEntered === 0 &&
+    palletsEntered === 0 &&
+    !sheetsPerPallet
+  ) {
+    return undefined;
+  }
+
+  const cappedProduced = totalSheets
+    ? Math.min(producedSheets, totalSheets)
+    : producedSheets;
+
+  const producedPallets = sheetsPerPallet
+    ? Math.ceil(cappedProduced / sheetsPerPallet)
+    : undefined;
+
+  const remainingSheets =
+    totalSheets !== undefined
+      ? Math.max(0, totalSheets - cappedProduced)
+      : undefined;
+  const remainingPallets =
+    totalSheets !== undefined && sheetsPerPallet
+      ? Math.max(
+          0,
+          Math.ceil(totalSheets / sheetsPerPallet) - (producedPallets ?? 0),
+        )
+      : undefined;
+
+  const fraction =
+    totalSheets && totalSheets > 0 ? cappedProduced / totalSheets : 0;
+
+  return {
+    totalSheets,
+    producedSheets: cappedProduced,
+    producedPallets,
+    sheetsPerPallet,
+    remainingSheets,
+    remainingPallets,
+    fraction,
+  };
+}
+
 interface ScheduleOptions {
   now?: Date;
   mode?: CalculatorMode;
@@ -110,7 +230,7 @@ export function calculateSchedule(
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
   let totalGapMinutes = 0;
-  let totalPackages: number | undefined = mode === 'profiles' ? 0 : undefined;
+  const totalPackages: number | undefined = undefined;
   let lastSpeed: number | undefined;
   let lastPerPackage: number | undefined;
 
@@ -120,9 +240,6 @@ export function calculateSchedule(
     const totalLengthM = calculateOrderLengthM(order);
     const productionMinutes = totalLengthM / speedMPerMin;
 
-    const start = cursor;
-    const end = addMinutes(start, productionMinutes);
-
     const isLast = idx === orders.length - 1;
     const gapAfterMin =
       !isLast && settings.gapMode === 'withGaps'
@@ -130,35 +247,84 @@ export function calculateSchedule(
         : 0;
 
     let packages: number | undefined;
+    let totalProfiles: number | undefined;
+    let producedProfiles: number | undefined;
+    let producedPackages: number | undefined;
+    let remainingProfiles: number | undefined;
+    let remainingPackages: number | undefined;
+    let totalSheets: number | undefined;
+    let producedSheetsCount: number | undefined;
+    let producedPallets: number | undefined;
+    let sheetsPerPalletVal: number | undefined;
+    let remainingSheets: number | undefined;
+    let remainingPallets: number | undefined;
+    let fraction = 0;
+
     if (mode === 'profiles') {
       const perPackage =
         order.profilesPerPackage && order.profilesPerPackage > 0
           ? order.profilesPerPackage
           : lastPerPackage;
-      if (!perPackage || perPackage <= 0) {
-        throw new Error('profilesPerPackage required in profiles mode');
-      }
-      lastPerPackage = perPackage;
 
-      const totalProfiles = calculateTotalProfiles(order);
-      if (totalProfiles !== undefined) {
-        packages = Math.ceil(totalProfiles / perPackage);
-        totalPackages = (totalPackages ?? 0) + packages;
+      totalProfiles = calculateTotalProfiles(order);
+
+      if (perPackage && perPackage > 0) {
+        lastPerPackage = perPackage;
+
+        if (totalProfiles !== undefined) {
+          packages = Math.ceil(totalProfiles / perPackage);
+        }
+
+        const produced = calculateProducedProfiles(order, perPackage);
+        if (produced) {
+          producedProfiles = produced.producedProfiles;
+          producedPackages = produced.producedPackages;
+          remainingProfiles = produced.remainingProfiles;
+          remainingPackages = produced.remainingPackages;
+          fraction = produced.fraction;
+        }
+      }
+    } else {
+      const produced = calculateProducedSheets(order);
+      if (produced) {
+        totalSheets = produced.totalSheets;
+        producedSheetsCount = produced.producedSheets;
+        producedPallets = produced.producedPallets;
+        sheetsPerPalletVal = produced.sheetsPerPallet;
+        remainingSheets = produced.remainingSheets;
+        remainingPallets = produced.remainingPallets;
+        fraction = produced.fraction;
       }
     }
+
+    const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
+    const start = cursor;
+    const end = addMinutes(start, remainingMinutes);
 
     rows.push({
       order,
       speedMPerMin,
       totalLengthM,
       productionMinutes,
+      remainingMinutes,
       start,
       end,
       gapAfterMin,
       packages,
+      totalProfiles,
+      producedProfiles,
+      producedPackages,
+      remainingProfiles,
+      remainingPackages,
+      totalSheets,
+      producedSheets: producedSheetsCount,
+      producedPallets,
+      sheetsPerPallet: sheetsPerPalletVal,
+      remainingSheets,
+      remainingPallets,
     });
 
-    totalProductionMinutes += productionMinutes;
+    totalProductionMinutes += remainingMinutes;
     totalGapMinutes += gapAfterMin;
     cursor = addMinutes(end, gapAfterMin);
   });

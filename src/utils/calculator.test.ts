@@ -84,6 +84,124 @@ describe('calculateTotalProfiles', () => {
   });
 });
 
+describe('calculateSchedule — produced (profiles)', () => {
+  it('producedProfiles shortens remaining time proportionally', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000 }],
+          profilesPerPackage: 20,
+          producedProfiles: [{ value: 50 }],
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+
+    const row = result.rows[0]!;
+    expect(row.totalProfiles).toBe(100);
+    expect(row.producedProfiles).toBe(50);
+    expect(row.remainingProfiles).toBe(50);
+    expect(row.producedPackages).toBe(3);
+    expect(row.productionMinutes).toBe(120);
+    expect(row.remainingMinutes).toBe(60);
+  });
+
+  it('producedPackages cross-converts to producedProfiles via perPackage', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000 }],
+          profilesPerPackage: 20,
+          producedPackages: [{ value: 2 }],
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+
+    const row = result.rows[0]!;
+    expect(row.producedProfiles).toBe(40);
+    expect(row.producedPackages).toBe(2);
+    expect(row.remainingProfiles).toBe(60);
+  });
+});
+
+describe('calculateSchedule — produced (sheets)', () => {
+  it('producedSheets shortens time and computes producedPallets when perPallet given', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 200, length: 6000 }],
+          producedSheets: [{ value: 50 }],
+          sheetsPerPallet: [{ value: 25 }],
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+
+    const row = result.rows[0]!;
+    expect(row.totalSheets).toBe(200);
+    expect(row.producedSheets).toBe(50);
+    expect(row.producedPallets).toBe(2);
+    expect(row.remainingSheets).toBe(150);
+    expect(row.productionMinutes).toBe(240);
+    expect(row.remainingMinutes).toBe(180);
+  });
+
+  it('producedPallets + perPallet cross-converts to producedSheets', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 200, length: 6000 }],
+          sheetsPerPallet: [{ value: 25 }],
+          producedPallets: [{ value: 2 }],
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+
+    const row = result.rows[0]!;
+    expect(row.producedSheets).toBe(50);
+    expect(row.producedPallets).toBe(2);
+    expect(row.remainingSheets).toBe(150);
+  });
+});
+
 describe('calculateSchedule — profiles mode', () => {
   it('packages from sizes[] sum / profilesPerPackage', () => {
     const result = calculateSchedule(
@@ -108,7 +226,7 @@ describe('calculateSchedule — profiles mode', () => {
     );
 
     expect(result.rows[0]!.packages).toBe(8);
-    expect(result.totalPackages).toBe(8);
+    expect(result.totalPackages).toBeUndefined();
   });
 
   it('profilesPerPackage falls back to last filled when omitted', () => {
@@ -164,7 +282,7 @@ describe('calculateSchedule — profiles mode', () => {
     );
 
     expect(result.rows[0]!.packages).toBeUndefined();
-    expect(result.totalPackages).toBe(0);
+    expect(result.totalPackages).toBeUndefined();
   });
 });
 
@@ -370,22 +488,21 @@ describe('calculateSchedule — profiles mode', () => {
     expect(result.mode).toBe('profiles');
     expect(result.rows[0]!.packages).toBe(4);
     expect(result.rows[1]!.packages).toBe(6);
-    expect(result.totalPackages).toBe(10);
+    expect(result.totalPackages).toBeUndefined();
   });
 
-  it('throws if profilesPerPackage missing in profiles mode', () => {
-    expect(() =>
-      calculateSchedule(
-        {
-          startMode: 'now',
-          speedMode: 'global',
-          globalSpeed: 5,
-          gapMode: 'continuous',
-        },
-        [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],
-        { mode: 'profiles' },
-      ),
-    ).toThrow();
+  it('packages undefined when profilesPerPackage missing (now optional)', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'now',
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],
+      { mode: 'profiles' },
+    );
+    expect(result.rows[0]!.packages).toBeUndefined();
   });
 });
 

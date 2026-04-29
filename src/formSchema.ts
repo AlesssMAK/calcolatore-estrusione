@@ -6,6 +6,10 @@ const sizeSchema = z.object({
   length: z.number().positive('positive').optional(),
 });
 
+const producedEntrySchema = z.object({
+  value: z.number().min(0, 'nonNegative').optional(),
+});
+
 const orderSchema = z.object({
   id: z.string(),
   useTotalLength: z.boolean().optional(),
@@ -20,6 +24,11 @@ const orderSchema = z.object({
     .int('integer')
     .positive('positive')
     .optional(),
+  producedProfiles: z.array(producedEntrySchema).optional(),
+  producedPackages: z.array(producedEntrySchema).optional(),
+  producedSheets: z.array(producedEntrySchema).optional(),
+  sheetsPerPallet: z.array(producedEntrySchema).optional(),
+  producedPallets: z.array(producedEntrySchema).optional(),
 });
 
 const settingsSchema = z.object({
@@ -30,7 +39,7 @@ const settingsSchema = z.object({
   gapMode: z.enum(['continuous', 'withGaps']),
 });
 
-export const buildFormSchema = (mode: CalculatorMode) =>
+export const buildFormSchema = (_mode: CalculatorMode) =>
   z
     .object({
       settings: settingsSchema,
@@ -107,16 +116,6 @@ export const buildFormSchema = (mode: CalculatorMode) =>
         });
       });
 
-      if (mode === 'profiles' && orders.length > 0) {
-        const first = orders[0];
-        if (!first.profilesPerPackage || first.profilesPerPackage <= 0) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['orders', 0, 'profilesPerPackage'],
-            message: 'positive',
-          });
-        }
-      }
     });
 
 export type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;

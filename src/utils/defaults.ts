@@ -12,6 +12,8 @@ export function makeEmptySize(): NonNullable<
   } as unknown as NonNullable<FormValues['orders'][number]['sizes']>[number];
 }
 
+const emptyProducedEntry = (): { value?: number } => ({ value: undefined });
+
 export function makeEmptyOrder(
   mode: CalculatorMode = 'sheets',
   inheritUseTotalLength = false,
@@ -28,9 +30,16 @@ export function makeEmptyOrder(
     return {
       ...base,
       profilesPerPackage: undefined,
+      producedProfiles: [emptyProducedEntry()],
+      producedPackages: [emptyProducedEntry()],
     } as unknown as FormValues['orders'][number];
   }
-  return base as unknown as FormValues['orders'][number];
+  return {
+    ...base,
+    producedSheets: [emptyProducedEntry()],
+    sheetsPerPallet: [emptyProducedEntry()],
+    producedPallets: [emptyProducedEntry()],
+  } as unknown as FormValues['orders'][number];
 }
 
 export function buildEmptyDefaults(
