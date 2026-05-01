@@ -97,7 +97,8 @@
     },
     "empty": "Enter orders and click «Calculate».",
     "produced": "Produced",
-    "remaining": "Remaining"
+    "remaining": "Remaining",
+    "timeToFinish": "Time for the remainder"
   },
   "units": {
     "day": "d",

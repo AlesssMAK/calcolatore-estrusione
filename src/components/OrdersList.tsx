@@ -383,29 +383,18 @@ function AdvancedSection({
       </button>
 
       {expanded && (
-        <div className="mt-2 grid grid-cols-2 items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 sm:grid-cols-3">
-          {useTotalLength ? (
-            <>
-              <ProducedEntriesArray
-                fieldName={isProfiles ? 'producedProfiles' : 'producedSheets'}
-                orderIdx={idx}
-                label={
-                  isProfiles
-                    ? t('orders.advanced.profilesProduced')
-                    : t('orders.advanced.sheetsProduced')
-                }
-                t={t}
-              />
-              <ItemLengthInput
-                idx={idx}
-                label={
-                  isProfiles
-                    ? t('orders.profileLength')
-                    : t('orders.sheetLength')
-                }
-              />
-            </>
-          ) : isProfiles ? (
+        <div
+          className={`mt-2 grid grid-cols-2 items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
+            isProfiles
+              ? useTotalLength
+                ? 'sm:grid-cols-3'
+                : 'sm:grid-cols-2'
+              : useTotalLength
+                ? 'sm:grid-cols-4'
+                : 'sm:grid-cols-3'
+          }`}
+        >
+          {isProfiles ? (
             <>
               <ProducedEntriesArray
                 fieldName="producedProfiles"
@@ -437,7 +426,11 @@ function AdvancedSection({
                 label={t('orders.advanced.sheetsPerPallet')}
                 t={t}
               />
-              <div className="col-span-2 sm:col-span-1">
+              <div
+                className={
+                  useTotalLength ? '' : 'col-span-2 sm:col-span-1'
+                }
+              >
                 <ProducedEntriesArray
                   fieldName="producedPallets"
                   orderIdx={idx}
@@ -447,6 +440,19 @@ function AdvancedSection({
                 />
               </div>
             </>
+          )}
+
+          {useTotalLength && (
+            <div className="col-span-2 sm:col-span-1">
+              <ItemLengthInput
+                idx={idx}
+                label={
+                  isProfiles
+                    ? t('orders.profileLength')
+                    : t('orders.sheetLength')
+                }
+              />
+            </div>
           )}
         </div>
       )}

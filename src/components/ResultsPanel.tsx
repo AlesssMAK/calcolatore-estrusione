@@ -96,6 +96,9 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             parts.push(`${t('results.remaining')}: ${row.remainingSheets}`);
           }
         }
+        parts.push(
+          `${t('results.timeToFinish')}: ${formatDuration(row.remainingMinutes, units)}`,
+        );
         if (parts.length > 0) {
           lines.push(`     ${parts.join(' · ')}`);
         }
@@ -377,6 +380,11 @@ function ProducedRemainingBlock({
   mode: CalculatorMode;
 }) {
   const isProfiles = mode === 'profiles';
+  const units = {
+    day: t('units.day'),
+    hour: t('units.hour'),
+    minute: t('units.minute'),
+  };
   return (
     <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
       {isProfiles && row.producedProfiles !== undefined && (
@@ -447,6 +455,13 @@ function ProducedRemainingBlock({
           )}
         </dl>
       )}
+
+      <div className="mt-2 flex items-center justify-between border-t border-brand-200 pt-1.5">
+        <span className="text-ink-soft">{t('results.timeToFinish')}</span>
+        <span className="font-semibold text-brand-700">
+          {formatDuration(row.remainingMinutes, units)}
+        </span>
+      </div>
     </div>
   );
 }

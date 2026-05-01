@@ -97,7 +97,8 @@
     },
     "empty": "Introduce los pedidos y pulsa «Calcular».",
     "produced": "Producidos",
-    "remaining": "Pendientes"
+    "remaining": "Pendientes",
+    "timeToFinish": "Tiempo para el resto"
   },
   "units": {
     "day": "d",
