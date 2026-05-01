@@ -65,8 +65,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         isProfiles && row.packages !== undefined
           ? `  →  ${row.packages} ${t('results.col.packages').toLowerCase()}`
           : '';
+      const namePart = row.order.productName
+        ? ` ${row.order.productName}`
+        : '';
       lines.push(
-        `#${idx + 1}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
+        `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
 
       if (
@@ -198,11 +201,18 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                 key={row.order.id}
                 className="rounded-lg border border-neutral-200 bg-surface-alt p-3"
               >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
-                    #{idx + 1}
-                  </span>
-                  <span className="text-sm font-semibold text-brand-700">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
+                      #{idx + 1}
+                    </span>
+                    {row.order.productName && (
+                      <span className="truncate text-xs font-medium text-ink">
+                        {row.order.productName}
+                      </span>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold text-brand-700">
                     {formatDuration(row.remainingMinutes, units)}
                   </span>
                 </div>
@@ -287,8 +297,13 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                           : 'border-b border-neutral-100 last:border-b-0'
                       }
                     >
-                      <td className="py-2 pr-3 font-semibold text-brand-600">
+                      <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
                         #{idx + 1}
+                        {row.order.productName && (
+                          <span className="ml-2 font-medium text-ink">
+                            {row.order.productName}
+                          </span>
+                        )}
                       </td>
                       {isProfiles && (
                         <td className="py-2 pr-3">{profilesCount ?? '—'}</td>

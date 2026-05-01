@@ -52,6 +52,7 @@
     "speed": "Velocità (m/min)",
     "gapAfter": "Pausa dopo (min)",
     "profilesPerPackage": "Profili per pacco",
+    "productName": "Nome prodotto",
     "addSize": "Aggiungi misura",
     "removeSize": "Rimuovi misura",
     "toggleTotalLength": "Metri totali",

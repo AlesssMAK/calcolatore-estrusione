@@ -52,6 +52,7 @@
     "speed": "Speed (m/min)",
     "gapAfter": "Gap after (min)",
     "profilesPerPackage": "Profiles per package",
+    "productName": "Product name",
     "addSize": "Add size",
     "removeSize": "Remove size",
     "toggleTotalLength": "Total meters",

@@ -48,8 +48,13 @@ function OrdersList({ mode }: Props) {
 
   const appendOrder = () => {
     const last = watchedOrders?.[watchedOrders.length - 1];
-    const inherit = Boolean(last?.useTotalLength);
-    append(makeEmptyOrder(mode, inherit));
+    append(
+      makeEmptyOrder(
+        mode,
+        Boolean(last?.useTotalLength),
+        last?.productName ?? '',
+      ),
+    );
   };
 
   const topButtonRef = useRef<HTMLButtonElement>(null);
@@ -103,9 +108,7 @@ function OrdersList({ mode }: Props) {
               className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white sm:h-8 sm:text-sm">
-                  #{idx + 1}
-                </span>
+                <OrderNameField idx={idx} t={t} />
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -526,6 +529,40 @@ function ProducedEntriesArray({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
+  const { register, control } = useFormContext<FormValues>();
+  const value = useWatch({
+    control,
+    name: `orders.${idx}.productName`,
+    defaultValue: '',
+  });
+  const hasValue = typeof value === 'string' && value.length > 0;
+  const [open, setOpen] = useState(false);
+  const showInput = open || hasValue;
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title={t('orders.productName')}
+        className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm"
+      >
+        #{idx + 1}
+      </button>
+      {showInput && (
+        <input
+          type="text"
+          autoFocus={open && !hasValue}
+          placeholder={t('orders.productName')}
+          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
+          {...register(`orders.${idx}.productName`)}
+        />
+      )}
     </div>
   );
 }

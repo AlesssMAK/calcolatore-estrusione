@@ -14,6 +14,7 @@ export interface ProducedEntry {
 
 export interface Order {
   id: string;
+  productName?: string;
   useTotalLength?: boolean;
   totalLengthM?: number;
   sizes?: OrderSize[];
