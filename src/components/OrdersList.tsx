@@ -327,44 +327,44 @@ function AdvancedSection({
   t: TFunction;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { control } = useFormContext<FormValues>();
+  const { watch, getValues } = useFormContext<FormValues>();
 
   const isProfiles = mode === 'profiles';
-
-  const watchProfiles = useWatch({
-    control,
-    name: `orders.${idx}.producedProfiles`,
-    defaultValue: [],
-  });
-  const watchPackages = useWatch({
-    control,
-    name: `orders.${idx}.producedPackages`,
-    defaultValue: [],
-  });
-  const watchSheets = useWatch({
-    control,
-    name: `orders.${idx}.producedSheets`,
-    defaultValue: [],
-  });
-  const watchPerPallet = useWatch({
-    control,
-    name: `orders.${idx}.sheetsPerPallet`,
-    defaultValue: [],
-  });
-  const watchPallets = useWatch({
-    control,
-    name: `orders.${idx}.producedPallets`,
-    defaultValue: [],
-  });
 
   const sumOf = (arr: { value?: number }[] | undefined) =>
     (arr ?? []).reduce((sum, e) => sum + (e?.value ?? 0), 0);
 
-  const profilesEntered = sumOf(watchProfiles) > 0;
-  const packagesEntered = sumOf(watchPackages) > 0;
-  const sheetsEntered = sumOf(watchSheets) > 0;
-  const perPalletEntered = sumOf(watchPerPallet) > 0;
-  const palletsEntered = sumOf(watchPallets) > 0;
+  const orderPath = `orders.${idx}`;
+
+  const computeSums = () => {
+    const order = getValues(`orders.${idx}`);
+    return {
+      profiles: sumOf(order?.producedProfiles),
+      packages: sumOf(order?.producedPackages),
+      sheets: sumOf(order?.producedSheets),
+      perPallet: sumOf(order?.sheetsPerPallet),
+      pallets: sumOf(order?.producedPallets),
+    };
+  };
+
+  const [sums, setSums] = useState(computeSums);
+
+  useEffect(() => {
+    setSums(computeSums());
+    const sub = watch((_values, info) => {
+      if (info.name && info.name.startsWith(orderPath)) {
+        setSums(computeSums());
+      }
+    });
+    return () => sub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watch, idx]);
+
+  const profilesEntered = sums.profiles > 0;
+  const packagesEntered = sums.packages > 0;
+  const sheetsEntered = sums.sheets > 0;
+  const perPalletEntered = sums.perPallet > 0;
+  const palletsEntered = sums.pallets > 0;
 
   return (
     <div className="pt-2">
