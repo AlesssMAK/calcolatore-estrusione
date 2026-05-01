@@ -327,7 +327,13 @@ function AdvancedSection({
   t: TFunction;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { watch, getValues } = useFormContext<FormValues>();
+  const { watch, getValues, control } = useFormContext<FormValues>();
+
+  const useTotalLength = useWatch({
+    control,
+    name: `orders.${idx}.useTotalLength`,
+    defaultValue: false,
+  });
 
   const isProfiles = mode === 'profiles';
 
@@ -377,12 +383,29 @@ function AdvancedSection({
       </button>
 
       {expanded && (
-        <div
-          className={`mt-2 grid items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
-            isProfiles ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
-          }`}
-        >
-          {isProfiles ? (
+        <div className="mt-2 grid grid-cols-2 items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 sm:grid-cols-3">
+          {useTotalLength ? (
+            <>
+              <ProducedEntriesArray
+                fieldName={isProfiles ? 'producedProfiles' : 'producedSheets'}
+                orderIdx={idx}
+                label={
+                  isProfiles
+                    ? t('orders.advanced.profilesProduced')
+                    : t('orders.advanced.sheetsProduced')
+                }
+                t={t}
+              />
+              <ItemLengthInput
+                idx={idx}
+                label={
+                  isProfiles
+                    ? t('orders.profileLength')
+                    : t('orders.sheetLength')
+                }
+              />
+            </>
+          ) : isProfiles ? (
             <>
               <ProducedEntriesArray
                 fieldName="producedProfiles"
@@ -497,6 +520,31 @@ function ProducedEntriesArray({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ItemLengthInput({
+  idx,
+  label,
+}: {
+  idx: number;
+  label: string;
+}) {
+  const { register } = useFormContext<FormValues>();
+  return (
+    <div className="min-w-0">
+      <label className={labelBase}>{label}</label>
+      <input
+        type="number"
+        min="1"
+        step="1"
+        inputMode="numeric"
+        className="mt-1 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
+        {...register(`orders.${idx}.producedItemLength`, {
+          setValueAs: numericSetValueAs,
+        })}
+      />
     </div>
   );
 }

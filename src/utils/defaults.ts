@@ -32,6 +32,7 @@ export function makeEmptyOrder(
       profilesPerPackage: undefined,
       producedProfiles: [emptyProducedEntry()],
       producedPackages: [emptyProducedEntry()],
+      producedItemLength: undefined,
     } as unknown as FormValues['orders'][number];
   }
   return {
@@ -39,6 +40,7 @@ export function makeEmptyOrder(
     producedSheets: [emptyProducedEntry()],
     sheetsPerPallet: [emptyProducedEntry()],
     producedPallets: [emptyProducedEntry()],
+    producedItemLength: undefined,
   } as unknown as FormValues['orders'][number];
 }
 

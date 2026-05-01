@@ -27,6 +27,7 @@ export interface Order {
   producedSheets?: ProducedEntry[];
   sheetsPerPallet?: ProducedEntry[];
   producedPallets?: ProducedEntry[];
+  producedItemLength?: number;
 }
 
 export interface ProducedSummary {
