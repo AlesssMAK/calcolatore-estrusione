@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CalculatorMode, ScheduleResult, ScheduledOrder } from '../types';
 import { calculateTotalProfiles } from '../utils/calculator';
@@ -271,36 +271,56 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             <tbody>
               {result.rows.map((row, idx) => {
                 const profilesCount = profilesCountFor(row);
+                const hasProduced =
+                  row.producedProfiles !== undefined ||
+                  row.producedSheets !== undefined;
+                const colSpan = isProfiles ? 8 : 6;
                 return (
-                  <tr
-                    key={row.order.id}
-                    className="border-b border-neutral-100 last:border-b-0"
-                  >
-                    <td className="py-2 pr-3 font-semibold text-brand-600">
-                      #{idx + 1}
-                    </td>
-                    {isProfiles && (
-                      <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
-                    )}
-                    <td className="py-2 pr-3">
-                      {formatLength(row.totalLengthM)} m
-                    </td>
-                    <td className="py-2 pr-3">{row.speedMPerMin}</td>
-                    <td className="py-2 pr-3 font-medium">
-                      {formatDuration(row.remainingMinutes, units)}
-                    </td>
-                    {isProfiles && (
-                      <td className="py-2 pr-3 font-medium text-brand-700">
-                        {row.packages ?? '—'}
+                  <Fragment key={row.order.id}>
+                    <tr
+                      className={
+                        hasProduced
+                          ? 'border-b-0'
+                          : 'border-b border-neutral-100 last:border-b-0'
+                      }
+                    >
+                      <td className="py-2 pr-3 font-semibold text-brand-600">
+                        #{idx + 1}
                       </td>
+                      {isProfiles && (
+                        <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
+                      )}
+                      <td className="py-2 pr-3">
+                        {formatLength(row.totalLengthM)} m
+                      </td>
+                      <td className="py-2 pr-3">{row.speedMPerMin}</td>
+                      <td className="py-2 pr-3 font-medium">
+                        {formatDuration(row.remainingMinutes, units)}
+                      </td>
+                      {isProfiles && (
+                        <td className="py-2 pr-3 font-medium text-brand-700">
+                          {row.packages ?? '—'}
+                        </td>
+                      )}
+                      <td className="py-2 pr-3 whitespace-nowrap">
+                        {formatShortDateTime(row.start, lang)}
+                      </td>
+                      <td className="py-2 whitespace-nowrap">
+                        {formatShortDateTime(row.end, lang)}
+                      </td>
+                    </tr>
+                    {hasProduced && (
+                      <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
+                        <td colSpan={colSpan} className="px-3 pb-3 pt-1">
+                          <ProducedRemainingBlock
+                            row={row}
+                            t={t}
+                            mode={mode}
+                          />
+                        </td>
+                      </tr>
                     )}
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {formatShortDateTime(row.start, lang)}
-                    </td>
-                    <td className="py-2 whitespace-nowrap">
-                      {formatShortDateTime(row.end, lang)}
-                    </td>
-                  </tr>
+                  </Fragment>
                 );
               })}
             </tbody>

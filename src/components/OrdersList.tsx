@@ -334,22 +334,27 @@ function AdvancedSection({
   const watchProfiles = useWatch({
     control,
     name: `orders.${idx}.producedProfiles`,
+    defaultValue: [],
   });
   const watchPackages = useWatch({
     control,
     name: `orders.${idx}.producedPackages`,
+    defaultValue: [],
   });
   const watchSheets = useWatch({
     control,
     name: `orders.${idx}.producedSheets`,
+    defaultValue: [],
   });
   const watchPerPallet = useWatch({
     control,
     name: `orders.${idx}.sheetsPerPallet`,
+    defaultValue: [],
   });
   const watchPallets = useWatch({
     control,
     name: `orders.${idx}.producedPallets`,
+    defaultValue: [],
   });
 
   const sumOf = (arr: { value?: number }[] | undefined) =>
@@ -375,7 +380,7 @@ function AdvancedSection({
       {expanded && (
         <div
           className={`mt-2 grid items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
-            isProfiles ? 'grid-cols-2' : 'grid-cols-3'
+            isProfiles ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
           }`}
         >
           {isProfiles ? (
@@ -410,13 +415,15 @@ function AdvancedSection({
                 label={t('orders.advanced.sheetsPerPallet')}
                 t={t}
               />
-              <ProducedEntriesArray
-                fieldName="producedPallets"
-                orderIdx={idx}
-                label={t('orders.advanced.palletsProduced')}
-                disabled={!perPalletEntered || sheetsEntered}
-                t={t}
-              />
+              <div className="col-span-2 sm:col-span-1">
+                <ProducedEntriesArray
+                  fieldName="producedPallets"
+                  orderIdx={idx}
+                  label={t('orders.advanced.palletsProduced')}
+                  disabled={!perPalletEntered || sheetsEntered}
+                  t={t}
+                />
+              </div>
             </>
           )}
         </div>
