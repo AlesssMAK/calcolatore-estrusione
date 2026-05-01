@@ -143,6 +143,68 @@ describe('calculateSchedule — produced (profiles)', () => {
   });
 });
 
+describe('calculateSchedule — produced under useTotalLength', () => {
+  it('sheets: producedSheets × itemLength shortens time pro-rata', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 1200,
+          producedSheets: [{ value: 100 }],
+          producedItemLength: 6000,
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+
+    const row = result.rows[0]!;
+    expect(row.totalSheets).toBe(200);
+    expect(row.producedSheets).toBe(100);
+    expect(row.remainingSheets).toBe(100);
+    expect(row.productionMinutes).toBe(240);
+    expect(row.remainingMinutes).toBe(120);
+  });
+
+  it('profiles: producedProfiles × itemLength shortens time pro-rata', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        speedMode: 'global',
+        globalSpeed: 5,
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 600,
+          producedProfiles: [{ value: 50 }],
+          producedItemLength: 6000,
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+
+    const row = result.rows[0]!;
+    expect(row.totalProfiles).toBe(100);
+    expect(row.producedProfiles).toBe(50);
+    expect(row.remainingProfiles).toBe(50);
+    expect(row.productionMinutes).toBe(120);
+    expect(row.remainingMinutes).toBe(60);
+  });
+});
+
 describe('calculateSchedule — produced (sheets)', () => {
   it('producedSheets shortens time and computes producedPallets when perPallet given', () => {
     const start = new Date('2026-04-23T10:00:00Z');

@@ -48,8 +48,13 @@ function OrdersList({ mode }: Props) {
 
   const appendOrder = () => {
     const last = watchedOrders?.[watchedOrders.length - 1];
-    const inherit = Boolean(last?.useTotalLength);
-    append(makeEmptyOrder(mode, inherit));
+    append(
+      makeEmptyOrder(
+        mode,
+        Boolean(last?.useTotalLength),
+        last?.productName ?? '',
+      ),
+    );
   };
 
   const topButtonRef = useRef<HTMLButtonElement>(null);
@@ -103,9 +108,7 @@ function OrdersList({ mode }: Props) {
               className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white sm:h-8 sm:text-sm">
-                  #{idx + 1}
-                </span>
+                <OrderNameField idx={idx} t={t} />
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -327,39 +330,49 @@ function AdvancedSection({
   t: TFunction;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { control } = useFormContext<FormValues>();
+  const { watch, getValues, control } = useFormContext<FormValues>();
+
+  const useTotalLength = useWatch({
+    control,
+    name: `orders.${idx}.useTotalLength`,
+    defaultValue: false,
+  });
 
   const isProfiles = mode === 'profiles';
-
-  const watchProfiles = useWatch({
-    control,
-    name: `orders.${idx}.producedProfiles`,
-  });
-  const watchPackages = useWatch({
-    control,
-    name: `orders.${idx}.producedPackages`,
-  });
-  const watchSheets = useWatch({
-    control,
-    name: `orders.${idx}.producedSheets`,
-  });
-  const watchPerPallet = useWatch({
-    control,
-    name: `orders.${idx}.sheetsPerPallet`,
-  });
-  const watchPallets = useWatch({
-    control,
-    name: `orders.${idx}.producedPallets`,
-  });
 
   const sumOf = (arr: { value?: number }[] | undefined) =>
     (arr ?? []).reduce((sum, e) => sum + (e?.value ?? 0), 0);
 
-  const profilesEntered = sumOf(watchProfiles) > 0;
-  const packagesEntered = sumOf(watchPackages) > 0;
-  const sheetsEntered = sumOf(watchSheets) > 0;
-  const perPalletEntered = sumOf(watchPerPallet) > 0;
-  const palletsEntered = sumOf(watchPallets) > 0;
+  const orderPath = `orders.${idx}`;
+
+  const computeSums = () => {
+    const order = getValues(`orders.${idx}`);
+    return {
+      profiles: sumOf(order?.producedProfiles),
+      packages: sumOf(order?.producedPackages),
+      sheets: sumOf(order?.producedSheets),
+      perPallet: sumOf(order?.sheetsPerPallet),
+      pallets: sumOf(order?.producedPallets),
+    };
+  };
+
+  const [sums, setSums] = useState(computeSums);
+
+  useEffect(() => {
+    setSums(computeSums());
+    const sub = watch((_values, info) => {
+      if (info.name && info.name.startsWith(orderPath)) {
+        setSums(computeSums());
+      }
+    });
+    return () => sub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watch, idx]);
+
+  const profilesEntered = sums.profiles > 0;
+  const packagesEntered = sums.packages > 0;
+  const perPalletEntered = sums.perPallet > 0;
+  const palletsEntered = sums.pallets > 0;
 
   return (
     <div className="pt-2">
@@ -374,8 +387,14 @@ function AdvancedSection({
 
       {expanded && (
         <div
-          className={`mt-2 grid items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
-            isProfiles ? 'grid-cols-2' : 'grid-cols-3'
+          className={`mt-2 grid grid-cols-2 items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
+            isProfiles
+              ? useTotalLength
+                ? 'sm:grid-cols-3'
+                : 'sm:grid-cols-2'
+              : useTotalLength
+                ? 'sm:grid-cols-4'
+                : 'sm:grid-cols-3'
           }`}
         >
           {isProfiles ? (
@@ -410,14 +429,33 @@ function AdvancedSection({
                 label={t('orders.advanced.sheetsPerPallet')}
                 t={t}
               />
-              <ProducedEntriesArray
-                fieldName="producedPallets"
-                orderIdx={idx}
-                label={t('orders.advanced.palletsProduced')}
-                disabled={!perPalletEntered || sheetsEntered}
-                t={t}
-              />
+              <div
+                className={
+                  useTotalLength ? '' : 'col-span-2 sm:col-span-1'
+                }
+              >
+                <ProducedEntriesArray
+                  fieldName="producedPallets"
+                  orderIdx={idx}
+                  label={t('orders.advanced.palletsProduced')}
+                  disabled={!perPalletEntered}
+                  t={t}
+                />
+              </div>
             </>
+          )}
+
+          {useTotalLength && (
+            <div className="col-span-2 sm:col-span-1">
+              <ItemLengthInput
+                idx={idx}
+                label={
+                  isProfiles
+                    ? t('orders.profileLength')
+                    : t('orders.sheetLength')
+                }
+              />
+            </div>
           )}
         </div>
       )}
@@ -491,6 +529,65 @@ function ProducedEntriesArray({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
+  const { register, control } = useFormContext<FormValues>();
+  const value = useWatch({
+    control,
+    name: `orders.${idx}.productName`,
+    defaultValue: '',
+  });
+  const hasValue = typeof value === 'string' && value.length > 0;
+  const [open, setOpen] = useState(false);
+  const showInput = open || hasValue;
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title={t('orders.productName')}
+        className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm"
+      >
+        #{idx + 1}
+      </button>
+      {showInput && (
+        <input
+          type="text"
+          autoFocus={open && !hasValue}
+          placeholder={t('orders.productName')}
+          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
+          {...register(`orders.${idx}.productName`)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ItemLengthInput({
+  idx,
+  label,
+}: {
+  idx: number;
+  label: string;
+}) {
+  const { register } = useFormContext<FormValues>();
+  return (
+    <div className="min-w-0">
+      <label className={labelBase}>{label}</label>
+      <input
+        type="number"
+        min="1"
+        step="1"
+        inputMode="numeric"
+        className="mt-1 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
+        {...register(`orders.${idx}.producedItemLength`, {
+          setValueAs: numericSetValueAs,
+        })}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ export interface ProducedEntry {
 
 export interface Order {
   id: string;
+  productName?: string;
   useTotalLength?: boolean;
   totalLengthM?: number;
   sizes?: OrderSize[];
@@ -27,6 +28,7 @@ export interface Order {
   producedSheets?: ProducedEntry[];
   sheetsPerPallet?: ProducedEntry[];
   producedPallets?: ProducedEntry[];
+  producedItemLength?: number;
 }
 
 export interface ProducedSummary {

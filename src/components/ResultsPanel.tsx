@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CalculatorMode, ScheduleResult, ScheduledOrder } from '../types';
 import { calculateTotalProfiles } from '../utils/calculator';
@@ -65,8 +65,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         isProfiles && row.packages !== undefined
           ? `  →  ${row.packages} ${t('results.col.packages').toLowerCase()}`
           : '';
+      const namePart = row.order.productName
+        ? ` ${row.order.productName}`
+        : '';
       lines.push(
-        `#${idx + 1}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
+        `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
 
       if (
@@ -96,6 +99,9 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             parts.push(`${t('results.remaining')}: ${row.remainingSheets}`);
           }
         }
+        parts.push(
+          `${t('results.timeToFinish')}: ${formatDuration(row.remainingMinutes, units)}`,
+        );
         if (parts.length > 0) {
           lines.push(`     ${parts.join(' · ')}`);
         }
@@ -195,11 +201,18 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                 key={row.order.id}
                 className="rounded-lg border border-neutral-200 bg-surface-alt p-3"
               >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="flex h-7 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
-                    #{idx + 1}
-                  </span>
-                  <span className="text-sm font-semibold text-brand-700">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
+                      #{idx + 1}
+                    </span>
+                    {row.order.productName && (
+                      <span className="truncate text-xs font-medium text-ink">
+                        {row.order.productName}
+                      </span>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold text-brand-700">
                     {formatDuration(row.remainingMinutes, units)}
                   </span>
                 </div>
@@ -271,36 +284,61 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             <tbody>
               {result.rows.map((row, idx) => {
                 const profilesCount = profilesCountFor(row);
+                const hasProduced =
+                  row.producedProfiles !== undefined ||
+                  row.producedSheets !== undefined;
+                const colSpan = isProfiles ? 8 : 6;
                 return (
-                  <tr
-                    key={row.order.id}
-                    className="border-b border-neutral-100 last:border-b-0"
-                  >
-                    <td className="py-2 pr-3 font-semibold text-brand-600">
-                      #{idx + 1}
-                    </td>
-                    {isProfiles && (
-                      <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
-                    )}
-                    <td className="py-2 pr-3">
-                      {formatLength(row.totalLengthM)} m
-                    </td>
-                    <td className="py-2 pr-3">{row.speedMPerMin}</td>
-                    <td className="py-2 pr-3 font-medium">
-                      {formatDuration(row.remainingMinutes, units)}
-                    </td>
-                    {isProfiles && (
-                      <td className="py-2 pr-3 font-medium text-brand-700">
-                        {row.packages ?? '—'}
+                  <Fragment key={row.order.id}>
+                    <tr
+                      className={
+                        hasProduced
+                          ? 'border-b-0'
+                          : 'border-b border-neutral-100 last:border-b-0'
+                      }
+                    >
+                      <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
+                        #{idx + 1}
+                        {row.order.productName && (
+                          <span className="ml-2 font-medium text-ink">
+                            {row.order.productName}
+                          </span>
+                        )}
                       </td>
+                      {isProfiles && (
+                        <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
+                      )}
+                      <td className="py-2 pr-3">
+                        {formatLength(row.totalLengthM)} m
+                      </td>
+                      <td className="py-2 pr-3">{row.speedMPerMin}</td>
+                      <td className="py-2 pr-3 font-medium">
+                        {formatDuration(row.remainingMinutes, units)}
+                      </td>
+                      {isProfiles && (
+                        <td className="py-2 pr-3 font-medium text-brand-700">
+                          {row.packages ?? '—'}
+                        </td>
+                      )}
+                      <td className="py-2 pr-3 whitespace-nowrap">
+                        {formatShortDateTime(row.start, lang)}
+                      </td>
+                      <td className="py-2 whitespace-nowrap">
+                        {formatShortDateTime(row.end, lang)}
+                      </td>
+                    </tr>
+                    {hasProduced && (
+                      <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
+                        <td colSpan={colSpan} className="px-3 pb-3 pt-1">
+                          <ProducedRemainingBlock
+                            row={row}
+                            t={t}
+                            mode={mode}
+                          />
+                        </td>
+                      </tr>
                     )}
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {formatShortDateTime(row.start, lang)}
-                    </td>
-                    <td className="py-2 whitespace-nowrap">
-                      {formatShortDateTime(row.end, lang)}
-                    </td>
-                  </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -357,6 +395,11 @@ function ProducedRemainingBlock({
   mode: CalculatorMode;
 }) {
   const isProfiles = mode === 'profiles';
+  const units = {
+    day: t('units.day'),
+    hour: t('units.hour'),
+    minute: t('units.minute'),
+  };
   return (
     <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
       {isProfiles && row.producedProfiles !== undefined && (
@@ -427,6 +470,13 @@ function ProducedRemainingBlock({
           )}
         </dl>
       )}
+
+      <div className="mt-2 flex items-center justify-between border-t border-brand-200 pt-1.5">
+        <span className="text-ink-soft">{t('results.timeToFinish')}</span>
+        <span className="font-semibold text-brand-700">
+          {formatDuration(row.remainingMinutes, units)}
+        </span>
+      </div>
     </div>
   );
 }

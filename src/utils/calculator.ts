@@ -95,7 +95,7 @@ function resolveSpeed(
 }
 
 export interface ProducedProfilesResult {
-  totalProfiles: number;
+  totalProfiles?: number;
   producedProfiles: number;
   producedPackages: number;
   remainingProfiles: number;
@@ -115,33 +115,64 @@ export interface ProducedSheetsResult {
 
 export function calculateProducedProfiles(
   order: Order,
-  perPackage: number,
+  perPackage: number | undefined,
 ): ProducedProfilesResult | undefined {
-  if (order.useTotalLength) return undefined;
-  const total = calculateTotalProfiles(order);
-  if (total === undefined || total <= 0) return undefined;
-
   const profilesEntered = sumEntries(order.producedProfiles);
   const packagesEntered = sumEntries(order.producedPackages);
+  const itemLength = order.producedItemLength;
 
   let producedProfiles = 0;
   if (profilesEntered > 0) {
     producedProfiles = profilesEntered;
-  } else if (packagesEntered > 0) {
+  } else if (packagesEntered > 0 && perPackage && perPackage > 0) {
     producedProfiles = packagesEntered * perPackage;
   }
 
-  const cappedProduced = Math.min(producedProfiles, total);
-  const producedPackages = Math.ceil(cappedProduced / perPackage);
-  const totalPackages = Math.ceil(total / perPackage);
-  const fraction = total > 0 ? cappedProduced / total : 0;
+  if (producedProfiles === 0 && packagesEntered === 0) return undefined;
+
+  let totalProfiles: number | undefined;
+  if (order.useTotalLength) {
+    if (itemLength && itemLength > 0 && order.totalLengthM && order.totalLengthM > 0) {
+      totalProfiles = Math.floor((order.totalLengthM * 1000) / itemLength);
+    }
+  } else {
+    totalProfiles = calculateTotalProfiles(order);
+  }
+
+  const cappedProduced =
+    totalProfiles !== undefined
+      ? Math.min(producedProfiles, totalProfiles)
+      : producedProfiles;
+
+  const totalPackages =
+    totalProfiles !== undefined && perPackage && perPackage > 0
+      ? Math.ceil(totalProfiles / perPackage)
+      : undefined;
+  const producedPackages =
+    perPackage && perPackage > 0
+      ? Math.ceil(cappedProduced / perPackage)
+      : 0;
+  const remainingProfiles =
+    totalProfiles !== undefined ? Math.max(0, totalProfiles - cappedProduced) : 0;
+  const remainingPackages =
+    totalPackages !== undefined ? Math.max(0, totalPackages - producedPackages) : 0;
+
+  let fraction = 0;
+  if (order.useTotalLength) {
+    if (itemLength && itemLength > 0 && order.totalLengthM && order.totalLengthM > 0) {
+      const producedLengthM = (cappedProduced * itemLength) / 1000;
+      fraction = Math.min(1, producedLengthM / order.totalLengthM);
+    }
+  } else if (totalProfiles && totalProfiles > 0) {
+    fraction = cappedProduced / totalProfiles;
+  }
 
   return {
-    totalProfiles: total,
+    totalProfiles,
     producedProfiles: cappedProduced,
     producedPackages,
-    remainingProfiles: Math.max(0, total - cappedProduced),
-    remainingPackages: Math.max(0, totalPackages - producedPackages),
+    remainingProfiles,
+    remainingPackages,
     fraction,
   };
 }
@@ -149,14 +180,11 @@ export function calculateProducedProfiles(
 export function calculateProducedSheets(
   order: Order,
 ): ProducedSheetsResult | undefined {
-  const totalSheets = order.useTotalLength
-    ? undefined
-    : calculateTotalProfiles(order);
-
   const sheetsEntered = sumEntries(order.producedSheets);
   const palletsEntered = sumEntries(order.producedPallets);
   const perPalletSum = sumEntries(order.sheetsPerPallet);
   const sheetsPerPallet = perPalletSum > 0 ? perPalletSum : undefined;
+  const itemLength = order.producedItemLength;
 
   let producedSheets = 0;
   if (sheetsEntered > 0) {
@@ -174,9 +202,19 @@ export function calculateProducedSheets(
     return undefined;
   }
 
-  const cappedProduced = totalSheets
-    ? Math.min(producedSheets, totalSheets)
-    : producedSheets;
+  let totalSheets: number | undefined;
+  if (order.useTotalLength) {
+    if (itemLength && itemLength > 0 && order.totalLengthM && order.totalLengthM > 0) {
+      totalSheets = Math.floor((order.totalLengthM * 1000) / itemLength);
+    }
+  } else {
+    totalSheets = calculateTotalProfiles(order);
+  }
+
+  const cappedProduced =
+    totalSheets !== undefined
+      ? Math.min(producedSheets, totalSheets)
+      : producedSheets;
 
   const producedPallets = sheetsPerPallet
     ? Math.ceil(cappedProduced / sheetsPerPallet)
@@ -194,8 +232,15 @@ export function calculateProducedSheets(
         )
       : undefined;
 
-  const fraction =
-    totalSheets && totalSheets > 0 ? cappedProduced / totalSheets : 0;
+  let fraction = 0;
+  if (order.useTotalLength) {
+    if (itemLength && itemLength > 0 && order.totalLengthM && order.totalLengthM > 0) {
+      const producedLengthM = (cappedProduced * itemLength) / 1000;
+      fraction = Math.min(1, producedLengthM / order.totalLengthM);
+    }
+  } else if (totalSheets && totalSheets > 0) {
+    fraction = cappedProduced / totalSheets;
+  }
 
   return {
     totalSheets,
@@ -270,24 +315,24 @@ export function calculateSchedule(
 
       if (perPackage && perPackage > 0) {
         lastPerPackage = perPackage;
-
         if (totalProfiles !== undefined) {
           packages = Math.ceil(totalProfiles / perPackage);
         }
+      }
 
-        const produced = calculateProducedProfiles(order, perPackage);
-        if (produced) {
-          producedProfiles = produced.producedProfiles;
-          producedPackages = produced.producedPackages;
-          remainingProfiles = produced.remainingProfiles;
-          remainingPackages = produced.remainingPackages;
-          fraction = produced.fraction;
-        }
+      const produced = calculateProducedProfiles(order, perPackage);
+      if (produced) {
+        totalProfiles = produced.totalProfiles ?? totalProfiles;
+        producedProfiles = produced.producedProfiles;
+        producedPackages = produced.producedPackages;
+        remainingProfiles = produced.remainingProfiles;
+        remainingPackages = produced.remainingPackages;
+        fraction = produced.fraction;
       }
     } else {
       const produced = calculateProducedSheets(order);
       if (produced) {
-        totalSheets = produced.totalSheets;
+        totalSheets = produced.totalSheets ?? totalSheets;
         producedSheetsCount = produced.producedSheets;
         producedPallets = produced.producedPallets;
         sheetsPerPalletVal = produced.sheetsPerPallet;

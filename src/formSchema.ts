@@ -12,6 +12,7 @@ const producedEntrySchema = z.object({
 
 const orderSchema = z.object({
   id: z.string(),
+  productName: z.string().optional(),
   useTotalLength: z.boolean().optional(),
   totalLengthM: z.number().positive('positive').optional(),
   sizes: z.array(sizeSchema).optional(),
@@ -29,6 +30,7 @@ const orderSchema = z.object({
   producedSheets: z.array(producedEntrySchema).optional(),
   sheetsPerPallet: z.array(producedEntrySchema).optional(),
   producedPallets: z.array(producedEntrySchema).optional(),
+  producedItemLength: z.number().positive('positive').optional(),
 });
 
 const settingsSchema = z.object({

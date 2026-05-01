@@ -17,9 +17,11 @@ const emptyProducedEntry = (): { value?: number } => ({ value: undefined });
 export function makeEmptyOrder(
   mode: CalculatorMode = 'sheets',
   inheritUseTotalLength = false,
+  inheritProductName = '',
 ): FormValues['orders'][number] {
   const base = {
     id: genId(),
+    productName: inheritProductName,
     useTotalLength: inheritUseTotalLength,
     totalLengthM: undefined,
     sizes: [makeEmptySize()],
@@ -32,6 +34,7 @@ export function makeEmptyOrder(
       profilesPerPackage: undefined,
       producedProfiles: [emptyProducedEntry()],
       producedPackages: [emptyProducedEntry()],
+      producedItemLength: undefined,
     } as unknown as FormValues['orders'][number];
   }
   return {
@@ -39,6 +42,7 @@ export function makeEmptyOrder(
     producedSheets: [emptyProducedEntry()],
     sheetsPerPallet: [emptyProducedEntry()],
     producedPallets: [emptyProducedEntry()],
+    producedItemLength: undefined,
   } as unknown as FormValues['orders'][number];
 }
 

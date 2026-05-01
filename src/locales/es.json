@@ -52,6 +52,7 @@
     "speed": "Velocidad (m/min)",
     "gapAfter": "Pausa después (min)",
     "profilesPerPackage": "Perfiles por paquete",
+    "productName": "Nombre del producto",
     "addSize": "Añadir medida",
     "removeSize": "Eliminar medida",
     "toggleTotalLength": "Metros totales",
@@ -97,7 +98,8 @@
     },
     "empty": "Introduce los pedidos y pulsa «Calcular».",
     "produced": "Producidos",
-    "remaining": "Pendientes"
+    "remaining": "Pendientes",
+    "timeToFinish": "Tiempo para el resto"
   },
   "units": {
     "day": "d",
