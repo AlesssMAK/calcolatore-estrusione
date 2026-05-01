@@ -362,7 +362,6 @@ function AdvancedSection({
 
   const profilesEntered = sums.profiles > 0;
   const packagesEntered = sums.packages > 0;
-  const sheetsEntered = sums.sheets > 0;
   const perPalletEntered = sums.perPallet > 0;
   const palletsEntered = sums.pallets > 0;
 
@@ -420,7 +419,7 @@ function AdvancedSection({
                   fieldName="producedPallets"
                   orderIdx={idx}
                   label={t('orders.advanced.palletsProduced')}
-                  disabled={!perPalletEntered || sheetsEntered}
+                  disabled={!perPalletEntered}
                   t={t}
                 />
               </div>
