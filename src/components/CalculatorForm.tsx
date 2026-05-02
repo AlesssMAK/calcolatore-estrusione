@@ -19,7 +19,7 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
   const { t } = useTranslation();
 
   const methods = useForm<FormValues>({
-    resolver: zodResolver(buildFormSchema(mode)),
+    resolver: zodResolver(buildFormSchema()),
     defaultValues: buildEmptyDefaults(mode),
     mode: 'onBlur',
   });

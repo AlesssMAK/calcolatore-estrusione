@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { CalculatorMode } from './types';
 
 const sizeSchema = z.object({
   sheets: z.number().int('integer').positive('positive').optional(),
@@ -41,7 +40,7 @@ const settingsSchema = z.object({
   gapMode: z.enum(['continuous', 'withGaps']),
 });
 
-export const buildFormSchema = (_mode: CalculatorMode) =>
+export const buildFormSchema = () =>
   z
     .object({
       settings: settingsSchema,

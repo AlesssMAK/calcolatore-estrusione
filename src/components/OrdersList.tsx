@@ -359,7 +359,6 @@ function AdvancedSection({
   const [sums, setSums] = useState(computeSums);
 
   useEffect(() => {
-    setSums(computeSums());
     const sub = watch((_values, info) => {
       if (info.name && info.name.startsWith(orderPath)) {
         setSums(computeSums());
