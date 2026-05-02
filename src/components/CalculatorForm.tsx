@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,30 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
     mode: 'onBlur',
   });
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showError = (msg: string) => {
+    setSubmitError(msg);
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+    }
+    hideTimerRef.current = window.setTimeout(() => {
+      setSubmitError(null);
+      hideTimerRef.current = null;
+    }, 4000);
+  };
+
   const onSubmit = (values: FormValues) => {
+    setSubmitError(null);
     const schedule = calculateSchedule(values.settings, values.orders, {
       mode,
     });
@@ -36,11 +60,23 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
     });
   };
 
+  const onInvalid = () => {
+    showError(t('validation.fillRequired'));
+    window.requestAnimationFrame(() => {
+      const firstError = document.querySelector(
+        '[aria-invalid="true"], .text-danger',
+      );
+      if (firstError instanceof HTMLElement) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  };
+
   return (
     <FormProvider {...methods}>
       <form
         onSubmit={(e) => {
-          void methods.handleSubmit(onSubmit)(e);
+          void methods.handleSubmit(onSubmit, onInvalid)(e);
         }}
         className="space-y-4 sm:space-y-5"
         noValidate
@@ -64,6 +100,15 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
           </button>
         </div>
       </form>
+
+      {submitError && (
+        <div
+          role="alert"
+          className="no-print fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-danger px-4 py-2.5 text-sm font-medium text-white shadow-lg"
+        >
+          ⚠ {submitError}
+        </div>
+      )}
     </FormProvider>
   );
 }
