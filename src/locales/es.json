@@ -108,6 +108,7 @@
   },
   "validation": {
     "required": "Campo obligatorio",
+    "fillRequired": "Completa los campos obligatorios",
     "positive": "Debe ser mayor que 0",
     "nonNegative": "Debe ser ≥ 0",
     "integer": "Debe ser un entero"
