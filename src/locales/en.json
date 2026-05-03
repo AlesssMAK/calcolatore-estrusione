@@ -37,7 +37,13 @@
     "toggle": {
       "manualStart": "Set time",
       "perOrderSpeed": "Speed per order",
-      "gaps": "Gaps between orders"
+      "gaps": "Gaps between orders",
+      "productName": "Product name"
+    },
+    "productName": "Product name",
+    "productNamePlaceholder": {
+      "sheets": "e.g. Multiwall sheet 6 mm",
+      "profiles": "e.g. H-profile 16 mm"
     }
   },
   "orders": {

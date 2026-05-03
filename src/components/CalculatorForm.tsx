@@ -83,7 +83,7 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
         className="space-y-4 sm:space-y-5"
         noValidate
       >
-        <GlobalSettingsPanel />
+        <GlobalSettingsPanel mode={mode} />
         <OrdersList mode={mode} />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">

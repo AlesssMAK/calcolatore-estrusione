@@ -37,7 +37,13 @@
     "toggle": {
       "manualStart": "Imposta orario",
       "perOrderSpeed": "Velocità per ordine",
-      "gaps": "Pause tra ordini"
+      "gaps": "Pause tra ordini",
+      "productName": "Nome prodotto"
+    },
+    "productName": "Nome del prodotto",
+    "productNamePlaceholder": {
+      "sheets": "es. Lastra alveolare 6 mm",
+      "profiles": "es. Profilo a H 16 mm"
     }
   },
   "orders": {

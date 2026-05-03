@@ -39,6 +39,7 @@ const settingsSchema = z.object({
   speedMode: z.enum(['global', 'perOrder']),
   globalSpeed: z.number().positive('positive').optional(),
   gapMode: z.enum(['continuous', 'withGaps']),
+  productName: z.string().optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

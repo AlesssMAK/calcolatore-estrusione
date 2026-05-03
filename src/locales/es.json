@@ -37,7 +37,13 @@
     "toggle": {
       "manualStart": "Fijar hora",
       "perOrderSpeed": "Velocidad por pedido",
-      "gaps": "Pausas entre pedidos"
+      "gaps": "Pausas entre pedidos",
+      "productName": "Nombre del producto"
+    },
+    "productName": "Nombre del producto",
+    "productNamePlaceholder": {
+      "sheets": "p. ej. Placa alveolar 6 mm",
+      "profiles": "p. ej. Perfil H 16 mm"
     }
   },
   "orders": {
