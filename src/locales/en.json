@@ -111,7 +111,14 @@
     "fillRequired": "Fill in the required fields",
     "positive": "Must be greater than 0",
     "nonNegative": "Must be ≥ 0",
-    "integer": "Must be an integer"
+    "integer": "Must be an integer",
+    "enterSpeed": "Enter the speed (m/min)",
+    "enterOrderSpeed": "Enter the speed for this order",
+    "enterStartTime": "Set the start date and time",
+    "enterTotalLength": "Enter total meters",
+    "enterSheets": "Enter the number of sheets",
+    "enterProfiles": "Enter the number of profiles",
+    "enterLength": "Enter the length (mm)"
   },
   "footer": {
     "madeBy": "AKRAPLAST Sistemi S.r.l."

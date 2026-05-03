@@ -111,7 +111,14 @@
     "fillRequired": "Completa los campos obligatorios",
     "positive": "Debe ser mayor que 0",
     "nonNegative": "Debe ser ≥ 0",
-    "integer": "Debe ser un entero"
+    "integer": "Debe ser un entero",
+    "enterSpeed": "Introduce la velocidad (m/min)",
+    "enterOrderSpeed": "Introduce la velocidad de este pedido",
+    "enterStartTime": "Define la fecha y hora de inicio",
+    "enterTotalLength": "Introduce los metros totales",
+    "enterSheets": "Introduce el número de láminas",
+    "enterProfiles": "Introduce el número de perfiles",
+    "enterLength": "Introduce la longitud (mm)"
   },
   "footer": {
     "madeBy": "AKRAPLAST Sistemi S.r.l."
