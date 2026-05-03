@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CalculatorMode } from './types';
 
 const sizeSchema = z.object({
   sheets: z.number().int('integer').positive('positive').optional(),
@@ -38,10 +39,14 @@ const settingsSchema = z.object({
   speedMode: z.enum(['global', 'perOrder']),
   globalSpeed: z.number().positive('positive').optional(),
   gapMode: z.enum(['continuous', 'withGaps']),
+  productName: z.string().optional(),
 });
 
-export const buildFormSchema = () =>
-  z
+export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {
+  const enterPiecesCode =
+    mode === 'profiles' ? 'enterProfiles' : 'enterSheets';
+
+  return z
     .object({
       settings: settingsSchema,
       orders: z.array(orderSchema).min(1, 'minRequired'),
@@ -53,12 +58,18 @@ export const buildFormSchema = () =>
         ctx.addIssue({
           code: 'custom',
           path: ['settings', 'startAt'],
-          message: 'required',
+          message: 'enterStartTime',
         });
       }
 
       if (settings.speedMode === 'global') {
-        if (!settings.globalSpeed || settings.globalSpeed <= 0) {
+        if (settings.globalSpeed === undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['settings', 'globalSpeed'],
+            message: 'enterSpeed',
+          });
+        } else if (settings.globalSpeed <= 0) {
           ctx.addIssue({
             code: 'custom',
             path: ['settings', 'globalSpeed'],
@@ -69,7 +80,13 @@ export const buildFormSchema = () =>
 
       if (settings.speedMode === 'perOrder' && orders.length > 0) {
         const first = orders[0];
-        if (!first.speedMPerMin || first.speedMPerMin <= 0) {
+        if (first.speedMPerMin === undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', 0, 'speedMPerMin'],
+            message: 'enterOrderSpeed',
+          });
+        } else if (first.speedMPerMin <= 0) {
           ctx.addIssue({
             code: 'custom',
             path: ['orders', 0, 'speedMPerMin'],
@@ -80,7 +97,13 @@ export const buildFormSchema = () =>
 
       orders.forEach((order, idx) => {
         if (order.useTotalLength) {
-          if (!order.totalLengthM || order.totalLengthM <= 0) {
+          if (order.totalLengthM === undefined) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'totalLengthM'],
+              message: 'enterTotalLength',
+            });
+          } else if (order.totalLengthM <= 0) {
             ctx.addIssue({
               code: 'custom',
               path: ['orders', idx, 'totalLengthM'],
@@ -100,14 +123,26 @@ export const buildFormSchema = () =>
         }
 
         order.sizes.forEach((size, sIdx) => {
-          if (!size.sheets || size.sheets <= 0) {
+          if (size.sheets === undefined) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'sizes', sIdx, 'sheets'],
+              message: enterPiecesCode,
+            });
+          } else if (size.sheets <= 0) {
             ctx.addIssue({
               code: 'custom',
               path: ['orders', idx, 'sizes', sIdx, 'sheets'],
               message: 'positive',
             });
           }
-          if (!size.length || size.length <= 0) {
+          if (size.length === undefined) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'sizes', sIdx, 'length'],
+              message: 'enterLength',
+            });
+          } else if (size.length <= 0) {
             ctx.addIssue({
               code: 'custom',
               path: ['orders', idx, 'sizes', sIdx, 'length'],
@@ -116,7 +151,7 @@ export const buildFormSchema = () =>
           }
         });
       });
-
     });
+};
 
 export type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;

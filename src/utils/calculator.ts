@@ -376,6 +376,7 @@ export function calculateSchedule(
 
   const endAt = rows[rows.length - 1]!.end;
 
+  const productName = settings.productName?.trim();
   return {
     rows,
     startAt,
@@ -385,6 +386,7 @@ export function calculateSchedule(
     totalDurationMinutes: (endAt.getTime() - startAt.getTime()) / 60_000,
     totalPackages,
     mode,
+    productName: productName ? productName : undefined,
   };
 }
 

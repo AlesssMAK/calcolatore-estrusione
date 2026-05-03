@@ -37,7 +37,13 @@
     "toggle": {
       "manualStart": "Imposta orario",
       "perOrderSpeed": "Velocità per ordine",
-      "gaps": "Pause tra ordini"
+      "gaps": "Pause tra ordini",
+      "productName": "Nome prodotto"
+    },
+    "productName": "Nome del prodotto",
+    "productNamePlaceholder": {
+      "sheets": "es. Lastra alveolare 6 mm",
+      "profiles": "es. Profilo a H 16 mm"
     }
   },
   "orders": {
@@ -111,7 +117,14 @@
     "fillRequired": "Compila i campi obbligatori",
     "positive": "Deve essere maggiore di 0",
     "nonNegative": "Deve essere ≥ 0",
-    "integer": "Deve essere un numero intero"
+    "integer": "Deve essere un numero intero",
+    "enterSpeed": "Inserisci la velocità (m/min)",
+    "enterOrderSpeed": "Inserisci la velocità di questo ordine",
+    "enterStartTime": "Imposta data e ora di inizio",
+    "enterTotalLength": "Inserisci i metri totali",
+    "enterSheets": "Inserisci il numero di lastre",
+    "enterProfiles": "Inserisci il numero di profili",
+    "enterLength": "Inserisci la lunghezza (mm)"
   },
   "footer": {
     "madeBy": "AKRAPLAST Sistemi S.r.l."

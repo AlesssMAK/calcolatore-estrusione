@@ -11,14 +11,12 @@ import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
 import FieldError from './FieldError';
+import { numericSetValueAs } from '../utils/numeric';
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 const labelBase =
   'block text-xs font-medium tracking-wide text-ink-soft uppercase';
-
-const numericSetValueAs = (v: unknown) =>
-  v === '' || v === null || v === undefined ? undefined : Number(v);
 
 type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
 
@@ -27,6 +25,7 @@ interface Props {
 }
 
 function OrdersList({ mode }: Props) {
+  'use no memo';
   const { t } = useTranslation();
   const {
     formState: { errors },
@@ -187,6 +186,7 @@ interface FieldsProps {
 }
 
 function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) {
+  'use no memo';
   const { register, control } = useFormContext<FormValues>();
   const useTotalLength = useWatch({
     control,
@@ -197,7 +197,7 @@ function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) 
   return (
     <div className="space-y-2">
       {useTotalLength ? (
-        <div>
+        <div className="pb-5">
           <label className={labelBase}>{t('orders.totalLength')}</label>
           <input
             type="number"
@@ -222,7 +222,7 @@ function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) 
       )}
 
       {isProfiles && (
-        <div className="pt-1">
+        <div className="pt-1 pb-5">
           <label className={labelBase}>
             {t('orders.profilesPerPackage')}
             {idx > 0 && (
@@ -252,7 +252,7 @@ function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) 
       )}
 
       {(showSpeed || showGap) && (
-        <div className="flex flex-wrap items-end gap-2 pt-1 sm:gap-3">
+        <div className="flex flex-wrap items-end gap-2 pt-1 pb-5 sm:gap-3">
           {showSpeed && (
             <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
               <label className={labelBase}>
@@ -386,7 +386,7 @@ function AdvancedSection({
 
       {expanded && (
         <div
-          className={`mt-2 grid grid-cols-2 items-start gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
+          className={`mt-2 grid grid-cols-2 items-end gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
             isProfiles
               ? useTotalLength
                 ? 'sm:grid-cols-3'
@@ -600,6 +600,7 @@ function SizesFieldArray({
   mode: CalculatorMode;
   t: TFunction;
 }) {
+  'use no memo';
   const {
     register,
     formState: { errors },
@@ -641,7 +642,7 @@ function SizesFieldArray({
           return (
             <div
               key={sizeField.id}
-              className="grid grid-cols-[1fr_1fr_auto_auto] items-end gap-2 sm:gap-3"
+              className="grid grid-cols-[1fr_1fr_auto_auto] items-end gap-2 pb-5 sm:gap-3"
             >
               <div className="min-w-0">
                 <label className={labelBase}>{sheetsLabel}</label>

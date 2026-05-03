@@ -5,7 +5,9 @@ import { it as itLocale } from 'date-fns/locale/it';
 import { es as esLocale } from 'date-fns/locale/es';
 import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
+import type { CalculatorMode } from '../types';
 import FieldError from './FieldError';
+import { numericSetValueAs } from '../utils/numeric';
 import { useEffect, useState } from 'react';
 
 registerLocale('it', itLocale);
@@ -60,7 +62,12 @@ function ToggleButton({
   );
 }
 
-function GlobalSettingsPanel() {
+interface GlobalSettingsPanelProps {
+  mode: CalculatorMode;
+}
+
+function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
+  'use no memo';
   const { t, i18n } = useTranslation();
   const [now] = useState(() => Date.now());
   const {
@@ -74,6 +81,11 @@ function GlobalSettingsPanel() {
   const speedMode = useWatch({ control, name: 'settings.speedMode' });
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const startAt = useWatch({ control, name: 'settings.startAt' });
+  const productName = useWatch({ control, name: 'settings.productName' });
+  const [showProductName, setShowProductName] = useState(false);
+  const productNameHasValue =
+    typeof productName === 'string' && productName.length > 0;
+  const productNameOpen = showProductName || productNameHasValue;
 
   const isStartAtInPast =
     startMode === 'manual' &&
@@ -111,6 +123,15 @@ function GlobalSettingsPanel() {
     );
   };
 
+  const toggleProductName = () => {
+    if (productNameOpen) {
+      setShowProductName(false);
+      setValue('settings.productName', '', { shouldValidate: true });
+    } else {
+      setShowProductName(true);
+    }
+  };
+
   const lang = (i18n.resolvedLanguage ?? 'it') as 'it' | 'en' | 'es';
   const isMobile = useMediaQuery('(max-width: 480px)');
   const minDate = new Date();
@@ -146,7 +167,7 @@ function GlobalSettingsPanel() {
       </h2>
 
       {speedMode === 'global' && (
-        <div className="mb-3 sm:mb-4">
+        <div className="mb-7 sm:mb-7">
           <label className={labelBase} htmlFor="globalSpeed">
             {t('settings.globalSpeed')}
           </label>
@@ -158,10 +179,7 @@ function GlobalSettingsPanel() {
             inputMode="decimal"
             className={`${inputBase} mt-1 sm:max-w-xs`}
             {...register('settings.globalSpeed', {
-              setValueAs: v =>
-                v === '' || v === null || v === undefined
-                  ? undefined
-                  : Number(v),
+              setValueAs: numericSetValueAs,
             })}
           />
           <FieldError
@@ -174,7 +192,7 @@ function GlobalSettingsPanel() {
         </div>
       )}
 
-      <div className="flex gap-2 md:flex-wrap md:gap-3">
+      <div className="flex flex-nowrap gap-2 md:flex-wrap md:gap-3">
         <ToggleButton
           active={speedMode === 'perOrder'}
           onClick={togglePerOrderSpeed}
@@ -193,10 +211,32 @@ function GlobalSettingsPanel() {
           icon="⏸"
           label={t('settings.toggle.gaps')}
         />
+        <ToggleButton
+          active={productNameOpen}
+          onClick={toggleProductName}
+          icon="✏"
+          label={t('settings.toggle.productName')}
+        />
       </div>
 
+      {productNameOpen && (
+        <div className="mt-3 pb-5 sm:mt-4">
+          <label className={labelBase} htmlFor="productName">
+            {t('settings.productName')}
+          </label>
+          <input
+            id="productName"
+            type="text"
+            autoFocus={showProductName && !productNameHasValue}
+            placeholder={t(`settings.productNamePlaceholder.${mode}`)}
+            className={`${inputBase} mt-1 sm:max-w-md`}
+            {...register('settings.productName')}
+          />
+        </div>
+      )}
+
       {startMode === 'manual' && (
-        <div className="mt-3 sm:mt-4">
+        <div className="mt-3 pb-5 sm:mt-4">
           <label className={labelBase} htmlFor="startAt">
             {t('settings.startAt')}
           </label>

@@ -35,6 +35,9 @@ function ResultsPanel({ result, mode, onReset }: Props) {
   const buildPlainText = () => {
     const lines: string[] = [];
     lines.push(t('app.title'));
+    if (result.productName) {
+      lines.push(`${t('settings.productName')}: ${result.productName}`);
+    }
     lines.push('');
     lines.push(
       `${t('results.totalProduction')}: ${formatDuration(result.totalProductionMinutes, units)}`,
@@ -124,9 +127,17 @@ function ResultsPanel({ result, mode, onReset }: Props) {
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold text-ink sm:text-lg">
-          {t('results.title')}
-        </h2>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-ink sm:text-lg">
+            {t('results.title')}
+          </h2>
+          {result.productName && (
+            <p className="mt-0.5 truncate text-sm font-medium text-brand-700">
+              <span aria-hidden className="mr-1">🏷</span>
+              {result.productName}
+            </p>
+          )}
+        </div>
         <div className="no-print flex flex-wrap gap-2">
           <button
             type="button"

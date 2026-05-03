@@ -44,6 +44,7 @@ export interface GlobalSettings {
   speedMode: SpeedMode;
   globalSpeed?: number;
   gapMode: GapMode;
+  productName?: string;
 }
 
 export interface ScheduledOrder {
@@ -78,4 +79,5 @@ export interface ScheduleResult {
   totalDurationMinutes: number;
   totalPackages?: number;
   mode: CalculatorMode;
+  productName?: string;
 }

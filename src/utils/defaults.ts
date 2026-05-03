@@ -56,6 +56,7 @@ export function buildEmptyDefaults(
       speedMode: 'global',
       globalSpeed: undefined,
       gapMode: 'continuous',
+      productName: '',
     },
     orders: [makeEmptyOrder(mode)],
   } as unknown as FormValues;

@@ -17,12 +17,14 @@ interface Props {
 }
 
 function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
+  'use no memo';
   const { t } = useTranslation();
 
   const methods = useForm<FormValues>({
-    resolver: zodResolver(buildFormSchema()),
+    resolver: zodResolver(buildFormSchema(mode)),
     defaultValues: buildEmptyDefaults(mode),
     mode: 'onBlur',
+    reValidateMode: 'onChange',
   });
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -81,7 +83,7 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
         className="space-y-4 sm:space-y-5"
         noValidate
       >
-        <GlobalSettingsPanel />
+        <GlobalSettingsPanel mode={mode} />
         <OrdersList mode={mode} />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">

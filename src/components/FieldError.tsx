@@ -3,8 +3,15 @@ interface Props {
 }
 
 function FieldError({ message }: Props) {
-  if (!message) return null;
-  return <p className="mt-1 text-xs font-medium text-danger">{message}</p>;
+  return (
+    <div className="relative h-0">
+      {message && (
+        <p className="pointer-events-none absolute top-0 left-0 mt-1 text-xs font-medium text-danger">
+          {message}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default FieldError;
