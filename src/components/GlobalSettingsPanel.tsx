@@ -148,7 +148,7 @@ function GlobalSettingsPanel() {
       </h2>
 
       {speedMode === 'global' && (
-        <div className="mb-3 sm:mb-4">
+        <div className="mb-7 sm:mb-7">
           <label className={labelBase} htmlFor="globalSpeed">
             {t('settings.globalSpeed')}
           </label>
@@ -195,7 +195,7 @@ function GlobalSettingsPanel() {
       </div>
 
       {startMode === 'manual' && (
-        <div className="mt-3 sm:mt-4">
+        <div className="mt-3 pb-5 sm:mt-4">
           <label className={labelBase} htmlFor="startAt">
             {t('settings.startAt')}
           </label>
