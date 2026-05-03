@@ -17,12 +17,14 @@ interface Props {
 }
 
 function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
+  'use no memo';
   const { t } = useTranslation();
 
   const methods = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema()),
     defaultValues: buildEmptyDefaults(mode),
     mode: 'onBlur',
+    reValidateMode: 'onChange',
   });
 
   const [submitError, setSubmitError] = useState<string | null>(null);

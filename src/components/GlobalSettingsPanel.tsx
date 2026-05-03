@@ -62,6 +62,7 @@ function ToggleButton({
 }
 
 function GlobalSettingsPanel() {
+  'use no memo';
   const { t, i18n } = useTranslation();
   const [now] = useState(() => Date.now());
   const {

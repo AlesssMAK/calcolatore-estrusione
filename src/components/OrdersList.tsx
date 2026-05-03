@@ -25,6 +25,7 @@ interface Props {
 }
 
 function OrdersList({ mode }: Props) {
+  'use no memo';
   const { t } = useTranslation();
   const {
     formState: { errors },
@@ -185,6 +186,7 @@ interface FieldsProps {
 }
 
 function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) {
+  'use no memo';
   const { register, control } = useFormContext<FormValues>();
   const useTotalLength = useWatch({
     control,
@@ -598,6 +600,7 @@ function SizesFieldArray({
   mode: CalculatorMode;
   t: TFunction;
 }) {
+  'use no memo';
   const {
     register,
     formState: { errors },
