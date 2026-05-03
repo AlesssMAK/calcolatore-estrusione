@@ -6,6 +6,7 @@ import { es as esLocale } from 'date-fns/locale/es';
 import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
 import FieldError from './FieldError';
+import { numericSetValueAs } from '../utils/numeric';
 import { useEffect, useState } from 'react';
 
 registerLocale('it', itLocale);
@@ -158,10 +159,7 @@ function GlobalSettingsPanel() {
             inputMode="decimal"
             className={`${inputBase} mt-1 sm:max-w-xs`}
             {...register('settings.globalSpeed', {
-              setValueAs: v =>
-                v === '' || v === null || v === undefined
-                  ? undefined
-                  : Number(v),
+              setValueAs: numericSetValueAs,
             })}
           />
           <FieldError

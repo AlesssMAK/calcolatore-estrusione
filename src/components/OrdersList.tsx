@@ -11,14 +11,12 @@ import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
 import FieldError from './FieldError';
+import { numericSetValueAs } from '../utils/numeric';
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 const labelBase =
   'block text-xs font-medium tracking-wide text-ink-soft uppercase';
-
-const numericSetValueAs = (v: unknown) =>
-  v === '' || v === null || v === undefined ? undefined : Number(v);
 
 type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
 
