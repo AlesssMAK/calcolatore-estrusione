@@ -1,0 +1,68 @@
+<svg width="1800" height="560" viewBox="0 0 1800 560" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="topFlat" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF2030"/>
+      <stop offset="100%" stop-color="#C00410"/>
+    </linearGradient>
+    <linearGradient id="topRise" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E30613"/>
+      <stop offset="100%" stop-color="#FF3545"/>
+    </linearGradient>
+    <linearGradient id="topPeak" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF4555"/>
+      <stop offset="50%" stop-color="#FF2535"/>
+      <stop offset="100%" stop-color="#D40512"/>
+    </linearGradient>
+    <linearGradient id="topFall" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D40512"/>
+      <stop offset="100%" stop-color="#A80410"/>
+    </linearGradient>
+    <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#A80410"/>
+      <stop offset="100%" stop-color="#5A0107"/>
+    </linearGradient>
+
+    <!-- Маска по рамці — щоб обрізати все, що "приховано" за рамкою -->
+    <!-- Насправді не треба маски: лист має виходити за межі, а рамка просто перекреслюється -->
+  </defs>
+
+  <!-- Рамка навколо іконки (під листом) -->
+  <rect x="30" y="60" width="430" height="430" fill="none" stroke="#C8C8C8" stroke-width="3"/>
+
+  <!-- Великий профільний лист, повернутий діагонально, виходить за рамку
+       Центр рамки: (245, 275). Повертаю весь лист на -25° навколо цього центру.
+       Лист сам по собі більший за рамку. -->
+  <g transform="translate(175, 275) rotate(-25) translate(-280, -65) scale(1.7)">
+
+    <!-- Верхня хвиляста поверхня -->
+    <polygon points="0,110 40,110 180,40 140,40" fill="url(#topFlat)"/>
+    <polygon points="40,110 70,60 210,-10 180,40" fill="url(#topRise)"/>
+    <polygon points="70,60 120,60 260,-10 210,-10" fill="url(#topPeak)"/>
+    <polygon points="120,60 150,110 290,40 260,-10" fill="url(#topFall)"/>
+    <polygon points="150,110 200,110 340,40 290,40" fill="url(#topFlat)"/>
+    <polygon points="200,110 230,60 370,-10 340,40" fill="url(#topRise)"/>
+    <polygon points="230,60 280,60 420,-10 370,-10" fill="url(#topPeak)"/>
+    <polygon points="280,60 310,110 450,40 420,-10" fill="url(#topFall)"/>
+    <polygon points="310,110 360,110 500,40 450,40" fill="url(#topFlat)"/>
+
+    <!-- ТОРЦЕВА ПЕРЕДНЯ ГРАНЬ (без стільників) -->
+    <path d="M 0,110 L 40,110 L 70,60 L 120,60 L 150,110 L 200,110 L 230,60 L 280,60 L 310,110 L 360,110 L 360,126 L 310,126 L 280,76 L 230,76 L 200,126 L 150,126 L 120,76 L 70,76 L 40,126 L 0,126 Z" 
+          fill="url(#edgeGrad)"/>
+
+    <!-- ПРАВА БІЧНА ГРАНЬ (той шматок, що бракував — справа зверху) -->
+    <polygon points="360,110 500,40 500,56 360,126" fill="url(#edgeGrad)"/>
+
+    <!-- Білі смужки прибрано -->
+
+  </g>
+
+  <!-- Головний текст -->
+  <g font-family="Arial Black, Impact, sans-serif" font-weight="900">
+    <text x="510" y="280" font-size="160" fill="#1A1A1A" letter-spacing="-3">EXTRUSION</text>
+    <text x="510" y="430" font-size="160" fill="#E30613" letter-spacing="-3">CALCULATOR</text>
+    <text x="1665" y="335" font-size="55" fill="#1A1A1A" font-weight="700">®</text>
+  </g>
+
+  <!-- Підпис автора -->
+  <text x="510" y="500" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="500" fill="#555555" letter-spacing="1" font-style="italic">by Oleksii Makovii</text>
+</svg>

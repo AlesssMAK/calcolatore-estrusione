@@ -1,0 +1,33 @@
+[33m771b818[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/multi-size-and-ux[m[33m)[m ux(toggle-row): wrap toggles to natural width on md+
+[33mef441c9[m[33m ([m[1;31morigin/feature/multi-size-and-ux[m[33m)[m feat: nome prodotto field with mode-aware placeholder
+[33m826918a[m ux: stable-height FieldError + items-end on advanced grid
+[33m70b4382[m feat(validation): per-field error messages with mode-aware schema
+[33mc145b91[m chore: add 'use no memo' to RHF subcomponents
+[33m8f298a8[m chore: extract numericSetValueAs helper into utils/numeric.ts
+[33m42412b0[m chore: ignore .claude/ and presentazione/
+[33m87db11f[m docs: refresh README for multi-size, advanced calc, and product name
+[33m572afdb[m ux: toast on submit when required fields are missing
+[33mf855b8f[m chore: clear two ESLint findings
+[33mad0c851[m ux: pointer cursor on interactive elements globally
+[33m4ae2706[m feat(orders): optional product name on the order badge
+[33mfc037d8[m fix(advanced): produced details show in results even without itemLength
+[33m5659405[m ux(advanced+results): keep all advanced fields under 'Metri totali', add remaining-time line
+[33m9fab0c4[m feat(advanced): produced count + item length under 'Metri totali' mode
+[33m4115ea7[m fix(advanced): 'Bancali prodotti' was disabled when sheets were filled
+[33me9fd88d[m fix(advanced): replace useWatch with explicit watch().subscribe for sums
+[33m9d8a4ee[m ux(advanced+results): per-row produced details on desktop, mobile fixes
+[33m5e1a9fe[m ux(advanced): one-row layout, perPackage fully optional, drop totalPackages
+[33mccbdfc0[m feat(advanced): per-order produced/remaining calculation for both modes
+[33mc107a96[m milti size
+[33m70d2a90[m feat(profiles): bring profiles mode to feature parity with sheets
+[33mdef8c43[m ux(sheets): keep speed and gap fields in one row on mobile
+[33m93ba676[m fix(sheets): submit silently blocked when useTotalLength toggle was on
+[33m80c1e73[m update
+[33mbd8dafc[m feat(sheets): add total-length toggle per order with inheritance
+[33m678f05c[m feat(sheets): support multiple sizes per order
+[33m797b170[m ux: relax pause/speed validation and add second 'add order' button
+[33mf543c81[m[33m ([m[1;31morigin/feature/settings-toggles-mobile-ux[m[33m, [m[1;32mfeature/settings-toggles-mobile-ux[m[33m)[m finish commit
+[33m4bbec2b[m[33m ([m[1;32mmain[m[33m)[m update css
+[33m89c20d5[m three commit
+[33m761d74f[m second commit
+[33m5fea6f6[m initial commit
