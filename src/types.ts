@@ -1,5 +1,4 @@
 export type StartMode = 'now' | 'manual';
-export type SpeedMode = 'global' | 'perOrder';
 export type GapMode = 'continuous' | 'withGaps';
 export type CalculatorMode = 'sheets' | 'profiles';
 
@@ -41,8 +40,6 @@ export interface ProducedSummary {
 export interface GlobalSettings {
   startMode: StartMode;
   startAt?: string;
-  speedMode: SpeedMode;
-  globalSpeed?: number;
   gapMode: GapMode;
   productName?: string;
 }

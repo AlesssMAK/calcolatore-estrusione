@@ -7,7 +7,6 @@ import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import FieldError from './FieldError';
-import { numericSetValueAs } from '../utils/numeric';
 import { useEffect, useState } from 'react';
 
 registerLocale('it', itLocale);
@@ -78,7 +77,6 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
   } = useFormContext<FormValues>();
 
   const startMode = useWatch({ control, name: 'settings.startMode' });
-  const speedMode = useWatch({ control, name: 'settings.speedMode' });
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const startAt = useWatch({ control, name: 'settings.startAt' });
   const productName = useWatch({ control, name: 'settings.productName' });
@@ -105,14 +103,6 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
       setValue('settings.startMode', 'now', { shouldValidate: true });
       setValue('settings.startAt', '', { shouldValidate: true });
     }
-  };
-
-  const togglePerOrderSpeed = () => {
-    setValue(
-      'settings.speedMode',
-      speedMode === 'global' ? 'perOrder' : 'global',
-      { shouldValidate: true }
-    );
   };
 
   const toggleGaps = () => {
@@ -166,39 +156,7 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
         {t('settings.title')}
       </h2>
 
-      {speedMode === 'global' && (
-        <div className="mb-7 sm:mb-7">
-          <label className={labelBase} htmlFor="globalSpeed">
-            {t('settings.globalSpeed')}
-          </label>
-          <input
-            id="globalSpeed"
-            type="number"
-            step="0.1"
-            min="0"
-            inputMode="decimal"
-            className={`${inputBase} mt-1 sm:max-w-xs`}
-            {...register('settings.globalSpeed', {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              errors.settings?.globalSpeed?.message
-                ? t(`validation.${errors.settings.globalSpeed.message}`)
-                : undefined
-            }
-          />
-        </div>
-      )}
-
       <div className="flex flex-nowrap gap-2 md:flex-wrap md:gap-3">
-        <ToggleButton
-          active={speedMode === 'perOrder'}
-          onClick={togglePerOrderSpeed}
-          icon="⚡"
-          label={t('settings.toggle.perOrderSpeed')}
-        />
         <ToggleButton
           active={startMode === 'manual'}
           onClick={toggleManualStart}

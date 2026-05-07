@@ -23,12 +23,6 @@
     },
     "startAt": "Fecha y hora de inicio",
     "startAtPastWarning": "La fecha de inicio está en el pasado.",
-    "speedMode": {
-      "label": "Velocidad",
-      "global": "Una velocidad para todos los pedidos",
-      "perOrder": "Velocidad separada por pedido"
-    },
-    "globalSpeed": "Velocidad del extrusor (m/min)",
     "gapMode": {
       "label": "Pausas entre pedidos",
       "continuous": "Continuo (sin pausas)",
@@ -36,7 +30,6 @@
     },
     "toggle": {
       "manualStart": "Fijar hora",
-      "perOrderSpeed": "Velocidad por pedido",
       "gaps": "Pausas entre pedidos",
       "productName": "Nombre del producto"
     },
@@ -118,7 +111,6 @@
     "positive": "Debe ser mayor que 0",
     "nonNegative": "Debe ser ≥ 0",
     "integer": "Debe ser un entero",
-    "enterSpeed": "Introduce la velocidad (m/min)",
     "enterOrderSpeed": "Introduce la velocidad de este pedido",
     "enterStartTime": "Define la fecha y hora de inicio",
     "enterTotalLength": "Introduce los metros totales",

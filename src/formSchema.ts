@@ -36,8 +36,6 @@ const orderSchema = z.object({
 const settingsSchema = z.object({
   startMode: z.enum(['now', 'manual']),
   startAt: z.string().optional(),
-  speedMode: z.enum(['global', 'perOrder']),
-  globalSpeed: z.number().positive('positive').optional(),
   gapMode: z.enum(['continuous', 'withGaps']),
   productName: z.string().optional(),
 });
@@ -62,23 +60,7 @@ export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {
         });
       }
 
-      if (settings.speedMode === 'global') {
-        if (settings.globalSpeed === undefined) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['settings', 'globalSpeed'],
-            message: 'enterSpeed',
-          });
-        } else if (settings.globalSpeed <= 0) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['settings', 'globalSpeed'],
-            message: 'positive',
-          });
-        }
-      }
-
-      if (settings.speedMode === 'perOrder' && orders.length > 0) {
+      if (orders.length > 0) {
         const first = orders[0];
         if (first.speedMPerMin === undefined) {
           ctx.addIssue({

@@ -23,12 +23,6 @@
     },
     "startAt": "Data e ora di inizio",
     "startAtPastWarning": "La data di inizio è nel passato.",
-    "speedMode": {
-      "label": "Velocità",
-      "global": "Una velocità per tutti gli ordini",
-      "perOrder": "Velocità separata per ogni ordine"
-    },
-    "globalSpeed": "Velocità estrusore (m/min)",
     "gapMode": {
       "label": "Pause tra gli ordini",
       "continuous": "Continuo (senza pause)",
@@ -36,7 +30,6 @@
     },
     "toggle": {
       "manualStart": "Imposta orario",
-      "perOrderSpeed": "Velocità per ordine",
       "gaps": "Pause tra ordini",
       "productName": "Nome prodotto"
     },
@@ -118,7 +111,6 @@
     "positive": "Deve essere maggiore di 0",
     "nonNegative": "Deve essere ≥ 0",
     "integer": "Deve essere un numero intero",
-    "enterSpeed": "Inserisci la velocità (m/min)",
     "enterOrderSpeed": "Inserisci la velocità di questo ordine",
     "enterStartTime": "Imposta data e ora di inizio",
     "enterTotalLength": "Inserisci i metri totali",

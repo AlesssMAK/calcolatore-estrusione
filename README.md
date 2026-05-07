@@ -1,8 +1,8 @@
 # Calcolatore di Estrusione
 
-Production-time calculator for polycarbonate sheets and profiles on the extrusion line of **AKRAPLAST Sistemi S.r.l.**
+Production-time calculator for polycarbonate sheets and profiles on a 24/7 extrusion line.
 
-The app computes the total production time of a queue of orders and the finish date/time, assuming the line runs 24/7. Each order can carry a list of sizes, an optional product name, and produced-quantity counters that shrink the remaining time pro-rata.
+The app computes the total production time of a queue of orders and the finish date/time, assuming the line runs continuously. Each order can carry a list of sizes, an optional product name, and produced-quantity counters that shrink the remaining time pro-rata.
 
 ## Features
 
