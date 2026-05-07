@@ -23,12 +23,6 @@
     },
     "startAt": "Start date and time",
     "startAtPastWarning": "The start date is in the past.",
-    "speedMode": {
-      "label": "Speed",
-      "global": "One speed for all orders",
-      "perOrder": "Separate speed per order"
-    },
-    "globalSpeed": "Extruder speed (m/min)",
     "gapMode": {
       "label": "Gaps between orders",
       "continuous": "Continuous (no breaks)",
@@ -36,7 +30,6 @@
     },
     "toggle": {
       "manualStart": "Set time",
-      "perOrderSpeed": "Speed per order",
       "gaps": "Gaps between orders",
       "productName": "Product name"
     },
@@ -118,7 +111,6 @@
     "positive": "Must be greater than 0",
     "nonNegative": "Must be ≥ 0",
     "integer": "Must be an integer",
-    "enterSpeed": "Enter the speed (m/min)",
     "enterOrderSpeed": "Enter the speed for this order",
     "enterStartTime": "Set the start date and time",
     "enterTotalLength": "Enter total meters",

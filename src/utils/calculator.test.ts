@@ -91,8 +91,6 @@ describe('calculateSchedule — produced (profiles)', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -101,6 +99,7 @@ describe('calculateSchedule — produced (profiles)', () => {
           sizes: [{ sheets: 100, length: 6000 }],
           profilesPerPackage: 20,
           producedProfiles: [{ value: 50 }],
+          speedMPerMin: 5,
         },
       ],
       { now: start, mode: 'profiles' },
@@ -121,8 +120,6 @@ describe('calculateSchedule — produced (profiles)', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -131,6 +128,7 @@ describe('calculateSchedule — produced (profiles)', () => {
           sizes: [{ sheets: 100, length: 6000 }],
           profilesPerPackage: 20,
           producedPackages: [{ value: 2 }],
+          speedMPerMin: 5,
         },
       ],
       { now: start, mode: 'profiles' },
@@ -150,8 +148,6 @@ describe('calculateSchedule — produced under useTotalLength', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -161,6 +157,7 @@ describe('calculateSchedule — produced under useTotalLength', () => {
           totalLengthM: 1200,
           producedSheets: [{ value: 100 }],
           producedItemLength: 6000,
+          speedMPerMin: 5,
         },
       ],
       { now: start, mode: 'sheets' },
@@ -180,8 +177,6 @@ describe('calculateSchedule — produced under useTotalLength', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -191,6 +186,7 @@ describe('calculateSchedule — produced under useTotalLength', () => {
           totalLengthM: 600,
           producedProfiles: [{ value: 50 }],
           producedItemLength: 6000,
+          speedMPerMin: 5,
         },
       ],
       { now: start, mode: 'profiles' },
@@ -212,8 +208,6 @@ describe('calculateSchedule — produced (sheets)', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -222,6 +216,7 @@ describe('calculateSchedule — produced (sheets)', () => {
           sizes: [{ sheets: 200, length: 6000 }],
           producedSheets: [{ value: 50 }],
           sheetsPerPallet: [{ value: 25 }],
+          speedMPerMin: 5,
         },
       ],
       { now: start, mode: 'sheets' },
@@ -242,8 +237,6 @@ describe('calculateSchedule — produced (sheets)', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -252,6 +245,7 @@ describe('calculateSchedule — produced (sheets)', () => {
           sizes: [{ sheets: 200, length: 6000 }],
           sheetsPerPallet: [{ value: 25 }],
           producedPallets: [{ value: 2 }],
+          speedMPerMin: 5,
         },
       ],
       { now: start, mode: 'sheets' },
@@ -270,8 +264,6 @@ describe('calculateSchedule — profiles mode', () => {
       {
         startMode: 'manual',
         startAt: '2026-04-23T10:00:00Z',
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -282,6 +274,7 @@ describe('calculateSchedule — profiles mode', () => {
             { sheets: 50, length: 3000 },
           ],
           profilesPerPackage: 20,
+          speedMPerMin: 5,
         },
       ],
       { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
@@ -296,8 +289,6 @@ describe('calculateSchedule — profiles mode', () => {
       {
         startMode: 'manual',
         startAt: '2026-04-23T10:00:00Z',
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -305,6 +296,7 @@ describe('calculateSchedule — profiles mode', () => {
           id: 'a',
           sizes: [{ sheets: 100, length: 6000 }],
           profilesPerPackage: 25,
+          speedMPerMin: 5,
         },
         { id: 'b', sizes: [{ sheets: 60, length: 6000 }] },
         {
@@ -328,8 +320,6 @@ describe('calculateSchedule — profiles mode', () => {
       {
         startMode: 'manual',
         startAt: '2026-04-23T10:00:00Z',
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
@@ -338,6 +328,7 @@ describe('calculateSchedule — profiles mode', () => {
           useTotalLength: true,
           totalLengthM: 600,
           profilesPerPackage: 20,
+          speedMPerMin: 5,
         },
       ],
       { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
@@ -386,12 +377,10 @@ describe('calculateSchedule — spec example', () => {
   const settings: GlobalSettings = {
     startMode: 'manual',
     startAt: start.toISOString(),
-    speedMode: 'global',
-    globalSpeed: 5,
     gapMode: 'continuous',
   };
   const orders: Order[] = [
-    { id: 'a', sheets: 100, sheetLengthMm: 6000 },
+    { id: 'a', sheets: 100, sheetLengthMm: 6000, speedMPerMin: 5 },
     { id: 'b', sheets: 50, sheetLengthMm: 3000 },
   ];
 
@@ -429,7 +418,6 @@ describe('calculateSchedule — per-order speed', () => {
       {
         startMode: 'manual',
         startAt: '2026-04-23T10:00:00Z',
-        speedMode: 'perOrder',
         gapMode: 'continuous',
       },
       [
@@ -449,7 +437,6 @@ describe('calculateSchedule — per-order speed', () => {
       {
         startMode: 'manual',
         startAt: '2026-04-23T10:00:00Z',
-        speedMode: 'perOrder',
         gapMode: 'continuous',
       },
       [
@@ -475,12 +462,10 @@ describe('calculateSchedule — with gaps', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'withGaps',
       },
       [
-        { id: 'a', sheets: 100, sheetLengthMm: 6000, gapAfterMin: 30 },
+        { id: 'a', sheets: 100, sheetLengthMm: 6000, gapAfterMin: 30, speedMPerMin: 5 },
         { id: 'b', sheets: 50, sheetLengthMm: 3000, gapAfterMin: 99 },
       ],
       { now: start },
@@ -500,11 +485,9 @@ describe('calculateSchedule — 24/7 rollover', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 1,
         gapMode: 'continuous',
       },
-      [{ id: 'a', sheets: 10, sheetLengthMm: 6000 }],
+      [{ id: 'a', sheets: 10, sheetLengthMm: 6000, speedMPerMin: 1 }],
       { now: start },
     );
     expect(result.rows[0]!.productionMinutes).toBe(60);
@@ -518,11 +501,9 @@ describe('calculateSchedule — "now" mode', () => {
     const result = calculateSchedule(
       {
         startMode: 'now',
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
-      [{ id: 'a', sheets: 100, sheetLengthMm: 6000 }],
+      [{ id: 'a', sheets: 100, sheetLengthMm: 6000, speedMPerMin: 5 }],
       { now },
     );
     expect(result.startAt.toISOString()).toBe(now.toISOString());
@@ -536,12 +517,10 @@ describe('calculateSchedule — profiles mode', () => {
       {
         startMode: 'manual',
         startAt: start.toISOString(),
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
       [
-        { id: 'a', sheets: 100, sheetLengthMm: 6000, profilesPerPackage: 25 },
+        { id: 'a', sheets: 100, sheetLengthMm: 6000, profilesPerPackage: 25, speedMPerMin: 5 },
         { id: 'b', sheets: 51, sheetLengthMm: 3000, profilesPerPackage: 10 },
       ],
       { now: start, mode: 'profiles' },
@@ -557,11 +536,9 @@ describe('calculateSchedule — profiles mode', () => {
     const result = calculateSchedule(
       {
         startMode: 'now',
-        speedMode: 'global',
-        globalSpeed: 5,
         gapMode: 'continuous',
       },
-      [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],
+      [{ id: 'a', sheets: 10, sheetLengthMm: 1000, speedMPerMin: 5 }],
       { mode: 'profiles' },
     );
     expect(result.rows[0]!.packages).toBeUndefined();
@@ -574,8 +551,6 @@ describe('calculateSchedule — error cases', () => {
       calculateSchedule(
         {
           startMode: 'now',
-          speedMode: 'global',
-          globalSpeed: 5,
           gapMode: 'continuous',
         },
         [],
@@ -583,12 +558,11 @@ describe('calculateSchedule — error cases', () => {
     ).toThrow();
   });
 
-  it('throws when globalSpeed missing in global mode', () => {
+  it('throws when first order has no speed', () => {
     expect(() =>
       calculateSchedule(
         {
           startMode: 'now',
-          speedMode: 'global',
           gapMode: 'continuous',
         },
         [{ id: 'a', sheets: 10, sheetLengthMm: 1000 }],

@@ -38,7 +38,6 @@ function OrdersList({ mode }: Props) {
     name: 'orders',
   });
 
-  const speedMode = useWatch({ control, name: 'settings.speedMode' });
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const watchedOrders = useWatch({ control, name: 'orders' });
 
@@ -98,7 +97,6 @@ function OrdersList({ mode }: Props) {
         {fields.map((field, idx) => {
           const rowErr = errors.orders?.[idx];
           const isLast = idx === fields.length - 1;
-          const showSpeed = speedMode === 'perOrder';
           const showGap = gapMode === 'withGaps' && !isLast;
 
           return (
@@ -151,7 +149,6 @@ function OrdersList({ mode }: Props) {
               <OrderFields
                 idx={idx}
                 rowErr={rowErr}
-                showSpeed={showSpeed}
                 showGap={showGap}
                 mode={mode}
                 t={t}
@@ -179,13 +176,12 @@ function OrdersList({ mode }: Props) {
 interface FieldsProps {
   idx: number;
   rowErr: OrderError | undefined;
-  showSpeed: boolean;
   showGap: boolean;
   mode: CalculatorMode;
   t: TFunction;
 }
 
-function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) {
+function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
   const useTotalLength = useWatch({
@@ -251,62 +247,58 @@ function OrderFields({ idx, rowErr, showSpeed, showGap, mode, t }: FieldsProps) 
         </div>
       )}
 
-      {(showSpeed || showGap) && (
-        <div className="flex flex-wrap items-end gap-2 pt-1 pb-5 sm:gap-3">
-          {showSpeed && (
-            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
-              <label className={labelBase}>
-                {t('orders.speed')}
-                {idx > 0 && (
-                  <span className="ml-1 normal-case text-ink-soft">
-                    ({t('orders.optionalInherit')})
-                  </span>
-                )}
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                inputMode="decimal"
-                className={`${inputBase} mt-1`}
-                {...register(`orders.${idx}.speedMPerMin`, {
-                  setValueAs: numericSetValueAs,
-                })}
-              />
-              <FieldError
-                message={
-                  rowErr?.speedMPerMin?.message
-                    ? t(`validation.${rowErr.speedMPerMin.message}`)
-                    : undefined
-                }
-              />
-            </div>
-          )}
-
-          {showGap && (
-            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
-              <label className={labelBase}>{t('orders.gapAfter')}</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                inputMode="numeric"
-                className={`${inputBase} mt-1`}
-                {...register(`orders.${idx}.gapAfterMin`, {
-                  setValueAs: numericSetValueAs,
-                })}
-              />
-              <FieldError
-                message={
-                  rowErr?.gapAfterMin?.message
-                    ? t(`validation.${rowErr.gapAfterMin.message}`)
-                    : undefined
-                }
-              />
-            </div>
-          )}
+      <div className="flex flex-wrap items-end gap-2 pt-1 pb-5 sm:gap-3">
+        <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+          <label className={labelBase}>
+            {t('orders.speed')}
+            {idx > 0 && (
+              <span className="ml-1 normal-case text-ink-soft">
+                ({t('orders.optionalInherit')})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            inputMode="decimal"
+            className={`${inputBase} mt-1`}
+            {...register(`orders.${idx}.speedMPerMin`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+          <FieldError
+            message={
+              rowErr?.speedMPerMin?.message
+                ? t(`validation.${rowErr.speedMPerMin.message}`)
+                : undefined
+            }
+          />
         </div>
-      )}
+
+        {showGap && (
+          <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+            <label className={labelBase}>{t('orders.gapAfter')}</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              className={`${inputBase} mt-1`}
+              {...register(`orders.${idx}.gapAfterMin`, {
+                setValueAs: numericSetValueAs,
+              })}
+            />
+            <FieldError
+              message={
+                rowErr?.gapAfterMin?.message
+                  ? t(`validation.${rowErr.gapAfterMin.message}`)
+                  : undefined
+              }
+            />
+          </div>
+        )}
+      </div>
 
       <AdvancedSection idx={idx} mode={mode} t={t} />
     </div>

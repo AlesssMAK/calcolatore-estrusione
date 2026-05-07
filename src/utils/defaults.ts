@@ -53,8 +53,6 @@ export function buildEmptyDefaults(
     settings: {
       startMode: 'now',
       startAt: '',
-      speedMode: 'global',
-      globalSpeed: undefined,
       gapMode: 'continuous',
       productName: '',
     },

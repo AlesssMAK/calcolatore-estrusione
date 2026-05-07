@@ -74,22 +74,15 @@ function resolveStartDate(settings: GlobalSettings, now: Date): Date {
 }
 
 function resolveSpeed(
-  settings: GlobalSettings,
   order: Order,
   fallback: number | undefined,
 ): number {
-  if (settings.speedMode === 'global') {
-    if (!settings.globalSpeed || settings.globalSpeed <= 0) {
-      throw new Error('globalSpeed required in "global" mode');
-    }
-    return settings.globalSpeed;
-  }
   const candidate =
     order.speedMPerMin && order.speedMPerMin > 0
       ? order.speedMPerMin
       : fallback;
   if (!candidate || candidate <= 0) {
-    throw new Error('speedMPerMin required in "perOrder" mode');
+    throw new Error('speedMPerMin required on the first order');
   }
   return candidate;
 }
@@ -280,7 +273,7 @@ export function calculateSchedule(
   let lastPerPackage: number | undefined;
 
   orders.forEach((order, idx) => {
-    const speedMPerMin = resolveSpeed(settings, order, lastSpeed);
+    const speedMPerMin = resolveSpeed(order, lastSpeed);
     lastSpeed = speedMPerMin;
     const totalLengthM = calculateOrderLengthM(order);
     const productionMinutes = totalLengthM / speedMPerMin;
