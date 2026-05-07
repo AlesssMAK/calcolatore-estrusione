@@ -9,14 +9,23 @@ import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode, ScheduleResult } from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
+import type { FieldErrors } from 'react-hook-form';
 
 interface Props {
   mode: CalculatorMode;
+  settingsOpen: boolean;
+  onSettingsErrors: () => void;
   onResult: (result: ScheduleResult) => void;
   onRequestReset: () => void;
 }
 
-function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
+function CalculatorForm({
+  mode,
+  settingsOpen,
+  onSettingsErrors,
+  onResult,
+  onRequestReset,
+}: Props) {
   'use no memo';
   const { t } = useTranslation();
 
@@ -62,7 +71,10 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
     });
   };
 
-  const onInvalid = () => {
+  const onInvalid = (errors: FieldErrors<FormValues>) => {
+    if (errors.settings) {
+      onSettingsErrors();
+    }
     showError(t('validation.fillRequired'));
     window.requestAnimationFrame(() => {
       const firstError = document.querySelector(
@@ -83,7 +95,7 @@ function CalculatorForm({ mode, onResult, onRequestReset }: Props) {
         className="space-y-4 sm:space-y-5"
         noValidate
       >
-        <GlobalSettingsPanel mode={mode} />
+        {settingsOpen && <GlobalSettingsPanel mode={mode} />}
         <OrdersList mode={mode} />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">

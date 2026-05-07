@@ -11,6 +11,7 @@ function App() {
   const [mode, setMode] = useState<CalculatorMode>('sheets');
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
@@ -29,11 +30,18 @@ function App() {
       <Header />
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-8">
-        <Tabs value={mode} onChange={onModeChange} />
+        <Tabs
+          value={mode}
+          onChange={onModeChange}
+          settingsOpen={settingsOpen}
+          onToggleSettings={() => setSettingsOpen((v) => !v)}
+        />
 
         <CalculatorForm
           key={formKey}
           mode={mode}
+          settingsOpen={settingsOpen}
+          onSettingsErrors={() => setSettingsOpen(true)}
           onResult={setResult}
           onRequestReset={onReset}
         />
