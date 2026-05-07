@@ -12,11 +12,11 @@ function Header() {
           target="_blank"
           rel="noreferrer"
           className="block shrink-0"
-          aria-label="AKRAPLAST Sistemi S.r.l."
+          aria-label={t('app.title')}
         >
           <img
             src="/logo.png"
-            alt="AKRAPLAST Sistemi S.r.l."
+            alt={t('app.title')}
             className="h-10 w-50 md:h-12"
           />
         </a>
