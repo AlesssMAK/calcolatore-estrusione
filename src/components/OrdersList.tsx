@@ -821,8 +821,10 @@ function SizesFieldArray({
         {sizeFields.map((sizeField, sIdx) => {
           const sizeErr = orderErr?.sizes?.[sIdx];
           const showPerPackage = isProfiles && sizeFields.length > 1;
+          // Mobile: always 4 cols (sheets, length, −, +); perPackage wraps to its own row.
+          // sm+ : 5 cols when perPackage shows, otherwise 4.
           const gridCols = showPerPackage
-            ? 'grid-cols-[1fr_1fr_1fr_auto_auto]'
+            ? 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
             : 'grid-cols-[1fr_1fr_auto_auto]';
           return (
             <div
@@ -872,7 +874,7 @@ function SizesFieldArray({
               </div>
 
               {showPerPackage && (
-                <div className="min-w-0">
+                <div className="col-span-4 min-w-0 sm:col-span-1">
                   <label className={labelBase}>
                     {t('orders.profilesPerPackage')}
                     {sIdx > 0 && (
