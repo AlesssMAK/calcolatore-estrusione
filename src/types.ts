@@ -5,6 +5,7 @@ export type CalculatorMode = 'sheets' | 'profiles';
 export interface OrderSize {
   sheets?: number;
   length?: number;
+  profilesPerPackage?: number;
 }
 
 export interface ProducedEntry {
@@ -21,7 +22,6 @@ export interface Order {
   sheetLengthMm?: number;
   speedMPerMin?: number;
   gapAfterMin?: number;
-  profilesPerPackage?: number;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
   producedSheets?: ProducedEntry[];

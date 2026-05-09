@@ -188,7 +188,11 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
     control,
     name: `orders.${idx}.useTotalLength`,
   });
+  const sizesWatched = useWatch({ control, name: `orders.${idx}.sizes` });
+  const sizesCount = sizesWatched?.length ?? 0;
   const isProfiles = mode === 'profiles';
+  const showInlinePerPackage =
+    isProfiles && !useTotalLength && sizesCount <= 1;
 
   return (
     <div className="space-y-2">
@@ -221,7 +225,7 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
           />
         </div>
 
-        {isProfiles && (
+        {showInlinePerPackage && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
             <label className={labelBase}>
               {t('orders.profilesPerPackage')}
@@ -237,14 +241,16 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
               step="1"
               inputMode="numeric"
               className={`${inputBase} mt-1`}
-              {...register(`orders.${idx}.profilesPerPackage`, {
+              {...register(`orders.${idx}.sizes.0.profilesPerPackage`, {
                 setValueAs: numericSetValueAs,
               })}
             />
             <FieldError
               message={
-                rowErr?.profilesPerPackage?.message
-                  ? t(`validation.${rowErr.profilesPerPackage.message}`)
+                rowErr?.sizes?.[0]?.profilesPerPackage?.message
+                  ? t(
+                      `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
+                    )
                   : undefined
               }
             />
@@ -814,10 +820,14 @@ function SizesFieldArray({
       <div className="space-y-2">
         {sizeFields.map((sizeField, sIdx) => {
           const sizeErr = orderErr?.sizes?.[sIdx];
+          const showPerPackage = isProfiles && sizeFields.length > 1;
+          const gridCols = showPerPackage
+            ? 'grid-cols-[1fr_1fr_1fr_auto_auto]'
+            : 'grid-cols-[1fr_1fr_auto_auto]';
           return (
             <div
               key={sizeField.id}
-              className="grid grid-cols-[1fr_1fr_auto_auto] items-end gap-2 pb-5 sm:gap-3"
+              className={`grid ${gridCols} items-end gap-2 pb-5 sm:gap-3`}
             >
               <div className="min-w-0">
                 <label className={labelBase}>{sheetsLabel}</label>
@@ -860,6 +870,39 @@ function SizesFieldArray({
                   }
                 />
               </div>
+
+              {showPerPackage && (
+                <div className="min-w-0">
+                  <label className={labelBase}>
+                    {t('orders.profilesPerPackage')}
+                    {sIdx > 0 && (
+                      <span className="ml-1 normal-case text-ink-soft">
+                        ({t('orders.optionalInherit')})
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    className={`${inputBase} mt-1`}
+                    {...register(
+                      `orders.${orderIdx}.sizes.${sIdx}.profilesPerPackage`,
+                      { setValueAs: numericSetValueAs },
+                    )}
+                  />
+                  <FieldError
+                    message={
+                      sizeErr?.profilesPerPackage?.message
+                        ? t(
+                            `validation.${sizeErr.profilesPerPackage.message}`,
+                          )
+                        : undefined
+                    }
+                  />
+                </div>
+              )}
 
               <button
                 type="button"

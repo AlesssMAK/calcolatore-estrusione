@@ -4,6 +4,11 @@ import type { CalculatorMode } from './types';
 const sizeSchema = z.object({
   sheets: z.number().int('integer').positive('positive').optional(),
   length: z.number().positive('positive').optional(),
+  profilesPerPackage: z
+    .number()
+    .int('integer')
+    .positive('positive')
+    .optional(),
 });
 
 const producedEntrySchema = z.object({
@@ -20,11 +25,6 @@ const orderSchema = z.object({
   sheetLengthMm: z.number().positive('positive').optional(),
   speedMPerMin: z.number().positive('positive').optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
-  profilesPerPackage: z
-    .number()
-    .int('integer')
-    .positive('positive')
-    .optional(),
   producedProfiles: z.array(producedEntrySchema).optional(),
   producedPackages: z.array(producedEntrySchema).optional(),
   producedSheets: z.array(producedEntrySchema).optional(),

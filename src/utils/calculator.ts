@@ -193,17 +193,35 @@ export interface ProducedSheetsResult {
 
 export function calculateProducedProfiles(
   order: Order,
-  perPackage: number | undefined,
+  perPackages: (number | undefined)[],
 ): ProducedProfilesResult | undefined {
   const profilesEntered = sumEntries(order.producedProfiles);
   const packagesEntered = sumEntries(order.producedPackages);
 
-  let producedProfiles = 0;
-  if (profilesEntered > 0) {
-    producedProfiles = profilesEntered;
-  } else if (packagesEntered > 0 && perPackage && perPackage > 0) {
-    producedProfiles = packagesEntered * perPackage;
+  // Effective produced profiles per row: prefer producedProfiles[i], else
+  // producedPackages[i] × perPackages[i].
+  const sizesLen = order.sizes?.length ?? 0;
+  const rowsLen = Math.max(
+    sizesLen,
+    order.producedProfiles?.length ?? 0,
+    order.producedPackages?.length ?? 0,
+  );
+  const effectiveProfiles: number[] = [];
+  for (let i = 0; i < rowsLen; i++) {
+    const profI = order.producedProfiles?.[i]?.value ?? 0;
+    if (profI > 0) {
+      effectiveProfiles[i] = profI;
+      continue;
+    }
+    const packI = order.producedPackages?.[i]?.value ?? 0;
+    const ppI = perPackages[i];
+    if (packI > 0 && ppI && ppI > 0) {
+      effectiveProfiles[i] = packI * ppI;
+    } else {
+      effectiveProfiles[i] = 0;
+    }
   }
+  const producedProfiles = effectiveProfiles.reduce((s, v) => s + v, 0);
 
   if (producedProfiles === 0 && packagesEntered === 0) return undefined;
 
@@ -218,18 +236,40 @@ export function calculateProducedProfiles(
       ? Math.min(producedProfiles, totalProfiles)
       : producedProfiles;
 
-  const totalPackages =
-    totalProfiles !== undefined && perPackage && perPackage > 0
-      ? Math.ceil(totalProfiles / perPackage)
-      : undefined;
-  const producedPackages =
-    perPackage && perPackage > 0
-      ? Math.ceil(cappedProduced / perPackage)
-      : 0;
+  // Per-size totals/produced packages: sum ceil(sizes[i].sheets / perPackages[i]).
+  let totalPackages: number | undefined;
+  let producedPackagesCount = 0;
+  if (!order.useTotalLength && order.sizes) {
+    let totalAcc = 0;
+    let totalKnown = false;
+    for (let i = 0; i < order.sizes.length; i++) {
+      const pp = perPackages[i];
+      const sheetsI = order.sizes[i]?.sheets ?? 0;
+      if (pp && pp > 0) {
+        if (sheetsI > 0) {
+          totalAcc += Math.ceil(sheetsI / pp);
+          totalKnown = true;
+        }
+        producedPackagesCount += Math.ceil(effectiveProfiles[i] / pp);
+      }
+    }
+    totalPackages = totalKnown ? totalAcc : undefined;
+  } else if (order.useTotalLength) {
+    // Per-batch packages from producedProfiles[i] / perPackages[i] (best-effort).
+    for (let i = 0; i < effectiveProfiles.length; i++) {
+      const pp = perPackages[i];
+      if (pp && pp > 0) {
+        producedPackagesCount += Math.ceil(effectiveProfiles[i] / pp);
+      }
+    }
+  }
+
   const remainingProfiles =
     totalProfiles !== undefined ? Math.max(0, totalProfiles - cappedProduced) : 0;
   const remainingPackages =
-    totalPackages !== undefined ? Math.max(0, totalPackages - producedPackages) : 0;
+    totalPackages !== undefined
+      ? Math.max(0, totalPackages - producedPackagesCount)
+      : 0;
 
   let fraction = 0;
   if (order.useTotalLength) {
@@ -246,24 +286,11 @@ export function calculateProducedProfiles(
       }
     }
   } else if (totalProfiles && totalProfiles > 0) {
-    // Per-size produced length when produced array is index-aligned to sizes.
-    // Falls back to count-fraction if produced totals aren't entered per row.
     const orderLengthM = calculateOrderLengthM(order);
-    let producedLengthM = 0;
-    if (profilesEntered > 0) {
-      producedLengthM = sumProducedSizedLengthM(order.producedProfiles, order);
-    } else if (
-      packagesEntered > 0 &&
-      perPackage &&
-      perPackage > 0 &&
-      order.producedPackages
-    ) {
-      // Pack count → profile count via global perPackage, then × size length.
-      const sized: ProducedEntry[] = order.producedPackages.map((e) => ({
-        value: (e?.value ?? 0) * perPackage,
-      }));
-      producedLengthM = sumProducedSizedLengthM(sized, order);
-    }
+    const sizedEntries: ProducedEntry[] = effectiveProfiles.map((v) => ({
+      value: v,
+    }));
+    const producedLengthM = sumProducedSizedLengthM(sizedEntries, order);
     if (producedLengthM > 0 && orderLengthM > 0) {
       fraction = Math.min(1, producedLengthM / orderLengthM);
     } else {
@@ -274,7 +301,7 @@ export function calculateProducedProfiles(
   return {
     totalProfiles,
     producedProfiles: cappedProduced,
-    producedPackages,
+    producedPackages: producedPackagesCount,
     remainingProfiles,
     remainingPackages,
     fraction,
@@ -433,21 +460,35 @@ export function calculateSchedule(
     let fraction = 0;
 
     if (mode === 'profiles') {
-      const perPackage =
-        order.profilesPerPackage && order.profilesPerPackage > 0
-          ? order.profilesPerPackage
-          : lastPerPackage;
+      // Resolve per-size profilesPerPackage with inline + cross-order
+      // inheritance. lastPerPackage carries over from earlier orders too.
+      const sizes = order.sizes ?? [];
+      const perPackages: (number | undefined)[] = [];
+      for (let i = 0; i < sizes.length; i++) {
+        const own = sizes[i]?.profilesPerPackage;
+        const eff = own && own > 0 ? own : lastPerPackage;
+        perPackages[i] = eff;
+        if (eff && eff > 0) lastPerPackage = eff;
+      }
 
       totalProfiles = calculateTotalProfiles(order);
 
-      if (perPackage && perPackage > 0) {
-        lastPerPackage = perPackage;
-        if (totalProfiles !== undefined) {
-          packages = Math.ceil(totalProfiles / perPackage);
+      // Total packages per row = Σ ceil(sizes[i].sheets / perPackages[i]).
+      if (!order.useTotalLength && sizes.length > 0) {
+        let pkgAcc = 0;
+        let pkgKnown = false;
+        for (let i = 0; i < sizes.length; i++) {
+          const pp = perPackages[i];
+          const sheetsI = sizes[i]?.sheets ?? 0;
+          if (pp && pp > 0 && sheetsI > 0) {
+            pkgAcc += Math.ceil(sheetsI / pp);
+            pkgKnown = true;
+          }
         }
+        if (pkgKnown) packages = pkgAcc;
       }
 
-      const produced = calculateProducedProfiles(order, perPackage);
+      const produced = calculateProducedProfiles(order, perPackages);
       if (produced) {
         totalProfiles = produced.totalProfiles ?? totalProfiles;
         producedProfiles = produced.producedProfiles;

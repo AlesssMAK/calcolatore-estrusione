@@ -9,6 +9,7 @@ export function makeEmptySize(): NonNullable<
   return {
     sheets: undefined,
     length: undefined,
+    profilesPerPackage: undefined,
   } as unknown as NonNullable<FormValues['orders'][number]['sizes']>[number];
 }
 
@@ -31,7 +32,6 @@ export function makeEmptyOrder(
   if (mode === 'profiles') {
     return {
       ...base,
-      profilesPerPackage: undefined,
       producedProfiles: [emptyProducedEntry()],
       producedPackages: [emptyProducedEntry()],
       producedItemLength: undefined,

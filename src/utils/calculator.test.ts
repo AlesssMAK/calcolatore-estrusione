@@ -96,8 +96,7 @@ describe('calculateSchedule — produced (profiles)', () => {
       [
         {
           id: 'a',
-          sizes: [{ sheets: 100, length: 6000 }],
-          profilesPerPackage: 20,
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 20 }],
           producedProfiles: [{ value: 50 }],
           speedMPerMin: 5,
         },
@@ -125,8 +124,7 @@ describe('calculateSchedule — produced (profiles)', () => {
       [
         {
           id: 'a',
-          sizes: [{ sheets: 100, length: 6000 }],
-          profilesPerPackage: 20,
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 20 }],
           producedPackages: [{ value: 2 }],
           speedMPerMin: 5,
         },
@@ -270,16 +268,16 @@ describe('calculateSchedule — profiles mode', () => {
         {
           id: 'a',
           sizes: [
-            { sheets: 100, length: 6000 },
-            { sheets: 50, length: 3000 },
+            { sheets: 100, length: 6000, profilesPerPackage: 20 },
+            { sheets: 50, length: 3000, profilesPerPackage: 20 },
           ],
-          profilesPerPackage: 20,
           speedMPerMin: 5,
         },
       ],
       { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
     );
 
+    // ceil(100/20) + ceil(50/20) = 5 + 3 = 8
     expect(result.rows[0]!.packages).toBe(8);
     expect(result.totalPackages).toBeUndefined();
   });
@@ -294,15 +292,13 @@ describe('calculateSchedule — profiles mode', () => {
       [
         {
           id: 'a',
-          sizes: [{ sheets: 100, length: 6000 }],
-          profilesPerPackage: 25,
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 25 }],
           speedMPerMin: 5,
         },
         { id: 'b', sizes: [{ sheets: 60, length: 6000 }] },
         {
           id: 'c',
-          sizes: [{ sheets: 40, length: 6000 }],
-          profilesPerPackage: 10,
+          sizes: [{ sheets: 40, length: 6000, profilesPerPackage: 10 }],
         },
         { id: 'd', sizes: [{ sheets: 30, length: 6000 }] },
       ],
@@ -327,7 +323,6 @@ describe('calculateSchedule — profiles mode', () => {
           id: 'a',
           useTotalLength: true,
           totalLengthM: 600,
-          profilesPerPackage: 20,
           speedMPerMin: 5,
         },
       ],
@@ -602,8 +597,15 @@ describe('calculateSchedule — profiles mode', () => {
         gapMode: 'continuous',
       },
       [
-        { id: 'a', sheets: 100, sheetLengthMm: 6000, profilesPerPackage: 25, speedMPerMin: 5 },
-        { id: 'b', sheets: 51, sheetLengthMm: 3000, profilesPerPackage: 10 },
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 25 }],
+          speedMPerMin: 5,
+        },
+        {
+          id: 'b',
+          sizes: [{ sheets: 51, length: 3000, profilesPerPackage: 10 }],
+        },
       ],
       { now: start, mode: 'profiles' },
     );
