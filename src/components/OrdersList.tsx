@@ -192,62 +192,7 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
 
   return (
     <div className="space-y-2">
-      {useTotalLength ? (
-        <div className="pb-5">
-          <label className={labelBase}>{t('orders.totalLength')}</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            className={`${inputBase} mt-1 sm:max-w-xs`}
-            {...register(`orders.${idx}.totalLengthM`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.totalLengthM?.message
-                ? t(`validation.${rowErr.totalLengthM.message}`)
-                : undefined
-            }
-          />
-        </div>
-      ) : (
-        <SizesFieldArray orderIdx={idx} mode={mode} t={t} />
-      )}
-
-      {isProfiles && (
-        <div className="pt-1 pb-5">
-          <label className={labelBase}>
-            {t('orders.profilesPerPackage')}
-            {idx > 0 && (
-              <span className="ml-1 normal-case text-ink-soft">
-                ({t('orders.optionalInherit')})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            inputMode="numeric"
-            className={`${inputBase} mt-1 sm:max-w-xs`}
-            {...register(`orders.${idx}.profilesPerPackage`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.profilesPerPackage?.message
-                ? t(`validation.${rowErr.profilesPerPackage.message}`)
-                : undefined
-            }
-          />
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-end gap-2 pt-1 pb-5 sm:gap-3">
+      <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
         <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
           <label className={labelBase}>
             {t('orders.speed')}
@@ -276,6 +221,36 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
           />
         </div>
 
+        {isProfiles && (
+          <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+            <label className={labelBase}>
+              {t('orders.profilesPerPackage')}
+              {idx > 0 && (
+                <span className="ml-1 normal-case text-ink-soft">
+                  ({t('orders.optionalInherit')})
+                </span>
+              )}
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              className={`${inputBase} mt-1`}
+              {...register(`orders.${idx}.profilesPerPackage`, {
+                setValueAs: numericSetValueAs,
+              })}
+            />
+            <FieldError
+              message={
+                rowErr?.profilesPerPackage?.message
+                  ? t(`validation.${rowErr.profilesPerPackage.message}`)
+                  : undefined
+              }
+            />
+          </div>
+        )}
+
         {showGap && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
             <label className={labelBase}>{t('orders.gapAfter')}</label>
@@ -299,6 +274,31 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
           </div>
         )}
       </div>
+
+      {useTotalLength ? (
+        <div className="pb-5">
+          <label className={labelBase}>{t('orders.totalLength')}</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            className={`${inputBase} mt-1 sm:max-w-xs`}
+            {...register(`orders.${idx}.totalLengthM`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+          <FieldError
+            message={
+              rowErr?.totalLengthM?.message
+                ? t(`validation.${rowErr.totalLengthM.message}`)
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        <SizesFieldArray orderIdx={idx} mode={mode} t={t} />
+      )}
 
       <AdvancedSection idx={idx} mode={mode} t={t} />
     </div>
@@ -379,74 +379,96 @@ function AdvancedSection({
       {expanded && (
         <div
           className={`mt-2 grid grid-cols-2 items-end gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
-            isProfiles
-              ? useTotalLength
-                ? 'sm:grid-cols-3'
-                : 'sm:grid-cols-2'
-              : useTotalLength
-                ? 'sm:grid-cols-4'
-                : 'sm:grid-cols-3'
+            isProfiles ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
           }`}
         >
           {isProfiles ? (
             <>
-              <ProducedEntriesArray
-                fieldName="producedProfiles"
-                orderIdx={idx}
-                label={t('orders.advanced.profilesProduced')}
-                disabled={packagesEntered}
-                t={t}
-              />
-              <ProducedEntriesArray
-                fieldName="producedPackages"
-                orderIdx={idx}
-                label={t('orders.advanced.packagesProduced')}
-                disabled={profilesEntered}
-                t={t}
-              />
+              {useTotalLength ? (
+                <ProducedPairsArray
+                  countFieldName="producedProfiles"
+                  orderIdx={idx}
+                  countLabel={t('orders.advanced.profilesProduced')}
+                  lengthLabel={t('orders.profileLength')}
+                  disabled={packagesEntered}
+                  t={t}
+                />
+              ) : (
+                <ProducedSizedArray
+                  fieldName="producedProfiles"
+                  orderIdx={idx}
+                  label={t('orders.advanced.profilesProduced')}
+                  disabled={packagesEntered}
+                />
+              )}
+              {useTotalLength ? (
+                <ProducedEntriesArray
+                  fieldName="producedPackages"
+                  orderIdx={idx}
+                  label={t('orders.advanced.packagesProduced')}
+                  disabled={profilesEntered}
+                  t={t}
+                />
+              ) : (
+                <ProducedSizedArray
+                  fieldName="producedPackages"
+                  orderIdx={idx}
+                  label={t('orders.advanced.packagesProduced')}
+                  disabled={profilesEntered}
+                />
+              )}
             </>
           ) : (
             <>
-              <ProducedEntriesArray
-                fieldName="producedSheets"
-                orderIdx={idx}
-                label={t('orders.advanced.sheetsProduced')}
-                disabled={palletsEntered}
-                t={t}
-              />
-              <ProducedEntriesArray
-                fieldName="sheetsPerPallet"
-                orderIdx={idx}
-                label={t('orders.advanced.sheetsPerPallet')}
-                t={t}
-              />
-              <div
-                className={
-                  useTotalLength ? '' : 'col-span-2 sm:col-span-1'
-                }
-              >
-                <ProducedEntriesArray
-                  fieldName="producedPallets"
+              {useTotalLength ? (
+                <ProducedPairsArray
+                  countFieldName="producedSheets"
                   orderIdx={idx}
-                  label={t('orders.advanced.palletsProduced')}
-                  disabled={!perPalletEntered}
+                  countLabel={t('orders.advanced.sheetsProduced')}
+                  lengthLabel={t('orders.sheetLength')}
+                  disabled={palletsEntered}
                   t={t}
                 />
-              </div>
+              ) : (
+                <ProducedSizedArray
+                  fieldName="producedSheets"
+                  orderIdx={idx}
+                  label={t('orders.advanced.sheetsProduced')}
+                  disabled={palletsEntered}
+                />
+              )}
+              {useTotalLength ? (
+                <>
+                  <ProducedEntriesArray
+                    fieldName="sheetsPerPallet"
+                    orderIdx={idx}
+                    label={t('orders.advanced.sheetsPerPallet')}
+                    t={t}
+                  />
+                  <ProducedEntriesArray
+                    fieldName="producedPallets"
+                    orderIdx={idx}
+                    label={t('orders.advanced.palletsProduced')}
+                    disabled={!perPalletEntered}
+                    t={t}
+                  />
+                </>
+              ) : (
+                <>
+                  <ProducedSizedArray
+                    fieldName="sheetsPerPallet"
+                    orderIdx={idx}
+                    label={t('orders.advanced.sheetsPerPallet')}
+                  />
+                  <ProducedSizedArray
+                    fieldName="producedPallets"
+                    orderIdx={idx}
+                    label={t('orders.advanced.palletsProduced')}
+                    disabled={!perPalletEntered}
+                  />
+                </>
+              )}
             </>
-          )}
-
-          {useTotalLength && (
-            <div className="col-span-2 sm:col-span-1">
-              <ItemLengthInput
-                idx={idx}
-                label={
-                  isProfiles
-                    ? t('orders.profileLength')
-                    : t('orders.sheetLength')
-                }
-              />
-            </div>
           )}
         </div>
       )}
@@ -558,28 +580,189 @@ function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
   );
 }
 
-function ItemLengthInput({
-  idx,
+function ProducedSizedArray({
+  fieldName,
+  orderIdx,
   label,
+  disabled = false,
 }: {
-  idx: number;
+  fieldName: ProducedFieldName;
+  orderIdx: number;
   label: string;
+  disabled?: boolean;
 }) {
-  const { register } = useFormContext<FormValues>();
+  'use no memo';
+  const { register, control } = useFormContext<FormValues>();
+  const sizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
+  const rowsCount = Math.max(sizes?.length ?? 0, 1);
+
   return (
-    <div className="min-w-0">
+    <div
+      className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
+    >
       <label className={labelBase}>{label}</label>
+      <div className="mt-1 space-y-1.5">
+        {Array.from({ length: rowsCount }).map((_, sIdx) => (
+          <div
+            key={sIdx}
+            className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2"
+          >
+            <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700 sm:h-9 sm:min-w-9 sm:text-sm">
+              #{sIdx + 1}
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              disabled={disabled}
+              className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
+              {...register(
+                `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
+                { setValueAs: numericSetValueAs },
+              )}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProducedPairsArray({
+  countFieldName,
+  orderIdx,
+  countLabel,
+  lengthLabel,
+  disabled = false,
+  t,
+}: {
+  countFieldName: 'producedSheets' | 'producedProfiles';
+  orderIdx: number;
+  countLabel: string;
+  lengthLabel: string;
+  disabled?: boolean;
+  t: TFunction;
+}) {
+  'use no memo';
+  const { register, control } = useFormContext<FormValues>();
+
+  const counts = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.${countFieldName}`,
+  });
+  const lengths = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.producedItemLength`,
+  });
+
+  const rows = Math.max(counts.fields.length, lengths.fields.length, 1);
+  const appendBoth = () => {
+    counts.append({ value: undefined });
+    lengths.append({ value: undefined });
+  };
+  const removeBoth = (sIdx: number) => {
+    if (sIdx < counts.fields.length) counts.remove(sIdx);
+    if (sIdx < lengths.fields.length) lengths.remove(sIdx);
+  };
+
+  return (
+    <div
+      className={`min-w-0 col-span-2 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-1 sm:gap-2">
+        <label className={labelBase}>{countLabel}</label>
+        <label className={labelBase}>{lengthLabel}</label>
+        <span />
+        <span />
+        {Array.from({ length: rows }).map((_, sIdx) => (
+          <RowFragment
+            key={`${counts.fields[sIdx]?.id ?? 'c'}-${lengths.fields[sIdx]?.id ?? 'l'}-${sIdx}`}
+            disabled={disabled}
+            canRemove={rows > 1}
+            countRegister={register(
+              `orders.${orderIdx}.${countFieldName}.${sIdx}.value`,
+              { setValueAs: numericSetValueAs },
+            )}
+            lengthRegister={register(
+              `orders.${orderIdx}.producedItemLength.${sIdx}.value`,
+              { setValueAs: numericSetValueAs },
+            )}
+            onRemove={() => removeBoth(sIdx)}
+            onAdd={appendBoth}
+            removeLabel={t('orders.removeSize')}
+            addLabel={t('orders.addSize')}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RowFragment({
+  disabled,
+  canRemove,
+  countRegister,
+  lengthRegister,
+  onRemove,
+  onAdd,
+  removeLabel,
+  addLabel,
+}: {
+  disabled: boolean;
+  canRemove: boolean;
+  countRegister: ReturnType<ReturnType<typeof useFormContext<FormValues>>['register']>;
+  lengthRegister: ReturnType<ReturnType<typeof useFormContext<FormValues>>['register']>;
+  onRemove: () => void;
+  onAdd: () => void;
+  removeLabel: string;
+  addLabel: string;
+}) {
+  const inputCls =
+    'w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm';
+  const btnBase =
+    'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+  return (
+    <>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        disabled={disabled}
+        className={inputCls}
+        {...countRegister}
+      />
       <input
         type="number"
         min="1"
         step="1"
         inputMode="numeric"
-        className="mt-1 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
-        {...register(`orders.${idx}.producedItemLength`, {
-          setValueAs: numericSetValueAs,
-        })}
+        disabled={disabled}
+        className={inputCls}
+        {...lengthRegister}
       />
-    </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled || !canRemove}
+        className={`${btnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
+        aria-label={removeLabel}
+        title={removeLabel}
+      >
+        −
+      </button>
+      <button
+        type="button"
+        onClick={onAdd}
+        disabled={disabled}
+        className={`${btnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
+        aria-label={addLabel}
+        title={addLabel}
+      >
+        +
+      </button>
+    </>
   );
 }
 
