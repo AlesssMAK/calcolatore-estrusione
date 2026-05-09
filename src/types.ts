@@ -44,6 +44,17 @@ export interface GlobalSettings {
   productName?: string;
 }
 
+export interface ScheduledSizeDetail {
+  sheets: number;
+  length: number;
+  metersM: number;
+  productionMinutes: number;
+  perPackage?: number;
+  packages?: number;
+  start: Date;
+  end: Date;
+}
+
 export interface ScheduledOrder {
   order: Order;
   speedMPerMin: number;
@@ -65,6 +76,7 @@ export interface ScheduledOrder {
   remainingSheets?: number;
   remainingPallets?: number;
   sheetsPerPallet?: number;
+  sizeDetails?: ScheduledSizeDetail[];
 }
 
 export interface ScheduleResult {

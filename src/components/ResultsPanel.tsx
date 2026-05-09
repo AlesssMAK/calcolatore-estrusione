@@ -75,6 +75,22 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
 
+      if (row.sizeDetails && row.sizeDetails.length > 1) {
+        row.sizeDetails.forEach((sd, sIdx) => {
+          const sdMeters = `${formatLength(sd.metersM)} m`;
+          const sdPkg =
+            isProfiles && sd.packages !== undefined
+              ? `  →  ${sd.packages} ${t('results.col.packages').toLowerCase()}`
+              : '';
+          const sdHead = isProfiles
+            ? `${sd.sheets} prof. × ${sd.length} mm`
+            : `${sd.sheets} pz × ${sd.length} mm`;
+          lines.push(
+            `   ↳ #${idx + 1}.${sIdx + 1}  ${sdHead}  ${sdMeters}  →  ${formatDuration(sd.productionMinutes, units)}  (${formatShortDateTime(sd.start, lang)} – ${formatShortDateTime(sd.end, lang)})${sdPkg}`,
+          );
+        });
+      }
+
       if (
         row.producedProfiles !== undefined ||
         row.producedSheets !== undefined
@@ -264,6 +280,69 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   </dd>
                 </dl>
 
+                {row.sizeDetails && row.sizeDetails.length > 1 && (
+                  <ul className="mt-2 space-y-1.5">
+                    {row.sizeDetails.map((sd, sIdx) => (
+                      <li
+                        key={sIdx}
+                        className="rounded-md border border-neutral-200 bg-white p-2 text-xs"
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="font-semibold text-brand-700">
+                            ↳ #{idx + 1}.{sIdx + 1}
+                          </span>
+                          <span className="font-semibold text-ink">
+                            {formatDuration(sd.productionMinutes, units)}
+                          </span>
+                        </div>
+                        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+                          <dt className="text-ink-soft">
+                            {isProfiles
+                              ? t('results.col.profiles')
+                              : t('results.col.sheets')}
+                          </dt>
+                          <dd className="font-medium text-ink">
+                            {sd.sheets} × {sd.length} mm
+                          </dd>
+                          <dt className="text-ink-soft">
+                            {t('results.col.meters')}
+                          </dt>
+                          <dd className="font-medium text-ink">
+                            {formatLength(sd.metersM)} m
+                          </dd>
+                          {isProfiles && sd.packages !== undefined && (
+                            <>
+                              <dt className="text-ink-soft">
+                                {t('results.col.packages')}
+                              </dt>
+                              <dd className="font-medium text-brand-700">
+                                {sd.packages}
+                                {sd.perPackage !== undefined && (
+                                  <span className="ml-1 text-ink-soft">
+                                    (× {sd.perPackage})
+                                  </span>
+                                )}
+                              </dd>
+                            </>
+                          )}
+                          <dt className="text-ink-soft">
+                            {t('results.col.start')}
+                          </dt>
+                          <dd className="font-medium text-ink">
+                            {formatShortDateTime(sd.start, lang)}
+                          </dd>
+                          <dt className="text-ink-soft">
+                            {t('results.col.end')}
+                          </dt>
+                          <dd className="font-medium text-ink">
+                            {formatShortDateTime(sd.end, lang)}
+                          </dd>
+                        </dl>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 {(row.producedProfiles !== undefined ||
                   row.producedSheets !== undefined) && (
                   <ProducedRemainingBlock row={row} t={t} mode={mode} />
@@ -299,15 +378,16 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   row.producedProfiles !== undefined ||
                   row.producedSheets !== undefined;
                 const colSpan = isProfiles ? 8 : 6;
+                const hasSizeBreakdown =
+                  row.sizeDetails !== undefined &&
+                  row.sizeDetails.length > 1;
+                const mainRowBorder =
+                  hasProduced || hasSizeBreakdown
+                    ? 'border-b-0'
+                    : 'border-b border-neutral-100 last:border-b-0';
                 return (
                   <Fragment key={row.order.id}>
-                    <tr
-                      className={
-                        hasProduced
-                          ? 'border-b-0'
-                          : 'border-b border-neutral-100 last:border-b-0'
-                      }
-                    >
+                    <tr className={mainRowBorder}>
                       <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
                         #{idx + 1}
                         {row.order.productName && (
@@ -338,6 +418,54 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                         {formatShortDateTime(row.end, lang)}
                       </td>
                     </tr>
+                    {hasSizeBreakdown &&
+                      row.sizeDetails!.map((sd, sIdx) => {
+                        const isLastSub =
+                          sIdx === row.sizeDetails!.length - 1 && !hasProduced;
+                        return (
+                          <tr
+                            key={sIdx}
+                            className={
+                              isLastSub
+                                ? 'border-b border-neutral-100 bg-brand-50/30 text-xs text-ink-soft last:border-b-0'
+                                : 'border-b-0 bg-brand-50/30 text-xs text-ink-soft'
+                            }
+                          >
+                            <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap">
+                              ↳ #{idx + 1}.{sIdx + 1}
+                            </td>
+                            {isProfiles && (
+                              <td className="py-1.5 pr-3">{sd.sheets}</td>
+                            )}
+                            <td className="py-1.5 pr-3">
+                              {formatLength(sd.metersM)} m
+                              <span className="ml-1 text-ink-soft">
+                                ({sd.sheets}×{sd.length})
+                              </span>
+                            </td>
+                            <td className="py-1.5 pr-3"></td>
+                            <td className="py-1.5 pr-3 font-medium text-ink">
+                              {formatDuration(sd.productionMinutes, units)}
+                            </td>
+                            {isProfiles && (
+                              <td className="py-1.5 pr-3 font-medium text-brand-700">
+                                {sd.packages ?? '—'}
+                                {sd.perPackage !== undefined && (
+                                  <span className="ml-1 text-ink-soft">
+                                    (×{sd.perPackage})
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                            <td className="py-1.5 pr-3 whitespace-nowrap">
+                              {formatShortDateTime(sd.start, lang)}
+                            </td>
+                            <td className="py-1.5 whitespace-nowrap">
+                              {formatShortDateTime(sd.end, lang)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     {hasProduced && (
                       <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
                         <td colSpan={colSpan} className="px-3 pb-3 pt-1">

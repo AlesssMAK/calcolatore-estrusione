@@ -5,6 +5,7 @@ import type {
   ProducedEntry,
   ScheduleResult,
   ScheduledOrder,
+  ScheduledSizeDetail,
 } from '../types';
 
 export function sumEntries(entries: ProducedEntry[] | undefined): number {
@@ -458,27 +459,27 @@ export function calculateSchedule(
     let remainingSheets: number | undefined;
     let remainingPallets: number | undefined;
     let fraction = 0;
+    const perPackagesForOrder: (number | undefined)[] = [];
 
     if (mode === 'profiles') {
       // Resolve per-size profilesPerPackage with inline + cross-order
       // inheritance. lastPerPackage carries over from earlier orders too.
       const sizes = order.sizes ?? [];
-      const perPackages: (number | undefined)[] = [];
       for (let i = 0; i < sizes.length; i++) {
         const own = sizes[i]?.profilesPerPackage;
         const eff = own && own > 0 ? own : lastPerPackage;
-        perPackages[i] = eff;
+        perPackagesForOrder[i] = eff;
         if (eff && eff > 0) lastPerPackage = eff;
       }
 
       totalProfiles = calculateTotalProfiles(order);
 
-      // Total packages per row = Σ ceil(sizes[i].sheets / perPackages[i]).
+      // Total packages per row = Σ ceil(sizes[i].sheets / perPackagesForOrder[i]).
       if (!order.useTotalLength && sizes.length > 0) {
         let pkgAcc = 0;
         let pkgKnown = false;
         for (let i = 0; i < sizes.length; i++) {
-          const pp = perPackages[i];
+          const pp = perPackagesForOrder[i];
           const sheetsI = sizes[i]?.sheets ?? 0;
           if (pp && pp > 0 && sheetsI > 0) {
             pkgAcc += Math.ceil(sheetsI / pp);
@@ -488,7 +489,7 @@ export function calculateSchedule(
         if (pkgKnown) packages = pkgAcc;
       }
 
-      const produced = calculateProducedProfiles(order, perPackages);
+      const produced = calculateProducedProfiles(order, perPackagesForOrder);
       if (produced) {
         totalProfiles = produced.totalProfiles ?? totalProfiles;
         producedProfiles = produced.producedProfiles;
@@ -514,6 +515,37 @@ export function calculateSchedule(
     const start = skipWeekendForward(cursor);
     const end = addWorkingMinutes(start, remainingMinutes);
 
+    // Per-size breakdown when an order has 2+ sizes (sizes-mode only —
+    // useTotalLength has no per-size structure to break out).
+    let sizeDetails: ScheduledSizeDetail[] | undefined;
+    if (!order.useTotalLength && order.sizes && order.sizes.length > 1) {
+      sizeDetails = [];
+      let sizeCursor = start;
+      for (let i = 0; i < order.sizes.length; i++) {
+        const sz = order.sizes[i];
+        const sheetsI = sz?.sheets ?? 0;
+        const lengthI = sz?.length ?? 0;
+        const metersI = (sheetsI * lengthI) / 1000;
+        const minsI = speedMPerMin > 0 ? metersI / speedMPerMin : 0;
+        const startI = skipWeekendForward(sizeCursor);
+        const endI = addWorkingMinutes(startI, minsI);
+        const ppI = mode === 'profiles' ? perPackagesForOrder[i] : undefined;
+        const pkgI =
+          ppI && ppI > 0 && sheetsI > 0 ? Math.ceil(sheetsI / ppI) : undefined;
+        sizeDetails.push({
+          sheets: sheetsI,
+          length: lengthI,
+          metersM: metersI,
+          productionMinutes: minsI,
+          perPackage: ppI,
+          packages: pkgI,
+          start: startI,
+          end: endI,
+        });
+        sizeCursor = endI;
+      }
+    }
+
     rows.push({
       order,
       speedMPerMin,
@@ -522,6 +554,7 @@ export function calculateSchedule(
       remainingMinutes,
       start,
       end,
+      sizeDetails,
       gapAfterMin,
       packages,
       totalProfiles,
