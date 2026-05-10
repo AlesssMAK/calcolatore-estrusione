@@ -366,6 +366,10 @@ function AdvancedSection({
     control,
     name: `orders.${idx}.producedPallets`,
   });
+  const watchedSizes = useWatch({ control, name: `orders.${idx}.sizes` });
+  const perPackageEntered = (watchedSizes ?? []).some(
+    (s) => (s?.profilesPerPackage ?? 0) > 0,
+  );
 
   const profilesEntered = sumOf(watchedProfiles) > 0;
   const packagesEntered = sumOf(watchedPackages) > 0;
@@ -423,7 +427,7 @@ function AdvancedSection({
                   fieldName="producedPackages"
                   orderIdx={idx}
                   label={t('orders.advanced.packagesProduced')}
-                  disabled={profilesEntered}
+                  disabled={profilesEntered || !perPackageEntered}
                   t={t}
                 />
               ) : (
@@ -431,7 +435,7 @@ function AdvancedSection({
                   fieldName="producedPackages"
                   orderIdx={idx}
                   label={t('orders.advanced.packagesProduced')}
-                  disabled={profilesEntered}
+                  disabled={profilesEntered || !perPackageEntered}
                 />
               )}
             </>
