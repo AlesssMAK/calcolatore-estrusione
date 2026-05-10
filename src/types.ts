@@ -28,10 +28,6 @@ export interface Order {
   sheetsPerPallet?: ProducedEntry[];
   producedPallets?: ProducedEntry[];
   producedItemLength?: ProducedEntry[];
-  // useTotalLength mode only: per-batch profiles-per-package (parallel array
-  // to producedProfiles / producedItemLength). Inherits within and across
-  // orders. In sizes-mode the per-size value on OrderSize is used instead.
-  profilesPerPackage?: ProducedEntry[];
 }
 
 export interface ProducedSummary {
@@ -92,11 +88,6 @@ export interface ScheduledOrder {
   remainingSheets?: number;
   remainingPallets?: number;
   sheetsPerPallet?: number;
-  // useTotalLength mode: meters produced / remaining for the order. In
-  // sizes-mode these are derived from totalLengthM × fraction and exposed
-  // here too so the UI can show a unified "Metri prodotti / restanti" row.
-  producedLengthM?: number;
-  remainingLengthM?: number;
   sizeDetails?: ScheduledSizeDetail[];
 }
 
