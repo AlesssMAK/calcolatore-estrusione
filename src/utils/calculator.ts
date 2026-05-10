@@ -198,8 +198,10 @@ export interface ProducedProfilesResult {
   totalProfiles?: number;
   producedProfiles: number;
   producedPackages: number;
-  remainingProfiles: number;
-  remainingPackages: number;
+  // undefined in useTotalLength mode (totals are unknown — only meters
+  // produced/remaining are well-defined).
+  remainingProfiles?: number;
+  remainingPackages?: number;
   fraction: number;
 }
 
