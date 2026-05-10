@@ -472,7 +472,6 @@ function AdvancedSection({
                     fieldName="sheetsPerPallet"
                     orderIdx={idx}
                     label={t('orders.advanced.sheetsPerPallet')}
-                    disabled={palletPathBlockedBySheets}
                     t={t}
                   />
                   <ProducedEntriesArray
@@ -491,7 +490,6 @@ function AdvancedSection({
                     fieldName="sheetsPerPallet"
                     orderIdx={idx}
                     label={t('orders.advanced.sheetsPerPallet')}
-                    disabled={palletPathBlockedBySheets}
                   />
                   <ProducedSizedArray
                     fieldName="producedPallets"
