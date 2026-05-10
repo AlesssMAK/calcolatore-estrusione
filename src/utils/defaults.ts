@@ -34,6 +34,7 @@ export function makeEmptyOrder(
       ...base,
       producedProfiles: [emptyProducedEntry()],
       producedPackages: [emptyProducedEntry()],
+      profilesPerPackage: [emptyProducedEntry()],
       producedItemLength: undefined,
     } as unknown as FormValues['orders'][number];
   }

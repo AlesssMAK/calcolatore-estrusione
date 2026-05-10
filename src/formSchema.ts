@@ -31,6 +31,7 @@ const orderSchema = z.object({
   sheetsPerPallet: z.array(producedEntrySchema).optional(),
   producedPallets: z.array(producedEntrySchema).optional(),
   producedItemLength: z.array(producedEntrySchema).optional(),
+  profilesPerPackage: z.array(producedEntrySchema).optional(),
 });
 
 const settingsSchema = z.object({

@@ -63,7 +63,8 @@
       "packagesProduced": "Packages produced",
       "sheetsProduced": "Sheets produced",
       "sheetsPerPallet": "Sheets per pallet",
-      "palletsProduced": "Pallets produced"
+      "palletsProduced": "Pallets produced",
+      "metersProduced": "Meters produced"
     },
     "minRequired": "At least one order is required."
   },

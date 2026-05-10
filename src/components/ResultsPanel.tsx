@@ -697,10 +697,35 @@ function ProducedRemainingBlock({
     hour: t('units.hour'),
     minute: t('units.minute'),
   };
+  const fmtM = (m: number) =>
+    m >= 100 ? m.toFixed(0) : m.toFixed(2).replace(/\.?0+$/, '');
+  const showMeters =
+    Boolean(row.order.useTotalLength) && row.producedLengthM !== undefined;
   return (
     <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
-      {isProfiles && row.producedProfiles !== undefined && (
+      {showMeters && (
         <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
+          <dt className="text-ink-soft">
+            {t('orders.advanced.metersProduced')}
+          </dt>
+          <dd className="font-medium text-ink">
+            {fmtM(row.producedLengthM!)} m
+            <span className="text-ink-soft">
+              {' '}
+              / {fmtM(row.totalLengthM)} m
+            </span>
+          </dd>
+          <dd className="text-right font-semibold text-brand-700">
+            {row.remainingLengthM !== undefined
+              ? `↓ ${fmtM(row.remainingLengthM)} m`
+              : '—'}
+          </dd>
+        </dl>
+      )}
+      {isProfiles && row.producedProfiles !== undefined && (
+        <dl
+          className={`grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1 ${showMeters ? 'mt-1 border-t border-brand-200 pt-1.5' : ''}`}
+        >
           <dt className="text-ink-soft">{t('orders.advanced.profilesProduced')}</dt>
           <dd className="font-medium text-ink">
             {row.producedProfiles}
@@ -736,7 +761,9 @@ function ProducedRemainingBlock({
       )}
 
       {!isProfiles && row.producedSheets !== undefined && (
-        <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
+        <dl
+          className={`grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1 ${showMeters ? 'mt-1 border-t border-brand-200 pt-1.5' : ''}`}
+        >
           <dt className="text-ink-soft">
             {t('orders.advanced.sheetsProduced')}
           </dt>
