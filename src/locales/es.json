@@ -63,8 +63,7 @@
       "packagesProduced": "Paquetes producidos",
       "sheetsProduced": "Láminas producidas",
       "sheetsPerPallet": "Láminas por palet",
-      "palletsProduced": "Palets producidos",
-      "metersProduced": "Metros producidos"
+      "palletsProduced": "Palets producidos"
     },
     "minRequired": "Se requiere al menos un pedido."
   },

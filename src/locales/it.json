@@ -63,8 +63,7 @@
       "packagesProduced": "Pacchi prodotti",
       "sheetsProduced": "Lastre prodotte",
       "sheetsPerPallet": "Lastre per bancale",
-      "palletsProduced": "Bancali prodotti",
-      "metersProduced": "Metri prodotti"
+      "palletsProduced": "Bancali prodotti"
     },
     "minRequired": "Almeno un ordine è richiesto."
   },

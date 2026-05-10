@@ -215,20 +215,7 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
                 locale={lang}
                 placeholderText={t('settings.startAt')}
                 minDate={minDate}
-                filterDate={date => {
-                  // Working week: Mon 06:00 → Sat 06:00. Sundays are entirely
-                  // weekend; Saturdays are kept (00:00–06:00 still working).
-                  return date.getDay() !== 0;
-                }}
-                filterTime={time => {
-                  if (time.getTime() < Date.now()) return false;
-                  const dow = time.getDay();
-                  const hour = time.getHours();
-                  if (dow === 0) return false;          // Sun
-                  if (dow === 6 && hour >= 6) return false; // Sat ≥ 06:00
-                  if (dow === 1 && hour < 6) return false;  // Mon < 06:00
-                  return true;
-                }}
+                filterTime={time => time.getTime() >= Date.now()}
                 withPortal={isMobile}
                 onCalendarOpen={() => setCalendarOpen(true)}
                 onCalendarClose={() => setCalendarOpen(false)}
