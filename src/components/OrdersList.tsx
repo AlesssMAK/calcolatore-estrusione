@@ -372,11 +372,15 @@ function AdvancedSection({
   const sheetsEntered = sumOf(watchedSheets) > 0;
   const perPalletEntered = sumOf(watchedPerPallet) > 0;
   const palletsEntered = sumOf(watchedPallets) > 0;
-  // sheets ↔ (perPallet | pallets) are mutually exclusive: either you
-  // record produced sheets directly, or you record pallets via the
-  // per-pallet rate. Both routes feed the same producedLengthM.
-  const sheetsBlockedByPalletPath = perPalletEntered || palletsEntered;
+  // sheets ↔ pallet-path are mutually exclusive. The pallet path is only
+  // *active* once Lastre per bancale is filled — without it,
+  // Bancali prodotti is itself disabled (the rate is what makes pallets
+  // mean anything), so leftover values there shouldn't keep
+  // Lastre prodotte locked. Clearing the per-pallet input therefore
+  // unlocks Lastre prodotte even if Bancali prodotti still holds a value.
+  const sheetsBlockedByPalletPath = perPalletEntered;
   const palletPathBlockedBySheets = sheetsEntered;
+  void palletsEntered; // kept watched for reactivity, but no longer a flag
 
   return (
     <div className="pt-2">
