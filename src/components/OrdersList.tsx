@@ -369,9 +369,14 @@ function AdvancedSection({
 
   const profilesEntered = sumOf(watchedProfiles) > 0;
   const packagesEntered = sumOf(watchedPackages) > 0;
+  const sheetsEntered = sumOf(watchedSheets) > 0;
   const perPalletEntered = sumOf(watchedPerPallet) > 0;
   const palletsEntered = sumOf(watchedPallets) > 0;
-  void watchedSheets; // referenced for parity; not currently used as a flag
+  // sheets ↔ (perPallet | pallets) are mutually exclusive: either you
+  // record produced sheets directly, or you record pallets via the
+  // per-pallet rate. Both routes feed the same producedLengthM.
+  const sheetsBlockedByPalletPath = perPalletEntered || palletsEntered;
+  const palletPathBlockedBySheets = sheetsEntered;
 
   return (
     <div className="pt-2">
@@ -434,7 +439,7 @@ function AdvancedSection({
                   orderIdx={idx}
                   countLabel={t('orders.advanced.sheetsProduced')}
                   lengthLabel={t('orders.sheetLength')}
-                  disabled={palletsEntered}
+                  disabled={sheetsBlockedByPalletPath}
                   t={t}
                 />
               ) : (
@@ -442,7 +447,7 @@ function AdvancedSection({
                   fieldName="producedSheets"
                   orderIdx={idx}
                   label={t('orders.advanced.sheetsProduced')}
-                  disabled={palletsEntered}
+                  disabled={sheetsBlockedByPalletPath}
                 />
               )}
               {useTotalLength ? (
@@ -451,13 +456,16 @@ function AdvancedSection({
                     fieldName="sheetsPerPallet"
                     orderIdx={idx}
                     label={t('orders.advanced.sheetsPerPallet')}
+                    disabled={palletPathBlockedBySheets}
                     t={t}
                   />
                   <ProducedEntriesArray
                     fieldName="producedPallets"
                     orderIdx={idx}
                     label={t('orders.advanced.palletsProduced')}
-                    disabled={!perPalletEntered}
+                    disabled={
+                      palletPathBlockedBySheets || !perPalletEntered
+                    }
                     t={t}
                   />
                 </>
@@ -467,12 +475,15 @@ function AdvancedSection({
                     fieldName="sheetsPerPallet"
                     orderIdx={idx}
                     label={t('orders.advanced.sheetsPerPallet')}
+                    disabled={palletPathBlockedBySheets}
                   />
                   <ProducedSizedArray
                     fieldName="producedPallets"
                     orderIdx={idx}
                     label={t('orders.advanced.palletsProduced')}
-                    disabled={!perPalletEntered}
+                    disabled={
+                      palletPathBlockedBySheets || !perPalletEntered
+                    }
                   />
                 </>
               )}
