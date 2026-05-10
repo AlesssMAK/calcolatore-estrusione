@@ -376,15 +376,16 @@ function AdvancedSection({
   const sheetsEntered = sumOf(watchedSheets) > 0;
   const perPalletEntered = sumOf(watchedPerPallet) > 0;
   const palletsEntered = sumOf(watchedPallets) > 0;
-  // sheets ↔ pallet-path are mutually exclusive. The pallet path is only
-  // *active* once Lastre per bancale is filled — without it,
-  // Bancali prodotti is itself disabled (the rate is what makes pallets
-  // mean anything), so leftover values there shouldn't keep
-  // Lastre prodotte locked. Clearing the per-pallet input therefore
-  // unlocks Lastre prodotte even if Bancali prodotti still holds a value.
+  // The 'rate × count' path (perPallet × pallets, perPackage × packages)
+  // counts as *active* only once the rate is set — the count alone is
+  // disabled and contributes nothing. So a stale count after the user
+  // clears the rate must NOT keep the direct path locked.
   const sheetsBlockedByPalletPath = perPalletEntered;
   const palletPathBlockedBySheets = sheetsEntered;
+  const profilesBlockedByPackagePath = perPackageEntered;
+  const packagePathBlockedByProfiles = profilesEntered;
   void palletsEntered; // kept watched for reactivity, but no longer a flag
+  void packagesEntered; // same — packages is gated by perPackage now
 
   return (
     <div className="pt-2">
@@ -411,7 +412,7 @@ function AdvancedSection({
                   orderIdx={idx}
                   countLabel={t('orders.advanced.profilesProduced')}
                   lengthLabel={t('orders.profileLength')}
-                  disabled={packagesEntered}
+                  disabled={profilesBlockedByPackagePath}
                   t={t}
                 />
               ) : (
@@ -419,7 +420,7 @@ function AdvancedSection({
                   fieldName="producedProfiles"
                   orderIdx={idx}
                   label={t('orders.advanced.profilesProduced')}
-                  disabled={packagesEntered}
+                  disabled={profilesBlockedByPackagePath}
                 />
               )}
               {useTotalLength ? (
@@ -427,7 +428,9 @@ function AdvancedSection({
                   fieldName="producedPackages"
                   orderIdx={idx}
                   label={t('orders.advanced.packagesProduced')}
-                  disabled={profilesEntered || !perPackageEntered}
+                  disabled={
+                    packagePathBlockedByProfiles || !perPackageEntered
+                  }
                   t={t}
                 />
               ) : (
@@ -435,7 +438,9 @@ function AdvancedSection({
                   fieldName="producedPackages"
                   orderIdx={idx}
                   label={t('orders.advanced.packagesProduced')}
-                  disabled={profilesEntered || !perPackageEntered}
+                  disabled={
+                    packagePathBlockedByProfiles || !perPackageEntered
+                  }
                 />
               )}
             </>
