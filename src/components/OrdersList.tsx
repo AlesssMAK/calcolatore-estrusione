@@ -327,8 +327,9 @@ function AdvancedSection({
   mode: CalculatorMode;
   t: TFunction;
 }) {
+  'use no memo';
   const [expanded, setExpanded] = useState(false);
-  const { watch, getValues, control } = useFormContext<FormValues>();
+  const { control } = useFormContext<FormValues>();
 
   const useTotalLength = useWatch({
     control,
@@ -341,35 +342,36 @@ function AdvancedSection({
   const sumOf = (arr: { value?: number }[] | undefined) =>
     (arr ?? []).reduce((sum, e) => sum + (e?.value ?? 0), 0);
 
-  const orderPath = `orders.${idx}`;
+  // Watch the produced arrays directly — useWatch reacts to every change
+  // (RHF mode='onBlur' on the form doesn't suppress watch updates), so the
+  // mutually-exclusive disabled flags flip back the moment a field is
+  // cleared.
+  const watchedProfiles = useWatch({
+    control,
+    name: `orders.${idx}.producedProfiles`,
+  });
+  const watchedPackages = useWatch({
+    control,
+    name: `orders.${idx}.producedPackages`,
+  });
+  const watchedSheets = useWatch({
+    control,
+    name: `orders.${idx}.producedSheets`,
+  });
+  const watchedPerPallet = useWatch({
+    control,
+    name: `orders.${idx}.sheetsPerPallet`,
+  });
+  const watchedPallets = useWatch({
+    control,
+    name: `orders.${idx}.producedPallets`,
+  });
 
-  const computeSums = () => {
-    const order = getValues(`orders.${idx}`);
-    return {
-      profiles: sumOf(order?.producedProfiles),
-      packages: sumOf(order?.producedPackages),
-      sheets: sumOf(order?.producedSheets),
-      perPallet: sumOf(order?.sheetsPerPallet),
-      pallets: sumOf(order?.producedPallets),
-    };
-  };
-
-  const [sums, setSums] = useState(computeSums);
-
-  useEffect(() => {
-    const sub = watch((_values, info) => {
-      if (info.name && info.name.startsWith(orderPath)) {
-        setSums(computeSums());
-      }
-    });
-    return () => sub.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watch, idx]);
-
-  const profilesEntered = sums.profiles > 0;
-  const packagesEntered = sums.packages > 0;
-  const perPalletEntered = sums.perPallet > 0;
-  const palletsEntered = sums.pallets > 0;
+  const profilesEntered = sumOf(watchedProfiles) > 0;
+  const packagesEntered = sumOf(watchedPackages) > 0;
+  const perPalletEntered = sumOf(watchedPerPallet) > 0;
+  const palletsEntered = sumOf(watchedPallets) > 0;
+  void watchedSheets; // referenced for parity; not currently used as a flag
 
   return (
     <div className="pt-2">

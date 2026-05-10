@@ -433,6 +433,7 @@ export function calculateSchedule(
   const totalPackages: number | undefined = undefined;
   let lastSpeed: number | undefined;
   let lastPerPackage: number | undefined;
+  let lastSheetsPerPallet: number | undefined;
 
   orders.forEach((order, idx) => {
     const speedMPerMin = resolveSpeed(order, lastSpeed);
@@ -574,7 +575,11 @@ export function calculateSchedule(
           const sheetsEnt = order.producedSheets?.[i]?.value ?? 0;
           const perPalletEnt = order.sheetsPerPallet?.[i]?.value ?? 0;
           const palletsEnt = order.producedPallets?.[i]?.value ?? 0;
-          perPalletI = perPalletEnt > 0 ? perPalletEnt : undefined;
+          // Inherit sheetsPerPallet from the previous size in this order,
+          // or from the last filled value across earlier orders.
+          perPalletI =
+            perPalletEnt > 0 ? perPalletEnt : lastSheetsPerPallet;
+          if (perPalletI && perPalletI > 0) lastSheetsPerPallet = perPalletI;
           let effSheetsI = 0;
           if (sheetsEnt > 0) {
             effSheetsI = sheetsEnt;
