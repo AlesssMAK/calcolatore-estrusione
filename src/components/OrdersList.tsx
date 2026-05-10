@@ -377,15 +377,18 @@ function AdvancedSection({
   const perPalletEntered = sumOf(watchedPerPallet) > 0;
   const palletsEntered = sumOf(watchedPallets) > 0;
   // The 'rate × count' path (perPallet × pallets, perPackage × packages)
-  // counts as *active* only once the rate is set — the count alone is
-  // disabled and contributes nothing. So a stale count after the user
-  // clears the rate must NOT keep the direct path locked.
-  const sheetsBlockedByPalletPath = perPalletEntered;
+  // is *fully active* only when both rate AND count are filled. The
+  // direct path (sheets / profiles) is blocked just in that combined
+  // state — knowing the rate alone is fine: the user often types in
+  // produced sheets/profiles and reads pallets/pacchi as a derived
+  // value. Conversely, a stale count after the rate is cleared keeps
+  // its own input disabled (gated by !rateEntered) and stops
+  // contributing, so it must not keep the direct path locked either.
+  const sheetsBlockedByPalletPath = perPalletEntered && palletsEntered;
   const palletPathBlockedBySheets = sheetsEntered;
-  const profilesBlockedByPackagePath = perPackageEntered;
+  const profilesBlockedByPackagePath =
+    perPackageEntered && packagesEntered;
   const packagePathBlockedByProfiles = profilesEntered;
-  void palletsEntered; // kept watched for reactivity, but no longer a flag
-  void packagesEntered; // same — packages is gated by perPackage now
 
   return (
     <div className="pt-2">
