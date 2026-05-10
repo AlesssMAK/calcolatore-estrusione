@@ -5,6 +5,7 @@ export type CalculatorMode = 'sheets' | 'profiles';
 export interface OrderSize {
   sheets?: number;
   length?: number;
+  profilesPerPackage?: number;
 }
 
 export interface ProducedEntry {
@@ -21,13 +22,12 @@ export interface Order {
   sheetLengthMm?: number;
   speedMPerMin?: number;
   gapAfterMin?: number;
-  profilesPerPackage?: number;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
   producedSheets?: ProducedEntry[];
   sheetsPerPallet?: ProducedEntry[];
   producedPallets?: ProducedEntry[];
-  producedItemLength?: number;
+  producedItemLength?: ProducedEntry[];
 }
 
 export interface ProducedSummary {
@@ -42,6 +42,29 @@ export interface GlobalSettings {
   startAt?: string;
   gapMode: GapMode;
   productName?: string;
+}
+
+export interface ScheduledSizeDetail {
+  sheets: number;
+  length: number;
+  metersM: number;
+  productionMinutes: number;
+  remainingMinutes: number;
+  perPackage?: number;
+  packages?: number;
+  // Profiles mode produced/remaining at this size:
+  producedProfiles?: number;
+  producedPackages?: number;
+  remainingProfiles?: number;
+  remainingPackages?: number;
+  // Sheets mode produced/remaining at this size:
+  sheetsPerPalletAtSize?: number;
+  producedSheetsAtSize?: number;
+  producedPalletsAtSize?: number;
+  remainingSheetsAtSize?: number;
+  remainingPalletsAtSize?: number;
+  start: Date;
+  end: Date;
 }
 
 export interface ScheduledOrder {
@@ -65,6 +88,7 @@ export interface ScheduledOrder {
   remainingSheets?: number;
   remainingPallets?: number;
   sheetsPerPallet?: number;
+  sizeDetails?: ScheduledSizeDetail[];
 }
 
 export interface ScheduleResult {

@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run --pool=threads",
-    "test:watch": "vitest --pool=threads",
+    "test": "vitest run --pool=forks",
+    "test:watch": "vitest --pool=forks",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {

@@ -188,66 +188,15 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
     control,
     name: `orders.${idx}.useTotalLength`,
   });
+  const sizesWatched = useWatch({ control, name: `orders.${idx}.sizes` });
+  const sizesCount = sizesWatched?.length ?? 0;
   const isProfiles = mode === 'profiles';
+  const showInlinePerPackage =
+    isProfiles && !useTotalLength && sizesCount <= 1;
 
   return (
     <div className="space-y-2">
-      {useTotalLength ? (
-        <div className="pb-5">
-          <label className={labelBase}>{t('orders.totalLength')}</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            className={`${inputBase} mt-1 sm:max-w-xs`}
-            {...register(`orders.${idx}.totalLengthM`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.totalLengthM?.message
-                ? t(`validation.${rowErr.totalLengthM.message}`)
-                : undefined
-            }
-          />
-        </div>
-      ) : (
-        <SizesFieldArray orderIdx={idx} mode={mode} t={t} />
-      )}
-
-      {isProfiles && (
-        <div className="pt-1 pb-5">
-          <label className={labelBase}>
-            {t('orders.profilesPerPackage')}
-            {idx > 0 && (
-              <span className="ml-1 normal-case text-ink-soft">
-                ({t('orders.optionalInherit')})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            inputMode="numeric"
-            className={`${inputBase} mt-1 sm:max-w-xs`}
-            {...register(`orders.${idx}.profilesPerPackage`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.profilesPerPackage?.message
-                ? t(`validation.${rowErr.profilesPerPackage.message}`)
-                : undefined
-            }
-          />
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-end gap-2 pt-1 pb-5 sm:gap-3">
+      <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
         <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
           <label className={labelBase}>
             {t('orders.speed')}
@@ -276,6 +225,38 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
           />
         </div>
 
+        {showInlinePerPackage && (
+          <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+            <label className={labelBase}>
+              {t('orders.profilesPerPackage')}
+              {idx > 0 && (
+                <span className="ml-1 normal-case text-ink-soft">
+                  ({t('orders.optionalInherit')})
+                </span>
+              )}
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              className={`${inputBase} mt-1`}
+              {...register(`orders.${idx}.sizes.0.profilesPerPackage`, {
+                setValueAs: numericSetValueAs,
+              })}
+            />
+            <FieldError
+              message={
+                rowErr?.sizes?.[0]?.profilesPerPackage?.message
+                  ? t(
+                      `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
+                    )
+                  : undefined
+              }
+            />
+          </div>
+        )}
+
         {showGap && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
             <label className={labelBase}>{t('orders.gapAfter')}</label>
@@ -300,6 +281,31 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
         )}
       </div>
 
+      {useTotalLength ? (
+        <div className="pb-5">
+          <label className={labelBase}>{t('orders.totalLength')}</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            className={`${inputBase} mt-1 sm:max-w-xs`}
+            {...register(`orders.${idx}.totalLengthM`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+          <FieldError
+            message={
+              rowErr?.totalLengthM?.message
+                ? t(`validation.${rowErr.totalLengthM.message}`)
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        <SizesFieldArray orderIdx={idx} mode={mode} t={t} />
+      )}
+
       <AdvancedSection idx={idx} mode={mode} t={t} />
     </div>
   );
@@ -321,8 +327,9 @@ function AdvancedSection({
   mode: CalculatorMode;
   t: TFunction;
 }) {
+  'use no memo';
   const [expanded, setExpanded] = useState(false);
-  const { watch, getValues, control } = useFormContext<FormValues>();
+  const { control } = useFormContext<FormValues>();
 
   const useTotalLength = useWatch({
     control,
@@ -335,35 +342,53 @@ function AdvancedSection({
   const sumOf = (arr: { value?: number }[] | undefined) =>
     (arr ?? []).reduce((sum, e) => sum + (e?.value ?? 0), 0);
 
-  const orderPath = `orders.${idx}`;
+  // Watch the produced arrays directly — useWatch reacts to every change
+  // (RHF mode='onBlur' on the form doesn't suppress watch updates), so the
+  // mutually-exclusive disabled flags flip back the moment a field is
+  // cleared.
+  const watchedProfiles = useWatch({
+    control,
+    name: `orders.${idx}.producedProfiles`,
+  });
+  const watchedPackages = useWatch({
+    control,
+    name: `orders.${idx}.producedPackages`,
+  });
+  const watchedSheets = useWatch({
+    control,
+    name: `orders.${idx}.producedSheets`,
+  });
+  const watchedPerPallet = useWatch({
+    control,
+    name: `orders.${idx}.sheetsPerPallet`,
+  });
+  const watchedPallets = useWatch({
+    control,
+    name: `orders.${idx}.producedPallets`,
+  });
+  const watchedSizes = useWatch({ control, name: `orders.${idx}.sizes` });
+  const perPackageEntered = (watchedSizes ?? []).some(
+    (s) => (s?.profilesPerPackage ?? 0) > 0,
+  );
 
-  const computeSums = () => {
-    const order = getValues(`orders.${idx}`);
-    return {
-      profiles: sumOf(order?.producedProfiles),
-      packages: sumOf(order?.producedPackages),
-      sheets: sumOf(order?.producedSheets),
-      perPallet: sumOf(order?.sheetsPerPallet),
-      pallets: sumOf(order?.producedPallets),
-    };
-  };
-
-  const [sums, setSums] = useState(computeSums);
-
-  useEffect(() => {
-    const sub = watch((_values, info) => {
-      if (info.name && info.name.startsWith(orderPath)) {
-        setSums(computeSums());
-      }
-    });
-    return () => sub.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watch, idx]);
-
-  const profilesEntered = sums.profiles > 0;
-  const packagesEntered = sums.packages > 0;
-  const perPalletEntered = sums.perPallet > 0;
-  const palletsEntered = sums.pallets > 0;
+  const profilesEntered = sumOf(watchedProfiles) > 0;
+  const packagesEntered = sumOf(watchedPackages) > 0;
+  const sheetsEntered = sumOf(watchedSheets) > 0;
+  const perPalletEntered = sumOf(watchedPerPallet) > 0;
+  const palletsEntered = sumOf(watchedPallets) > 0;
+  // The 'rate × count' path (perPallet × pallets, perPackage × packages)
+  // is *fully active* only when both rate AND count are filled. The
+  // direct path (sheets / profiles) is blocked just in that combined
+  // state — knowing the rate alone is fine: the user often types in
+  // produced sheets/profiles and reads pallets/pacchi as a derived
+  // value. Conversely, a stale count after the rate is cleared keeps
+  // its own input disabled (gated by !rateEntered) and stops
+  // contributing, so it must not keep the direct path locked either.
+  const sheetsBlockedByPalletPath = perPalletEntered && palletsEntered;
+  const palletPathBlockedBySheets = sheetsEntered;
+  const profilesBlockedByPackagePath =
+    perPackageEntered && packagesEntered;
+  const packagePathBlockedByProfiles = profilesEntered;
 
   return (
     <div className="pt-2">
@@ -379,74 +404,104 @@ function AdvancedSection({
       {expanded && (
         <div
           className={`mt-2 grid grid-cols-2 items-end gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
-            isProfiles
-              ? useTotalLength
-                ? 'sm:grid-cols-3'
-                : 'sm:grid-cols-2'
-              : useTotalLength
-                ? 'sm:grid-cols-4'
-                : 'sm:grid-cols-3'
+            isProfiles ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
           }`}
         >
           {isProfiles ? (
             <>
-              <ProducedEntriesArray
-                fieldName="producedProfiles"
-                orderIdx={idx}
-                label={t('orders.advanced.profilesProduced')}
-                disabled={packagesEntered}
-                t={t}
-              />
-              <ProducedEntriesArray
-                fieldName="producedPackages"
-                orderIdx={idx}
-                label={t('orders.advanced.packagesProduced')}
-                disabled={profilesEntered}
-                t={t}
-              />
+              {useTotalLength ? (
+                <ProducedPairsArray
+                  countFieldName="producedProfiles"
+                  orderIdx={idx}
+                  countLabel={t('orders.advanced.profilesProduced')}
+                  lengthLabel={t('orders.profileLength')}
+                  disabled={profilesBlockedByPackagePath}
+                  t={t}
+                />
+              ) : (
+                <ProducedSizedArray
+                  fieldName="producedProfiles"
+                  orderIdx={idx}
+                  label={t('orders.advanced.profilesProduced')}
+                  disabled={profilesBlockedByPackagePath}
+                />
+              )}
+              {useTotalLength ? (
+                <ProducedEntriesArray
+                  fieldName="producedPackages"
+                  orderIdx={idx}
+                  label={t('orders.advanced.packagesProduced')}
+                  disabled={
+                    packagePathBlockedByProfiles || !perPackageEntered
+                  }
+                  t={t}
+                />
+              ) : (
+                <ProducedSizedArray
+                  fieldName="producedPackages"
+                  orderIdx={idx}
+                  label={t('orders.advanced.packagesProduced')}
+                  disabled={
+                    packagePathBlockedByProfiles || !perPackageEntered
+                  }
+                />
+              )}
             </>
           ) : (
             <>
-              <ProducedEntriesArray
-                fieldName="producedSheets"
-                orderIdx={idx}
-                label={t('orders.advanced.sheetsProduced')}
-                disabled={palletsEntered}
-                t={t}
-              />
-              <ProducedEntriesArray
-                fieldName="sheetsPerPallet"
-                orderIdx={idx}
-                label={t('orders.advanced.sheetsPerPallet')}
-                t={t}
-              />
-              <div
-                className={
-                  useTotalLength ? '' : 'col-span-2 sm:col-span-1'
-                }
-              >
-                <ProducedEntriesArray
-                  fieldName="producedPallets"
+              {useTotalLength ? (
+                <ProducedPairsArray
+                  countFieldName="producedSheets"
                   orderIdx={idx}
-                  label={t('orders.advanced.palletsProduced')}
-                  disabled={!perPalletEntered}
+                  countLabel={t('orders.advanced.sheetsProduced')}
+                  lengthLabel={t('orders.sheetLength')}
+                  disabled={sheetsBlockedByPalletPath}
                   t={t}
                 />
-              </div>
+              ) : (
+                <ProducedSizedArray
+                  fieldName="producedSheets"
+                  orderIdx={idx}
+                  label={t('orders.advanced.sheetsProduced')}
+                  disabled={sheetsBlockedByPalletPath}
+                />
+              )}
+              {useTotalLength ? (
+                <>
+                  <ProducedEntriesArray
+                    fieldName="sheetsPerPallet"
+                    orderIdx={idx}
+                    label={t('orders.advanced.sheetsPerPallet')}
+                    t={t}
+                  />
+                  <ProducedEntriesArray
+                    fieldName="producedPallets"
+                    orderIdx={idx}
+                    label={t('orders.advanced.palletsProduced')}
+                    disabled={
+                      palletPathBlockedBySheets || !perPalletEntered
+                    }
+                    t={t}
+                  />
+                </>
+              ) : (
+                <>
+                  <ProducedSizedArray
+                    fieldName="sheetsPerPallet"
+                    orderIdx={idx}
+                    label={t('orders.advanced.sheetsPerPallet')}
+                  />
+                  <ProducedSizedArray
+                    fieldName="producedPallets"
+                    orderIdx={idx}
+                    label={t('orders.advanced.palletsProduced')}
+                    disabled={
+                      palletPathBlockedBySheets || !perPalletEntered
+                    }
+                  />
+                </>
+              )}
             </>
-          )}
-
-          {useTotalLength && (
-            <div className="col-span-2 sm:col-span-1">
-              <ItemLengthInput
-                idx={idx}
-                label={
-                  isProfiles
-                    ? t('orders.profileLength')
-                    : t('orders.sheetLength')
-                }
-              />
-            </div>
           )}
         </div>
       )}
@@ -558,28 +613,189 @@ function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
   );
 }
 
-function ItemLengthInput({
-  idx,
+function ProducedSizedArray({
+  fieldName,
+  orderIdx,
   label,
+  disabled = false,
 }: {
-  idx: number;
+  fieldName: ProducedFieldName;
+  orderIdx: number;
   label: string;
+  disabled?: boolean;
 }) {
-  const { register } = useFormContext<FormValues>();
+  'use no memo';
+  const { register, control } = useFormContext<FormValues>();
+  const sizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
+  const rowsCount = Math.max(sizes?.length ?? 0, 1);
+
   return (
-    <div className="min-w-0">
+    <div
+      className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
+    >
       <label className={labelBase}>{label}</label>
+      <div className="mt-1 space-y-1.5">
+        {Array.from({ length: rowsCount }).map((_, sIdx) => (
+          <div
+            key={sIdx}
+            className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2"
+          >
+            <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700 sm:h-9 sm:min-w-9 sm:text-sm">
+              #{sIdx + 1}
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              disabled={disabled}
+              className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
+              {...register(
+                `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
+                { setValueAs: numericSetValueAs },
+              )}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProducedPairsArray({
+  countFieldName,
+  orderIdx,
+  countLabel,
+  lengthLabel,
+  disabled = false,
+  t,
+}: {
+  countFieldName: 'producedSheets' | 'producedProfiles';
+  orderIdx: number;
+  countLabel: string;
+  lengthLabel: string;
+  disabled?: boolean;
+  t: TFunction;
+}) {
+  'use no memo';
+  const { register, control } = useFormContext<FormValues>();
+
+  const counts = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.${countFieldName}`,
+  });
+  const lengths = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.producedItemLength`,
+  });
+
+  const rows = Math.max(counts.fields.length, lengths.fields.length, 1);
+  const appendBoth = () => {
+    counts.append({ value: undefined });
+    lengths.append({ value: undefined });
+  };
+  const removeBoth = (sIdx: number) => {
+    if (sIdx < counts.fields.length) counts.remove(sIdx);
+    if (sIdx < lengths.fields.length) lengths.remove(sIdx);
+  };
+
+  return (
+    <div
+      className={`min-w-0 col-span-2 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-1 sm:gap-2">
+        <label className={labelBase}>{countLabel}</label>
+        <label className={labelBase}>{lengthLabel}</label>
+        <span />
+        <span />
+        {Array.from({ length: rows }).map((_, sIdx) => (
+          <RowFragment
+            key={`${counts.fields[sIdx]?.id ?? 'c'}-${lengths.fields[sIdx]?.id ?? 'l'}-${sIdx}`}
+            disabled={disabled}
+            canRemove={rows > 1}
+            countRegister={register(
+              `orders.${orderIdx}.${countFieldName}.${sIdx}.value`,
+              { setValueAs: numericSetValueAs },
+            )}
+            lengthRegister={register(
+              `orders.${orderIdx}.producedItemLength.${sIdx}.value`,
+              { setValueAs: numericSetValueAs },
+            )}
+            onRemove={() => removeBoth(sIdx)}
+            onAdd={appendBoth}
+            removeLabel={t('orders.removeSize')}
+            addLabel={t('orders.addSize')}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RowFragment({
+  disabled,
+  canRemove,
+  countRegister,
+  lengthRegister,
+  onRemove,
+  onAdd,
+  removeLabel,
+  addLabel,
+}: {
+  disabled: boolean;
+  canRemove: boolean;
+  countRegister: ReturnType<ReturnType<typeof useFormContext<FormValues>>['register']>;
+  lengthRegister: ReturnType<ReturnType<typeof useFormContext<FormValues>>['register']>;
+  onRemove: () => void;
+  onAdd: () => void;
+  removeLabel: string;
+  addLabel: string;
+}) {
+  const inputCls =
+    'w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm';
+  const btnBase =
+    'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+  return (
+    <>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        disabled={disabled}
+        className={inputCls}
+        {...countRegister}
+      />
       <input
         type="number"
         min="1"
         step="1"
         inputMode="numeric"
-        className="mt-1 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
-        {...register(`orders.${idx}.producedItemLength`, {
-          setValueAs: numericSetValueAs,
-        })}
+        disabled={disabled}
+        className={inputCls}
+        {...lengthRegister}
       />
-    </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled || !canRemove}
+        className={`${btnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
+        aria-label={removeLabel}
+        title={removeLabel}
+      >
+        −
+      </button>
+      <button
+        type="button"
+        onClick={onAdd}
+        disabled={disabled}
+        className={`${btnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
+        aria-label={addLabel}
+        title={addLabel}
+      >
+        +
+      </button>
+    </>
   );
 }
 
@@ -631,10 +847,16 @@ function SizesFieldArray({
       <div className="space-y-2">
         {sizeFields.map((sizeField, sIdx) => {
           const sizeErr = orderErr?.sizes?.[sIdx];
+          const showPerPackage = isProfiles && sizeFields.length > 1;
+          // Mobile: always 4 cols (sheets, length, −, +); perPackage wraps to its own row.
+          // sm+ : 5 cols when perPackage shows, otherwise 4.
+          const gridCols = showPerPackage
+            ? 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
+            : 'grid-cols-[1fr_1fr_auto_auto]';
           return (
             <div
               key={sizeField.id}
-              className="grid grid-cols-[1fr_1fr_auto_auto] items-end gap-2 pb-5 sm:gap-3"
+              className={`grid ${gridCols} items-end gap-2 pb-5 sm:gap-3`}
             >
               <div className="min-w-0">
                 <label className={labelBase}>{sheetsLabel}</label>
@@ -677,6 +899,39 @@ function SizesFieldArray({
                   }
                 />
               </div>
+
+              {showPerPackage && (
+                <div className="col-span-4 min-w-0 sm:col-span-1">
+                  <label className={labelBase}>
+                    {t('orders.profilesPerPackage')}
+                    {sIdx > 0 && (
+                      <span className="ml-1 normal-case text-ink-soft">
+                        ({t('orders.optionalInherit')})
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    className={`${inputBase} mt-1`}
+                    {...register(
+                      `orders.${orderIdx}.sizes.${sIdx}.profilesPerPackage`,
+                      { setValueAs: numericSetValueAs },
+                    )}
+                  />
+                  <FieldError
+                    message={
+                      sizeErr?.profilesPerPackage?.message
+                        ? t(
+                            `validation.${sizeErr.profilesPerPackage.message}`,
+                          )
+                        : undefined
+                    }
+                  />
+                </div>
+              )}
 
               <button
                 type="button"

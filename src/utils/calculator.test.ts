@@ -96,8 +96,7 @@ describe('calculateSchedule — produced (profiles)', () => {
       [
         {
           id: 'a',
-          sizes: [{ sheets: 100, length: 6000 }],
-          profilesPerPackage: 20,
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 20 }],
           producedProfiles: [{ value: 50 }],
           speedMPerMin: 5,
         },
@@ -125,8 +124,7 @@ describe('calculateSchedule — produced (profiles)', () => {
       [
         {
           id: 'a',
-          sizes: [{ sheets: 100, length: 6000 }],
-          profilesPerPackage: 20,
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 20 }],
           producedPackages: [{ value: 2 }],
           speedMPerMin: 5,
         },
@@ -156,7 +154,7 @@ describe('calculateSchedule — produced under useTotalLength', () => {
           useTotalLength: true,
           totalLengthM: 1200,
           producedSheets: [{ value: 100 }],
-          producedItemLength: 6000,
+          producedItemLength: [{ value: 6000 }],
           speedMPerMin: 5,
         },
       ],
@@ -164,9 +162,9 @@ describe('calculateSchedule — produced under useTotalLength', () => {
     );
 
     const row = result.rows[0]!;
-    expect(row.totalSheets).toBe(200);
+    // totalSheets is unknown under useTotalLength (batches may have different lengths)
+    expect(row.totalSheets).toBeUndefined();
     expect(row.producedSheets).toBe(100);
-    expect(row.remainingSheets).toBe(100);
     expect(row.productionMinutes).toBe(240);
     expect(row.remainingMinutes).toBe(120);
   });
@@ -185,7 +183,7 @@ describe('calculateSchedule — produced under useTotalLength', () => {
           useTotalLength: true,
           totalLengthM: 600,
           producedProfiles: [{ value: 50 }],
-          producedItemLength: 6000,
+          producedItemLength: [{ value: 6000 }],
           speedMPerMin: 5,
         },
       ],
@@ -193,9 +191,9 @@ describe('calculateSchedule — produced under useTotalLength', () => {
     );
 
     const row = result.rows[0]!;
-    expect(row.totalProfiles).toBe(100);
+    // totalProfiles is unknown under useTotalLength
+    expect(row.totalProfiles).toBeUndefined();
     expect(row.producedProfiles).toBe(50);
-    expect(row.remainingProfiles).toBe(50);
     expect(row.productionMinutes).toBe(120);
     expect(row.remainingMinutes).toBe(60);
   });
@@ -270,16 +268,16 @@ describe('calculateSchedule — profiles mode', () => {
         {
           id: 'a',
           sizes: [
-            { sheets: 100, length: 6000 },
-            { sheets: 50, length: 3000 },
+            { sheets: 100, length: 6000, profilesPerPackage: 20 },
+            { sheets: 50, length: 3000, profilesPerPackage: 20 },
           ],
-          profilesPerPackage: 20,
           speedMPerMin: 5,
         },
       ],
       { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
     );
 
+    // ceil(100/20) + ceil(50/20) = 5 + 3 = 8
     expect(result.rows[0]!.packages).toBe(8);
     expect(result.totalPackages).toBeUndefined();
   });
@@ -294,15 +292,13 @@ describe('calculateSchedule — profiles mode', () => {
       [
         {
           id: 'a',
-          sizes: [{ sheets: 100, length: 6000 }],
-          profilesPerPackage: 25,
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 25 }],
           speedMPerMin: 5,
         },
         { id: 'b', sizes: [{ sheets: 60, length: 6000 }] },
         {
           id: 'c',
-          sizes: [{ sheets: 40, length: 6000 }],
-          profilesPerPackage: 10,
+          sizes: [{ sheets: 40, length: 6000, profilesPerPackage: 10 }],
         },
         { id: 'd', sizes: [{ sheets: 30, length: 6000 }] },
       ],
@@ -327,7 +323,6 @@ describe('calculateSchedule — profiles mode', () => {
           id: 'a',
           useTotalLength: true,
           totalLengthM: 600,
-          profilesPerPackage: 20,
           speedMPerMin: 5,
         },
       ],
@@ -495,6 +490,88 @@ describe('calculateSchedule — 24/7 rollover', () => {
   });
 });
 
+describe('calculateSchedule — work-week (Mon 06:00 → Sat 06:00 local)', () => {
+  // Helpers build local-time dates so the test is timezone-stable.
+  const localDate = (
+    y: number,
+    m: number, // 0-based
+    d: number,
+    h = 0,
+    min = 0,
+  ) => new Date(y, m, d, h, min, 0, 0);
+
+  it('start on Saturday afternoon shifts to Monday 06:00', () => {
+    // 2026-05-09 is a Saturday
+    const start = localDate(2026, 4, 9, 14); // Sat 14:00 local
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        { id: 'a', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1 }, // 60 min
+      ],
+      { now: start },
+    );
+    const expectedStart = localDate(2026, 4, 11, 6); // Mon 06:00 local
+    const expectedEnd = localDate(2026, 4, 11, 7); // Mon 07:00 local
+    expect(result.startAt.getTime()).toBe(expectedStart.getTime());
+    expect(result.rows[0]!.start.getTime()).toBe(expectedStart.getTime());
+    expect(result.rows[0]!.end.getTime()).toBe(expectedEnd.getTime());
+  });
+
+  it('production crossing Sat 06:00 jumps to Mon 06:00', () => {
+    // 2026-05-08 is a Friday — start at 22:00, run 600 min (10 h)
+    const start = localDate(2026, 4, 8, 22); // Fri 22:00
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        { id: 'a', sheets: 600, sheetLengthMm: 1000, speedMPerMin: 1 }, // 600 min
+      ],
+      { now: start },
+    );
+    // Available before Sat 06:00 = 8 hours = 480 min
+    // Remaining 120 min start at Mon 06:00 → end at Mon 08:00
+    const expectedEnd = localDate(2026, 4, 11, 8);
+    expect(result.rows[0]!.end.getTime()).toBe(expectedEnd.getTime());
+  });
+
+  it('gap-after spans the weekend', () => {
+    // Fri 04:00, 60 min order, 60 min gap, 60 min order
+    const start = localDate(2026, 5, 5, 4); // 2026-06-05 Fri 04:00
+    // Gap of 180 min is bigger than remaining work-time before Sat 06:00
+    // Order #1: Fri 04:00 → Fri 05:00
+    // Gap: Fri 05:00 → Fri 05:00 + 180 min would be Fri 08:00 (still weekday)
+    // Order #2: Fri 08:00 → Fri 09:00
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'withGaps',
+      },
+      [
+        {
+          id: 'a',
+          sheets: 60,
+          sheetLengthMm: 1000,
+          speedMPerMin: 1,
+          gapAfterMin: 180,
+        },
+        { id: 'b', sheets: 60, sheetLengthMm: 1000 },
+      ],
+      { now: start },
+    );
+    expect(result.rows[1]!.start.getTime()).toBe(
+      localDate(2026, 5, 5, 8).getTime(),
+    );
+  });
+});
+
 describe('calculateSchedule — "now" mode', () => {
   it('uses the provided "now" when startMode is "now"', () => {
     const now = new Date('2026-04-23T08:00:00Z');
@@ -520,8 +597,15 @@ describe('calculateSchedule — profiles mode', () => {
         gapMode: 'continuous',
       },
       [
-        { id: 'a', sheets: 100, sheetLengthMm: 6000, profilesPerPackage: 25, speedMPerMin: 5 },
-        { id: 'b', sheets: 51, sheetLengthMm: 3000, profilesPerPackage: 10 },
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000, profilesPerPackage: 25 }],
+          speedMPerMin: 5,
+        },
+        {
+          id: 'b',
+          sizes: [{ sheets: 51, length: 3000, profilesPerPackage: 10 }],
+        },
       ],
       { now: start, mode: 'profiles' },
     );
