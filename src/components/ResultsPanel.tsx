@@ -1,6 +1,11 @@
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CalculatorMode, ScheduleResult, ScheduledOrder } from '../types';
+import type {
+  CalculatorMode,
+  ScheduleResult,
+  ScheduledOrder,
+  ScheduledSizeDetail,
+} from '../types';
 import { calculateTotalProfiles } from '../utils/calculator';
 import {
   formatDateTime,
@@ -86,15 +91,51 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             ? `${sd.sheets} prof. × ${sd.length} mm`
             : `${sd.sheets} pz × ${sd.length} mm`;
           lines.push(
-            `   ↳ #${idx + 1}.${sIdx + 1}  ${sdHead}  ${sdMeters}  →  ${formatDuration(sd.productionMinutes, units)}  (${formatShortDateTime(sd.start, lang)} – ${formatShortDateTime(sd.end, lang)})${sdPkg}`,
+            `   ↳ #${idx + 1}.${sIdx + 1}  ${sdHead}  ${sdMeters}  →  ${formatDuration(sd.remainingMinutes, units)}  (${formatShortDateTime(sd.start, lang)} – ${formatShortDateTime(sd.end, lang)})${sdPkg}`,
           );
+          // Per-size produced/remaining line.
+          const subParts: string[] = [];
+          if (sd.producedProfiles !== undefined) {
+            subParts.push(
+              `${t('results.produced')}: ${sd.producedProfiles}/${sd.sheets} prof.`,
+            );
+            if (sd.producedPackages !== undefined) {
+              subParts.push(
+                `${sd.producedPackages}${sd.packages !== undefined ? `/${sd.packages}` : ''} pacchi`,
+              );
+            }
+            if (sd.remainingProfiles !== undefined) {
+              subParts.push(`${t('results.remaining')}: ${sd.remainingProfiles}`);
+            }
+          }
+          if (sd.producedSheetsAtSize !== undefined) {
+            subParts.push(
+              `${t('results.produced')}: ${sd.producedSheetsAtSize}/${sd.sheets} pz.`,
+            );
+            if (sd.producedPalletsAtSize !== undefined) {
+              subParts.push(`${sd.producedPalletsAtSize} bancali`);
+            }
+            if (sd.remainingSheetsAtSize !== undefined) {
+              subParts.push(
+                `${t('results.remaining')}: ${sd.remainingSheetsAtSize}`,
+              );
+            }
+          }
+          if (subParts.length > 0) {
+            subParts.push(
+              `${t('results.timeToFinish')}: ${formatDuration(sd.remainingMinutes, units)}`,
+            );
+            lines.push(`        ${subParts.join(' · ')}`);
+          }
         });
       }
 
-      if (
-        row.producedProfiles !== undefined ||
-        row.producedSheets !== undefined
-      ) {
+      const showAggregateProduced =
+        !(row.sizeDetails && row.sizeDetails.length > 1) &&
+        (row.producedProfiles !== undefined ||
+          row.producedSheets !== undefined);
+
+      if (showAggregateProduced) {
         const parts: string[] = [];
         if (row.producedProfiles !== undefined) {
           parts.push(
@@ -282,71 +323,80 @@ function ResultsPanel({ result, mode, onReset }: Props) {
 
                 {row.sizeDetails && row.sizeDetails.length > 1 && (
                   <ul className="mt-2 space-y-1.5">
-                    {row.sizeDetails.map((sd, sIdx) => (
-                      <li
-                        key={sIdx}
-                        className="rounded-md border border-neutral-200 bg-white p-2 text-xs"
-                      >
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <span className="font-semibold text-brand-700">
-                            ↳ #{idx + 1}.{sIdx + 1}
-                          </span>
-                          <span className="font-semibold text-ink">
-                            {formatDuration(sd.productionMinutes, units)}
-                          </span>
-                        </div>
-                        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                          <dt className="text-ink-soft">
-                            {isProfiles
-                              ? t('results.col.profiles')
-                              : t('results.col.sheets')}
-                          </dt>
-                          <dd className="font-medium text-ink">
-                            {sd.sheets} × {sd.length} mm
-                          </dd>
-                          <dt className="text-ink-soft">
-                            {t('results.col.meters')}
-                          </dt>
-                          <dd className="font-medium text-ink">
-                            {formatLength(sd.metersM)} m
-                          </dd>
-                          {isProfiles && sd.packages !== undefined && (
-                            <>
-                              <dt className="text-ink-soft">
-                                {t('results.col.packages')}
-                              </dt>
-                              <dd className="font-medium text-brand-700">
-                                {sd.packages}
-                                {sd.perPackage !== undefined && (
-                                  <span className="ml-1 text-ink-soft">
-                                    (× {sd.perPackage})
-                                  </span>
-                                )}
-                              </dd>
-                            </>
+                    {row.sizeDetails.map((sd, sIdx) => {
+                      const hasProducedAtSize =
+                        sd.producedProfiles !== undefined ||
+                        sd.producedSheetsAtSize !== undefined;
+                      return (
+                        <li
+                          key={sIdx}
+                          className="rounded-md border border-neutral-200 bg-white p-2 text-xs"
+                        >
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <span className="font-semibold text-brand-700">
+                              ↳ #{idx + 1}.{sIdx + 1}
+                            </span>
+                            <span className="font-semibold text-ink">
+                              {formatDuration(sd.remainingMinutes, units)}
+                            </span>
+                          </div>
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+                            <dt className="text-ink-soft">
+                              {isProfiles
+                                ? t('results.col.profiles')
+                                : t('results.col.sheets')}
+                            </dt>
+                            <dd className="font-medium text-ink">
+                              {sd.sheets} × {sd.length} mm
+                            </dd>
+                            <dt className="text-ink-soft">
+                              {t('results.col.meters')}
+                            </dt>
+                            <dd className="font-medium text-ink">
+                              {formatLength(sd.metersM)} m
+                            </dd>
+                            {isProfiles && sd.packages !== undefined && (
+                              <>
+                                <dt className="text-ink-soft">
+                                  {t('results.col.packages')}
+                                </dt>
+                                <dd className="font-medium text-brand-700">
+                                  {sd.packages}
+                                  {sd.perPackage !== undefined && (
+                                    <span className="ml-1 text-ink-soft">
+                                      (× {sd.perPackage})
+                                    </span>
+                                  )}
+                                </dd>
+                              </>
+                            )}
+                            <dt className="text-ink-soft">
+                              {t('results.col.start')}
+                            </dt>
+                            <dd className="font-medium text-ink">
+                              {formatShortDateTime(sd.start, lang)}
+                            </dd>
+                            <dt className="text-ink-soft">
+                              {t('results.col.end')}
+                            </dt>
+                            <dd className="font-medium text-ink">
+                              {formatShortDateTime(sd.end, lang)}
+                            </dd>
+                          </dl>
+                          {hasProducedAtSize && (
+                            <SizeProducedBlock sd={sd} t={t} mode={mode} />
                           )}
-                          <dt className="text-ink-soft">
-                            {t('results.col.start')}
-                          </dt>
-                          <dd className="font-medium text-ink">
-                            {formatShortDateTime(sd.start, lang)}
-                          </dd>
-                          <dt className="text-ink-soft">
-                            {t('results.col.end')}
-                          </dt>
-                          <dd className="font-medium text-ink">
-                            {formatShortDateTime(sd.end, lang)}
-                          </dd>
-                        </dl>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
 
-                {(row.producedProfiles !== undefined ||
-                  row.producedSheets !== undefined) && (
-                  <ProducedRemainingBlock row={row} t={t} mode={mode} />
-                )}
+                {!row.sizeDetails &&
+                  (row.producedProfiles !== undefined ||
+                    row.producedSheets !== undefined) && (
+                    <ProducedRemainingBlock row={row} t={t} mode={mode} />
+                  )}
               </li>
             );
           })}
@@ -381,8 +431,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                 const hasSizeBreakdown =
                   row.sizeDetails !== undefined &&
                   row.sizeDetails.length > 1;
+                // When sizes are broken out, hide the aggregate produced
+                // block and show per-size produced inside each sub-row.
+                const showAggregateProduced = hasProduced && !hasSizeBreakdown;
                 const mainRowBorder =
-                  hasProduced || hasSizeBreakdown
+                  showAggregateProduced || hasSizeBreakdown
                     ? 'border-b-0'
                     : 'border-b border-neutral-100 last:border-b-0';
                 return (
@@ -421,52 +474,74 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                     {hasSizeBreakdown &&
                       row.sizeDetails!.map((sd, sIdx) => {
                         const isLastSub =
-                          sIdx === row.sizeDetails!.length - 1 && !hasProduced;
+                          sIdx === row.sizeDetails!.length - 1;
+                        const hasProducedAtSize =
+                          sd.producedProfiles !== undefined ||
+                          sd.producedSheetsAtSize !== undefined;
                         return (
-                          <tr
-                            key={sIdx}
-                            className={
-                              isLastSub
-                                ? 'border-b border-neutral-100 bg-brand-50/30 text-xs text-ink-soft last:border-b-0'
-                                : 'border-b-0 bg-brand-50/30 text-xs text-ink-soft'
-                            }
-                          >
-                            <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap">
-                              ↳ #{idx + 1}.{sIdx + 1}
-                            </td>
-                            {isProfiles && (
-                              <td className="py-1.5 pr-3">{sd.sheets}</td>
-                            )}
-                            <td className="py-1.5 pr-3">
-                              {formatLength(sd.metersM)} m
-                              <span className="ml-1 text-ink-soft">
-                                ({sd.sheets}×{sd.length})
-                              </span>
-                            </td>
-                            <td className="py-1.5 pr-3"></td>
-                            <td className="py-1.5 pr-3 font-medium text-ink">
-                              {formatDuration(sd.productionMinutes, units)}
-                            </td>
-                            {isProfiles && (
-                              <td className="py-1.5 pr-3 font-medium text-brand-700">
-                                {sd.packages ?? '—'}
-                                {sd.perPackage !== undefined && (
-                                  <span className="ml-1 text-ink-soft">
-                                    (×{sd.perPackage})
-                                  </span>
-                                )}
+                          <Fragment key={sIdx}>
+                            <tr
+                              className={
+                                hasProducedAtSize
+                                  ? 'border-b-0 bg-brand-50/30 text-xs text-ink-soft'
+                                  : isLastSub
+                                    ? 'border-b border-neutral-100 bg-brand-50/30 text-xs text-ink-soft last:border-b-0'
+                                    : 'border-b-0 bg-brand-50/30 text-xs text-ink-soft'
+                              }
+                            >
+                              <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap">
+                                ↳ #{idx + 1}.{sIdx + 1}
                               </td>
+                              {isProfiles && (
+                                <td className="py-1.5 pr-3">{sd.sheets}</td>
+                              )}
+                              <td className="py-1.5 pr-3">
+                                {formatLength(sd.metersM)} m
+                                <span className="ml-1 text-ink-soft">
+                                  ({sd.sheets}×{sd.length})
+                                </span>
+                              </td>
+                              <td className="py-1.5 pr-3"></td>
+                              <td className="py-1.5 pr-3 font-medium text-ink">
+                                {formatDuration(sd.remainingMinutes, units)}
+                              </td>
+                              {isProfiles && (
+                                <td className="py-1.5 pr-3 font-medium text-brand-700">
+                                  {sd.packages ?? '—'}
+                                  {sd.perPackage !== undefined && (
+                                    <span className="ml-1 text-ink-soft">
+                                      (×{sd.perPackage})
+                                    </span>
+                                  )}
+                                </td>
+                              )}
+                              <td className="py-1.5 pr-3 whitespace-nowrap">
+                                {formatShortDateTime(sd.start, lang)}
+                              </td>
+                              <td className="py-1.5 whitespace-nowrap">
+                                {formatShortDateTime(sd.end, lang)}
+                              </td>
+                            </tr>
+                            {hasProducedAtSize && (
+                              <tr
+                                className={
+                                  isLastSub
+                                    ? 'border-b border-neutral-100 bg-brand-50/30 last:border-b-0'
+                                    : 'border-b-0 bg-brand-50/30'
+                                }
+                              >
+                                <td
+                                  colSpan={colSpan}
+                                  className="px-4 pb-2 pt-0"
+                                >
+                                  <SizeProducedBlock sd={sd} t={t} mode={mode} />
+                                </td>
+                              </tr>
                             )}
-                            <td className="py-1.5 pr-3 whitespace-nowrap">
-                              {formatShortDateTime(sd.start, lang)}
-                            </td>
-                            <td className="py-1.5 whitespace-nowrap">
-                              {formatShortDateTime(sd.end, lang)}
-                            </td>
-                          </tr>
+                          </Fragment>
                         );
                       })}
-                    {hasProduced && (
+                    {showAggregateProduced && (
                       <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
                         <td colSpan={colSpan} className="px-3 pb-3 pt-1">
                           <ProducedRemainingBlock
@@ -485,6 +560,89 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         </div>
       </div>
     </section>
+  );
+}
+
+function SizeProducedBlock({
+  sd,
+  t,
+  mode,
+}: {
+  sd: ScheduledSizeDetail;
+  t: ReturnType<typeof useTranslation>['t'];
+  mode: CalculatorMode;
+}) {
+  const isProfiles = mode === 'profiles';
+  return (
+    <div className="mt-1.5 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
+      {isProfiles && sd.producedProfiles !== undefined && (
+        <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-0.5">
+          <dt className="text-ink-soft">
+            {t('orders.advanced.profilesProduced')}
+          </dt>
+          <dd className="font-medium text-ink">
+            {sd.producedProfiles}
+            <span className="text-ink-soft"> / {sd.sheets}</span>
+          </dd>
+          <dd className="text-right font-semibold text-brand-700">
+            ↓ {sd.remainingProfiles ?? 0}
+          </dd>
+          {sd.producedPackages !== undefined && (
+            <>
+              <dt className="text-ink-soft">
+                {t('orders.advanced.packagesProduced')}
+              </dt>
+              <dd className="font-medium text-ink">
+                {sd.producedPackages}
+                {sd.packages !== undefined && (
+                  <span className="text-ink-soft"> / {sd.packages}</span>
+                )}
+              </dd>
+              <dd className="text-right font-semibold text-brand-700">
+                {sd.remainingPackages !== undefined
+                  ? `↓ ${sd.remainingPackages}`
+                  : '—'}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+      {!isProfiles && sd.producedSheetsAtSize !== undefined && (
+        <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-0.5">
+          <dt className="text-ink-soft">
+            {t('orders.advanced.sheetsProduced')}
+          </dt>
+          <dd className="font-medium text-ink">
+            {sd.producedSheetsAtSize}
+            <span className="text-ink-soft"> / {sd.sheets}</span>
+          </dd>
+          <dd className="text-right font-semibold text-brand-700">
+            ↓ {sd.remainingSheetsAtSize ?? 0}
+          </dd>
+          {sd.producedPalletsAtSize !== undefined && (
+            <>
+              <dt className="text-ink-soft">
+                {t('orders.advanced.palletsProduced')}
+              </dt>
+              <dd className="font-medium text-ink">
+                {sd.producedPalletsAtSize}
+                {sd.sheetsPerPalletAtSize !== undefined && (
+                  <span className="text-ink-soft">
+                    {' '}
+                    (× {sd.sheetsPerPalletAtSize})
+                  </span>
+                )}
+              </dd>
+              <dd className="text-right font-semibold text-brand-700">
+                {sd.remainingPalletsAtSize !== undefined
+                  ? `↓ ${sd.remainingPalletsAtSize}`
+                  : '—'}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+    </div>
   );
 }
 

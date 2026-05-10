@@ -49,8 +49,20 @@ export interface ScheduledSizeDetail {
   length: number;
   metersM: number;
   productionMinutes: number;
+  remainingMinutes: number;
   perPackage?: number;
   packages?: number;
+  // Profiles mode produced/remaining at this size:
+  producedProfiles?: number;
+  producedPackages?: number;
+  remainingProfiles?: number;
+  remainingPackages?: number;
+  // Sheets mode produced/remaining at this size:
+  sheetsPerPalletAtSize?: number;
+  producedSheetsAtSize?: number;
+  producedPalletsAtSize?: number;
+  remainingSheetsAtSize?: number;
+  remainingPalletsAtSize?: number;
   start: Date;
   end: Date;
 }

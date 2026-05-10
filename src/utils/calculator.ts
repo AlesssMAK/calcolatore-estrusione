@@ -527,18 +527,99 @@ export function calculateSchedule(
         const lengthI = sz?.length ?? 0;
         const metersI = (sheetsI * lengthI) / 1000;
         const minsI = speedMPerMin > 0 ? metersI / speedMPerMin : 0;
-        const startI = skipWeekendForward(sizeCursor);
-        const endI = addWorkingMinutes(startI, minsI);
         const ppI = mode === 'profiles' ? perPackagesForOrder[i] : undefined;
-        const pkgI =
+        const totalPkgI =
           ppI && ppI > 0 && sheetsI > 0 ? Math.ceil(sheetsI / ppI) : undefined;
+
+        // Per-size produced (profiles or sheets) — effective value.
+        let producedProfilesI: number | undefined;
+        let producedPackagesI: number | undefined;
+        let remainingProfilesI: number | undefined;
+        let remainingPackagesI: number | undefined;
+        let producedSheetsI: number | undefined;
+        let producedPalletsI: number | undefined;
+        let remainingSheetsI: number | undefined;
+        let remainingPalletsI: number | undefined;
+        let perPalletI: number | undefined;
+        let sizeFraction = 0;
+
+        if (mode === 'profiles') {
+          const profI = order.producedProfiles?.[i]?.value ?? 0;
+          const packI = order.producedPackages?.[i]?.value ?? 0;
+          let effProfI = 0;
+          if (profI > 0) {
+            effProfI = profI;
+          } else if (packI > 0 && ppI && ppI > 0) {
+            effProfI = packI * ppI;
+          }
+          if (effProfI > 0 || packI > 0) {
+            const cappedI =
+              sheetsI > 0 ? Math.min(effProfI, sheetsI) : effProfI;
+            producedProfilesI = cappedI;
+            if (ppI && ppI > 0) {
+              producedPackagesI = Math.ceil(cappedI / ppI);
+              if (totalPkgI !== undefined) {
+                remainingPackagesI = Math.max(
+                  0,
+                  totalPkgI - producedPackagesI,
+                );
+              }
+            }
+            if (sheetsI > 0) {
+              remainingProfilesI = Math.max(0, sheetsI - cappedI);
+              sizeFraction = cappedI / sheetsI;
+            }
+          }
+        } else {
+          const sheetsEnt = order.producedSheets?.[i]?.value ?? 0;
+          const perPalletEnt = order.sheetsPerPallet?.[i]?.value ?? 0;
+          const palletsEnt = order.producedPallets?.[i]?.value ?? 0;
+          perPalletI = perPalletEnt > 0 ? perPalletEnt : undefined;
+          let effSheetsI = 0;
+          if (sheetsEnt > 0) {
+            effSheetsI = sheetsEnt;
+          } else if (palletsEnt > 0 && perPalletI) {
+            effSheetsI = palletsEnt * perPalletI;
+          }
+          if (effSheetsI > 0 || palletsEnt > 0 || perPalletI) {
+            const cappedI =
+              sheetsI > 0 ? Math.min(effSheetsI, sheetsI) : effSheetsI;
+            producedSheetsI = cappedI;
+            if (perPalletI) {
+              producedPalletsI = Math.ceil(cappedI / perPalletI);
+              if (sheetsI > 0) {
+                const totalPalI = Math.ceil(sheetsI / perPalletI);
+                remainingPalletsI = Math.max(0, totalPalI - producedPalletsI);
+              }
+            }
+            if (sheetsI > 0) {
+              remainingSheetsI = Math.max(0, sheetsI - cappedI);
+              sizeFraction = cappedI / sheetsI;
+            }
+          }
+        }
+
+        const remainingMinsI = minsI * Math.max(0, 1 - sizeFraction);
+        const startI = skipWeekendForward(sizeCursor);
+        const endI = addWorkingMinutes(startI, remainingMinsI);
+
         sizeDetails.push({
           sheets: sheetsI,
           length: lengthI,
           metersM: metersI,
           productionMinutes: minsI,
+          remainingMinutes: remainingMinsI,
           perPackage: ppI,
-          packages: pkgI,
+          packages: totalPkgI,
+          producedProfiles: producedProfilesI,
+          producedPackages: producedPackagesI,
+          remainingProfiles: remainingProfilesI,
+          remainingPackages: remainingPackagesI,
+          sheetsPerPalletAtSize: perPalletI,
+          producedSheetsAtSize: producedSheetsI,
+          producedPalletsAtSize: producedPalletsI,
+          remainingSheetsAtSize: remainingSheetsI,
+          remainingPalletsAtSize: remainingPalletsI,
           start: startI,
           end: endI,
         });
