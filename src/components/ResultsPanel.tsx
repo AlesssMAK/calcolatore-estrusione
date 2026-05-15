@@ -1,5 +1,6 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toPng } from 'html-to-image';
 import type {
   CalculatorMode,
   ScheduleResult,
@@ -22,6 +23,40 @@ interface Props {
 function ResultsPanel({ result, mode, onReset }: Props) {
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const exportAsImage = async () => {
+    const node = sectionRef.current;
+    if (!node) return;
+    setExporting(true);
+    try {
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        // Skip toolbar buttons (Print / Copy / Reset / Save image)
+        filter: (n) =>
+          !(n instanceof HTMLElement && n.classList.contains('no-print')),
+      });
+      const a = document.createElement('a');
+      const slug = (result.productName || 'risultato')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+      const stamp = new Date()
+        .toISOString()
+        .slice(0, 16)
+        .replace(/[:T]/g, '-');
+      a.href = dataUrl;
+      a.download = `${slug}-${stamp}.png`;
+      a.click();
+    } catch {
+      /* ignore */
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const lang = i18n.resolvedLanguage ?? 'it';
   const isProfiles = mode === 'profiles';
@@ -183,6 +218,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
 
   return (
     <section
+      ref={sectionRef}
       data-print="results"
       className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none"
     >
@@ -205,6 +241,14 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
           >
             🖨 {t('actions.print')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportAsImage()}
+            disabled={exporting}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            📷 {exporting ? t('actions.exporting') : t('actions.saveImage')}
           </button>
           <button
             type="button"

@@ -72,7 +72,9 @@
     "reset": "Nuovo calcolo",
     "print": "Stampa",
     "copy": "Copia",
-    "copied": "Copiato!"
+    "copied": "Copiato!",
+    "saveImage": "Salva immagine",
+    "exporting": "Salvando…"
   },
   "results": {
     "title": "Risultato",
