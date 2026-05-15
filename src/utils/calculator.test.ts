@@ -197,6 +197,265 @@ describe('calculateSchedule — produced under useTotalLength', () => {
     expect(row.productionMinutes).toBe(120);
     expect(row.remainingMinutes).toBe(60);
   });
+
+  it('sheets: per-batch sheetsPerPallet inherits within order, blank batches use previous', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    // 2 batches: [pallets=4, perPallet=10, length=6000mm]; [pallets=2, perPallet=blank=>10, length=3000mm]
+    // produced sheets = 4*10 + 2*10 = 60 sheets total
+    // producedLengthM = (40 * 6000 + 20 * 3000) / 1000 = 240 + 60 = 300m
+    // total = 600m → fraction = 0.5; productionMinutes 600/5 = 120; remaining 60.
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 600,
+          producedPallets: [{ value: 4 }, { value: 2 }],
+          sheetsPerPallet: [{ value: 10 }, { value: undefined }],
+          producedItemLength: [{ value: 6000 }, { value: 3000 }],
+          speedMPerMin: 5,
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+    const row = result.rows[0]!;
+    expect(row.producedSheets).toBe(60);
+    expect(row.producedPallets).toBe(6);
+    expect(row.sheetsPerPallet).toBeUndefined(); // mixed/per-batch
+    expect(row.productionMinutes).toBe(120);
+    expect(row.remainingMinutes).toBe(60);
+  });
+
+  it('profiles: per-batch profilesPerPackage inherits within order; packages-only path uses rate', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    // 2 batches: packages=10, perPackage=20 → 200 profiles × 6000mm = 1200m
+    //            packages=5,  perPackage=blank=>20 → 100 × 3000mm = 300m
+    // producedLengthM = 1500m; totalLengthM = 3000m → fraction 0.5
+    // productionMinutes 3000/5 = 600; remaining 300.
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 3000,
+          producedPackages: [{ value: 10 }, { value: 5 }],
+          profilesPerPackage: [{ value: 20 }, { value: undefined }],
+          producedItemLength: [{ value: 6000 }, { value: 3000 }],
+          speedMPerMin: 5,
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+    const row = result.rows[0]!;
+    expect(row.producedProfiles).toBe(300);
+    expect(row.producedPackages).toBe(15);
+    expect(row.productionMinutes).toBe(600);
+    expect(row.remainingMinutes).toBe(300);
+  });
+
+  it('exposes producedLengthM / remainingLengthM for useTotalLength', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 300,
+          producedProfiles: [{ value: 10 }],
+          producedItemLength: [{ value: 6000 }],
+          // 10 × 6000mm = 60m of 300m → fraction 0.2
+          speedMPerMin: 5,
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+    const row = result.rows[0]!;
+    expect(row.producedLengthM).toBeCloseTo(60, 5);
+    expect(row.remainingLengthM).toBeCloseTo(240, 5);
+    // Total counts unknown in useTotalLength → remaining counts must be undefined
+    expect(row.remainingProfiles).toBeUndefined();
+    expect(row.remainingPackages).toBeUndefined();
+  });
+
+  it('mutex: stale producedPackages is ignored when direct producedProfiles entered', () => {
+    // Direct path: 10 profili produced. A stale producedPackages=99 (left over
+    // after switching paths in the UI; the field is now disabled but the form
+    // value remains) must NOT be summed into producedPackages output.
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 300,
+          producedProfiles: [{ value: 10 }],
+          producedPackages: [{ value: 99 }], // stale, must be ignored
+          profilesPerPackage: [{ value: 5 }],
+          producedItemLength: [{ value: 6000 }],
+          speedMPerMin: 5,
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+    const row = result.rows[0]!;
+    // Derived from effective profiles / perPackage = ceil(10/5) = 2; NOT 99.
+    expect(row.producedPackages).toBe(2);
+  });
+
+  it('mutex: stale producedPallets is ignored when direct producedSheets entered (sheets mode)', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 300,
+          producedSheets: [{ value: 10 }],
+          producedPallets: [{ value: 99 }], // stale, must be ignored
+          sheetsPerPallet: [{ value: 5 }],
+          producedItemLength: [{ value: 6000 }],
+          speedMPerMin: 5,
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+    const row = result.rows[0]!;
+    expect(row.producedSheets).toBe(10);
+    // Derived from effective sheets / perPallet = ceil(10/5) = 2; NOT 99.
+    expect(row.producedPallets).toBe(2);
+  });
+
+  it('sizes-mode: multiple producedSheets entries with sizeIndex aggregate per size', () => {
+    // One size of 1000 sheets × 6000mm = 6000m. Two partial-production entries
+    // tagged to size 0 (200 + 150 sheets) sum into 350 sheets × 6000mm = 2100m
+    // produced → fraction 0.35 → remaining 13h (production 20h).
+    const start = new Date('2026-05-15T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          speedMPerMin: 5,
+          sizes: [{ sheets: 1000, length: 6000 }],
+          producedSheets: [
+            { value: 200 }, // legacy (no sizeIndex) — falls back to position 0
+            { value: 150, sizeIndex: 0 }, // explicit tag
+          ],
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+    const row = result.rows[0]!;
+    expect(row.producedSheets).toBe(350);
+    expect(row.totalSheets).toBe(1000);
+    expect(row.remainingSheets).toBe(650);
+    expect(row.productionMinutes).toBe(1200); // 20h
+    expect(row.remainingMinutes).toBe(780); // 13h
+  });
+
+  it('sizes-mode: entries tagged to different sizes do not bleed between sizes', () => {
+    // Two sizes; entries with sizeIndex pin produced counts to a single size.
+    // size 0: 100 sheets × 6000mm = 600m total, produced 60 (sizeIndex 0) → 360m
+    // size 1: 50  sheets × 3000mm = 150m total, produced 20 (sizeIndex 1) → 60m
+    // total length = 750m; produced length = 420m; fraction = 0.56
+    const start = new Date('2026-05-15T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          speedMPerMin: 5,
+          sizes: [
+            { sheets: 100, length: 6000 },
+            { sheets: 50, length: 3000 },
+          ],
+          producedSheets: [
+            { value: 30, sizeIndex: 0 },
+            { value: 30, sizeIndex: 0 }, // same size — should sum to 60
+            { value: 20, sizeIndex: 1 }, // different size
+          ],
+        },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+    const row = result.rows[0]!;
+    expect(row.producedSheets).toBe(80);
+    expect(row.sizeDetails?.[0]?.producedSheetsAtSize).toBe(60);
+    expect(row.sizeDetails?.[1]?.producedSheetsAtSize).toBe(20);
+  });
+
+  it('profiles: per-batch perPackage inherits across orders (lastPerPackage carry-over)', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    // Order 1 sets perPackage=20 in batch[0].
+    // Order 2 leaves profilesPerPackage blank — must inherit 20 from order 1.
+    // Order 2: packages=5 → effectiveProfiles = 5*20 = 100 × 6000mm = 600m
+    // totalLengthM=1200 → fraction 0.5; productionMinutes 1200/5=240; remaining 120.
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 6000,
+          producedProfiles: [{ value: 100 }],
+          profilesPerPackage: [{ value: 20 }],
+          producedItemLength: [{ value: 6000 }],
+          speedMPerMin: 5,
+        },
+        {
+          id: 'b',
+          useTotalLength: true,
+          totalLengthM: 1200,
+          producedPackages: [{ value: 5 }],
+          // profilesPerPackage omitted — inherits 20 from order 'a'
+          producedItemLength: [{ value: 6000 }],
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+    const row2 = result.rows[1]!;
+    expect(row2.producedProfiles).toBe(100);
+    expect(row2.producedPackages).toBe(5);
+    expect(row2.productionMinutes).toBe(240);
+    expect(row2.remainingMinutes).toBe(120);
+  });
 });
 
 describe('calculateSchedule — produced (sheets)', () => {

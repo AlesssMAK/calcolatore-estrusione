@@ -10,6 +10,11 @@ export interface OrderSize {
 
 export interface ProducedEntry {
   value?: number;
+  // Optional tag: which size this entry belongs to (sizes-mode only).
+  // Lets a single size accumulate multiple partial-production entries
+  // (e.g. day-by-day). When undefined the entry's position in the array
+  // is used as the size index (backward compat).
+  sizeIndex?: number;
 }
 
 export interface Order {
@@ -28,6 +33,10 @@ export interface Order {
   sheetsPerPallet?: ProducedEntry[];
   producedPallets?: ProducedEntry[];
   producedItemLength?: ProducedEntry[];
+  // useTotalLength mode only: per-batch profiles-per-package (parallel array
+  // to producedProfiles / producedItemLength). Inherits within and across
+  // orders. In sizes-mode the per-size value on OrderSize is used instead.
+  profilesPerPackage?: ProducedEntry[];
 }
 
 export interface ProducedSummary {
@@ -88,6 +97,11 @@ export interface ScheduledOrder {
   remainingSheets?: number;
   remainingPallets?: number;
   sheetsPerPallet?: number;
+  // useTotalLength mode: meters produced / remaining for the order. In
+  // sizes-mode these are derived from totalLengthM × fraction and exposed
+  // here too so the UI can show a unified "Metri prodotti / restanti" row.
+  producedLengthM?: number;
+  remainingLengthM?: number;
   sizeDetails?: ScheduledSizeDetail[];
 }
 

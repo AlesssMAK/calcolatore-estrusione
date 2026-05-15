@@ -13,6 +13,63 @@ export function sumEntries(entries: ProducedEntry[] | undefined): number {
   return entries.reduce((sum, e) => sum + (e?.value ?? 0), 0);
 }
 
+// Per-size sum, honoring entry.sizeIndex when present. For legacy entries
+// without sizeIndex, falls back to array index (entry[i] belongs to size i).
+// Always returns a non-negative number.
+function sumEntriesForSize(
+  entries: ProducedEntry[] | undefined,
+  sizeIdx: number,
+): number {
+  if (!entries) return 0;
+  let total = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (!e) continue;
+    const tag = e.sizeIndex ?? i;
+    if (tag === sizeIdx) total += e.value ?? 0;
+  }
+  return total;
+}
+
+// First non-zero value for a size. Used for rate-style fields
+// (sheetsPerPallet) where duplicating across rows shouldn't accumulate —
+// the user enters the rate once, additional rows usually leave it blank
+// (or repeat the same value). Falls back to array index for legacy entries.
+function firstNonZeroForSize(
+  entries: ProducedEntry[] | undefined,
+  sizeIdx: number,
+): number {
+  if (!entries) return 0;
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (!e) continue;
+    const tag = e.sizeIndex ?? i;
+    if (tag === sizeIdx && (e.value ?? 0) > 0) return e.value!;
+  }
+  return 0;
+}
+
+// Resolve per-batch rate values (perPackage / perPallet) with inheritance.
+// Each empty slot inherits from the previous filled one in this order, with a
+// cross-order seed (lastValue) used for the first slot. Returns the effective
+// values aligned to `count` batches plus the new "last" value to carry to the
+// next order.
+function resolvePerBatchRates(
+  entries: ProducedEntry[] | undefined,
+  count: number,
+  lastValue: number | undefined,
+): { values: (number | undefined)[]; finalLast: number | undefined } {
+  const values: (number | undefined)[] = [];
+  let prev = lastValue;
+  for (let i = 0; i < count; i++) {
+    const own = entries?.[i]?.value;
+    const eff = own && own > 0 ? own : prev;
+    values[i] = eff;
+    if (eff && eff > 0) prev = eff;
+  }
+  return { values, finalLast: prev };
+}
+
 // Sum (count_i × length_mm_i / 1000) over paired entries. Used in
 // useTotalLength mode where each produced batch may have its own length.
 function sumProducedLengthM(
@@ -29,17 +86,17 @@ function sumProducedLengthM(
   return total;
 }
 
-// Sum (produced[i] × sizes[i].length / 1000) — produced array is index-aligned
-// to the order's sizes. Used in sizes mode.
+// Σ (produced-for-size_i × sizes[i].length / 1000). Honors entry.sizeIndex
+// when present (multiple partial-production entries per size). Used in
+// sizes mode.
 function sumProducedSizedLengthM(
   produced: ProducedEntry[] | undefined,
   order: Order,
 ): number {
   if (!produced || !order.sizes || order.sizes.length === 0) return 0;
-  const n = Math.min(produced.length, order.sizes.length);
   let total = 0;
-  for (let i = 0; i < n; i++) {
-    const c = produced[i]?.value ?? 0;
+  for (let i = 0; i < order.sizes.length; i++) {
+    const c = sumEntriesForSize(produced, i);
     const l = order.sizes[i]?.length ?? 0;
     total += (c * l) / 1000;
   }
@@ -198,30 +255,49 @@ export function calculateProducedProfiles(
   order: Order,
   perPackages: (number | undefined)[],
 ): ProducedProfilesResult | undefined {
-  const profilesEntered = sumEntries(order.producedProfiles);
   const packagesEntered = sumEntries(order.producedPackages);
 
-  // Effective produced profiles per row: prefer producedProfiles[i], else
-  // producedPackages[i] × perPackages[i].
+  // Effective produced profiles per row:
+  //   sizes-mode  → aggregate entries per size (sizeIndex-aware, with
+  //                 fallback to array position). Lets a single size accept
+  //                 multiple partial-production entries (e.g. day-by-day).
+  //   useTotalLength → flat batch indexing.
   const sizesLen = order.sizes?.length ?? 0;
-  const rowsLen = Math.max(
-    sizesLen,
-    order.producedProfiles?.length ?? 0,
-    order.producedPackages?.length ?? 0,
-  );
   const effectiveProfiles: number[] = [];
-  for (let i = 0; i < rowsLen; i++) {
-    const profI = order.producedProfiles?.[i]?.value ?? 0;
-    if (profI > 0) {
-      effectiveProfiles[i] = profI;
-      continue;
+  if (order.useTotalLength) {
+    const rowsLen = Math.max(
+      order.producedProfiles?.length ?? 0,
+      order.producedPackages?.length ?? 0,
+      perPackages.length,
+    );
+    for (let i = 0; i < rowsLen; i++) {
+      const profI = order.producedProfiles?.[i]?.value ?? 0;
+      if (profI > 0) {
+        effectiveProfiles[i] = profI;
+        continue;
+      }
+      const packI = order.producedPackages?.[i]?.value ?? 0;
+      const ppI = perPackages[i];
+      if (packI > 0 && ppI && ppI > 0) {
+        effectiveProfiles[i] = packI * ppI;
+      } else {
+        effectiveProfiles[i] = 0;
+      }
     }
-    const packI = order.producedPackages?.[i]?.value ?? 0;
-    const ppI = perPackages[i];
-    if (packI > 0 && ppI && ppI > 0) {
-      effectiveProfiles[i] = packI * ppI;
-    } else {
-      effectiveProfiles[i] = 0;
+  } else {
+    for (let i = 0; i < sizesLen; i++) {
+      const profI = sumEntriesForSize(order.producedProfiles, i);
+      if (profI > 0) {
+        effectiveProfiles[i] = profI;
+        continue;
+      }
+      const packI = sumEntriesForSize(order.producedPackages, i);
+      const ppI = perPackages[i];
+      if (packI > 0 && ppI && ppI > 0) {
+        effectiveProfiles[i] = packI * ppI;
+      } else {
+        effectiveProfiles[i] = 0;
+      }
     }
   }
   const producedProfiles = effectiveProfiles.reduce((s, v) => s + v, 0);
@@ -258,32 +334,52 @@ export function calculateProducedProfiles(
     }
     totalPackages = totalKnown ? totalAcc : undefined;
   } else if (order.useTotalLength) {
-    // Per-batch packages from producedProfiles[i] / perPackages[i] (best-effort).
-    for (let i = 0; i < effectiveProfiles.length; i++) {
+    // Per-batch packages — but the rate-path (packages × perPackage) is
+    // mutually exclusive with the direct path: if any producedProfiles[i] > 0
+    // the user is on the direct path and stale values in producedPackages
+    // (left over after switching paths) must NOT be summed. In that case
+    // derive packages from effective profiles instead.
+    const directProfilesEntered =
+      sumEntries(order.producedProfiles) > 0;
+    for (
+      let i = 0;
+      i < Math.max(effectiveProfiles.length, order.producedPackages?.length ?? 0);
+      i++
+    ) {
+      if (!directProfilesEntered) {
+        const directPack = order.producedPackages?.[i]?.value ?? 0;
+        if (directPack > 0) {
+          producedPackagesCount += directPack;
+          continue;
+        }
+      }
       const pp = perPackages[i];
-      if (pp && pp > 0) {
+      if (pp && pp > 0 && effectiveProfiles[i]) {
         producedPackagesCount += Math.ceil(effectiveProfiles[i] / pp);
       }
     }
   }
 
   const remainingProfiles =
-    totalProfiles !== undefined ? Math.max(0, totalProfiles - cappedProduced) : 0;
+    totalProfiles !== undefined
+      ? Math.max(0, totalProfiles - cappedProduced)
+      : undefined;
   const remainingPackages =
     totalPackages !== undefined
       ? Math.max(0, totalPackages - producedPackagesCount)
-      : 0;
+      : undefined;
 
   let fraction = 0;
   if (order.useTotalLength) {
     if (order.totalLengthM && order.totalLengthM > 0) {
-      const producedLengthM =
-        profilesEntered > 0
-          ? sumProducedLengthM(
-              order.producedProfiles,
-              order.producedItemLength,
-            )
-          : 0;
+      // Sum effective profiles × itemLength per batch — covers the
+      // packages-only path (perPackage × packages) too.
+      const lengths = order.producedItemLength;
+      let producedLengthM = 0;
+      for (let i = 0; i < effectiveProfiles.length; i++) {
+        const l = lengths?.[i]?.value ?? 0;
+        producedLengthM += (effectiveProfiles[i] * l) / 1000;
+      }
       if (producedLengthM > 0) {
         fraction = Math.min(1, producedLengthM / order.totalLengthM);
       }
@@ -311,9 +407,85 @@ export function calculateProducedProfiles(
   };
 }
 
+function calculateProducedSheetsBatched(
+  order: Order,
+  perPallets: (number | undefined)[],
+): ProducedSheetsResult | undefined {
+  const batchLen = Math.max(
+    order.producedSheets?.length ?? 0,
+    order.producedPallets?.length ?? 0,
+    order.sheetsPerPallet?.length ?? 0,
+    order.producedItemLength?.length ?? 0,
+    perPallets.length,
+  );
+  if (batchLen === 0) return undefined;
+
+  // Mutex between direct path (producedSheets) and rate path
+  // (sheetsPerPallet × producedPallets): the user only fills one side. If
+  // both have stale values, the direct path wins — disabled producedPallets
+  // values must NOT be summed.
+  const directSheetsEntered = sumEntries(order.producedSheets) > 0;
+
+  let totalSheetsProduced = 0;
+  let totalPalletsProduced = 0;
+  let producedLengthM = 0;
+  let anyEntered = false;
+
+  for (let i = 0; i < batchLen; i++) {
+    const directSheets = order.producedSheets?.[i]?.value ?? 0;
+    const palletsI = directSheetsEntered
+      ? 0
+      : order.producedPallets?.[i]?.value ?? 0;
+    const perPalletI = perPallets[i];
+    const lengthI = order.producedItemLength?.[i]?.value ?? 0;
+
+    let effectiveSheets = 0;
+    if (directSheets > 0) {
+      effectiveSheets = directSheets;
+      anyEntered = true;
+    } else if (palletsI > 0 && perPalletI && perPalletI > 0) {
+      effectiveSheets = palletsI * perPalletI;
+      anyEntered = true;
+    }
+
+    totalSheetsProduced += effectiveSheets;
+    producedLengthM += (effectiveSheets * lengthI) / 1000;
+
+    if (palletsI > 0) {
+      totalPalletsProduced += palletsI;
+      anyEntered = true;
+    } else if (effectiveSheets > 0 && perPalletI && perPalletI > 0) {
+      totalPalletsProduced += Math.ceil(effectiveSheets / perPalletI);
+    }
+  }
+
+  if (!anyEntered) return undefined;
+
+  let fraction = 0;
+  if (order.totalLengthM && order.totalLengthM > 0 && producedLengthM > 0) {
+    fraction = Math.min(1, producedLengthM / order.totalLengthM);
+  }
+
+  return {
+    totalSheets: undefined,
+    producedSheets: totalSheetsProduced,
+    producedPallets: totalPalletsProduced > 0 ? totalPalletsProduced : undefined,
+    // Per-batch rate is non-uniform; expose undefined to avoid misleading
+    // a single scalar in the results table.
+    sheetsPerPallet: undefined,
+    remainingSheets: undefined,
+    remainingPallets: undefined,
+    fraction,
+  };
+}
+
 export function calculateProducedSheets(
   order: Order,
+  perBatchPerPallets?: (number | undefined)[],
 ): ProducedSheetsResult | undefined {
+  if (order.useTotalLength && perBatchPerPallets) {
+    return calculateProducedSheetsBatched(order, perBatchPerPallets);
+  }
   const sheetsEntered = sumEntries(order.producedSheets);
   const palletsEntered = sumEntries(order.producedPallets);
   const perPalletSum = sumEntries(order.sheetsPerPallet);
@@ -383,11 +555,15 @@ export function calculateProducedSheets(
     } else if (
       palletsEntered > 0 &&
       order.producedPallets &&
-      order.sheetsPerPallet
+      order.sheetsPerPallet &&
+      order.sizes
     ) {
-      const sized: ProducedEntry[] = order.producedPallets.map((p, i) => ({
+      // Per-size: pallets sum × rate (first non-zero) — tag-aware.
+      const sized: ProducedEntry[] = order.sizes.map((_, sIdx) => ({
+        sizeIndex: sIdx,
         value:
-          (p?.value ?? 0) * (order.sheetsPerPallet?.[i]?.value ?? 0),
+          sumEntriesForSize(order.producedPallets, sIdx) *
+          firstNonZeroForSize(order.sheetsPerPallet, sIdx),
       }));
       producedLengthM = sumProducedSizedLengthM(sized, order);
     }
@@ -465,14 +641,33 @@ export function calculateSchedule(
     const perPackagesForOrder: (number | undefined)[] = [];
 
     if (mode === 'profiles') {
-      // Resolve per-size profilesPerPackage with inline + cross-order
-      // inheritance. lastPerPackage carries over from earlier orders too.
+      // Resolve per-size or per-batch profilesPerPackage with inheritance.
+      // lastPerPackage carries over from earlier orders.
       const sizes = order.sizes ?? [];
-      for (let i = 0; i < sizes.length; i++) {
-        const own = sizes[i]?.profilesPerPackage;
-        const eff = own && own > 0 ? own : lastPerPackage;
-        perPackagesForOrder[i] = eff;
-        if (eff && eff > 0) lastPerPackage = eff;
+      if (order.useTotalLength) {
+        const batchLen = Math.max(
+          order.producedProfiles?.length ?? 0,
+          order.producedPackages?.length ?? 0,
+          order.profilesPerPackage?.length ?? 0,
+          order.producedItemLength?.length ?? 0,
+          1,
+        );
+        const resolved = resolvePerBatchRates(
+          order.profilesPerPackage,
+          batchLen,
+          lastPerPackage,
+        );
+        for (let i = 0; i < batchLen; i++) {
+          perPackagesForOrder[i] = resolved.values[i];
+        }
+        lastPerPackage = resolved.finalLast;
+      } else {
+        for (let i = 0; i < sizes.length; i++) {
+          const own = sizes[i]?.profilesPerPackage;
+          const eff = own && own > 0 ? own : lastPerPackage;
+          perPackagesForOrder[i] = eff;
+          if (eff && eff > 0) lastPerPackage = eff;
+        }
       }
 
       totalProfiles = calculateTotalProfiles(order);
@@ -502,7 +697,24 @@ export function calculateSchedule(
         fraction = produced.fraction;
       }
     } else {
-      const produced = calculateProducedSheets(order);
+      let perBatchPerPallets: (number | undefined)[] | undefined;
+      if (order.useTotalLength) {
+        const batchLen = Math.max(
+          order.producedSheets?.length ?? 0,
+          order.producedPallets?.length ?? 0,
+          order.sheetsPerPallet?.length ?? 0,
+          order.producedItemLength?.length ?? 0,
+          1,
+        );
+        const resolved = resolvePerBatchRates(
+          order.sheetsPerPallet,
+          batchLen,
+          lastSheetsPerPallet,
+        );
+        perBatchPerPallets = resolved.values;
+        lastSheetsPerPallet = resolved.finalLast;
+      }
+      const produced = calculateProducedSheets(order, perBatchPerPallets);
       if (produced) {
         totalSheets = produced.totalSheets ?? totalSheets;
         producedSheetsCount = produced.producedSheets;
@@ -547,8 +759,8 @@ export function calculateSchedule(
         let sizeFraction = 0;
 
         if (mode === 'profiles') {
-          const profI = order.producedProfiles?.[i]?.value ?? 0;
-          const packI = order.producedPackages?.[i]?.value ?? 0;
+          const profI = sumEntriesForSize(order.producedProfiles, i);
+          const packI = sumEntriesForSize(order.producedPackages, i);
           let effProfI = 0;
           if (profI > 0) {
             effProfI = profI;
@@ -574,9 +786,9 @@ export function calculateSchedule(
             }
           }
         } else {
-          const sheetsEnt = order.producedSheets?.[i]?.value ?? 0;
-          const perPalletEnt = order.sheetsPerPallet?.[i]?.value ?? 0;
-          const palletsEnt = order.producedPallets?.[i]?.value ?? 0;
+          const sheetsEnt = sumEntriesForSize(order.producedSheets, i);
+          const perPalletEnt = firstNonZeroForSize(order.sheetsPerPallet, i);
+          const palletsEnt = sumEntriesForSize(order.producedPallets, i);
           // Inherit sheetsPerPallet from the previous size in this order,
           // or from the last filled value across earlier orders.
           perPalletI =
@@ -634,6 +846,15 @@ export function calculateSchedule(
       }
     }
 
+    const hasAnyProduced =
+      producedProfiles !== undefined || producedSheetsCount !== undefined;
+    const producedLengthM = hasAnyProduced
+      ? totalLengthM * fraction
+      : undefined;
+    const remainingLengthM = hasAnyProduced
+      ? totalLengthM * (1 - fraction)
+      : undefined;
+
     rows.push({
       order,
       speedMPerMin,
@@ -656,6 +877,8 @@ export function calculateSchedule(
       sheetsPerPallet: sheetsPerPalletVal,
       remainingSheets,
       remainingPallets,
+      producedLengthM,
+      remainingLengthM,
     });
 
     totalProductionMinutes += remainingMinutes;

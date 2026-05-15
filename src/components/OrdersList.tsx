@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   useFieldArray,
   useFormContext,
@@ -193,60 +193,85 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
   const isProfiles = mode === 'profiles';
   const showInlinePerPackage =
     isProfiles && !useTotalLength && sizesCount <= 1;
+  const isFirst = idx === 0;
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
-        <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
-          <label className={labelBase}>
-            {t('orders.speed')}
-            {idx > 0 && (
-              <span className="ml-1 normal-case text-ink-soft">
-                ({t('orders.optionalInherit')})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.1"
-            inputMode="decimal"
-            className={`${inputBase} mt-1`}
-            {...register(`orders.${idx}.speedMPerMin`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.speedMPerMin?.message
-                ? t(`validation.${rowErr.speedMPerMin.message}`)
-                : undefined
-            }
-          />
-        </div>
-
-        {showInlinePerPackage && (
+        {isFirst ? (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
-            <label className={labelBase}>
-              {t('orders.profilesPerPackage')}
-              {idx > 0 && (
-                <span className="ml-1 normal-case text-ink-soft">
-                  ({t('orders.optionalInherit')})
-                </span>
-              )}
-            </label>
+            <label className={labelBase}>{t('orders.speed')}</label>
             <input
               type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
+              min="0"
+              step="0.1"
+              inputMode="decimal"
               className={`${inputBase} mt-1`}
-              {...register(`orders.${idx}.sizes.0.profilesPerPackage`, {
+              {...register(`orders.${idx}.speedMPerMin`, {
                 setValueAs: numericSetValueAs,
               })}
             />
             <FieldError
               message={
+                rowErr?.speedMPerMin?.message
+                  ? t(`validation.${rowErr.speedMPerMin.message}`)
+                  : undefined
+              }
+            />
+          </div>
+        ) : (
+          <CollapsibleInheritField
+            fieldPath={`orders.${idx}.speedMPerMin`}
+            icon="⚡"
+            label={t('orders.speed')}
+            inheritLabel={t('orders.optionalInherit')}
+            inputProps={{
+              min: '0',
+              step: '0.1',
+              inputMode: 'decimal',
+            }}
+            errorMessage={
+              rowErr?.speedMPerMin?.message
+                ? t(`validation.${rowErr.speedMPerMin.message}`)
+                : undefined
+            }
+          />
+        )}
+
+        {showInlinePerPackage &&
+          (isFirst ? (
+            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+              <label className={labelBase}>
+                {t('orders.profilesPerPackage')}
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                className={`${inputBase} mt-1`}
+                {...register(`orders.${idx}.sizes.0.profilesPerPackage`, {
+                  setValueAs: numericSetValueAs,
+                })}
+              />
+              <FieldError
+                message={
+                  rowErr?.sizes?.[0]?.profilesPerPackage?.message
+                    ? t(
+                        `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
+                      )
+                    : undefined
+                }
+              />
+            </div>
+          ) : (
+            <CollapsibleInheritField
+              fieldPath={`orders.${idx}.sizes.0.profilesPerPackage`}
+              icon="📦"
+              label={t('orders.profilesPerPackage')}
+              inheritLabel={t('orders.optionalInherit')}
+              inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
+              errorMessage={
                 rowErr?.sizes?.[0]?.profilesPerPackage?.message
                   ? t(
                       `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
@@ -254,8 +279,7 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
                   : undefined
               }
             />
-          </div>
-        )}
+          ))}
 
         {showGap && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
@@ -311,12 +335,84 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
   );
 }
 
-type ProducedFieldName =
-  | 'producedProfiles'
-  | 'producedPackages'
-  | 'producedSheets'
-  | 'sheetsPerPallet'
-  | 'producedPallets';
+// Collapsible field for optional, inheritance-backed numbers (speed,
+// profilesPerPackage). Shows a square icon button when value is empty;
+// clicking it expands an input. On blur, if still empty, collapses back.
+// Used only for idx > 0 so that creating a new order doesn't auto-focus
+// these fields — mobile users were getting trapped editing speed on each
+// new order (a known friction point on touch screens).
+function CollapsibleInheritField({
+  fieldPath,
+  icon,
+  label,
+  inheritLabel,
+  inputProps,
+  errorMessage,
+}: {
+  fieldPath:
+    | `orders.${number}.speedMPerMin`
+    | `orders.${number}.sizes.0.profilesPerPackage`;
+  icon: string;
+  label: string;
+  inheritLabel: string;
+  inputProps: {
+    min: string;
+    step: string;
+    inputMode: 'decimal' | 'numeric';
+  };
+  errorMessage?: string;
+}) {
+  'use no memo';
+  const { register, control } = useFormContext<FormValues>();
+  const value = useWatch({ control, name: fieldPath });
+  const hasValue = value !== undefined && value !== null;
+  const [open, setOpen] = useState(false);
+  const showInput = open || hasValue;
+
+  if (!showInput) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title={`${label} (${inheritLabel})`}
+        aria-label={`${label} (${inheritLabel})`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-dashed border-neutral-300 bg-white text-base text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 sm:h-10 sm:w-10"
+      >
+        <span aria-hidden>{icon}</span>
+      </button>
+    );
+  }
+
+  const reg = register(fieldPath, { setValueAs: numericSetValueAs });
+  return (
+    <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+      <label className={labelBase}>
+        {label}
+        <span className="ml-1 normal-case text-ink-soft">
+          ({inheritLabel})
+        </span>
+      </label>
+      <input
+        type="number"
+        min={inputProps.min}
+        step={inputProps.step}
+        inputMode={inputProps.inputMode}
+        autoFocus={open && !hasValue}
+        className={`${inputBase} mt-1`}
+        {...reg}
+        onBlur={(e) => {
+          // RHF blur first (validation, dirty/touched flags), then collapse
+          // only if the input was actually left empty. Reading the DOM value
+          // directly avoids stale useWatch state and intermediate values
+          // (typing "1." briefly parses to 1 — we shouldn't collapse on that).
+          reg.onBlur(e);
+          if (e.target.value === '') setOpen(false);
+        }}
+      />
+      <FieldError message={errorMessage} />
+    </div>
+  );
+}
 
 function AdvancedSection({
   idx,
@@ -367,9 +463,13 @@ function AdvancedSection({
     name: `orders.${idx}.producedPallets`,
   });
   const watchedSizes = useWatch({ control, name: `orders.${idx}.sizes` });
-  const perPackageEntered = (watchedSizes ?? []).some(
-    (s) => (s?.profilesPerPackage ?? 0) > 0,
-  );
+  const watchedProfilesPerPackage = useWatch({
+    control,
+    name: `orders.${idx}.profilesPerPackage`,
+  });
+  const perPackageEntered =
+    (watchedSizes ?? []).some((s) => (s?.profilesPerPackage ?? 0) > 0) ||
+    sumOf(watchedProfilesPerPackage) > 0;
 
   const profilesEntered = sumOf(watchedProfiles) > 0;
   const packagesEntered = sumOf(watchedPackages) > 0;
@@ -403,178 +503,83 @@ function AdvancedSection({
 
       {expanded && (
         <div
-          className={`mt-2 grid grid-cols-2 items-end gap-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:gap-3 sm:p-3 ${
-            isProfiles ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+          className={`mt-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:p-3 ${
+            useTotalLength ? '' : 'space-y-3'
           }`}
         >
-          {isProfiles ? (
-            <>
-              {useTotalLength ? (
-                <ProducedPairsArray
-                  countFieldName="producedProfiles"
-                  orderIdx={idx}
-                  countLabel={t('orders.advanced.profilesProduced')}
-                  lengthLabel={t('orders.profileLength')}
-                  disabled={profilesBlockedByPackagePath}
-                  t={t}
-                />
-              ) : (
-                <ProducedSizedArray
-                  fieldName="producedProfiles"
-                  orderIdx={idx}
-                  label={t('orders.advanced.profilesProduced')}
-                  disabled={profilesBlockedByPackagePath}
-                />
-              )}
-              {useTotalLength ? (
-                <ProducedEntriesArray
-                  fieldName="producedPackages"
-                  orderIdx={idx}
-                  label={t('orders.advanced.packagesProduced')}
-                  disabled={
-                    packagePathBlockedByProfiles || !perPackageEntered
-                  }
-                  t={t}
-                />
-              ) : (
-                <ProducedSizedArray
-                  fieldName="producedPackages"
-                  orderIdx={idx}
-                  label={t('orders.advanced.packagesProduced')}
-                  disabled={
-                    packagePathBlockedByProfiles || !perPackageEntered
-                  }
-                />
-              )}
-            </>
+          {useTotalLength ? (
+            isProfiles ? (
+              <BatchRowsArray
+                orderIdx={idx}
+                countFieldName="producedProfiles"
+                rateFieldName="profilesPerPackage"
+                totalFieldName="producedPackages"
+                countLabel={t('orders.advanced.profilesProduced')}
+                lengthLabel={t('orders.profileLength')}
+                rateLabel={t('orders.profilesPerPackage')}
+                totalLabel={t('orders.advanced.packagesProduced')}
+                countDisabled={profilesBlockedByPackagePath}
+                rateDisabled={packagePathBlockedByProfiles}
+                totalDisabled={
+                  packagePathBlockedByProfiles || !perPackageEntered
+                }
+                t={t}
+              />
+            ) : (
+              <BatchRowsArray
+                orderIdx={idx}
+                countFieldName="producedSheets"
+                rateFieldName="sheetsPerPallet"
+                totalFieldName="producedPallets"
+                countLabel={t('orders.advanced.sheetsProduced')}
+                lengthLabel={t('orders.sheetLength')}
+                rateLabel={t('orders.advanced.sheetsPerPallet')}
+                totalLabel={t('orders.advanced.palletsProduced')}
+                countDisabled={sheetsBlockedByPalletPath}
+                rateDisabled={palletPathBlockedBySheets}
+                totalDisabled={
+                  palletPathBlockedBySheets || !perPalletEntered
+                }
+                t={t}
+              />
+            )
           ) : (
-            <>
-              {useTotalLength ? (
-                <ProducedPairsArray
-                  countFieldName="producedSheets"
+            (watchedSizes ?? [{}]).map((_, sIdx) =>
+              isProfiles ? (
+                <SizeAdvancedBlockProfili
+                  key={sIdx}
                   orderIdx={idx}
-                  countLabel={t('orders.advanced.sheetsProduced')}
-                  lengthLabel={t('orders.sheetLength')}
-                  disabled={sheetsBlockedByPalletPath}
+                  sizeIdx={sIdx}
+                  totalSizes={watchedSizes?.length ?? 1}
+                  countDisabled={profilesBlockedByPackagePath}
+                  totalDisabled={
+                    packagePathBlockedByProfiles || !perPackageEntered
+                  }
+                  countLabel={t('orders.advanced.profilesProduced')}
+                  totalLabel={t('orders.advanced.packagesProduced')}
                   t={t}
                 />
               ) : (
-                <ProducedSizedArray
-                  fieldName="producedSheets"
+                <SizeAdvancedBlockListi
+                  key={sIdx}
                   orderIdx={idx}
-                  label={t('orders.advanced.sheetsProduced')}
-                  disabled={sheetsBlockedByPalletPath}
+                  sizeIdx={sIdx}
+                  totalSizes={watchedSizes?.length ?? 1}
+                  countDisabled={sheetsBlockedByPalletPath}
+                  rateDisabled={palletPathBlockedBySheets}
+                  totalDisabled={
+                    palletPathBlockedBySheets || !perPalletEntered
+                  }
+                  countLabel={t('orders.advanced.sheetsProduced')}
+                  rateLabel={t('orders.advanced.sheetsPerPallet')}
+                  totalLabel={t('orders.advanced.palletsProduced')}
+                  t={t}
                 />
-              )}
-              {useTotalLength ? (
-                <>
-                  <ProducedEntriesArray
-                    fieldName="sheetsPerPallet"
-                    orderIdx={idx}
-                    label={t('orders.advanced.sheetsPerPallet')}
-                    t={t}
-                  />
-                  <ProducedEntriesArray
-                    fieldName="producedPallets"
-                    orderIdx={idx}
-                    label={t('orders.advanced.palletsProduced')}
-                    disabled={
-                      palletPathBlockedBySheets || !perPalletEntered
-                    }
-                    t={t}
-                  />
-                </>
-              ) : (
-                <>
-                  <ProducedSizedArray
-                    fieldName="sheetsPerPallet"
-                    orderIdx={idx}
-                    label={t('orders.advanced.sheetsPerPallet')}
-                  />
-                  <ProducedSizedArray
-                    fieldName="producedPallets"
-                    orderIdx={idx}
-                    label={t('orders.advanced.palletsProduced')}
-                    disabled={
-                      palletPathBlockedBySheets || !perPalletEntered
-                    }
-                  />
-                </>
-              )}
-            </>
+              ),
+            )
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function ProducedEntriesArray({
-  fieldName,
-  orderIdx,
-  label,
-  disabled = false,
-  t,
-}: {
-  fieldName: ProducedFieldName;
-  orderIdx: number;
-  label: string;
-  disabled?: boolean;
-  t: TFunction;
-}) {
-  const { register, control } = useFormContext<FormValues>();
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: `orders.${orderIdx}.${fieldName}`,
-  });
-
-  return (
-    <div
-      className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
-    >
-      <label className={labelBase}>{label}</label>
-      <div className="mt-1 space-y-1.5">
-        {fields.map((field, sIdx) => (
-          <div
-            key={field.id}
-            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-2"
-          >
-            <input
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              disabled={disabled}
-              className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
-              {...register(
-                `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
-                { setValueAs: numericSetValueAs },
-              )}
-            />
-            <button
-              type="button"
-              onClick={() => remove(sIdx)}
-              disabled={disabled || fields.length <= 1}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-300 bg-white text-sm font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9 sm:text-base"
-              aria-label={t('orders.removeSize')}
-              title={t('orders.removeSize')}
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={() => append({ value: undefined })}
-              disabled={disabled}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-brand-300 bg-white text-sm font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base"
-              aria-label={t('orders.addSize')}
-              title={t('orders.addSize')}
-            >
-              +
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -613,48 +618,230 @@ function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
   );
 }
 
-function ProducedSizedArray({
-  fieldName,
-  orderIdx,
-  label,
-  disabled = false,
+// ProducedSizedArray was removed — sizes-mode advanced rows are now grouped
+// per size in SizeAdvancedBlock(Listi|Profili) with their own ± controls
+// (multiple entries per size, tagged via entry.sizeIndex). The old type is
+// kept on the BatchFieldName union for the useTotalLength BatchRowsArray.
+
+// Pick rows that belong to a given size, honoring entry.sizeIndex (with
+// fallback to array index for legacy entries without the tag). Returns the
+// list of underlying array positions for those rows.
+function arrayPositionsForSize(
+  entries: { sizeIndex?: number }[] | undefined,
+  sizeIdx: number,
+): number[] {
+  if (!entries || entries.length === 0) return [];
+  const positions: number[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const tag = entries[i]?.sizeIndex ?? i;
+    if (tag === sizeIdx) positions.push(i);
+  }
+  return positions;
+}
+
+const sizeBlockInputCls =
+  'w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm';
+const sizeBlockBtnBase =
+  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+
+function SizeBlockHeader({
+  sizeIdx,
+  totalSizes,
+  cols,
+  labels,
 }: {
-  fieldName: ProducedFieldName;
+  sizeIdx: number;
+  totalSizes: number;
+  cols: string;
+  labels: { label: string; disabled?: boolean }[];
+}) {
+  return (
+    <>
+      {totalSizes > 1 && (
+        <div className="mb-1 flex items-center">
+          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700">
+            #{sizeIdx + 1}
+          </span>
+        </div>
+      )}
+      <div className={`grid ${cols} items-end gap-1.5 sm:gap-2`}>
+        {labels.map((l, i) => (
+          <label
+            key={i}
+            className={`${labelBase} ${l.disabled ? 'opacity-40' : ''}`}
+          >
+            {l.label}
+          </label>
+        ))}
+        <span />
+        <span />
+      </div>
+    </>
+  );
+}
+
+function SizeAdvancedBlockListi({
+  orderIdx,
+  sizeIdx,
+  totalSizes,
+  countDisabled,
+  rateDisabled,
+  totalDisabled,
+  countLabel,
+  rateLabel,
+  totalLabel,
+  t,
+}: {
   orderIdx: number;
-  label: string;
-  disabled?: boolean;
+  sizeIdx: number;
+  totalSizes: number;
+  countDisabled: boolean;
+  rateDisabled: boolean;
+  totalDisabled: boolean;
+  countLabel: string;
+  rateLabel: string;
+  totalLabel: string;
+  t: TFunction;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
-  const sizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
-  const rowsCount = Math.max(sizes?.length ?? 0, 1);
+  const sheets = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.producedSheets`,
+  });
+  const rates = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.sheetsPerPallet`,
+  });
+  const totals = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.producedPallets`,
+  });
 
+  const watchedSheets = useWatch({
+    control,
+    name: `orders.${orderIdx}.producedSheets`,
+  });
+  const positions = arrayPositionsForSize(watchedSheets, sizeIdx);
+  // Always render at least one row, even if no entries exist yet for this
+  // size (e.g. brand-new order, brand-new size).
+  const rows: (number | null)[] = positions.length > 0 ? positions : [null];
+
+  const appendAll = () => {
+    sheets.append({ value: undefined, sizeIndex: sizeIdx });
+    rates.append({ value: undefined, sizeIndex: sizeIdx });
+    totals.append({ value: undefined, sizeIndex: sizeIdx });
+  };
+
+  const removeAll = (rowIdx: number) => {
+    const arrayPos = rows[rowIdx];
+    if (arrayPos === null || arrayPos === undefined) return;
+    sheets.remove(arrayPos);
+    rates.remove(arrayPos);
+    totals.remove(arrayPos);
+  };
+
+  const cols = 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]';
   return (
-    <div
-      className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
-    >
-      <label className={labelBase}>{label}</label>
-      <div className="mt-1 space-y-1.5">
-        {Array.from({ length: rowsCount }).map((_, sIdx) => (
+    <div>
+      <SizeBlockHeader
+        sizeIdx={sizeIdx}
+        totalSizes={totalSizes}
+        cols={cols}
+        labels={[
+          { label: countLabel, disabled: countDisabled },
+          { label: rateLabel, disabled: rateDisabled },
+          { label: totalLabel, disabled: totalDisabled },
+          { label: '' },
+          { label: '' },
+        ]}
+      />
+      <div className="mt-0.5 space-y-1.5">
+        {rows.map((arrayPos, rowIdx) => (
           <div
-            key={sIdx}
-            className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2"
+            key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}
+            className={`grid ${cols} items-center gap-1.5 sm:gap-2`}
           >
-            <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700 sm:h-9 sm:min-w-9 sm:text-sm">
-              #{sIdx + 1}
-            </span>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              disabled={disabled}
-              className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm"
-              {...register(
-                `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
-                { setValueAs: numericSetValueAs },
-              )}
-            />
+            {arrayPos === null ? (
+              <>
+                <input
+                  type="number"
+                  disabled
+                  className={`${sizeBlockInputCls} opacity-40`}
+                  placeholder="—"
+                />
+                <input
+                  type="number"
+                  disabled
+                  className={`${sizeBlockInputCls} opacity-40`}
+                  placeholder="—"
+                />
+                <input
+                  type="number"
+                  disabled
+                  className={`${sizeBlockInputCls} opacity-40`}
+                  placeholder="—"
+                />
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  disabled={countDisabled}
+                  className={`${sizeBlockInputCls} ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  {...register(
+                    `orders.${orderIdx}.producedSheets.${arrayPos}.value`,
+                    { setValueAs: numericSetValueAs },
+                  )}
+                />
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  disabled={rateDisabled}
+                  className={`${sizeBlockInputCls} ${rateDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  {...register(
+                    `orders.${orderIdx}.sheetsPerPallet.${arrayPos}.value`,
+                    { setValueAs: numericSetValueAs },
+                  )}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  disabled={totalDisabled}
+                  className={`${sizeBlockInputCls} ${totalDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  {...register(
+                    `orders.${orderIdx}.producedPallets.${arrayPos}.value`,
+                    { setValueAs: numericSetValueAs },
+                  )}
+                />
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => removeAll(rowIdx)}
+              disabled={rows.length <= 1 || arrayPos === null}
+              className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
+              aria-label={t('orders.removeSize')}
+              title={t('orders.removeSize')}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={appendAll}
+              className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
+              aria-label={t('orders.addSize')}
+              title={t('orders.addSize')}
+            >
+              +
+            </button>
           </div>
         ))}
       </div>
@@ -662,23 +849,230 @@ function ProducedSizedArray({
   );
 }
 
-function ProducedPairsArray({
-  countFieldName,
+function SizeAdvancedBlockProfili({
   orderIdx,
+  sizeIdx,
+  totalSizes,
+  countDisabled,
+  totalDisabled,
   countLabel,
-  lengthLabel,
-  disabled = false,
+  totalLabel,
   t,
 }: {
-  countFieldName: 'producedSheets' | 'producedProfiles';
   orderIdx: number;
+  sizeIdx: number;
+  totalSizes: number;
+  countDisabled: boolean;
+  totalDisabled: boolean;
   countLabel: string;
-  lengthLabel: string;
-  disabled?: boolean;
+  totalLabel: string;
   t: TFunction;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
+  const counts = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.producedProfiles`,
+  });
+  const totals = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.producedPackages`,
+  });
+
+  const watchedCounts = useWatch({
+    control,
+    name: `orders.${orderIdx}.producedProfiles`,
+  });
+  const positions = arrayPositionsForSize(watchedCounts, sizeIdx);
+  const rows: (number | null)[] = positions.length > 0 ? positions : [null];
+
+  const appendAll = () => {
+    counts.append({ value: undefined, sizeIndex: sizeIdx });
+    totals.append({ value: undefined, sizeIndex: sizeIdx });
+  };
+  const removeAll = (rowIdx: number) => {
+    const arrayPos = rows[rowIdx];
+    if (arrayPos === null || arrayPos === undefined) return;
+    counts.remove(arrayPos);
+    totals.remove(arrayPos);
+  };
+
+  const cols = 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]';
+  return (
+    <div>
+      <SizeBlockHeader
+        sizeIdx={sizeIdx}
+        totalSizes={totalSizes}
+        cols={cols}
+        labels={[
+          { label: countLabel, disabled: countDisabled },
+          { label: totalLabel, disabled: totalDisabled },
+          { label: '' },
+          { label: '' },
+        ]}
+      />
+      <div className="mt-0.5 space-y-1.5">
+        {rows.map((arrayPos, rowIdx) => (
+          <div
+            key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}
+            className={`grid ${cols} items-center gap-1.5 sm:gap-2`}
+          >
+            {arrayPos === null ? (
+              <>
+                <input
+                  type="number"
+                  disabled
+                  className={`${sizeBlockInputCls} opacity-40`}
+                  placeholder="—"
+                />
+                <input
+                  type="number"
+                  disabled
+                  className={`${sizeBlockInputCls} opacity-40`}
+                  placeholder="—"
+                />
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  disabled={countDisabled}
+                  className={`${sizeBlockInputCls} ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  {...register(
+                    `orders.${orderIdx}.producedProfiles.${arrayPos}.value`,
+                    { setValueAs: numericSetValueAs },
+                  )}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  disabled={totalDisabled}
+                  className={`${sizeBlockInputCls} ${totalDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  {...register(
+                    `orders.${orderIdx}.producedPackages.${arrayPos}.value`,
+                    { setValueAs: numericSetValueAs },
+                  )}
+                />
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => removeAll(rowIdx)}
+              disabled={rows.length <= 1 || arrayPos === null}
+              className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
+              aria-label={t('orders.removeSize')}
+              title={t('orders.removeSize')}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={appendAll}
+              className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
+              aria-label={t('orders.addSize')}
+              title={t('orders.addSize')}
+            >
+              +
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type BatchFieldName =
+  | 'producedSheets'
+  | 'producedProfiles'
+  | 'sheetsPerPallet'
+  | 'profilesPerPackage'
+  | 'producedPallets'
+  | 'producedPackages'
+  | 'producedItemLength';
+
+function BatchField({
+  label,
+  disabled,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
+    >
+      <label className={`${labelBase} text-[10px] sm:text-xs`}>{label}</label>
+      <div className="mt-0.5">{children}</div>
+    </div>
+  );
+}
+
+function BatchInput({
+  orderIdx,
+  fieldName,
+  sIdx,
+  disabled,
+  min,
+}: {
+  orderIdx: number;
+  fieldName: BatchFieldName;
+  sIdx: number;
+  disabled: boolean;
+  min: '0' | '1';
+}) {
+  const { register } = useFormContext<FormValues>();
+  return (
+    <input
+      type="number"
+      min={min}
+      step="1"
+      inputMode="numeric"
+      disabled={disabled}
+      className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-2.5 sm:py-1.5 sm:text-sm"
+      {...register(
+        `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
+        { setValueAs: numericSetValueAs },
+      )}
+    />
+  );
+}
+
+function BatchRowsArray({
+  orderIdx,
+  countFieldName,
+  rateFieldName,
+  totalFieldName,
+  countLabel,
+  lengthLabel,
+  rateLabel,
+  totalLabel,
+  countDisabled,
+  rateDisabled,
+  totalDisabled,
+  t,
+}: {
+  orderIdx: number;
+  countFieldName: 'producedSheets' | 'producedProfiles';
+  rateFieldName: 'sheetsPerPallet' | 'profilesPerPackage';
+  totalFieldName: 'producedPallets' | 'producedPackages';
+  countLabel: string;
+  lengthLabel: string;
+  rateLabel: string;
+  totalLabel: string;
+  countDisabled: boolean;
+  rateDisabled: boolean;
+  totalDisabled: boolean;
+  t: TFunction;
+}) {
+  'use no memo';
+  const { control } = useFormContext<FormValues>();
 
   const counts = useFieldArray({
     control,
@@ -688,114 +1082,112 @@ function ProducedPairsArray({
     control,
     name: `orders.${orderIdx}.producedItemLength`,
   });
+  const rates = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.${rateFieldName}`,
+  });
+  const totals = useFieldArray({
+    control,
+    name: `orders.${orderIdx}.${totalFieldName}`,
+  });
 
-  const rows = Math.max(counts.fields.length, lengths.fields.length, 1);
-  const appendBoth = () => {
+  const rows = Math.max(
+    counts.fields.length,
+    lengths.fields.length,
+    rates.fields.length,
+    totals.fields.length,
+    1,
+  );
+
+  const appendAll = () => {
     counts.append({ value: undefined });
     lengths.append({ value: undefined });
+    rates.append({ value: undefined });
+    totals.append({ value: undefined });
   };
-  const removeBoth = (sIdx: number) => {
-    if (sIdx < counts.fields.length) counts.remove(sIdx);
-    if (sIdx < lengths.fields.length) lengths.remove(sIdx);
+  const removeAll = (i: number) => {
+    if (i < counts.fields.length) counts.remove(i);
+    if (i < lengths.fields.length) lengths.remove(i);
+    if (i < rates.fields.length) rates.remove(i);
+    if (i < totals.fields.length) totals.remove(i);
   };
 
-  return (
-    <div
-      className={`min-w-0 col-span-2 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
-    >
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-1 sm:gap-2">
-        <label className={labelBase}>{countLabel}</label>
-        <label className={labelBase}>{lengthLabel}</label>
-        <span />
-        <span />
-        {Array.from({ length: rows }).map((_, sIdx) => (
-          <RowFragment
-            key={`${counts.fields[sIdx]?.id ?? 'c'}-${lengths.fields[sIdx]?.id ?? 'l'}-${sIdx}`}
-            disabled={disabled}
-            canRemove={rows > 1}
-            countRegister={register(
-              `orders.${orderIdx}.${countFieldName}.${sIdx}.value`,
-              { setValueAs: numericSetValueAs },
-            )}
-            lengthRegister={register(
-              `orders.${orderIdx}.producedItemLength.${sIdx}.value`,
-              { setValueAs: numericSetValueAs },
-            )}
-            onRemove={() => removeBoth(sIdx)}
-            onAdd={appendBoth}
-            removeLabel={t('orders.removeSize')}
-            addLabel={t('orders.addSize')}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RowFragment({
-  disabled,
-  canRemove,
-  countRegister,
-  lengthRegister,
-  onRemove,
-  onAdd,
-  removeLabel,
-  addLabel,
-}: {
-  disabled: boolean;
-  canRemove: boolean;
-  countRegister: ReturnType<ReturnType<typeof useFormContext<FormValues>>['register']>;
-  lengthRegister: ReturnType<ReturnType<typeof useFormContext<FormValues>>['register']>;
-  onRemove: () => void;
-  onAdd: () => void;
-  removeLabel: string;
-  addLabel: string;
-}) {
-  const inputCls =
-    'w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm';
   const btnBase =
     'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+
   return (
-    <>
-      <input
-        type="number"
-        min="0"
-        step="1"
-        inputMode="numeric"
-        disabled={disabled}
-        className={inputCls}
-        {...countRegister}
-      />
-      <input
-        type="number"
-        min="1"
-        step="1"
-        inputMode="numeric"
-        disabled={disabled}
-        className={inputCls}
-        {...lengthRegister}
-      />
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={disabled || !canRemove}
-        className={`${btnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
-        aria-label={removeLabel}
-        title={removeLabel}
-      >
-        −
-      </button>
-      <button
-        type="button"
-        onClick={onAdd}
-        disabled={disabled}
-        className={`${btnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
-        aria-label={addLabel}
-        title={addLabel}
-      >
-        +
-      </button>
-    </>
+    <div className="space-y-2">
+      {Array.from({ length: rows }).map((_, sIdx) => {
+        return (
+          <div key={`${counts.fields[sIdx]?.id ?? 'c'}-${sIdx}`}>
+            <div className="mb-1 flex items-center justify-between gap-1">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-brand-100 px-1.5 text-[10px] font-bold text-brand-700 sm:text-xs">
+                #{sIdx + 1}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => removeAll(sIdx)}
+                  disabled={rows <= 1}
+                  className={`${btnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
+                  aria-label={t('orders.removeSize')}
+                  title={t('orders.removeSize')}
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={appendAll}
+                  className={`${btnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
+                  aria-label={t('orders.addSize')}
+                  title={t('orders.addSize')}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 items-end gap-1.5 sm:grid-cols-4 sm:gap-2">
+              <BatchField label={countLabel} disabled={countDisabled}>
+                <BatchInput
+                  orderIdx={orderIdx}
+                  fieldName={countFieldName}
+                  sIdx={sIdx}
+                  disabled={countDisabled}
+                  min="0"
+                />
+              </BatchField>
+              <BatchField label={lengthLabel} disabled={countDisabled}>
+                <BatchInput
+                  orderIdx={orderIdx}
+                  fieldName={'producedItemLength' as BatchFieldName}
+                  sIdx={sIdx}
+                  disabled={countDisabled}
+                  min="1"
+                />
+              </BatchField>
+              <BatchField label={rateLabel} disabled={rateDisabled}>
+                <BatchInput
+                  orderIdx={orderIdx}
+                  fieldName={rateFieldName}
+                  sIdx={sIdx}
+                  disabled={rateDisabled}
+                  min="1"
+                />
+              </BatchField>
+              <BatchField label={totalLabel} disabled={totalDisabled}>
+                <BatchInput
+                  orderIdx={orderIdx}
+                  fieldName={totalFieldName}
+                  sIdx={sIdx}
+                  disabled={totalDisabled}
+                  min="0"
+                />
+              </BatchField>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
