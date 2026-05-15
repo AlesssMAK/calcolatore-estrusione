@@ -182,7 +182,10 @@ function ResultsPanel({ result, mode, onReset }: Props) {
   };
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none">
+    <section
+      data-print="results"
+      className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5 print:border-0 print:shadow-none"
+    >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-ink sm:text-lg">
