@@ -13,6 +13,11 @@ const sizeSchema = z.object({
 
 const producedEntrySchema = z.object({
   value: z.number().min(0, 'nonNegative').optional(),
+  // Optional tag that pins an entry to a specific size in sizes-mode (lets
+  // a single size accumulate multiple partial-production entries). Must be
+  // declared here — otherwise zod strips it when parsing through the
+  // resolver and useFieldArray state loses the tag right after append().
+  sizeIndex: z.number().int().min(0).optional(),
 });
 
 const orderSchema = z.object({
@@ -31,6 +36,7 @@ const orderSchema = z.object({
   sheetsPerPallet: z.array(producedEntrySchema).optional(),
   producedPallets: z.array(producedEntrySchema).optional(),
   producedItemLength: z.array(producedEntrySchema).optional(),
+  profilesPerPackage: z.array(producedEntrySchema).optional(),
 });
 
 const settingsSchema = z.object({
