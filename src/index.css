@@ -177,4 +177,25 @@ button:disabled,
   body {
     background: #ffffff !important;
   }
+
+  /* Print only the Results panel — hide everything else (header, tabs,
+     orders form, footer, etc.) while keeping the React tree intact.
+     visibility:hidden lets ancestors stay laid out without painting them,
+     then we reveal only the marked subtree and pull it up to the page edge. */
+  body * {
+    visibility: hidden;
+  }
+  [data-print="results"],
+  [data-print="results"] * {
+    visibility: visible;
+  }
+  [data-print="results"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 }
