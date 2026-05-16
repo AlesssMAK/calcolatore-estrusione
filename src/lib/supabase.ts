@@ -7,7 +7,12 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // `null` when the project is built without Supabase configured — the app
 // keeps working as a stand-alone calculator (no catalog dropdown).
+// persistSession=true is needed for /admin login to survive a page reload.
 export const supabase =
-  url && anonKey ? createClient(url, anonKey, { auth: { persistSession: false } }) : null;
+  url && anonKey
+    ? createClient(url, anonKey, {
+        auth: { persistSession: true, autoRefreshToken: true },
+      })
+    : null;
 
 export const isSupabaseConfigured = supabase !== null;
