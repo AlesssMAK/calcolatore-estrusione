@@ -594,6 +594,7 @@ function OrderNameField({
   mode: CalculatorMode;
   t: TFunction;
 }) {
+  'use no memo';
   const { register, control, setValue } = useFormContext<FormValues>();
   const value = useWatch({
     control,

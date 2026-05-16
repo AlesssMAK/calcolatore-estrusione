@@ -11,7 +11,6 @@ export interface CatalogProduct {
   name: string;
   category: 'sheets' | 'profiles';
   speed_m_per_min: number;
-  notes: string | null;
 }
 
 const STORAGE_KEY = 'calc.companySlug';
@@ -76,7 +75,7 @@ export async function fetchProductsForCompany(
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, category, speed_m_per_min, notes')
+    .select('id, name, category, speed_m_per_min')
     .eq('company_id', companyId)
     .order('name', { ascending: true });
   if (error) {
