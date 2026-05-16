@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
+import { useCatalog } from '../contexts/CatalogContext';
 
 function Header() {
   const { t } = useTranslation();
+  const { company, loading, error } = useCatalog();
 
   return (
     <header className="no-print border-b border-neutral-200 bg-white">
@@ -27,6 +29,23 @@ function Header() {
           <LanguageSwitcher />
         </div>
       </div>
+      {(company || loading || error) && (
+        <div className="mx-auto max-w-6xl px-3 pb-2 sm:px-4">
+          {company && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+              <span aria-hidden>🏷</span>
+              <span className="text-ink-soft">Listino:</span>
+              <span className="font-semibold text-brand-700">{company.name}</span>
+            </span>
+          )}
+          {!company && loading && (
+            <span className="text-xs text-ink-soft">Caricamento listino…</span>
+          )}
+          {error && !company && (
+            <span className="text-xs font-medium text-danger">⚠ {error}</span>
+          )}
+        </div>
+      )}
     </header>
   );
 }

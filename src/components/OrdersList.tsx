@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   useFieldArray,
   useFormContext,
@@ -12,6 +12,7 @@ import type { CalculatorMode } from '../types';
 import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
 import FieldError from './FieldError';
 import { numericSetValueAs } from '../utils/numeric';
+import { useCatalog } from '../contexts/CatalogContext';
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
@@ -105,7 +106,7 @@ function OrdersList({ mode }: Props) {
               className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
-                <OrderNameField idx={idx} t={t} />
+                <OrderNameField idx={idx} mode={mode} t={t} />
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -584,8 +585,16 @@ function AdvancedSection({
   );
 }
 
-function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
-  const { register, control } = useFormContext<FormValues>();
+function OrderNameField({
+  idx,
+  mode,
+  t,
+}: {
+  idx: number;
+  mode: CalculatorMode;
+  t: TFunction;
+}) {
+  const { register, control, setValue } = useFormContext<FormValues>();
   const value = useWatch({
     control,
     name: `orders.${idx}.productName`,
@@ -594,6 +603,19 @@ function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
   const hasValue = typeof value === 'string' && value.length > 0;
   const [open, setOpen] = useState(false);
   const showInput = open || hasValue;
+  const { products } = useCatalog();
+  // Filter catalog suggestions by active tab (sheets vs profiles).
+  const filtered = useMemo(
+    () => products.filter(p => p.category === mode),
+    [products, mode],
+  );
+  // Stable id so multiple OrderNameField inputs don't share the same datalist.
+  const datalistId = `catalog-${mode}-${idx}`;
+
+  // Catch the moment the user picks an item from the datalist: their input
+  // value will exactly match one of the suggestions → auto-fill speed.
+  // (Manual typing of free text leaves speed untouched.)
+  const reg = register(`orders.${idx}.productName`);
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -606,13 +628,36 @@ function OrderNameField({ idx, t }: { idx: number; t: TFunction }) {
         #{idx + 1}
       </button>
       {showInput && (
-        <input
-          type="text"
-          autoFocus={open && !hasValue}
-          placeholder={t('orders.productName')}
-          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
-          {...register(`orders.${idx}.productName`)}
-        />
+        <>
+          <input
+            type="text"
+            list={filtered.length > 0 ? datalistId : undefined}
+            autoComplete="off"
+            autoFocus={open && !hasValue}
+            placeholder={t('orders.productName')}
+            className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
+            {...reg}
+            onChange={(e) => {
+              reg.onChange(e);
+              const picked = filtered.find(
+                (p) => p.name.toLowerCase() === e.target.value.toLowerCase(),
+              );
+              if (picked) {
+                setValue(`orders.${idx}.speedMPerMin`, picked.speed_m_per_min, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                });
+              }
+            }}
+          />
+          {filtered.length > 0 && (
+            <datalist id={datalistId}>
+              {filtered.map((p) => (
+                <option key={p.id} value={p.name} />
+              ))}
+            </datalist>
+          )}
+        </>
       )}
     </div>
   );
