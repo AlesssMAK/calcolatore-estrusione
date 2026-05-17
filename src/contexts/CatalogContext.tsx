@@ -1,6 +1,5 @@
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -8,11 +7,9 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  consumeUrlSlug,
   fetchCompanyBySlug,
   fetchProductsForCompany,
-  readStoredSlug,
-  writeStoredSlug,
+  readSlugFromUrl,
   type CatalogProduct,
   type Company,
 } from '../lib/catalog';
@@ -23,8 +20,6 @@ interface CatalogState {
   loading: boolean;
   /** True when a slug exists but the lookup failed (bad slug, offline, etc.). */
   error: string | null;
-  /** Clears the stored slug and resets to "stand-alone" mode. */
-  clear: () => void;
 }
 
 const CatalogCtx = createContext<CatalogState>({
@@ -32,7 +27,6 @@ const CatalogCtx = createContext<CatalogState>({
   products: [],
   loading: false,
   error: null,
-  clear: () => {},
 });
 
 export function CatalogProvider({ children }: { children: ReactNode }) {
@@ -42,9 +36,17 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Pull slug from URL once (persists it in LocalStorage), or fall back to
-    // whatever the user previously visited with.
-    const slug = consumeUrlSlug() ?? readStoredSlug();
+    // One-time cleanup: earlier versions persisted the slug here. Drop it so
+    // returning users don't see a "stuck" listino on the clean URL.
+    try {
+      window.localStorage.removeItem('calc.companySlug');
+    } catch {
+      /* ignore */
+    }
+
+    // URL-only: catalog appears only when ?company=<slug> is in the URL.
+    // No LocalStorage — the default link stays a clean calculator.
+    const slug = readSlugFromUrl();
     if (!slug) return;
 
     let cancelled = false;
@@ -73,16 +75,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const clear = useCallback(() => {
-    writeStoredSlug(null);
-    setCompany(null);
-    setProducts([]);
-    setError(null);
-  }, []);
-
   const value = useMemo<CatalogState>(
-    () => ({ company, products, loading, error, clear }),
-    [company, products, loading, error, clear],
+    () => ({ company, products, loading, error }),
+    [company, products, loading, error],
   );
 
   return <CatalogCtx.Provider value={value}>{children}</CatalogCtx.Provider>;
