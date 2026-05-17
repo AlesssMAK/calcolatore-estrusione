@@ -10,12 +10,19 @@ import {
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+interface AdminInfo {
+  companyId: string | null;
+  isSuper: boolean;
+}
+
 interface AuthState {
   /** Logged-in Supabase user, or null when anonymous. */
   user: User | null;
   /** Company id this admin can manage (from public.admins). Null if the user
    *  isn't mapped to any company. */
   companyId: string | null;
+  /** True when the user has is_super=true — unlocks the Aziende tab. */
+  isSuper: boolean;
   /** True while we resolve the initial session + admin mapping. */
   loading: boolean;
   signIn: (
@@ -28,30 +35,35 @@ interface AuthState {
 const AuthCtx = createContext<AuthState>({
   user: null,
   companyId: null,
+  isSuper: false,
   loading: false,
   signIn: async () => ({ ok: false, error: 'auth not configured' }),
   signOut: async () => {},
 });
 
-async function resolveCompanyId(userId: string | null): Promise<string | null> {
-  if (!userId || !supabase) return null;
+async function resolveAdminInfo(userId: string | null): Promise<AdminInfo> {
+  if (!userId || !supabase) return { companyId: null, isSuper: false };
   const { data, error } = await supabase
     .from('admins')
-    .select('company_id')
+    .select('company_id, is_super')
     .eq('user_id', userId)
     .maybeSingle();
   if (error) {
     // eslint-disable-next-line no-console
-    console.error('[auth] resolveCompanyId failed', error);
-    return null;
+    console.error('[auth] resolveAdminInfo failed', error);
+    return { companyId: null, isSuper: false };
   }
-  return data?.company_id ?? null;
+  return {
+    companyId: data?.company_id ?? null,
+    isSuper: Boolean(data?.is_super),
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   'use no memo';
   const [user, setUser] = useState<User | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [isSuper, setIsSuper] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Hydrate current session + listen for changes (sign-in, sign-out, refresh).
@@ -76,9 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function applySession(session: Session | null) {
       const nextUser = session?.user ?? null;
       setUser(nextUser);
-      const cId = await resolveCompanyId(nextUser?.id ?? null);
+      const info = await resolveAdminInfo(nextUser?.id ?? null);
       if (cancelled) return;
-      setCompanyId(cId);
+      setCompanyId(info.companyId);
+      setIsSuper(info.isSuper);
       setLoading(false);
     }
 
@@ -107,8 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, companyId, loading, signIn, signOut }),
-    [user, companyId, loading, signIn, signOut],
+    () => ({ user, companyId, isSuper, loading, signIn, signOut }),
+    [user, companyId, isSuper, loading, signIn, signOut],
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

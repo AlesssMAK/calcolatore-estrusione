@@ -3,6 +3,9 @@ import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { sortProductsNaturally, type CatalogProduct } from '../lib/catalog';
+import CompaniesTab from '../components/admin/CompaniesTab';
+
+type AdminTab = 'products' | 'companies';
 
 type Draft = {
   id?: string;
@@ -19,7 +22,8 @@ const emptyDraft: Draft = {
 
 function AdminPage() {
   'use no memo';
-  const { user, companyId, loading: authLoading, signOut } = useAuth();
+  const { user, companyId, isSuper, loading: authLoading, signOut } = useAuth();
+  const [tab, setTab] = useState<AdminTab>('products');
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +145,37 @@ function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+        {isSuper && (
+          <div className="mb-5 inline-flex rounded-md border border-neutral-300 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setTab('products')}
+              className={
+                tab === 'products'
+                  ? 'rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white'
+                  : 'rounded-md px-3 py-1.5 text-sm font-medium text-ink-soft hover:text-ink'
+              }
+            >
+              Prodotti
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('companies')}
+              className={
+                tab === 'companies'
+                  ? 'rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white'
+                  : 'rounded-md px-3 py-1.5 text-sm font-medium text-ink-soft hover:text-ink'
+              }
+            >
+              Aziende
+            </button>
+          </div>
+        )}
+
+        {tab === 'companies' ? (
+          <CompaniesTab />
+        ) : (
+          <>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-ink sm:text-lg">
             Prodotti ({products.length})
@@ -217,6 +252,8 @@ function AdminPage() {
               </tbody>
             </table>
           </div>
+        )}
+          </>
         )}
       </main>
 
