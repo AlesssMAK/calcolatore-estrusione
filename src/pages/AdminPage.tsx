@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import type { CatalogProduct } from '../lib/catalog';
+import { sortProductsNaturally, type CatalogProduct } from '../lib/catalog';
 
 type Draft = {
   id?: string;
@@ -33,11 +33,9 @@ function AdminPage() {
     const { data, error: err } = await supabase
       .from('products')
       .select('id, name, category, speed_m_per_min')
-      .eq('company_id', companyId)
-      .order('category', { ascending: true })
-      .order('name', { ascending: true });
+      .eq('company_id', companyId);
     if (err) setError(err.message);
-    setProducts((data as CatalogProduct[] | null) ?? []);
+    setProducts(sortProductsNaturally((data as CatalogProduct[] | null) ?? []));
     setLoading(false);
   }, [companyId]);
 
