@@ -29,45 +29,13 @@ export function sortProductsNaturally(items: CatalogProduct[]): CatalogProduct[]
   });
 }
 
-const STORAGE_KEY = 'calc.companySlug';
-
-// Read/write the active company slug from LocalStorage. The slug is the only
-// thing we persist locally — products themselves are always fetched fresh
-// from Supabase so the user sees admin's latest edits.
-
-export function readStoredSlug(): string | null {
+// URL-only: the catalog is loaded only when ?company=<slug> is present in
+// the URL. Nothing is persisted in LocalStorage, so the default link
+// (calc.app/) is always a clean calculator. Companies share their full
+// `?company=...` link with their employees as a bookmark.
+export function readSlugFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function writeStoredSlug(slug: string | null): void {
-  if (typeof window === 'undefined') return;
-  try {
-    if (slug) window.localStorage.setItem(STORAGE_KEY, slug);
-    else window.localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* private mode / quota exceeded — ignore */
-  }
-}
-
-// Pull the slug from ?company=... in the URL once, persist it, and strip the
-// parameter so the URL stays clean on subsequent navigation/share.
-export function consumeUrlSlug(): string | null {
-  if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
-  const slug = params.get('company');
-  if (!slug) return null;
-  writeStoredSlug(slug);
-  params.delete('company');
-  const search = params.toString();
-  const newUrl =
-    window.location.pathname + (search ? `?${search}` : '') + window.location.hash;
-  window.history.replaceState({}, '', newUrl);
-  return slug;
+  return new URLSearchParams(window.location.search).get('company');
 }
 
 export async function fetchCompanyBySlug(slug: string): Promise<Company | null> {
