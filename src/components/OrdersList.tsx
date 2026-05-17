@@ -610,12 +610,47 @@ function OrderNameField({
     () => products.filter(p => p.category === mode),
     [products, mode],
   );
-  // Stable id so multiple OrderNameField inputs don't share the same datalist.
-  const datalistId = `catalog-${mode}-${idx}`;
 
-  // Catch the moment the user picks an item from the datalist: their input
-  // value will exactly match one of the suggestions → auto-fill speed.
-  // (Manual typing of free text leaves speed untouched.)
+  // Custom combobox (replaces native <datalist>, which on iOS Safari /
+  // Android Chrome shows suggestions in the keyboard smart-bar instead of a
+  // dropdown — confusing UX). Same behaviour on every device now.
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Close on click outside (also handles taps on mobile via mousedown).
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [dropdownOpen]);
+
+  // Filter visible suggestions by what's currently in the input.
+  const query = (typeof value === 'string' ? value : '').toLowerCase().trim();
+  const suggestions = useMemo(
+    () =>
+      query === ''
+        ? filtered
+        : filtered.filter((p) => p.name.toLowerCase().includes(query)),
+    [filtered, query],
+  );
+
+  const pickProduct = (p: (typeof filtered)[number]) => {
+    setValue(`orders.${idx}.productName`, p.name, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    setValue(`orders.${idx}.speedMPerMin`, p.speed_m_per_min, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    setDropdownOpen(false);
+  };
+
   const reg = register(`orders.${idx}.productName`);
 
   return (
@@ -629,36 +664,47 @@ function OrderNameField({
         #{idx + 1}
       </button>
       {showInput && (
-        <>
+        <div ref={wrapperRef} className="relative min-w-0 flex-1">
           <input
             type="text"
-            list={filtered.length > 0 ? datalistId : undefined}
             autoComplete="off"
             autoFocus={open && !hasValue}
             placeholder={t('orders.productName')}
-            className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
+            className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
             {...reg}
+            onFocus={() => {
+              if (filtered.length > 0) setDropdownOpen(true);
+            }}
             onChange={(e) => {
               reg.onChange(e);
-              const picked = filtered.find(
-                (p) => p.name.toLowerCase() === e.target.value.toLowerCase(),
-              );
-              if (picked) {
-                setValue(`orders.${idx}.speedMPerMin`, picked.speed_m_per_min, {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                });
-              }
+              if (filtered.length > 0) setDropdownOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setDropdownOpen(false);
             }}
           />
-          {filtered.length > 0 && (
-            <datalist id={datalistId}>
-              {filtered.map((p) => (
-                <option key={p.id} value={p.name} />
+          {dropdownOpen && suggestions.length > 0 && (
+            <ul
+              role="listbox"
+              className="absolute top-full left-0 right-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+            >
+              {suggestions.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => pickProduct(p)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs text-ink transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm"
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <span className="shrink-0 text-[10px] font-medium text-ink-soft sm:text-xs">
+                      {p.speed_m_per_min} m/min
+                    </span>
+                  </button>
+                </li>
               ))}
-            </datalist>
+            </ul>
           )}
-        </>
+        </div>
       )}
     </div>
   );
