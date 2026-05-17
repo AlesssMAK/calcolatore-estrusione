@@ -13,6 +13,22 @@ export interface CatalogProduct {
   speed_m_per_min: number;
 }
 
+/** Natural sort: "U4" < "U6" < "U10" < "U16" instead of ASCII "U10" < "U16" < "U4". */
+export function sortProductsNaturally(items: CatalogProduct[]): CatalogProduct[] {
+  const collator = new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+  return [...items].sort((a, b) => {
+    // Keep category groups (sheets first, then profiles) and natural-sort
+    // within each group.
+    if (a.category !== b.category) {
+      return a.category === 'sheets' ? -1 : 1;
+    }
+    return collator.compare(a.name, b.name);
+  });
+}
+
 const STORAGE_KEY = 'calc.companySlug';
 
 // Read/write the active company slug from LocalStorage. The slug is the only
@@ -76,12 +92,13 @@ export async function fetchProductsForCompany(
   const { data, error } = await supabase
     .from('products')
     .select('id, name, category, speed_m_per_min')
-    .eq('company_id', companyId)
-    .order('name', { ascending: true });
+    .eq('company_id', companyId);
   if (error) {
     // eslint-disable-next-line no-console
     console.error('[catalog] fetchProductsForCompany failed', error);
     return [];
   }
-  return (data ?? []) as CatalogProduct[];
+  // Sort client-side with natural ordering (U4 < U10) — PostgreSQL's ORDER BY
+  // would do plain lexicographic sort which puts U10 before U4.
+  return sortProductsNaturally((data ?? []) as CatalogProduct[]);
 }
