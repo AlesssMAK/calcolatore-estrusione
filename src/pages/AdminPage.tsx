@@ -315,7 +315,7 @@ function AdminPage() {
                 <input
                   type="number"
                   min="0"
-                  step="0.1"
+                  step="any"
                   inputMode="decimal"
                   required
                   value={draft.speed_m_per_min}
