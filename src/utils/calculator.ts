@@ -186,7 +186,7 @@ function nextSaturdayMorning(d: Date): Date {
   return sat;
 }
 
-function addWorkingMinutes(start: Date, minutes: number): Date {
+export function addWorkingMinutes(start: Date, minutes: number): Date {
   if (minutes <= 0) return new Date(start);
   let cursor = skipWeekendForward(start);
   let remaining = minutes;
@@ -822,6 +822,25 @@ export function calculateSchedule(
         const startI = skipWeekendForward(sizeCursor);
         const endI = addWorkingMinutes(startI, remainingMinsI);
 
+        // Per-unit (pallet/package) metrics for this size — set only if the
+        // rate is known. Used by the UI's "Tempo per bancale/pacco" row and
+        // the optional per-unit timeline.
+        let timePerUnitMinI: number | undefined;
+        let totalUnitsI: number | undefined;
+        if (mode === 'profiles' && ppI && ppI > 0 && lengthI > 0 && sheetsI > 0) {
+          timePerUnitMinI = (ppI * lengthI) / 1000 / speedMPerMin;
+          totalUnitsI = Math.ceil(sheetsI / ppI);
+        } else if (
+          mode === 'sheets' &&
+          perPalletI &&
+          perPalletI > 0 &&
+          lengthI > 0 &&
+          sheetsI > 0
+        ) {
+          timePerUnitMinI = (perPalletI * lengthI) / 1000 / speedMPerMin;
+          totalUnitsI = Math.ceil(sheetsI / perPalletI);
+        }
+
         sizeDetails.push({
           sheets: sheetsI,
           length: lengthI,
@@ -839,6 +858,8 @@ export function calculateSchedule(
           producedPalletsAtSize: producedPalletsI,
           remainingSheetsAtSize: remainingSheetsI,
           remainingPalletsAtSize: remainingPalletsI,
+          timePerUnitMin: timePerUnitMinI,
+          totalUnits: totalUnitsI,
           start: startI,
           end: endI,
         });
@@ -854,6 +875,35 @@ export function calculateSchedule(
     const remainingLengthM = hasAnyProduced
       ? totalLengthM * (1 - fraction)
       : undefined;
+
+    // Per-unit (pallet/package) metrics for the order — populated only when
+    // we're in sizes-mode with exactly one size and the rate is known.
+    // Multi-size orders carry per-size values inside sizeDetails instead.
+    let timePerUnitMinRow: number | undefined;
+    let totalUnitsRow: number | undefined;
+    const sizesArr = order.sizes ?? [];
+    if (!order.useTotalLength && sizesArr.length === 1 && speedMPerMin > 0) {
+      const sz0 = sizesArr[0];
+      const sheets0 = sz0?.sheets ?? 0;
+      const length0 = sz0?.length ?? 0;
+      if (sheets0 > 0 && length0 > 0) {
+        if (mode === 'profiles') {
+          const pp0 = perPackagesForOrder[0];
+          if (pp0 && pp0 > 0) {
+            timePerUnitMinRow = (pp0 * length0) / 1000 / speedMPerMin;
+            totalUnitsRow = Math.ceil(sheets0 / pp0);
+          }
+        } else {
+          const perPallet0 =
+            firstNonZeroForSize(order.sheetsPerPallet, 0) ||
+            lastSheetsPerPallet;
+          if (perPallet0 && perPallet0 > 0) {
+            timePerUnitMinRow = (perPallet0 * length0) / 1000 / speedMPerMin;
+            totalUnitsRow = Math.ceil(sheets0 / perPallet0);
+          }
+        }
+      }
+    }
 
     rows.push({
       order,
@@ -879,6 +929,8 @@ export function calculateSchedule(
       remainingPallets,
       producedLengthM,
       remainingLengthM,
+      timePerUnitMin: timePerUnitMinRow,
+      totalUnits: totalUnitsRow,
     });
 
     totalProductionMinutes += remainingMinutes;

@@ -100,7 +100,23 @@
     "empty": "Enter orders and click «Calculate».",
     "produced": "Produced",
     "remaining": "Remaining",
-    "timeToFinish": "Time for the remainder"
+    "timeToFinish": "Time for the remainder",
+    "timePerUnit": "Time per unit",
+    "shownOf": "Showing {{shown}} of {{total}} {{many}}",
+    "showMore": "Show {{n}} more",
+    "showAll": "Show all",
+    "pallet": {
+      "one": "Pallet",
+      "many": "pallets",
+      "timesPerUnit": "Times per pallet",
+      "timePerOne": "Time per pallet"
+    },
+    "package": {
+      "one": "Package",
+      "many": "packages",
+      "timesPerUnit": "Times per package",
+      "timePerOne": "Time per package"
+    }
   },
   "units": {
     "day": "d",

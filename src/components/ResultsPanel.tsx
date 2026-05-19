@@ -8,6 +8,7 @@ import type {
   ScheduledSizeDetail,
 } from '../types';
 import { calculateTotalProfiles } from '../utils/calculator';
+import UnitsTimeline from './UnitsTimeline';
 import {
   formatDateTime,
   formatShortDateTime,
@@ -433,6 +434,16 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                           {hasProducedAtSize && (
                             <SizeProducedBlock sd={sd} t={t} mode={mode} />
                           )}
+                          {sd.timePerUnitMin !== undefined &&
+                            sd.totalUnits !== undefined && (
+                              <PerUnitBlock
+                                start={sd.start}
+                                timePerUnitMin={sd.timePerUnitMin}
+                                totalUnits={sd.totalUnits}
+                                mode={mode}
+                                t={t}
+                              />
+                            )}
                         </li>
                       );
                     })}
@@ -443,6 +454,17 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   (row.producedProfiles !== undefined ||
                     row.producedSheets !== undefined) && (
                     <ProducedRemainingBlock row={row} t={t} mode={mode} />
+                  )}
+                {!row.sizeDetails &&
+                  row.timePerUnitMin !== undefined &&
+                  row.totalUnits !== undefined && (
+                    <PerUnitBlock
+                      start={row.start}
+                      timePerUnitMin={row.timePerUnitMin}
+                      totalUnits={row.totalUnits}
+                      mode={mode}
+                      t={t}
+                    />
                   )}
               </li>
             );
@@ -481,8 +503,10 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                 // When sizes are broken out, hide the aggregate produced
                 // block and show per-size produced inside each sub-row.
                 const showAggregateProduced = hasProduced && !hasSizeBreakdown;
+                const hasRowPerUnit =
+                  !hasSizeBreakdown && row.timePerUnitMin !== undefined;
                 const mainRowBorder =
-                  showAggregateProduced || hasSizeBreakdown
+                  showAggregateProduced || hasSizeBreakdown || hasRowPerUnit
                     ? 'border-b-0'
                     : 'border-b border-neutral-100 last:border-b-0';
                 return (
@@ -572,7 +596,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                             {hasProducedAtSize && (
                               <tr
                                 className={
-                                  isLastSub
+                                  isLastSub && sd.timePerUnitMin === undefined
                                     ? 'border-b border-neutral-100 bg-brand-50/30 last:border-b-0'
                                     : 'border-b-0 bg-brand-50/30'
                                 }
@@ -585,11 +609,40 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                                 </td>
                               </tr>
                             )}
+                            {sd.timePerUnitMin !== undefined &&
+                              sd.totalUnits !== undefined && (
+                                <tr
+                                  className={
+                                    isLastSub
+                                      ? 'border-b border-neutral-100 bg-brand-50/30 last:border-b-0'
+                                      : 'border-b-0 bg-brand-50/30'
+                                  }
+                                >
+                                  <td
+                                    colSpan={colSpan}
+                                    className="px-4 pb-2 pt-0"
+                                  >
+                                    <PerUnitBlock
+                                      start={sd.start}
+                                      timePerUnitMin={sd.timePerUnitMin}
+                                      totalUnits={sd.totalUnits}
+                                      mode={mode}
+                                      t={t}
+                                    />
+                                  </td>
+                                </tr>
+                              )}
                           </Fragment>
                         );
                       })}
                     {showAggregateProduced && (
-                      <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
+                      <tr
+                        className={
+                          row.timePerUnitMin !== undefined
+                            ? 'border-b-0 bg-brand-50/40'
+                            : 'border-b border-neutral-100 bg-brand-50/40 last:border-b-0'
+                        }
+                      >
                         <td colSpan={colSpan} className="px-3 pb-3 pt-1">
                           <ProducedRemainingBlock
                             row={row}
@@ -599,6 +652,21 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                         </td>
                       </tr>
                     )}
+                    {!hasSizeBreakdown &&
+                      row.timePerUnitMin !== undefined &&
+                      row.totalUnits !== undefined && (
+                        <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
+                          <td colSpan={colSpan} className="px-3 pb-3 pt-1">
+                            <PerUnitBlock
+                              start={row.start}
+                              timePerUnitMin={row.timePerUnitMin}
+                              totalUnits={row.totalUnits}
+                              mode={mode}
+                              t={t}
+                            />
+                          </td>
+                        </tr>
+                      )}
                   </Fragment>
                 );
               })}
@@ -821,6 +889,45 @@ function ProducedRemainingBlock({
           {formatDuration(row.remainingMinutes, units)}
         </span>
       </div>
+    </div>
+  );
+}
+
+function PerUnitBlock({
+  start,
+  timePerUnitMin,
+  totalUnits,
+  mode,
+  t,
+}: {
+  start: Date;
+  timePerUnitMin: number;
+  totalUnits: number;
+  mode: CalculatorMode;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const kind: 'pallet' | 'package' = mode === 'profiles' ? 'package' : 'pallet';
+  const units = {
+    day: t('units.day'),
+    hour: t('units.hour'),
+    minute: t('units.minute'),
+  };
+  return (
+    <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="text-ink-soft">
+          {t(`results.${kind}.timePerOne`)}
+        </span>
+        <span className="font-semibold text-brand-700">
+          {formatDuration(timePerUnitMin, units)}
+        </span>
+      </div>
+      <UnitsTimeline
+        start={start}
+        timePerUnitMin={timePerUnitMin}
+        totalUnits={totalUnits}
+        kind={kind}
+      />
     </div>
   );
 }

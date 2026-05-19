@@ -100,7 +100,23 @@
     "empty": "Introduce los pedidos y pulsa «Calcular».",
     "produced": "Producidos",
     "remaining": "Pendientes",
-    "timeToFinish": "Tiempo para el resto"
+    "timeToFinish": "Tiempo para el resto",
+    "timePerUnit": "Tiempo por unidad",
+    "shownOf": "Mostrados {{shown}} de {{total}} {{many}}",
+    "showMore": "Mostrar {{n}} más",
+    "showAll": "Mostrar todos",
+    "pallet": {
+      "one": "Palet",
+      "many": "palets",
+      "timesPerUnit": "Tiempos por palet",
+      "timePerOne": "Tiempo por palet"
+    },
+    "package": {
+      "one": "Paquete",
+      "many": "paquetes",
+      "timesPerUnit": "Tiempos por paquete",
+      "timePerOne": "Tiempo por paquete"
+    }
   },
   "units": {
     "day": "d",
