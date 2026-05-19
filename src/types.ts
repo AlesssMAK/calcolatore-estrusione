@@ -72,6 +72,12 @@ export interface ScheduledSizeDetail {
   producedPalletsAtSize?: number;
   remainingSheetsAtSize?: number;
   remainingPalletsAtSize?: number;
+  // Per-unit metrics (sheets/profiles per pallet/package).
+  // Only set when the rate is known (sheetsPerPallet>0 or profilesPerPackage>0):
+  //  - timePerUnitMin: minutes to produce one pallet/package at this size
+  //  - totalUnits:    total pallets/packages for this size (ceil sheets/rate)
+  timePerUnitMin?: number;
+  totalUnits?: number;
   start: Date;
   end: Date;
 }
@@ -102,6 +108,11 @@ export interface ScheduledOrder {
   // here too so the UI can show a unified "Metri prodotti / restanti" row.
   producedLengthM?: number;
   remainingLengthM?: number;
+  // Per-unit (pallet / package) metrics, populated only for single-size
+  // orders where the rate is known. Multi-size orders carry per-size
+  // values inside `sizeDetails` instead.
+  timePerUnitMin?: number;
+  totalUnits?: number;
   sizeDetails?: ScheduledSizeDetail[];
 }
 
