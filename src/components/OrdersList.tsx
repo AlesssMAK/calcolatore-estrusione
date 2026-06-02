@@ -287,7 +287,6 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
             fieldPath={`orders.${idx}.cavity`}
             icon="🔢"
             label={t('orders.cavity')}
-            inheritLabel={t('orders.cavityHint')}
             inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
             errorMessage={
               rowErr?.cavity?.message
@@ -371,7 +370,10 @@ function CollapsibleInheritField({
     | `orders.${number}.cavity`;
   icon: string;
   label: string;
-  inheritLabel: string;
+  /** Optional hint shown in parentheses after the label and as the
+   *  collapsed-button tooltip. Omit to render just the bare label (e.g.
+   *  Cavità, where the field name is already self-explanatory). */
+  inheritLabel?: string;
   inputProps: {
     min: string;
     step: string;
@@ -386,14 +388,16 @@ function CollapsibleInheritField({
   const [open, setOpen] = useState(false);
   const showInput = open || hasValue;
 
+  const titleText = inheritLabel ? `${label} (${inheritLabel})` : label;
+
   if (!showInput) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={`${label} (${inheritLabel})`}
-        aria-label={`${label} (${inheritLabel})`}
-        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-dashed border-neutral-300 bg-white text-base text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 sm:h-10 sm:w-10"
+        title={titleText}
+        aria-label={titleText}
+        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-dashed border-neutral-300 bg-white text-sm text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
       >
         <span aria-hidden>{icon}</span>
       </button>
@@ -405,9 +409,11 @@ function CollapsibleInheritField({
     <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
       <label className={labelBase}>
         {label}
-        <span className="ml-1 normal-case text-ink-soft">
-          ({inheritLabel})
-        </span>
+        {inheritLabel && (
+          <span className="ml-1 normal-case text-ink-soft">
+            ({inheritLabel})
+          </span>
+        )}
       </label>
       <input
         type="number"
