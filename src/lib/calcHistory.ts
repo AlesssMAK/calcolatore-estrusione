@@ -1,7 +1,10 @@
-import type { FormValues } from '../formSchema';
-import type { CalculatorMode } from '../types';
+import type { ScheduleResult } from '../types';
 
-const STORAGE_KEY = 'calc.history.v1';
+// Bumped key — v1 stored FormValues, v2 stores the computed ScheduleResult
+// instead (so restore can show the result panel directly without recalc).
+// Old v1 entries are simply ignored; the localStorage slot will be
+// overwritten the next time the user presses Calcola.
+const STORAGE_KEY = 'calc.history.v2';
 const MAX_ENTRIES = 10;
 const TTL_DAYS = 7;
 const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -13,17 +16,30 @@ export interface SavedCalculation {
   ts: number;
   /** Free-form label (product name, fallback to a localized timestamp). */
   label: string;
-  /** Calculator tab the entry was made in (sheets vs profiles). The schema
-   *  differs between modes so we need this to restore the right tab. */
-  mode: CalculatorMode;
-  /** Persisted RHF form values — restored verbatim. */
-  values: FormValues;
+  /** Persisted computed schedule — restored verbatim into ResultsPanel.
+   *  Date fields (startAt/endAt and per-row/per-size start/end) are revived
+   *  from ISO strings on read; mode lives inside the result. */
+  result: ScheduleResult;
+}
+
+/** JSON.parse reviver that turns ISO strings back into Date objects for the
+ *  small set of date fields used inside ScheduleResult. Other strings are
+ *  left untouched. */
+function dateReviver(key: string, value: unknown): unknown {
+  if (
+    typeof value === 'string' &&
+    (key === 'start' || key === 'end' || key === 'startAt' || key === 'endAt')
+  ) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? value : d;
+  }
+  return value;
 }
 
 function safeParse(raw: string | null): SavedCalculation[] {
   if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw, dateReviver);
     return Array.isArray(parsed) ? (parsed as SavedCalculation[]) : [];
   } catch {
     return [];
@@ -39,32 +55,34 @@ function safeWrite(items: SavedCalculation[]): void {
   }
 }
 
-/** Read the history; transparently drops entries older than TTL. Entries
- *  saved before mode was tracked default to 'sheets' so the dropdown still
- *  works after the migration. */
+/** Read the history; transparently drops entries older than TTL and any
+ *  malformed ones (missing result / dates). */
 export function loadHistory(): SavedCalculation[] {
   if (typeof window === 'undefined') return [];
   const items = safeParse(window.localStorage.getItem(STORAGE_KEY));
   const cutoff = Date.now() - TTL_MS;
-  const fresh = items
-    .filter((i) => i?.ts && i.ts >= cutoff)
-    .map((i) => ({ ...i, mode: (i.mode ?? 'sheets') as CalculatorMode }));
+  const fresh = items.filter(
+    (i) =>
+      i?.ts &&
+      i.ts >= cutoff &&
+      i.result &&
+      i.result.startAt instanceof Date &&
+      i.result.endAt instanceof Date,
+  );
   if (fresh.length !== items.length) safeWrite(fresh);
   return fresh;
 }
 
 /** Add a new entry; FIFO-evicts past MAX_ENTRIES. Returns the saved entry. */
 export function saveCalculation(
-  values: FormValues,
+  result: ScheduleResult,
   label: string,
-  mode: CalculatorMode,
 ): SavedCalculation {
   const entry: SavedCalculation = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: Date.now(),
     label,
-    mode,
-    values,
+    result,
   };
   const next = [entry, ...loadHistory()].slice(0, MAX_ENTRIES);
   safeWrite(next);
@@ -75,10 +93,9 @@ export function removeCalculation(id: string): void {
   safeWrite(loadHistory().filter((i) => i.id !== id));
 }
 
-/** Default label = settings.productName, falls back to a short timestamp. */
-export function deriveLabel(values: FormValues): string {
-  const settings = (values as { settings?: { productName?: string } }).settings;
-  const name = settings?.productName?.trim();
+/** Default label = result.productName, falls back to a short timestamp. */
+export function deriveLabel(result: ScheduleResult): string {
+  const name = result.productName?.trim();
   if (name) return name;
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');

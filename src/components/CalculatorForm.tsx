@@ -19,17 +19,13 @@ interface Props {
   onSettingsErrors: () => void;
   onResult: (result: ScheduleResult) => void;
   onRequestReset: () => void;
-  /** When provided, the form starts populated with these values instead of
-   *  the empty defaults. Used by App.tsx to restore a saved calculation; the
-   *  parent forces a remount via `key` so RHF picks up the new defaults. */
-  initialValues?: FormValues;
   /** Called after a successful submit so the parent can refresh the saved
    *  list dropdown badge / contents. */
   onSaved?: () => void;
   /** Called when the user picks an entry from the "Salvati" dropdown — the
-   *  parent restores those values into a fresh form mount and switches tab
-   *  to `mode` if needed. */
-  onRestore?: (values: FormValues, mode: CalculatorMode) => void;
+   *  parent shows that result directly (no recalc, form is left untouched).
+   *  Switches tab if `result.mode` differs from the current one. */
+  onRestore?: (result: ScheduleResult) => void;
   /** Bump from parent to force the saved-list to re-read history when reopened. */
   savedRefreshKey?: number;
 }
@@ -40,7 +36,6 @@ function CalculatorForm({
   onSettingsErrors,
   onResult,
   onRequestReset,
-  initialValues,
   onSaved,
   onRestore,
   savedRefreshKey,
@@ -50,7 +45,7 @@ function CalculatorForm({
 
   const methods = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(mode)),
-    defaultValues: initialValues ?? buildEmptyDefaults(mode),
+    defaultValues: buildEmptyDefaults(mode),
     mode: 'onBlur',
     reValidateMode: 'onChange',
   });
@@ -83,11 +78,11 @@ function CalculatorForm({
       mode,
     });
     onResult(schedule);
-    // Persist the inputs so the user can come back to this calculation from
-    // the "Salvati" dropdown. Best-effort: storage errors are swallowed
-    // inside `saveCalculation`.
+    // Persist the computed result so the user can re-open it from the
+    // "Salvati" dropdown without recalculating. Best-effort: storage errors
+    // are swallowed inside `saveCalculation`.
     try {
-      saveCalculation(values, deriveLabel(values), mode);
+      saveCalculation(schedule, deriveLabel(schedule));
       onSaved?.();
     } catch {
       /* never block submit on storage failure */

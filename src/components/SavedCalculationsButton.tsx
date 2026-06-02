@@ -5,13 +5,12 @@ import {
   removeCalculation,
   type SavedCalculation,
 } from '../lib/calcHistory';
-import type { FormValues } from '../formSchema';
-import type { CalculatorMode } from '../types';
+import type { ScheduleResult } from '../types';
 
 interface Props {
-  /** Called when the user picks a saved calculation; parent should remount
-   *  the form with these values and switch tab to `mode`. */
-  onRestore: (values: FormValues, mode: CalculatorMode) => void;
+  /** Called when the user picks a saved calculation; parent shows that
+   *  result directly in the ResultsPanel (no recalc, form untouched). */
+  onRestore: (result: ScheduleResult) => void;
   /** Bump from the parent to force the dropdown to re-read history after a
    *  fresh save — avoids stale lists when the dropdown is reopened. */
   refreshKey?: number;
@@ -110,7 +109,7 @@ function SavedCalculationsButton({ onRestore, refreshKey = 0 }: Props) {
                     role="option"
                     aria-selected={false}
                     onClick={() => {
-                      onRestore(it.values, it.mode);
+                      onRestore(it.result);
                       setOpen(false);
                     }}
                     className="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-2 py-2 text-left"
@@ -121,7 +120,7 @@ function SavedCalculationsButton({ onRestore, refreshKey = 0 }: Props) {
                         {it.label}
                       </span>
                       <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-soft uppercase">
-                        {t(`tabs.${it.mode}`)}
+                        {t(`tabs.${it.result.mode}`)}
                       </span>
                     </span>
                     <span className="text-[11px] text-ink-soft">
