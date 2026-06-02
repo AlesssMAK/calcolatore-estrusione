@@ -282,6 +282,21 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
             />
           ))}
 
+        {isProfiles && (
+          <CollapsibleInheritField
+            fieldPath={`orders.${idx}.cavity`}
+            icon="🔢"
+            label={t('orders.cavity')}
+            inheritLabel={t('orders.cavityHint')}
+            inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
+            errorMessage={
+              rowErr?.cavity?.message
+                ? t(`validation.${rowErr.cavity.message}`)
+                : undefined
+            }
+          />
+        )}
+
         {showGap && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
             <label className={labelBase}>{t('orders.gapAfter')}</label>
@@ -352,7 +367,8 @@ function CollapsibleInheritField({
 }: {
   fieldPath:
     | `orders.${number}.speedMPerMin`
-    | `orders.${number}.sizes.0.profilesPerPackage`;
+    | `orders.${number}.sizes.0.profilesPerPackage`
+    | `orders.${number}.cavity`;
   icon: string;
   label: string;
   inheritLabel: string;

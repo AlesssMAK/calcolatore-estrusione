@@ -57,6 +57,8 @@
     "toggleTotalLength": "Metri totali",
     "totalLength": "Metri totali",
     "optionalInherit": "opz. — eredita",
+    "cavity": "Cavità",
+    "cavityHint": "opz. — moltiplica la velocità",
     "advancedToggle": "Calcolo avanzato",
     "advanced": {
       "profilesProduced": "Profili prodotti",

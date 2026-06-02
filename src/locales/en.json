@@ -57,6 +57,8 @@
     "toggleTotalLength": "Total meters",
     "totalLength": "Total meters",
     "optionalInherit": "optional — inherits",
+    "cavity": "Cavities",
+    "cavityHint": "optional — multiplies the speed",
     "advancedToggle": "Advanced calculation",
     "advanced": {
       "profilesProduced": "Profiles produced",
