@@ -93,10 +93,32 @@ export function removeCalculation(id: string): void {
   safeWrite(loadHistory().filter((i) => i.id !== id));
 }
 
-/** Default label = result.productName, falls back to a short timestamp. */
+/** Pick the most useful human label for a saved result, in this order:
+ *  1. Global settings.productName (carried on result.productName by the
+ *     calculator) — explicitly typed by the operator, always wins.
+ *  2. Per-order productName values — many operators leave the global field
+ *     empty and instead pick a product from the combobox on each row. We
+ *     collapse duplicates (multi-row orders for the same product), and if
+ *     several distinct products are queued show "First +N" so the dropdown
+ *     stays one-line.
+ *  3. Last-resort timestamp (DD.MM HH:MM) so empty labels never appear. */
 export function deriveLabel(result: ScheduleResult): string {
-  const name = result.productName?.trim();
-  if (name) return name;
+  const globalName = result.productName?.trim();
+  if (globalName) return globalName;
+
+  const seen = new Set<string>();
+  const orderNames: string[] = [];
+  for (const row of result.rows ?? []) {
+    const n = row.order?.productName?.trim();
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    orderNames.push(n);
+  }
+  if (orderNames.length === 1) return orderNames[0];
+  if (orderNames.length > 1) {
+    return `${orderNames[0]} +${orderNames.length - 1}`;
+  }
+
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
