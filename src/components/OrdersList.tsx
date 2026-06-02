@@ -397,9 +397,13 @@ function CollapsibleInheritField({
         onClick={() => setOpen(true)}
         title={titleText}
         aria-label={titleText}
-        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-dashed border-neutral-300 bg-white text-sm text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
       >
-        <span aria-hidden>{icon}</span>
+        {/* leading-none + block strip the emoji line-height so it sits dead
+            centre instead of riding the text baseline. */}
+        <span aria-hidden className="block text-base leading-none">
+          {icon}
+        </span>
       </button>
     );
   }
