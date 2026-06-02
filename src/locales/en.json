@@ -77,7 +77,9 @@
     "copied": "Copied!",
     "saveImage": "Save image",
     "exporting": "Saving…",
-    "saved": "Saved"
+    "saved": "Saved",
+    "share": "Share",
+    "shared": "Link copied!"
   },
   "saved": {
     "title": "Saved calculations",

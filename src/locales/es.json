@@ -77,7 +77,9 @@
     "copied": "¡Copiado!",
     "saveImage": "Guardar imagen",
     "exporting": "Guardando…",
-    "saved": "Guardados"
+    "saved": "Guardados",
+    "share": "Compartir",
+    "shared": "¡Enlace copiado!"
   },
   "saved": {
     "title": "Cálculos guardados",

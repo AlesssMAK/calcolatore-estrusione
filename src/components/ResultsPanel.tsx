@@ -14,6 +14,7 @@ import {
   formatShortDateTime,
   formatDuration,
 } from '../utils/format';
+import { buildShareUrl } from '../lib/shareLink';
 
 interface Props {
   result: ScheduleResult;
@@ -24,8 +25,23 @@ interface Props {
 function ResultsPanel({ result, mode, onReset }: Props) {
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const [exporting, setExporting] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+
+  const onShare = async () => {
+    const url = buildShareUrl(result);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShared(true);
+      window.setTimeout(() => setShared(false), 1800);
+    } catch {
+      /* clipboard blocked (insecure context / permission denied) — silently
+       *  fail; the user can still copy from the address bar after we add
+       *  a fallback if this turns out to be a real issue in the field. */
+    }
+  };
 
   const exportAsImage = async () => {
     const node = sectionRef.current;
@@ -257,6 +273,13 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
           >
             📋 {copied ? t('actions.copied') : t('actions.copy')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onShare()}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+          >
+            🔗 {shared ? t('actions.shared') : t('actions.share')}
           </button>
           <button
             type="button"
