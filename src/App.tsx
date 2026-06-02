@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
@@ -10,28 +10,15 @@ import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
 import type { CalculatorMode, ScheduleResult } from './types';
-import { clearResultFromUrl, readResultFromUrl } from './lib/shareLink';
 
 function CalculatorApp() {
   const { t } = useTranslation();
-  // Lazy initializer — read `?calc=...` once on the first render so a
-  // shared link lands on its result without a one-frame "empty" flash.
-  const sharedResult = useState<ScheduleResult | null>(() => readResultFromUrl())[0];
-  const [mode, setMode] = useState<CalculatorMode>(
-    sharedResult?.mode ?? 'sheets',
-  );
-  const [result, setResult] = useState<ScheduleResult | null>(sharedResult);
+  const [mode, setMode] = useState<CalculatorMode>('sheets');
+  const [result, setResult] = useState<ScheduleResult | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
-
-  // Strip `?calc=...` from the URL bar after the first render so refresh /
-  // copy-current-URL doesn't re-trigger restore in a confusing way. The
-  // result is already in React state at this point.
-  useEffect(() => {
-    if (sharedResult) clearResultFromUrl();
-  }, [sharedResult]);
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
