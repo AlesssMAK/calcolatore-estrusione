@@ -12,12 +12,14 @@ type Draft = {
   name: string;
   category: 'sheets' | 'profiles';
   speed_m_per_min: string; // input string for the form, parse on submit
+  cavity: string; // optional; empty → null
 };
 
 const emptyDraft: Draft = {
   name: '',
   category: 'sheets',
   speed_m_per_min: '',
+  cavity: '',
 };
 
 function AdminPage() {
@@ -36,7 +38,7 @@ function AdminPage() {
     setError(null);
     const { data, error: err } = await supabase
       .from('products')
-      .select('id, name, category, speed_m_per_min')
+      .select('id, name, category, speed_m_per_min, cavity')
       .eq('company_id', companyId);
     if (err) setError(err.message);
     setProducts(sortProductsNaturally((data as CatalogProduct[] | null) ?? []));
@@ -84,10 +86,23 @@ function AdminPage() {
       setSaving(false);
       return;
     }
+    // Cavity is optional. Empty → null (catalog entry has no cavity, so the
+    // calculator treats it as 1). Profiles-only by UI; for sheets we strip it.
+    let cavityValue: number | null = null;
+    if (draft.category === 'profiles' && draft.cavity.trim() !== '') {
+      const c = Number(draft.cavity.replace(',', '.'));
+      if (!Number.isInteger(c) || c <= 0) {
+        setError('Cavità deve essere un intero > 0');
+        setSaving(false);
+        return;
+      }
+      cavityValue = c;
+    }
     const payload = {
       name: draft.name.trim(),
       category: draft.category,
       speed_m_per_min: speed,
+      cavity: cavityValue,
       company_id: companyId,
     };
     const op = draft.id
@@ -209,6 +224,7 @@ function AdminPage() {
                   <th className="px-3 py-2">Nome</th>
                   <th className="px-3 py-2">Categoria</th>
                   <th className="px-3 py-2 text-right">m/min</th>
+                  <th className="px-3 py-2 text-right">Cavità</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -222,6 +238,9 @@ function AdminPage() {
                     <td className="px-3 py-2 text-right font-semibold text-brand-700">
                       {p.speed_m_per_min}
                     </td>
+                    <td className="px-3 py-2 text-right text-ink-soft">
+                      {p.cavity ?? '—'}
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-2">
                         <button
@@ -232,6 +251,7 @@ function AdminPage() {
                               name: p.name,
                               category: p.category,
                               speed_m_per_min: String(p.speed_m_per_min),
+                              cavity: p.cavity != null ? String(p.cavity) : '',
                             })
                           }
                           className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-brand-500 hover:text-brand-700"
@@ -325,6 +345,33 @@ function AdminPage() {
                   className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
                 />
               </div>
+
+              {draft.category === 'profiles' && (
+                <div>
+                  <label className="block text-xs font-medium uppercase tracking-wide text-ink-soft">
+                    Cavità{' '}
+                    <span className="ml-1 normal-case text-ink-soft">
+                      (opz.)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    placeholder="1"
+                    value={draft.cavity}
+                    onChange={(e) =>
+                      setDraft({ ...draft, cavity: e.target.value })
+                    }
+                    className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                  />
+                  <p className="mt-1 text-[10px] text-ink-soft">
+                    Numero di profili estrusi simultaneamente. Lascia vuoto
+                    se 1.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-5 flex justify-end gap-2">

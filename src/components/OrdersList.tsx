@@ -664,6 +664,15 @@ function OrderNameField({
       shouldValidate: true,
       shouldDirty: true,
     });
+    // Auto-fill cavity for profiles when the product has one configured.
+    // Setting undefined when the catalog entry has no cavity keeps the
+    // user's previous value (inheritance) instead of forcing it back to 1.
+    if (mode === 'profiles' && p.cavity != null && p.cavity > 0) {
+      setValue(`orders.${idx}.cavity`, p.cavity, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
     setDropdownOpen(false);
   };
 
