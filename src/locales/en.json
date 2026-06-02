@@ -76,7 +76,15 @@
     "copy": "Copy",
     "copied": "Copied!",
     "saveImage": "Save image",
-    "exporting": "Saving…"
+    "exporting": "Saving…",
+    "saved": "Saved"
+  },
+  "saved": {
+    "title": "Saved calculations",
+    "empty": "No saved calculations.",
+    "restore": "Restore",
+    "delete": "Delete",
+    "hint": "Calculations are auto-saved when you press «Calculate». Kept for 7 days."
   },
   "results": {
     "title": "Result",

@@ -10,6 +10,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
 import type { CalculatorMode, ScheduleResult } from './types';
+import type { FormValues } from './formSchema';
 
 function CalculatorApp() {
   const { t } = useTranslation();
@@ -17,16 +18,34 @@ function CalculatorApp() {
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Restored from the "Salvati" dropdown; cleared back to undefined on reset.
+  // Bumping formKey alongside ensures RHF picks up the new defaultValues.
+  const [initialValues, setInitialValues] = useState<FormValues | undefined>(
+    undefined,
+  );
+  // Bumped after each successful save so the dropdown re-reads history.
+  const [savedRefreshKey, setSavedRefreshKey] = useState(0);
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
     setMode(next);
     setResult(null);
+    setInitialValues(undefined);
     setFormKey((k) => k + 1);
   };
 
   const onReset = () => {
     setResult(null);
+    setInitialValues(undefined);
+    setFormKey((k) => k + 1);
+  };
+
+  const onRestore = (values: FormValues, restoredMode: CalculatorMode) => {
+    // Switch tab if the restored calculation was made in the other mode, so
+    // the schema + UI match what's being loaded.
+    if (restoredMode !== mode) setMode(restoredMode);
+    setResult(null);
+    setInitialValues(values);
     setFormKey((k) => k + 1);
   };
 
@@ -49,6 +68,10 @@ function CalculatorApp() {
           onSettingsErrors={() => setSettingsOpen(true)}
           onResult={setResult}
           onRequestReset={onReset}
+          initialValues={initialValues}
+          onSaved={() => setSavedRefreshKey((k) => k + 1)}
+          onRestore={onRestore}
+          savedRefreshKey={savedRefreshKey}
         />
 
         <div id="results" className="mt-5 sm:mt-6">

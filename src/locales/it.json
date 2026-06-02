@@ -76,7 +76,15 @@
     "copy": "Copia",
     "copied": "Copiato!",
     "saveImage": "Salva immagine",
-    "exporting": "Salvando…"
+    "exporting": "Salvando…",
+    "saved": "Salvati"
+  },
+  "saved": {
+    "title": "Calcoli salvati",
+    "empty": "Nessun calcolo salvato.",
+    "restore": "Ripristina",
+    "delete": "Elimina",
+    "hint": "I calcoli vengono salvati automaticamente quando premi «Calcola». Conservati per 7 giorni."
   },
   "results": {
     "title": "Risultato",
