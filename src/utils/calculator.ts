@@ -138,7 +138,8 @@ export function calculateProductionMinutes(
   if (speedMPerMin <= 0) {
     throw new Error('speed must be > 0');
   }
-  return calculateOrderLengthM(order) / speedMPerMin;
+  const cavity = order.cavity && order.cavity > 0 ? order.cavity : 1;
+  return calculateOrderLengthM(order) / (speedMPerMin * cavity);
 }
 
 export function calculatePackages(
@@ -612,12 +613,22 @@ export function calculateSchedule(
   let lastSpeed: number | undefined;
   let lastPerPackage: number | undefined;
   let lastSheetsPerPallet: number | undefined;
+  let lastCavity: number | undefined;
 
   orders.forEach((order, idx) => {
     const speedMPerMin = resolveSpeed(order, lastSpeed);
     lastSpeed = speedMPerMin;
+    // Cavity multiplier (profiles only — multi-cavity dies emit several
+    // strands simultaneously, so the line completes the order N× faster).
+    // Profiles-only by UI, but the math is mode-agnostic: undefined → 1,
+    // so sheets orders are unaffected.
+    const ownCavity =
+      order.cavity && order.cavity > 0 ? order.cavity : undefined;
+    const cavity = ownCavity ?? lastCavity ?? 1;
+    if (ownCavity) lastCavity = ownCavity;
+    const effectiveSpeed = speedMPerMin * cavity;
     const totalLengthM = calculateOrderLengthM(order);
-    const productionMinutes = totalLengthM / speedMPerMin;
+    const productionMinutes = totalLengthM / effectiveSpeed;
 
     const isLast = idx === orders.length - 1;
     const gapAfterMin =
@@ -741,7 +752,7 @@ export function calculateSchedule(
         const sheetsI = sz?.sheets ?? 0;
         const lengthI = sz?.length ?? 0;
         const metersI = (sheetsI * lengthI) / 1000;
-        const minsI = speedMPerMin > 0 ? metersI / speedMPerMin : 0;
+        const minsI = effectiveSpeed > 0 ? metersI / effectiveSpeed : 0;
         const ppI = mode === 'profiles' ? perPackagesForOrder[i] : undefined;
         const totalPkgI =
           ppI && ppI > 0 && sheetsI > 0 ? Math.ceil(sheetsI / ppI) : undefined;
@@ -828,7 +839,7 @@ export function calculateSchedule(
         let timePerUnitMinI: number | undefined;
         let totalUnitsI: number | undefined;
         if (mode === 'profiles' && ppI && ppI > 0 && lengthI > 0 && sheetsI > 0) {
-          timePerUnitMinI = (ppI * lengthI) / 1000 / speedMPerMin;
+          timePerUnitMinI = (ppI * lengthI) / 1000 / effectiveSpeed;
           totalUnitsI = Math.ceil(sheetsI / ppI);
         } else if (
           mode === 'sheets' &&
@@ -837,7 +848,7 @@ export function calculateSchedule(
           lengthI > 0 &&
           sheetsI > 0
         ) {
-          timePerUnitMinI = (perPalletI * lengthI) / 1000 / speedMPerMin;
+          timePerUnitMinI = (perPalletI * lengthI) / 1000 / effectiveSpeed;
           totalUnitsI = Math.ceil(sheetsI / perPalletI);
         }
 
@@ -882,7 +893,7 @@ export function calculateSchedule(
     let timePerUnitMinRow: number | undefined;
     let totalUnitsRow: number | undefined;
     const sizesArr = order.sizes ?? [];
-    if (!order.useTotalLength && sizesArr.length === 1 && speedMPerMin > 0) {
+    if (!order.useTotalLength && sizesArr.length === 1 && effectiveSpeed > 0) {
       const sz0 = sizesArr[0];
       const sheets0 = sz0?.sheets ?? 0;
       const length0 = sz0?.length ?? 0;
@@ -890,7 +901,7 @@ export function calculateSchedule(
         if (mode === 'profiles') {
           const pp0 = perPackagesForOrder[0];
           if (pp0 && pp0 > 0) {
-            timePerUnitMinRow = (pp0 * length0) / 1000 / speedMPerMin;
+            timePerUnitMinRow = (pp0 * length0) / 1000 / effectiveSpeed;
             totalUnitsRow = Math.ceil(sheets0 / pp0);
           }
         } else {
@@ -898,7 +909,7 @@ export function calculateSchedule(
             firstNonZeroForSize(order.sheetsPerPallet, 0) ||
             lastSheetsPerPallet;
           if (perPallet0 && perPallet0 > 0) {
-            timePerUnitMinRow = (perPallet0 * length0) / 1000 / speedMPerMin;
+            timePerUnitMinRow = (perPallet0 * length0) / 1000 / effectiveSpeed;
             totalUnitsRow = Math.ceil(sheets0 / perPallet0);
           }
         }

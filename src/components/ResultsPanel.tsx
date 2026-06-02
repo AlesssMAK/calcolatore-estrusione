@@ -1,6 +1,6 @@
 import { Fragment, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toPng } from 'html-to-image';
+import { toBlob } from 'html-to-image';
 import type {
   CalculatorMode,
   ScheduleResult,
@@ -27,12 +27,20 @@ function ResultsPanel({ result, mode, onReset }: Props) {
   const [exporting, setExporting] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
+  // Build the PNG of the results panel and surface it to the user in the
+  // most share-friendly way the platform allows:
+  //   1. Mobile / share-capable browsers: navigator.share() opens the
+  //      native share sheet so the user can hand the file to WhatsApp /
+  //      Telegram / email in one tap.
+  //   2. Everywhere else: open the blob URL in a new tab. The user can
+  //      then drag-and-drop into a chat, right-click → Save as, or
+  //      screenshot it — friendlier than a silent download on desktop.
   const exportAsImage = async () => {
     const node = sectionRef.current;
     if (!node) return;
     setExporting(true);
     try {
-      const dataUrl = await toPng(node, {
+      const blob = await toBlob(node, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
@@ -40,7 +48,8 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         filter: (n) =>
           !(n instanceof HTMLElement && n.classList.contains('no-print')),
       });
-      const a = document.createElement('a');
+      if (!blob) return;
+
       const slug = (result.productName || 'risultato')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -49,11 +58,38 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         .toISOString()
         .slice(0, 16)
         .replace(/[:T]/g, '-');
-      a.href = dataUrl;
-      a.download = `${slug}-${stamp}.png`;
-      a.click();
+      const filename = `${slug}-${stamp}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      // Web Share API — only available in secure contexts and (importantly)
+      // gated by canShare({ files }) since not every Share impl accepts
+      // file payloads (desktop Edge / Firefox lie about navigator.share).
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: result.productName || t('app.title'),
+          });
+          return;
+        } catch (err) {
+          // AbortError = user dismissed the sheet — that's fine, no
+          // fallback. Anything else (permission, transient) → fall through
+          // to the new-tab path so the image isn't lost.
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+        }
+      }
+
+      // Fallback: open the PNG in a new tab. Revoke after a delay so the
+      // tab has time to fetch it; immediately revoking would race the load.
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
-      /* ignore */
+      /* ignore — capture itself failed (oversize node, etc.) */
     } finally {
       setExporting(false);
     }

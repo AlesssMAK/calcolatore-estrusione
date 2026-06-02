@@ -57,6 +57,8 @@
     "toggleTotalLength": "Metros totales",
     "totalLength": "Metros totales",
     "optionalInherit": "opc. — hereda",
+    "cavity": "Cavidades",
+    "cavityHint": "opc. — multiplica la velocidad",
     "advancedToggle": "Cálculo avanzado",
     "advanced": {
       "profilesProduced": "Perfiles producidos",
@@ -74,7 +76,15 @@
     "copy": "Copiar",
     "copied": "¡Copiado!",
     "saveImage": "Guardar imagen",
-    "exporting": "Guardando…"
+    "exporting": "Guardando…",
+    "saved": "Guardados"
+  },
+  "saved": {
+    "title": "Cálculos guardados",
+    "empty": "No hay cálculos guardados.",
+    "restore": "Restaurar",
+    "delete": "Eliminar",
+    "hint": "Los cálculos se guardan automáticamente al pulsar «Calcular». Se conservan 7 días."
   },
   "results": {
     "title": "Resultado",

@@ -4,11 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import GlobalSettingsPanel from './GlobalSettingsPanel';
 import OrdersList from './OrdersList';
+import SavedCalculationsButton from './SavedCalculationsButton';
 import { calculateSchedule } from '../utils/calculator';
 import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode, ScheduleResult } from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
+import { deriveLabel, saveCalculation } from '../lib/calcHistory';
 import type { FieldErrors } from 'react-hook-form';
 
 interface Props {
@@ -17,6 +19,15 @@ interface Props {
   onSettingsErrors: () => void;
   onResult: (result: ScheduleResult) => void;
   onRequestReset: () => void;
+  /** Called after a successful submit so the parent can refresh the saved
+   *  list dropdown badge / contents. */
+  onSaved?: () => void;
+  /** Called when the user picks an entry from the "Salvati" dropdown — the
+   *  parent shows that result directly (no recalc, form is left untouched).
+   *  Switches tab if `result.mode` differs from the current one. */
+  onRestore?: (result: ScheduleResult) => void;
+  /** Bump from parent to force the saved-list to re-read history when reopened. */
+  savedRefreshKey?: number;
 }
 
 function CalculatorForm({
@@ -25,6 +36,9 @@ function CalculatorForm({
   onSettingsErrors,
   onResult,
   onRequestReset,
+  onSaved,
+  onRestore,
+  savedRefreshKey,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -64,6 +78,15 @@ function CalculatorForm({
       mode,
     });
     onResult(schedule);
+    // Persist the computed result so the user can re-open it from the
+    // "Salvati" dropdown without recalculating. Best-effort: storage errors
+    // are swallowed inside `saveCalculation`.
+    try {
+      saveCalculation(schedule, deriveLabel(schedule));
+      onSaved?.();
+    } catch {
+      /* never block submit on storage failure */
+    }
     window.requestAnimationFrame(() => {
       document
         .getElementById('results')
@@ -99,6 +122,12 @@ function CalculatorForm({
         <OrdersList mode={mode} />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          {onRestore && (
+            <SavedCalculationsButton
+              onRestore={onRestore}
+              refreshKey={savedRefreshKey}
+            />
+          )}
           <button
             type="submit"
             className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-2 sm:w-auto sm:py-2.5"

@@ -611,6 +611,82 @@ describe('calculateProductionMinutes', () => {
       ),
     ).toThrow();
   });
+
+  it('cavity multiplies effective speed (length / (speed × cavity))', () => {
+    // 100 sheets × 6000 mm = 600 m, speed 5 m/min, cavity 4 → 600 / (5×4) = 30
+    expect(
+      calculateProductionMinutes(
+        { id: '1', sheets: 100, sheetLengthMm: 6000, cavity: 4 },
+        5,
+      ),
+    ).toBe(30);
+  });
+
+  it('cavity undefined or 0 is treated as 1 (no multiplier)', () => {
+    expect(
+      calculateProductionMinutes(
+        { id: '1', sheets: 100, sheetLengthMm: 6000 },
+        5,
+      ),
+    ).toBe(120);
+    expect(
+      calculateProductionMinutes(
+        { id: '1', sheets: 100, sheetLengthMm: 6000, cavity: 0 },
+        5,
+      ),
+    ).toBe(120);
+  });
+});
+
+describe('calculateSchedule — cavity', () => {
+  it('cavity reduces remainingMinutes proportionally for the order', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000 }],
+          speedMPerMin: 5,
+          cavity: 4,
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+    // length 600 m / (5 × 4) = 30 min
+    expect(result.rows[0]!.productionMinutes).toBe(30);
+    expect(result.rows[0]!.remainingMinutes).toBe(30);
+  });
+
+  it('cavity inherits across orders (lastCavity carry-over)', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          sizes: [{ sheets: 100, length: 6000 }],
+          speedMPerMin: 5,
+          cavity: 4,
+        },
+        {
+          id: 'b',
+          // no own cavity → should inherit 4 from order 'a'
+          sizes: [{ sheets: 100, length: 6000 }],
+        },
+      ],
+      { now: start, mode: 'profiles' },
+    );
+    expect(result.rows[1]!.productionMinutes).toBe(30);
+  });
 });
 
 describe('calculatePackages', () => {

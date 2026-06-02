@@ -11,6 +11,9 @@ export interface CatalogProduct {
   name: string;
   category: 'sheets' | 'profiles';
   speed_m_per_min: number;
+  /** Multi-cavity die count (profiles only). Optional; null in older
+   *  catalogs and treated as 1 by the calculator. */
+  cavity: number | null;
 }
 
 /** Natural sort: "U4" < "U6" < "U10" < "U16" instead of ASCII "U10" < "U16" < "U4". */
@@ -59,7 +62,7 @@ export async function fetchProductsForCompany(
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, category, speed_m_per_min')
+    .select('id, name, category, speed_m_per_min, cavity')
     .eq('company_id', companyId);
   if (error) {
     // eslint-disable-next-line no-console

@@ -17,6 +17,8 @@ function CalculatorApp() {
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Bumped after each successful save so the dropdown re-reads history.
+  const [savedRefreshKey, setSavedRefreshKey] = useState(0);
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
@@ -28,6 +30,20 @@ function CalculatorApp() {
   const onReset = () => {
     setResult(null);
     setFormKey((k) => k + 1);
+  };
+
+  // Restore a saved result directly into ResultsPanel. The form is left
+  // untouched on purpose — the user just wants to review the prior result,
+  // not re-edit its inputs (those weren't even stored). If the saved result
+  // was computed in the other tab, switch tab so the panel context matches.
+  const onRestore = (restored: ScheduleResult) => {
+    if (restored.mode !== mode) setMode(restored.mode);
+    setResult(restored);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById('results')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   return (
@@ -49,6 +65,9 @@ function CalculatorApp() {
           onSettingsErrors={() => setSettingsOpen(true)}
           onResult={setResult}
           onRequestReset={onReset}
+          onSaved={() => setSavedRefreshKey((k) => k + 1)}
+          onRestore={onRestore}
+          savedRefreshKey={savedRefreshKey}
         />
 
         <div id="results" className="mt-5 sm:mt-6">

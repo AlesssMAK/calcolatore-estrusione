@@ -282,6 +282,20 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
             />
           ))}
 
+        {isProfiles && (
+          <CollapsibleInheritField
+            fieldPath={`orders.${idx}.cavity`}
+            icon="🔢"
+            label={t('orders.cavity')}
+            inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
+            errorMessage={
+              rowErr?.cavity?.message
+                ? t(`validation.${rowErr.cavity.message}`)
+                : undefined
+            }
+          />
+        )}
+
         {showGap && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
             <label className={labelBase}>{t('orders.gapAfter')}</label>
@@ -352,10 +366,14 @@ function CollapsibleInheritField({
 }: {
   fieldPath:
     | `orders.${number}.speedMPerMin`
-    | `orders.${number}.sizes.0.profilesPerPackage`;
+    | `orders.${number}.sizes.0.profilesPerPackage`
+    | `orders.${number}.cavity`;
   icon: string;
   label: string;
-  inheritLabel: string;
+  /** Optional hint shown in parentheses after the label and as the
+   *  collapsed-button tooltip. Omit to render just the bare label (e.g.
+   *  Cavità, where the field name is already self-explanatory). */
+  inheritLabel?: string;
   inputProps: {
     min: string;
     step: string;
@@ -370,16 +388,22 @@ function CollapsibleInheritField({
   const [open, setOpen] = useState(false);
   const showInput = open || hasValue;
 
+  const titleText = inheritLabel ? `${label} (${inheritLabel})` : label;
+
   if (!showInput) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={`${label} (${inheritLabel})`}
-        aria-label={`${label} (${inheritLabel})`}
-        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-dashed border-neutral-300 bg-white text-base text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 sm:h-10 sm:w-10"
+        title={titleText}
+        aria-label={titleText}
+        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
       >
-        <span aria-hidden>{icon}</span>
+        {/* leading-none + block strip the emoji line-height so it sits dead
+            centre instead of riding the text baseline. */}
+        <span aria-hidden className="block text-base leading-none">
+          {icon}
+        </span>
       </button>
     );
   }
@@ -389,9 +413,11 @@ function CollapsibleInheritField({
     <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
       <label className={labelBase}>
         {label}
-        <span className="ml-1 normal-case text-ink-soft">
-          ({inheritLabel})
-        </span>
+        {inheritLabel && (
+          <span className="ml-1 normal-case text-ink-soft">
+            ({inheritLabel})
+          </span>
+        )}
       </label>
       <input
         type="number"
@@ -648,6 +674,15 @@ function OrderNameField({
       shouldValidate: true,
       shouldDirty: true,
     });
+    // Auto-fill cavity for profiles when the product has one configured.
+    // Setting undefined when the catalog entry has no cavity keeps the
+    // user's previous value (inheritance) instead of forcing it back to 1.
+    if (mode === 'profiles' && p.cavity != null && p.cavity > 0) {
+      setValue(`orders.${idx}.cavity`, p.cavity, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
     setDropdownOpen(false);
   };
 
