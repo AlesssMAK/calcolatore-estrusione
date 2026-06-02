@@ -26,6 +26,13 @@ export interface Order {
   sheets?: number;
   sheetLengthMm?: number;
   speedMPerMin?: number;
+  /**
+   * Number of cavities in the extrusion die (profiles-only). Acts as a
+   * multiplier on the linear speed: with cavity=4 the line emits 4 profiles
+   * simultaneously, so the order finishes 4× faster. Undefined / missing
+   * is treated as 1 (no multiplier). Inherits across orders via lastCavity.
+   */
+  cavity?: number;
   gapAfterMin?: number;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
