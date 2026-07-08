@@ -148,5 +148,63 @@
   },
   "footer": {
     "madeBy": "Extrusion Calculator"
+  },
+  "piramide": {
+    "title": "Pyramid",
+    "subtitle": "Sheet layout on the pallet",
+    "backToCalculator": "Calculator",
+    "openLink": "📐 Pyramid (sheet layout)",
+    "photo": {
+      "title": "Order photo",
+      "hint": "Take or upload one or more photos, crop the Length and Quantity columns and read the values. You can also enter them by hand.",
+      "take": "📷 Take photo",
+      "upload": "🖼 Upload image",
+      "crop": "Crop the area with Length and Quantity, then read.",
+      "confirmCrop": "✓ Read selection",
+      "wholeImage": "Read whole image",
+      "cancel": "Cancel",
+      "reading": "Reading…",
+      "readOk": "Read {{count}} rows — check and fix below.",
+      "readEmpty": "No values recognized. Crop tighter or enter by hand.",
+      "readError": "Reading failed. Retry or enter by hand."
+    },
+    "sheets": {
+      "title": "Sheets",
+      "length": "Length (mm)",
+      "qty": "Quantity (pcs)",
+      "add": "+ Add row",
+      "remove": "Remove",
+      "clear": "Clear",
+      "empty": "No sheets. Add rows or read from a photo.",
+      "totalPieces": "Total sheets",
+      "distinct": "Distinct lengths"
+    },
+    "options": {
+      "title": "Options",
+      "base": "Maximum length (mm)",
+      "baseHint": "optional — empty = longest sheet",
+      "lanes": "Sheets across",
+      "lanesHint": "lanes side by side per layer",
+      "maxRows": "Max rows per pallet",
+      "maxRowsHint": "optional — empty = unlimited"
+    },
+    "calculate": "Compute layout",
+    "result": {
+      "title": "Layout",
+      "empty": "Enter the sheets and press «Compute layout».",
+      "base": "Base",
+      "corsie": "Lanes",
+      "strati": "Layers",
+      "fogli": "Sheets",
+      "scartoTot": "Total waste",
+      "bancale": "Pallet {{n}}",
+      "strato": "Layer",
+      "colNum": "#",
+      "colCombinazione": "Combination",
+      "colLunghezza": "Length",
+      "colFogli": "Sheets",
+      "colScarto": "Waste",
+      "corsia": "Lane {{n}}"
+    }
   }
 }

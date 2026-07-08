@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
 import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
@@ -9,6 +9,7 @@ import { CatalogProvider } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
+import PiramidePage from './pages/PiramidePage';
 import type { CalculatorMode, ScheduleResult } from './types';
 
 function CalculatorApp() {
@@ -82,7 +83,15 @@ function CalculatorApp() {
       </main>
 
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">
-        © {new Date().getFullYear()} {t('footer.madeBy')}
+        <Link
+          to="/piramide"
+          className="font-medium text-brand-700 transition hover:text-brand-800"
+        >
+          {t('piramide.openLink')}
+        </Link>
+        <div className="mt-2">
+          © {new Date().getFullYear()} {t('footer.madeBy')}
+        </div>
       </footer>
     </div>
   );
@@ -96,6 +105,7 @@ function App() {
           <Routes>
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/piramide" element={<PiramidePage />} />
             <Route path="*" element={<CalculatorApp />} />
           </Routes>
         </CatalogProvider>
