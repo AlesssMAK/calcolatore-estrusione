@@ -56,18 +56,106 @@ export interface OcrProgress {
 }
 
 /**
+ * Prepare a cropped image for OCR. Tesseract reads printed digits far better
+ * on a clean, high-contrast, reasonably large bitmap than on a raw phone
+ * photo, so we:
+ *   1. upscale small crops (Tesseract wants a decent glyph height);
+ *   2. convert to grayscale;
+ *   3. binarize with an Otsu global threshold → crisp black text on white.
+ * All done on a canvas, no extra deps.
+ */
+export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
+  const MIN_W = 1400;
+  const scale = source.width < MIN_W ? Math.min(3, MIN_W / source.width) : 1;
+  const w = Math.max(1, Math.round(source.width * scale));
+  const h = Math.max(1, Math.round(source.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return source;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, w, h);
+
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const total = w * h;
+
+  // Grayscale + histogram.
+  const gray = new Uint8ClampedArray(total);
+  const hist = new Array(256).fill(0);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    gray[p] = g;
+    hist[g]++;
+  }
+
+  // Otsu threshold: maximise between-class variance.
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0;
+  let wB = 0;
+  let maxVar = -1;
+  let threshold = 127;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) {
+      maxVar = between;
+      threshold = t;
+    }
+  }
+
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    const v = gray[p] > threshold ? 255 : 0;
+    d[i] = d[i + 1] = d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+/**
  * Run OCR on an image (Blob / dataURL / HTMLCanvasElement) and return parsed
- * rows. `onProgress` is called during recognition so the UI can show a bar.
+ * rows. Canvas inputs are preprocessed (binarized + upscaled) first.
+ *
+ * Tuned for number columns: the character whitelist is restricted to digits
+ * and separators (so 0→O, 1→l, 5→S, 8→B confusions can't happen) and page
+ * segmentation is set to a single uniform block, which suits the tabular
+ * Lunghezza/Quantità layout.
  */
 export async function recognizeSheets(
   image: Blob | string | HTMLCanvasElement,
   onProgress?: (p: OcrProgress) => void,
 ): Promise<OcrRow[]> {
-  const { recognize } = await import('tesseract.js');
-  const { data } = await recognize(image, 'eng', {
+  const source =
+    typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement
+      ? preprocessForOcr(image)
+      : image;
+
+  const { createWorker, PSM } = await import('tesseract.js');
+  const worker = await createWorker('eng', 1, {
     logger: (m: { status: string; progress: number }) => {
       onProgress?.({ status: m.status, progress: m.progress });
     },
   });
-  return parseOcrText(data.text);
+  try {
+    await worker.setParameters({
+      tessedit_char_whitelist: '0123456789.,',
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+      preserve_interword_spaces: '1',
+    });
+    const { data } = await worker.recognize(source);
+    return parseOcrText(data.text);
+  } finally {
+    await worker.terminate();
+  }
 }
