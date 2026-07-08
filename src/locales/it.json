@@ -151,9 +151,9 @@
   },
   "piramide": {
     "title": "Piramide",
-    "subtitle": "Distribuzione fogli sul bancale",
+    "subtitle": "Distribuzione lastre sul bancale",
     "backToCalculator": "Calcolatore",
-    "openLink": "📐 Piramide (distribuzione fogli)",
+    "openLink": "📐 Piramide (distribuzione lastre)",
     "photo": {
       "title": "Foto dell'ordine",
       "hint": "Scatta o carica una o più foto, ritaglia le colonne Lunghezza e Quantità e leggi i valori. Puoi anche inserirli a mano.",
@@ -169,21 +169,21 @@
       "readError": "Lettura non riuscita. Riprova o inserisci a mano."
     },
     "sheets": {
-      "title": "Fogli",
+      "title": "Lastre",
       "length": "Lunghezza (mm)",
       "qty": "Quantità (pz)",
       "add": "+ Aggiungi riga",
       "remove": "Rimuovi",
       "clear": "Svuota",
-      "empty": "Nessun foglio. Aggiungi righe o leggi da una foto.",
-      "totalPieces": "Totale fogli",
+      "empty": "Nessuna lastra. Aggiungi righe o leggi da una foto.",
+      "totalPieces": "Totale lastre",
       "distinct": "Lunghezze diverse"
     },
     "options": {
       "title": "Opzioni",
       "base": "Lunghezza massima (mm)",
-      "baseHint": "opz. — vuoto = foglio più lungo",
-      "lanes": "Fogli in larghezza",
+      "baseHint": "opz. — vuoto = lastra più lunga",
+      "lanes": "Lastre in larghezza",
       "lanesHint": "corsie affiancate per strato",
       "maxRows": "Righe max per bancale",
       "maxRowsHint": "opz. — vuoto = illimitato"
@@ -191,18 +191,18 @@
     "calculate": "Calcola distribuzione",
     "result": {
       "title": "Distribuzione",
-      "empty": "Inserisci i fogli e premi «Calcola distribuzione».",
+      "empty": "Inserisci le lastre e premi «Calcola distribuzione».",
       "base": "Base",
       "corsie": "Corsie",
       "strati": "Strati",
-      "fogli": "Fogli",
+      "fogli": "Lastre",
       "scartoTot": "Scarto totale",
       "bancale": "Bancale {{n}}",
       "strato": "Strato",
       "colNum": "#",
       "colCombinazione": "Combinazione",
       "colLunghezza": "Lunghezza",
-      "colFogli": "Fogli",
+      "colFogli": "Lastre",
       "colScarto": "Scarto",
       "corsia": "Corsia {{n}}"
     }
