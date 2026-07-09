@@ -148,5 +148,73 @@
   },
   "footer": {
     "madeBy": "Calcolatore di Estrusione"
+  },
+  "piramide": {
+    "title": "Piramide",
+    "subtitle": "Distribuzione lastre sul bancale",
+    "backToCalculator": "Calcolatore",
+    "openLink": "📐 Piramide (distribuzione lastre)",
+    "readText": "🔍 Testo letto (affidabilità {{confidence}}%)",
+    "tips": {
+      "title": "💡 Consigli per una buona scansione",
+      "crop": "Ritaglia solo le colonne Lunghezza e Quantità: se prendi i bordi laterali, il disegno del profilo o le colonne Peso/mq la lettura peggiora; ritagliando stretto viene tutto.",
+      "allRows": "Inquadra tutte le righe (tutta l'altezza della tabella).",
+      "flat": "Foto a fuoco, dritta e con luce uniforme, senza riflessi.",
+      "lowConf": "Se l'affidabilità è sotto il 90%, riscansiona ritagliando più stretto.",
+      "manual": "Puoi correggere o aggiungere righe a mano, e scansionare più foto (si sommano)."
+    },
+    "photo": {
+      "title": "Foto dell'ordine",
+      "hint": "Scatta o carica una o più foto, ritaglia le colonne Lunghezza e Quantità e leggi i valori. Puoi anche inserirli a mano.",
+      "take": "📷 Scatta foto",
+      "upload": "🖼 Carica immagine",
+      "crop": "Ritaglia l'area con Lunghezza e Quantità, poi leggi.",
+      "confirmCrop": "✓ Leggi selezione",
+      "wholeImage": "Leggi tutta l'immagine",
+      "cancel": "Annulla",
+      "reading": "Lettura in corso…",
+      "readOk": "Lette {{count}} righe — controlla e correggi sotto.",
+      "readLowConfidence": "Lette {{count}} righe, ma affidabilità solo {{confidence}}% — controlla che non manchi nulla o riscansiona ritagliando più stretto.",
+      "readEmpty": "Nessun valore riconosciuto. Ritaglia più stretto o inserisci a mano.",
+      "readError": "Lettura non riuscita. Riprova o inserisci a mano."
+    },
+    "sheets": {
+      "title": "Lastre",
+      "length": "Lunghezza (mm)",
+      "qty": "Quantità (pz)",
+      "add": "+ Aggiungi riga",
+      "remove": "Rimuovi",
+      "clear": "Svuota",
+      "empty": "Nessuna lastra. Aggiungi righe o leggi da una foto.",
+      "totalPieces": "Totale lastre",
+      "distinct": "Lunghezze diverse"
+    },
+    "options": {
+      "title": "Opzioni",
+      "base": "Lunghezza massima (mm)",
+      "baseHint": "opz. — vuoto = lastra più lunga",
+      "lanes": "Lastre in larghezza",
+      "lanesHint": "corsie affiancate per strato",
+      "maxRows": "Righe max per bancale",
+      "maxRowsHint": "opz. — vuoto = illimitato"
+    },
+    "calculate": "Calcola distribuzione",
+    "result": {
+      "title": "Distribuzione",
+      "empty": "Inserisci le lastre e premi «Calcola distribuzione».",
+      "base": "Base",
+      "corsie": "Corsie",
+      "strati": "Strati",
+      "fogli": "Lastre",
+      "scartoTot": "Scarto totale",
+      "bancale": "Bancale {{n}}",
+      "strato": "Strato",
+      "colNum": "#",
+      "colCombinazione": "Combinazione",
+      "colLunghezza": "Lunghezza",
+      "colFogli": "Lastre",
+      "colScarto": "Scarto",
+      "corsia": "Corsia {{n}}"
+    }
   }
 }

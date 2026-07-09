@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import type { CalculatorMode } from '../types';
 
 interface Props {
@@ -41,23 +42,41 @@ function Tabs({ value, onChange, settingsOpen, onToggleSettings }: Props) {
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={onToggleSettings}
-        aria-pressed={settingsOpen}
-        aria-label={t('settings.title')}
-        title={t('settings.title')}
-        className={
-          settingsOpen
-            ? 'inline-flex items-center gap-1.5 rounded-md border border-brand-600 bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition'
-            : 'inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink'
-        }
-      >
-        <span aria-hidden>⚙</span>
-        <span className="hidden whitespace-nowrap sm:inline">
-          {t('settings.title')}
-        </span>
-      </button>
+      <div className="flex items-center gap-2">
+        <Link
+          to="/piramide"
+          aria-label={t('piramide.title')}
+          title={t('piramide.title')}
+          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink"
+        >
+          <span aria-hidden className="flex h-5 w-5 items-center justify-center leading-none">
+            📐
+          </span>
+          <span className="hidden whitespace-nowrap sm:inline">
+            {t('piramide.title')}
+          </span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={onToggleSettings}
+          aria-pressed={settingsOpen}
+          aria-label={t('settings.title')}
+          title={t('settings.title')}
+          className={
+            settingsOpen
+              ? 'inline-flex items-center gap-1.5 rounded-md border border-brand-600 bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition'
+              : 'inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink'
+          }
+        >
+          <span aria-hidden className="flex h-5 w-5 items-center justify-center leading-none">
+            ⚙
+          </span>
+          <span className="hidden whitespace-nowrap sm:inline">
+            {t('settings.title')}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

@@ -148,5 +148,73 @@
   },
   "footer": {
     "madeBy": "Calculadora de Extrusión"
+  },
+  "piramide": {
+    "title": "Pirámide",
+    "subtitle": "Distribución de láminas en el palet",
+    "backToCalculator": "Calculadora",
+    "openLink": "📐 Pirámide (distribución de láminas)",
+    "readText": "🔍 Texto leído (fiabilidad {{confidence}}%)",
+    "tips": {
+      "title": "💡 Consejos para un buen escaneo",
+      "crop": "Recorta solo las columnas Longitud y Cantidad: si incluyes los bordes laterales, el dibujo del perfil o las columnas Peso/m² la lectura empeora; recortando ajustado sale todo.",
+      "allRows": "Encuadra todas las filas (toda la altura de la tabla).",
+      "flat": "Foto enfocada, recta y con luz uniforme, sin reflejos.",
+      "lowConf": "Si la fiabilidad es inferior al 90%, reescanea recortando más ajustado.",
+      "manual": "Puedes corregir o añadir filas a mano, y escanear varias fotos (se suman)."
+    },
+    "photo": {
+      "title": "Foto del pedido",
+      "hint": "Haz o sube una o varias fotos, recorta las columnas Longitud y Cantidad y lee los valores. También puedes introducirlos a mano.",
+      "take": "📷 Hacer foto",
+      "upload": "🖼 Subir imagen",
+      "crop": "Recorta el área con Longitud y Cantidad, luego lee.",
+      "confirmCrop": "✓ Leer selección",
+      "wholeImage": "Leer imagen completa",
+      "cancel": "Cancelar",
+      "reading": "Leyendo…",
+      "readOk": "Leídas {{count}} filas — revisa y corrige abajo.",
+      "readLowConfidence": "Leídas {{count}} filas, pero fiabilidad solo {{confidence}}% — revisa que no falte nada o reescanea recortando más ajustado.",
+      "readEmpty": "No se reconocieron valores. Recorta más ajustado o introduce a mano.",
+      "readError": "Lectura fallida. Reintenta o introduce a mano."
+    },
+    "sheets": {
+      "title": "Láminas",
+      "length": "Longitud (mm)",
+      "qty": "Cantidad (uds)",
+      "add": "+ Añadir fila",
+      "remove": "Eliminar",
+      "clear": "Vaciar",
+      "empty": "Sin láminas. Añade filas o lee desde una foto.",
+      "totalPieces": "Total láminas",
+      "distinct": "Longitudes distintas"
+    },
+    "options": {
+      "title": "Opciones",
+      "base": "Longitud máxima (mm)",
+      "baseHint": "opc. — vacío = lámina más larga",
+      "lanes": "Láminas a lo ancho",
+      "lanesHint": "carriles contiguos por capa",
+      "maxRows": "Filas máx. por palet",
+      "maxRowsHint": "opc. — vacío = ilimitado"
+    },
+    "calculate": "Calcular distribución",
+    "result": {
+      "title": "Distribución",
+      "empty": "Introduce las láminas y pulsa «Calcular distribución».",
+      "base": "Base",
+      "corsie": "Carriles",
+      "strati": "Capas",
+      "fogli": "Láminas",
+      "scartoTot": "Desperdicio total",
+      "bancale": "Palet {{n}}",
+      "strato": "Capa",
+      "colNum": "#",
+      "colCombinazione": "Combinación",
+      "colLunghezza": "Longitud",
+      "colFogli": "Láminas",
+      "colScarto": "Desperdicio",
+      "corsia": "Carril {{n}}"
+    }
   }
 }
