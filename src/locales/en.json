@@ -154,6 +154,7 @@
     "subtitle": "Sheet layout on the pallet",
     "backToCalculator": "Calculator",
     "openLink": "📐 Pyramid (sheet layout)",
+    "readText": "🔍 Text read (reliability {{confidence}}%)",
     "photo": {
       "title": "Order photo",
       "hint": "Take or upload one or more photos, crop the Length and Quantity columns and read the values. You can also enter them by hand.",

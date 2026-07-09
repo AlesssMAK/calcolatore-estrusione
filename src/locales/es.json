@@ -154,6 +154,7 @@
     "subtitle": "Distribución de láminas en el palet",
     "backToCalculator": "Calculadora",
     "openLink": "📐 Pirámide (distribución de láminas)",
+    "readText": "🔍 Texto leído (fiabilidad {{confidence}}%)",
     "photo": {
       "title": "Foto del pedido",
       "hint": "Haz o sube una o varias fotos, recorta las columnas Longitud y Cantidad y lee los valores. También puedes introducirlos a mano.",

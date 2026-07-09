@@ -252,7 +252,9 @@ function PiramidePage() {
           {ocrDebug && !photoSrc && (
             <details className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
               <summary className="cursor-pointer font-semibold text-ink-soft">
-                🐞 Debug OCR — testo grezzo (confidenza {Math.round(ocrDebug.confidence)}%)
+                {t('piramide.readText', {
+                  confidence: Math.round(ocrDebug.confidence),
+                })}
               </summary>
               <div className="mt-2 flex justify-end">
                 <button
@@ -262,7 +264,7 @@ function PiramidePage() {
                   }
                   className="rounded border border-neutral-300 bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:border-brand-500 hover:text-brand-600"
                 >
-                  📋 Copia
+                  📋 {t('actions.copy')}
                 </button>
               </div>
               <pre className="mt-1 max-h-64 overflow-auto rounded bg-white p-2 font-mono text-[11px] leading-snug whitespace-pre-wrap text-ink">

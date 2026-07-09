@@ -154,6 +154,7 @@
     "subtitle": "Distribuzione lastre sul bancale",
     "backToCalculator": "Calcolatore",
     "openLink": "📐 Piramide (distribuzione lastre)",
+    "readText": "🔍 Testo letto (affidabilità {{confidence}}%)",
     "photo": {
       "title": "Foto dell'ordine",
       "hint": "Scatta o carica una o più foto, ritaglia le colonne Lunghezza e Quantità e leggi i valori. Puoi anche inserirli a mano.",
