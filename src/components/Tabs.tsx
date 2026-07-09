@@ -49,7 +49,9 @@ function Tabs({ value, onChange, settingsOpen, onToggleSettings }: Props) {
           title={t('piramide.title')}
           className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink"
         >
-          <span aria-hidden>📐</span>
+          <span aria-hidden className="flex h-5 w-5 items-center justify-center leading-none">
+            📐
+          </span>
           <span className="hidden whitespace-nowrap sm:inline">
             {t('piramide.title')}
           </span>
@@ -67,7 +69,9 @@ function Tabs({ value, onChange, settingsOpen, onToggleSettings }: Props) {
               : 'inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink'
           }
         >
-          <span aria-hidden>⚙</span>
+          <span aria-hidden className="flex h-5 w-5 items-center justify-center leading-none">
+            ⚙
+          </span>
           <span className="hidden whitespace-nowrap sm:inline">
             {t('settings.title')}
           </span>
