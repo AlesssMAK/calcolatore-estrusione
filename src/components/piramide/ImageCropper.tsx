@@ -73,6 +73,7 @@ function ImageCropper({
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  const [box, setBox] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(1);
   const [mode, setMode] = useState<'select' | 'move'>('select');
   const [sel, setSel] = useState<Rect | null>(null);
@@ -103,6 +104,25 @@ function ImageCropper({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
+
+  // Measure the viewport so zoom=1 fits the WHOLE image (width AND height),
+  // like the old object-contain — the operator can grab everything at once.
+  useEffect(() => {
+    const measure = () =>
+      setBox({
+        w: containerRef.current?.clientWidth ?? 0,
+        h: Math.round(window.innerHeight * 0.7),
+      });
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  // Scale that fits the natural image inside the viewport at zoom 1 (never
+  // upscales past native). displayW is the on-screen image width in px.
+  const fitScale =
+    nat && box.w > 0 ? Math.min(1, box.w / nat.w, box.h / nat.h) : 1;
+  const displayW = nat ? nat.w * fitScale * zoom : null;
 
   const onPointerDown = (e: ReactPointerEvent) => {
     if (busy || !nat) return;
@@ -227,7 +247,10 @@ function ImageCropper({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <div className="relative w-full select-none" style={{ width: `${zoom * 100}%` }}>
+        <div
+          className="relative mx-auto select-none"
+          style={{ width: displayW ? `${displayW}px` : '100%' }}
+        >
           <img
             ref={imgRef}
             src={src}
