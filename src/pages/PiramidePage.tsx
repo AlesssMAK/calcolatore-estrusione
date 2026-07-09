@@ -74,6 +74,10 @@ function PiramidePage() {
   const [ocrStatus, setOcrStatus] = useState<{ kind: 'ok' | 'warn' | 'err'; msg: string } | null>(
     null,
   );
+  // Raw Tesseract text (+ confidence) of the last scan — collapsed diagnostics.
+  const [ocrDebug, setOcrDebug] = useState<{ rawText: string; confidence: number } | null>(
+    null,
+  );
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
@@ -96,9 +100,11 @@ function PiramidePage() {
     setOcrBusy(true);
     setOcrProgress(0);
     try {
-      const parsed = await recognizeSheets(canvas, (p) => {
+      const result = await recognizeSheets(canvas, (p) => {
         if (p.status === 'recognizing text') setOcrProgress(p.progress);
       });
+      setOcrDebug({ rawText: result.rawText, confidence: result.confidence });
+      const parsed = result.rows;
       if (parsed.length === 0) {
         setOcrStatus({ kind: 'warn', msg: t('piramide.photo.readEmpty') });
       } else {
@@ -241,6 +247,28 @@ function PiramidePage() {
             >
               {ocrStatus.msg}
             </p>
+          )}
+
+          {ocrDebug && !photoSrc && (
+            <details className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
+              <summary className="cursor-pointer font-semibold text-ink-soft">
+                🐞 Debug OCR — testo grezzo (confidenza {Math.round(ocrDebug.confidence)}%)
+              </summary>
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void navigator.clipboard?.writeText(ocrDebug.rawText)
+                  }
+                  className="rounded border border-neutral-300 bg-white px-2 py-1 text-[11px] font-medium text-ink-soft hover:border-brand-500 hover:text-brand-600"
+                >
+                  📋 Copia
+                </button>
+              </div>
+              <pre className="mt-1 max-h-64 overflow-auto rounded bg-white p-2 font-mono text-[11px] leading-snug whitespace-pre-wrap text-ink">
+                {ocrDebug.rawText || '(vuoto)'}
+              </pre>
+            </details>
           )}
         </section>
 

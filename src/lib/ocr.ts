@@ -87,6 +87,17 @@ export interface OcrProgress {
   progress: number; // 0..1
 }
 
+export interface OcrResult {
+  /** Rows after parsing/filtering — what fills the editable table. */
+  rows: OcrRow[];
+  /** Raw text Tesseract returned, before parsing. Kept for the diagnostics
+   *  panel: lets us see whether a missing/odd row is an OCR miss or a parser
+   *  quirk without guessing. */
+  rawText: string;
+  /** Tesseract's overall confidence 0..100. */
+  confidence: number;
+}
+
 /**
  * Prepare a cropped image for OCR: upscale small crops (Tesseract wants a
  * decent glyph height) and convert to grayscale. No thresholding — Tesseract's
@@ -127,7 +138,7 @@ export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
 export async function recognizeSheets(
   image: Blob | string | HTMLCanvasElement,
   onProgress?: (p: OcrProgress) => void,
-): Promise<OcrRow[]> {
+): Promise<OcrResult> {
   const source =
     typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement
       ? preprocessForOcr(image)
@@ -146,7 +157,11 @@ export async function recognizeSheets(
       preserve_interword_spaces: '1',
     });
     const { data } = await worker.recognize(source);
-    return parseOcrText(data.text);
+    return {
+      rows: parseOcrText(data.text),
+      rawText: data.text,
+      confidence: data.confidence,
+    };
   } finally {
     await worker.terminate();
   }
