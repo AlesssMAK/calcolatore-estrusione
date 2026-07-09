@@ -23,6 +23,10 @@ const newRow = (length = '', qty = ''): SheetRow => ({
   qty,
 });
 
+// Below this Tesseract confidence a scan is flagged as unreliable (likely
+// missing rows) — the operator should re-crop tighter.
+const MIN_CONFIDENCE = 90;
+
 const inputCls =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 const labelCls =
@@ -113,10 +117,21 @@ function PiramidePage() {
           const added = parsed.map((p) => newRow(String(p.length), String(p.qty)));
           return [...filled, ...added, newRow()];
         });
-        setOcrStatus({
-          kind: 'ok',
-          msg: t('piramide.photo.readOk', { count: parsed.length }),
-        });
+        const confidence = Math.round(result.confidence);
+        if (confidence < MIN_CONFIDENCE) {
+          setOcrStatus({
+            kind: 'warn',
+            msg: t('piramide.photo.readLowConfidence', {
+              count: parsed.length,
+              confidence,
+            }),
+          });
+        } else {
+          setOcrStatus({
+            kind: 'ok',
+            msg: t('piramide.photo.readOk', { count: parsed.length }),
+          });
+        }
       }
     } catch {
       setOcrStatus({ kind: 'err', msg: t('piramide.photo.readError') });
@@ -134,6 +149,8 @@ function PiramidePage() {
   const clearRows = () => {
     setRows([newRow()]);
     setResult(null);
+    setOcrDebug(null);
+    setOcrStatus(null);
   };
 
   const parsedSheets: SheetInput[] = rows
@@ -189,6 +206,19 @@ function PiramidePage() {
             {t('piramide.photo.title')}
           </h2>
           <p className="mt-1 text-sm text-ink-soft">{t('piramide.photo.hint')}</p>
+
+          <details className="mt-2 rounded-md border border-brand-100 bg-brand-50/40 p-3 text-xs">
+            <summary className="cursor-pointer font-semibold text-brand-700">
+              {t('piramide.tips.title')}
+            </summary>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-ink-soft">
+              <li>{t('piramide.tips.crop')}</li>
+              <li>{t('piramide.tips.allRows')}</li>
+              <li>{t('piramide.tips.flat')}</li>
+              <li>{t('piramide.tips.lowConf')}</li>
+              <li>{t('piramide.tips.manual')}</li>
+            </ul>
+          </details>
 
           <input
             ref={cameraRef}
