@@ -6,8 +6,10 @@
 // operator actually runs a scan on this page.
 //
 // OCR is best-effort: the parsed rows land in an editable table where the
-// operator verifies and corrects them before computing. We favour recall
-// (grab plausible length/qty pairs) over precision (the human fixes the rest).
+// operator verifies and corrects them before computing. We keep the pipeline
+// deliberately simple — upscale + grayscale, then let Tesseract do its own
+// (robust, adaptive) thresholding and layout. Home-grown global binarization
+// and row-segmentation both proved LESS reliable on real phone photos.
 
 export interface OcrRow {
   length: number;
@@ -17,15 +19,36 @@ export interface OcrRow {
 /** Lines that are headers / totals / unit rows, never a real sheet row. */
 const NOISE = /(?:\bml\b|\bkg\b|\bmq\b|m²|totale|peso|quantit|lunghezz|turno|nome|capo|segnalazion|ordine|cliente|articolo)/i;
 
+const MIN_LEN = 300;
+const MAX_LEN = 30000;
+
 /**
- * Parse Tesseract's raw text into candidate {length, qty} rows.
+ * Recover a qty+length that OCR glued into one token when the space between
+ * the two columns collapsed (e.g. "410230" → qty 4 + length 10230, "46740" →
+ * 4 + 6740). Peels a 1–2 digit quantity off the front, keeping the rest as a
+ * plausible length. Returns null when no such split exists.
+ */
+function splitMergedQtyLength(token: string): OcrRow | null {
+  for (let cut = 1; cut <= 2 && cut < token.length; cut++) {
+    const qty = Number(token.slice(0, cut));
+    const length = Number(token.slice(cut));
+    if (qty >= 1 && qty < 100 && length >= MIN_LEN && length <= MAX_LEN) {
+      return { length, qty };
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse OCR text into candidate {length, qty} rows.
  *
  * Heuristics tuned to the form layout (Quantità column first, then Lunghezza):
- *  - Decimal tokens (Peso 52,30 / mq 20,92) are stripped first — they use a
- *    comma/point and are never lengths or quantities.
+ *  - Two-decimal tokens (Peso 52,30 / mq 20,92) are stripped first — they can
+ *    never be lengths. Only 2-dp values, so a glued number keeps its digits.
  *  - Of the remaining integers on a line: the first small one (< 300) is the
- *    quantity, and the plausible sheet length (300–30000 mm) is the length.
- *  - Header / totals lines are skipped by keyword.
+ *    quantity, the plausible sheet length (300–30000 mm) is the length.
+ *  - If a line has NO plausible length but an oversized number, it's a glued
+ *    qty+length — split it back (this is what fixes the dropped rows).
  */
 export function parseOcrText(text: string): OcrRow[] {
   const rows: OcrRow[] = [];
@@ -33,19 +56,28 @@ export function parseOcrText(text: string): OcrRow[] {
     const line = raw.trim();
     if (!line || NOISE.test(line)) continue;
 
-    // Drop decimals (52,30 / 20.92) so they don't masquerade as integers.
-    const cleaned = line.replace(/\d+[.,]\d+/g, ' ');
-    const ints = (cleaned.match(/\d+/g) ?? []).map(Number).filter((n) => n > 0);
-    if (ints.length === 0) continue;
+    const cleaned = line.replace(/\d+[.,]\d{2}(?!\d)/g, ' ');
+    const tokens = cleaned.match(/\d+/g) ?? [];
+    if (tokens.length === 0) continue;
+    const nums = tokens.map(Number);
 
-    const lengths = ints.filter((n) => n >= 300 && n <= 30000);
-    if (lengths.length === 0) continue;
-    const qtys = ints.filter((n) => n >= 1 && n < 300);
+    const lengths = nums.filter((n) => n >= MIN_LEN && n <= MAX_LEN);
+    if (lengths.length > 0) {
+      const length = Math.max(...lengths);
+      const qty = nums.find((n) => n >= 1 && n < 300) ?? 1;
+      rows.push({ length, qty });
+      continue;
+    }
 
-    // Usually one length per line; if OCR merged two, take the largest.
-    const length = Math.max(...lengths);
-    const qty = qtys[0] ?? 1;
-    rows.push({ length, qty });
+    for (const tok of tokens) {
+      if (Number(tok) > MAX_LEN) {
+        const split = splitMergedQtyLength(tok);
+        if (split) {
+          rows.push(split);
+          break;
+        }
+      }
+    }
   }
   return rows;
 }
@@ -56,16 +88,13 @@ export interface OcrProgress {
 }
 
 /**
- * Prepare a cropped image for OCR. Tesseract reads printed digits far better
- * on a clean, high-contrast, reasonably large bitmap than on a raw phone
- * photo, so we:
- *   1. upscale small crops (Tesseract wants a decent glyph height);
- *   2. convert to grayscale;
- *   3. binarize with an Otsu global threshold → crisp black text on white.
- * All done on a canvas, no extra deps.
+ * Prepare a cropped image for OCR: upscale small crops (Tesseract wants a
+ * decent glyph height) and convert to grayscale. No thresholding — Tesseract's
+ * own adaptive binarization handles uneven lighting far better than a global
+ * cut did.
  */
 export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
-  const MIN_W = 1400;
+  const MIN_W = 1600;
   const scale = source.width < MIN_W ? Math.min(3, MIN_W / source.width) : 1;
   const w = Math.max(1, Math.round(source.width * scale));
   const h = Math.max(1, Math.round(source.height * scale));
@@ -81,56 +110,19 @@ export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
 
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
-  const total = w * h;
-
-  // Grayscale + histogram.
-  const gray = new Uint8ClampedArray(total);
-  const hist = new Array(256).fill(0);
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+  for (let i = 0; i < d.length; i += 4) {
     const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
-    gray[p] = g;
-    hist[g]++;
-  }
-
-  // Otsu threshold: maximise between-class variance.
-  let sum = 0;
-  for (let t = 0; t < 256; t++) sum += t * hist[t];
-  let sumB = 0;
-  let wB = 0;
-  let maxVar = -1;
-  let threshold = 127;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const between = wB * wF * (mB - mF) * (mB - mF);
-    if (between > maxVar) {
-      maxVar = between;
-      threshold = t;
-    }
-  }
-
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    const v = gray[p] > threshold ? 255 : 0;
-    d[i] = d[i + 1] = d[i + 2] = v;
-    d[i + 3] = 255;
+    d[i] = d[i + 1] = d[i + 2] = g;
   }
   ctx.putImageData(img, 0, 0);
   return canvas;
 }
 
 /**
- * Run OCR on an image (Blob / dataURL / HTMLCanvasElement) and return parsed
- * rows. Canvas inputs are preprocessed (binarized + upscaled) first.
- *
- * Tuned for number columns: the character whitelist is restricted to digits
- * and separators (so 0→O, 1→l, 5→S, 8→B confusions can't happen) and page
- * segmentation is set to a single uniform block, which suits the tabular
- * Lunghezza/Quantità layout.
+ * Run OCR on an image (Blob / dataURL / HTMLCanvasElement) → parsed rows.
+ * Canvas inputs are upscaled + grayscaled first. The character whitelist is
+ * digits + separators only (so 0↔O, 1↔l, 5↔S, 8↔B confusions can't happen),
+ * and page segmentation is a single uniform block for the tabular layout.
  */
 export async function recognizeSheets(
   image: Blob | string | HTMLCanvasElement,
