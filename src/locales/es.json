@@ -166,8 +166,8 @@
     "photo": {
       "title": "Foto del pedido",
       "hint": "Haz o sube una o varias fotos, recorta las columnas Longitud y Cantidad y lee los valores. También puedes introducirlos a mano.",
-      "take": "📷 Hacer foto",
-      "upload": "🖼 Subir imagen",
+      "take": "Hacer foto",
+      "upload": "Subir imagen",
       "crop": "Amplía y desplaza para encuadrar, selecciona el área con Longitud y Cantidad, luego lee.",
       "confirmCrop": "✓ Leer selección",
       "wholeImage": "Leer imagen completa",

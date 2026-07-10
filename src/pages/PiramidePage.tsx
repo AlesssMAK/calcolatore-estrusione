@@ -244,16 +244,20 @@ function PiramidePage() {
               <button
                 type="button"
                 onClick={() => cameraRef.current?.click()}
-                className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                aria-label={t('piramide.photo.take')}
+                className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
               >
-                {t('piramide.photo.take')}
+                <span aria-hidden>📷</span>
+                <span className="hidden sm:inline">{t('piramide.photo.take')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => uploadRef.current?.click()}
-                className="rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+                aria-label={t('piramide.photo.upload')}
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
               >
-                {t('piramide.photo.upload')}
+                <span aria-hidden>🖼</span>
+                <span className="hidden sm:inline">{t('piramide.photo.upload')}</span>
               </button>
             </div>
           )}
