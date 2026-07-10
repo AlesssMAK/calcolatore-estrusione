@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
 import { recognizeSheets } from '../lib/ocr';
@@ -176,9 +177,16 @@ function PiramidePage() {
 
   return (
     <div className="min-h-full bg-surface-alt">
-      <Header title={`📐 ${t('piramide.title')}`} homeHref="/" />
+      <Header title={t('piramide.title')} homeHref="/" />
 
       <main className="mx-auto max-w-6xl space-y-4 px-3 py-4 sm:space-y-5 sm:px-4 sm:py-8">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+        >
+          ← {t('piramide.backToCalculator')}
+        </Link>
+
         {/* Photo / OCR */}
         <section className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-5">
           <h2 className="text-base font-semibold text-ink sm:text-lg">
