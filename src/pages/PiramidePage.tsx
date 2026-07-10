@@ -430,7 +430,7 @@ function PiramidePage() {
             type="button"
             onClick={onCompute}
             disabled={parsedSheets.length === 0}
-            className="mt-4 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="mt-6 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-7 sm:w-auto"
           >
             {t('piramide.calculate')}
           </button>
