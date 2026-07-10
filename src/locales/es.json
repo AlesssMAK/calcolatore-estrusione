@@ -201,7 +201,7 @@
       "maxRows": "Filas máx. por palet",
       "maxRowsHint": "opc. — vacío = ilimitado"
     },
-    "calculate": "Calcular distribución",
+    "calculate": "Calcular Distribución",
     "result": {
       "title": "Distribución",
       "empty": "Introduce las láminas y pulsa «Calcular distribución».",

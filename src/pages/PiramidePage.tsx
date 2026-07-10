@@ -144,7 +144,13 @@ function PiramidePage() {
   const setRow = (id: string, patch: Partial<SheetRow>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
-  const addRow = () => setRows((prev) => [...prev, newRow()]);
+  const addRowAfter = (id: string) =>
+    setRows((prev) => {
+      const i = prev.findIndex((r) => r.id === id);
+      const next = [...prev];
+      next.splice(i + 1, 0, newRow());
+      return next;
+    });
   const removeRow = (id: string) =>
     setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
   const clearRows = () => {
@@ -309,13 +315,16 @@ function PiramidePage() {
           </div>
 
           <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:gap-3">
               <label className={labelCls}>{t('piramide.sheets.length')}</label>
               <label className={labelCls}>{t('piramide.sheets.qty')}</label>
-              <span className="w-9" />
+              <span className="w-[84px]" />
             </div>
             {rows.map((r) => (
-              <div key={r.id} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+              <div
+                key={r.id}
+                className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 sm:gap-3"
+              >
                 <input
                   type="number"
                   min="1"
@@ -334,27 +343,30 @@ function PiramidePage() {
                   value={r.qty}
                   onChange={(e) => setRow(r.id, { qty: e.target.value })}
                 />
-                <button
-                  type="button"
-                  onClick={() => removeRow(r.id)}
-                  disabled={rows.length <= 1}
-                  aria-label={t('piramide.sheets.remove')}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ×
-                </button>
+                <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => removeRow(r.id)}
+                    disabled={rows.length <= 1}
+                    aria-label={t('piramide.sheets.remove')}
+                    className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addRowAfter(r.id)}
+                    aria-label={t('piramide.sheets.add')}
+                    className="flex h-9 w-9 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             ))}
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={addRow}
-              className="rounded-md border border-brand-300 bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50"
-            >
-              {t('piramide.sheets.add')}
-            </button>
             <button
               type="button"
               onClick={clearRows}
@@ -420,7 +432,7 @@ function PiramidePage() {
             disabled={parsedSheets.length === 0}
             className="mt-4 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
-            {t('piramide.calculate')} →
+            {t('piramide.calculate')}
           </button>
         </section>
 

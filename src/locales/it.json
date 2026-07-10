@@ -201,7 +201,7 @@
       "maxRows": "Righe max per bancale",
       "maxRowsHint": "opz. — vuoto = illimitato"
     },
-    "calculate": "Calcola distribuzione",
+    "calculate": "Calcola Distribuzione",
     "result": {
       "title": "Distribuzione",
       "empty": "Inserisci le lastre e premi «Calcola distribuzione».",
