@@ -1,6 +1,12 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
+/** Selection stored in NATURAL image pixels, so zoom/pan never invalidate it. */
 interface Rect {
   x: number;
   y: number;
@@ -19,21 +25,18 @@ interface Props {
   progressLabel?: string;
 }
 
-// Draw a region of the loaded <img> (given in displayed CSS px relative to the
-// image box) into a fresh canvas at the image's natural resolution — better
-// OCR than downscaled pixels.
-function cropToCanvas(img: HTMLImageElement, sel: Rect | null): HTMLCanvasElement {
-  const scaleX = img.naturalWidth / img.clientWidth;
-  const scaleY = img.naturalHeight / img.clientHeight;
-  const region: Rect = sel
-    ? {
-        x: sel.x * scaleX,
-        y: sel.y * scaleY,
-        w: sel.w * scaleX,
-        h: sel.h * scaleY,
-      }
-    : { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+const MAX_ZOOM = 6;
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
+// Draw a region (in natural px) of the loaded image into a fresh canvas at the
+// image's native resolution — best input for OCR.
+function cropToCanvas(img: HTMLImageElement, sel: Rect | null): HTMLCanvasElement {
+  const region: Rect = sel ?? {
+    x: 0,
+    y: 0,
+    w: img.naturalWidth,
+    h: img.naturalHeight,
+  };
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(region.w));
   canvas.height = Math.max(1, Math.round(region.h));
@@ -54,6 +57,10 @@ function cropToCanvas(img: HTMLImageElement, sel: Rect | null): HTMLCanvasElemen
   return canvas;
 }
 
+const segCls = 'px-3 py-1.5 text-xs font-medium transition';
+const zoomBtnCls =
+  'flex h-8 min-w-8 items-center justify-center rounded-md border border-neutral-300 bg-white px-2 text-sm font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink';
+
 function ImageCropper({
   src,
   onCrop,
@@ -64,90 +71,212 @@ function ImageCropper({
 }: Props) {
   const { t } = useTranslation();
   const imgRef = useRef<HTMLImageElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  const [box, setBox] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [mode, setMode] = useState<'select' | 'move'>('select');
   const [sel, setSel] = useState<Rect | null>(null);
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const gesture = useRef<
+    | { type: 'draw'; sx: number; sy: number }
+    | { type: 'pan'; cx: number; cy: number; sl: number; st: number }
+    | null
+  >(null);
 
-  const relativePoint = (e: ReactPointerEvent) => {
-    const rect = boxRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
-    const y = Math.min(Math.max(e.clientY - rect.top, 0), rect.height);
-    return { x, y };
+  const toNatural = (clientX: number, clientY: number) => {
+    const img = imgRef.current;
+    if (!img) return { x: 0, y: 0 };
+    const r = img.getBoundingClientRect();
+    return {
+      x: clamp((clientX - r.left) / r.width, 0, 1) * img.naturalWidth,
+      y: clamp((clientY - r.top) / r.height, 0, 1) * img.naturalHeight,
+    };
   };
 
+  // Non-passive wheel listener so we can zoom without scrolling the page.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom((z) => clamp(z * (e.deltaY < 0 ? 1.15 : 0.87), 1, MAX_ZOOM));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Measure the viewport so zoom=1 fits the WHOLE image (width AND height),
+  // like the old object-contain — the operator can grab everything at once.
+  useEffect(() => {
+    const measure = () =>
+      setBox({
+        w: containerRef.current?.clientWidth ?? 0,
+        h: Math.round(window.innerHeight * 0.7),
+      });
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  // Scale that fits the natural image inside the viewport at zoom 1 (never
+  // upscales past native). displayW is the on-screen image width in px.
+  const fitScale =
+    nat && box.w > 0 ? Math.min(1, box.w / nat.w, box.h / nat.h) : 1;
+  const displayW = nat ? nat.w * fitScale * zoom : null;
+
   const onPointerDown = (e: ReactPointerEvent) => {
-    if (busy) return;
+    if (busy || !nat) return;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    dragStart.current = relativePoint(e);
-    setSel(null);
+    if (mode === 'move') {
+      const el = containerRef.current;
+      gesture.current = {
+        type: 'pan',
+        cx: e.clientX,
+        cy: e.clientY,
+        sl: el?.scrollLeft ?? 0,
+        st: el?.scrollTop ?? 0,
+      };
+    } else {
+      const p = toNatural(e.clientX, e.clientY);
+      gesture.current = { type: 'draw', sx: p.x, sy: p.y };
+      setSel(null);
+    }
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
-    if (!dragStart.current) return;
-    const p = relativePoint(e);
-    const s = dragStart.current;
-    setSel({
-      x: Math.min(s.x, p.x),
-      y: Math.min(s.y, p.y),
-      w: Math.abs(p.x - s.x),
-      h: Math.abs(p.y - s.y),
-    });
+    const g = gesture.current;
+    if (!g) return;
+    if (g.type === 'pan') {
+      const el = containerRef.current;
+      if (el) {
+        el.scrollLeft = g.sl - (e.clientX - g.cx);
+        el.scrollTop = g.st - (e.clientY - g.cy);
+      }
+    } else {
+      const p = toNatural(e.clientX, e.clientY);
+      setSel({
+        x: Math.min(g.sx, p.x),
+        y: Math.min(g.sy, p.y),
+        w: Math.abs(p.x - g.sx),
+        h: Math.abs(p.y - g.sy),
+      });
+    }
   };
 
   const onPointerUp = () => {
-    dragStart.current = null;
-    // Discard a tiny accidental drag — treat as "no selection".
-    setSel((s) => (s && s.w > 8 && s.h > 8 ? s : null));
+    const g = gesture.current;
+    gesture.current = null;
+    // Discard a tiny accidental drag (in natural px, relative to image size).
+    if (g?.type === 'draw' && nat) {
+      setSel((s) =>
+        s && s.w > nat.w * 0.02 && s.h > nat.h * 0.02 ? s : null,
+      );
+    }
   };
 
   const doCrop = () => {
     if (imgRef.current) onCrop(cropToCanvas(imgRef.current, sel));
   };
 
+  const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+    <div className="relative rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
       <p className="mb-2 text-xs text-ink-soft">{t('piramide.photo.crop')}</p>
 
+      {/* Toolbar: mode toggle + zoom */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="inline-flex overflow-hidden rounded-md border border-neutral-300">
+          <button
+            type="button"
+            onClick={() => setMode('select')}
+            className={`${segCls} ${
+              mode === 'select'
+                ? 'bg-brand-600 text-white'
+                : 'bg-white text-ink-soft hover:bg-neutral-100'
+            }`}
+          >
+            {t('piramide.photo.select')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('move')}
+            className={`${segCls} ${
+              mode === 'move'
+                ? 'bg-brand-600 text-white'
+                : 'bg-white text-ink-soft hover:bg-neutral-100'
+            }`}
+          >
+            {t('piramide.photo.move')}
+          </button>
+        </div>
+
+        <div className="ml-auto inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setZoom((z) => clamp(z * 0.8, 1, MAX_ZOOM))}
+            className={zoomBtnCls}
+            aria-label="zoom out"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom(1)}
+            className={`${zoomBtnCls} tabular-nums`}
+            title={t('piramide.photo.zoomReset')}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom((z) => clamp(z * 1.25, 1, MAX_ZOOM))}
+            className={zoomBtnCls}
+            aria-label="zoom in"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
       <div
-        ref={boxRef}
-        className="relative inline-block max-w-full touch-none select-none overflow-hidden rounded-md border border-neutral-300"
+        ref={containerRef}
+        className="max-h-[70vh] touch-none overflow-auto overscroll-contain rounded-md border border-neutral-300 bg-neutral-100"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
-        <img
-          ref={imgRef}
-          src={src}
-          alt=""
-          draggable={false}
-          className="block max-h-[60vh] max-w-full object-contain"
-        />
-        {/* Outline the selection; the dim ring around it (huge spread box
-            shadow) darkens everything OUTSIDE the rectangle to focus the eye. */}
-        {sel && (
-          <div
-            className="pointer-events-none absolute border-2 border-brand-500"
-            style={{
-              left: sel.x,
-              top: sel.y,
-              width: sel.w,
-              height: sel.h,
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
-            }}
+        <div
+          className="relative mx-auto select-none"
+          style={{ width: displayW ? `${displayW}px` : '100%' }}
+        >
+          <img
+            ref={imgRef}
+            src={src}
+            alt=""
+            draggable={false}
+            onLoad={(e) =>
+              setNat({
+                w: e.currentTarget.naturalWidth,
+                h: e.currentTarget.naturalHeight,
+              })
+            }
+            className="block w-full"
+            style={{ cursor: mode === 'move' ? 'grab' : 'crosshair' }}
           />
-        )}
-        {busy && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 text-sm text-ink">
-            <span>{progressLabel ?? t('piramide.photo.reading')}</span>
-            <div className="h-1.5 w-40 overflow-hidden rounded-full bg-neutral-200">
-              <div
-                className="h-full bg-brand-600 transition-all"
-                style={{ width: `${Math.round(progress * 100)}%` }}
-              />
-            </div>
-          </div>
-        )}
+          {sel && nat && (
+            <div
+              className="pointer-events-none absolute border-2 border-brand-500 bg-brand-500/10"
+              style={{
+                left: pct(sel.x, nat.w),
+                top: pct(sel.y, nat.h),
+                width: pct(sel.w, nat.w),
+                height: pct(sel.h, nat.h),
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -168,6 +297,18 @@ function ImageCropper({
           {t('piramide.photo.cancel')}
         </button>
       </div>
+
+      {busy && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-white/85 text-sm text-ink">
+          <span>{progressLabel ?? t('piramide.photo.reading')}</span>
+          <div className="h-1.5 w-40 overflow-hidden rounded-full bg-neutral-200">
+            <div
+              className="h-full bg-brand-600 transition-all"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

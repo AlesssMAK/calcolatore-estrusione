@@ -166,11 +166,14 @@
     "photo": {
       "title": "Foto del pedido",
       "hint": "Haz o sube una o varias fotos, recorta las columnas Longitud y Cantidad y lee los valores. También puedes introducirlos a mano.",
-      "take": "📷 Hacer foto",
-      "upload": "🖼 Subir imagen",
-      "crop": "Recorta el área con Longitud y Cantidad, luego lee.",
+      "take": "Hacer Foto",
+      "upload": "Subir Imagen",
+      "crop": "Amplía y desplaza para encuadrar, selecciona el área con Longitud y Cantidad, luego lee.",
       "confirmCrop": "✓ Leer selección",
       "wholeImage": "Leer imagen completa",
+      "select": "✏️ Seleccionar",
+      "move": "✋ Mover",
+      "zoomReset": "Ajustar",
       "cancel": "Cancelar",
       "reading": "Leyendo…",
       "readOk": "Leídas {{count}} filas — revisa y corrige abajo.",
@@ -198,7 +201,7 @@
       "maxRows": "Filas máx. por palet",
       "maxRowsHint": "opc. — vacío = ilimitado"
     },
-    "calculate": "Calcular distribución",
+    "calculate": "Calcular Distribución",
     "result": {
       "title": "Distribución",
       "empty": "Introduce las láminas y pulsa «Calcular distribución».",
