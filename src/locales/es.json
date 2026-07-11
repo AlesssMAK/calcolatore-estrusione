@@ -205,6 +205,7 @@
     "result": {
       "title": "Distribución",
       "empty": "Introduce las láminas y pulsa «Calcular distribución».",
+      "schema": "Esquema (pirámide)",
       "base": "Base",
       "corsie": "Carriles",
       "strati": "Capas",

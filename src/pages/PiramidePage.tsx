@@ -8,6 +8,7 @@ import {
   computeNesting,
   type NestingResult,
   type SheetInput,
+  type Slot,
   type Strato,
 } from '../lib/nesting';
 
@@ -464,6 +465,91 @@ function Chip({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// Collapse a bancale's corsie into unique slot types (by combination), most
+// frequent grouping kept, sorted by length descending.
+function groupBancaleSlots(strati: Strato[]): { slot: Slot; count: number }[] {
+  const map = new Map<string, { slot: Slot; count: number }>();
+  for (const st of strati) {
+    for (const c of st.corsie) {
+      const sig = c.pieces.join('+');
+      const e = map.get(sig);
+      if (e) e.count += 1;
+      else map.set(sig, { slot: c, count: 1 });
+    }
+  }
+  return [...map.values()].sort((a, b) => b.slot.length - a.slot.length);
+}
+
+// Pyramid diagram: each unique corsia is a centered bar whose width is
+// proportional to its length vs the base. Longest at the bottom, so the whole
+// thing narrows upward (△). The light band behind each bar shows the base
+// width, so the gap on the sides = the scarto. Pure SVG → crisp + exportable.
+function PyramidSchema({
+  groups,
+  base,
+}: {
+  groups: { slot: Slot; count: number }[];
+  base: number;
+}) {
+  if (groups.length === 0 || base <= 0) return null;
+  const VW = 1000;
+  const rowH = 42;
+  const barH = 30;
+  const padY = 6;
+  const height = groups.length * rowH + padY * 2;
+  // Longest at the bottom → render shortest→longest top→bottom.
+  const rows = [...groups].sort((a, b) => a.slot.length - b.slot.length);
+
+  return (
+    <svg
+      viewBox={`0 0 ${VW} ${height}`}
+      width="100%"
+      className="mx-auto block"
+      style={{ maxWidth: '640px' }}
+      role="img"
+    >
+      {rows.map((g, i) => {
+        const y = padY + i * rowH + (rowH - barH) / 2;
+        const barW = (g.slot.length / base) * VW;
+        const x0 = (VW - barW) / 2;
+        let cx = x0;
+        return (
+          <g key={i}>
+            <rect x={0} y={y} width={VW} height={barH} rx={3} fill="#f1f1f1" />
+            {g.slot.pieces.map((p, j) => {
+              const w = (p / base) * VW;
+              const rect = (
+                <rect
+                  key={j}
+                  x={cx}
+                  y={y}
+                  width={w}
+                  height={barH}
+                  fill="#c8102e"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                />
+              );
+              cx += w;
+              return rect;
+            })}
+            <text
+              x={VW / 2}
+              y={y + barH * 0.68}
+              textAnchor="middle"
+              fontSize={18}
+              fontWeight={600}
+              fill="#ffffff"
+            >
+              {g.slot.length} mm{g.count > 1 ? ` ×${g.count}` : ''}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function ResultView({ result }: { result: NestingResult }) {
   const { t } = useTranslation();
   const multiLane = result.lanes > 1;
@@ -519,6 +605,16 @@ function ResultView({ result }: { result: NestingResult }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4">
+              <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
+                {t('piramide.result.schema')}
+              </div>
+              <PyramidSchema
+                groups={groupBancaleSlots(bancale.strati)}
+                base={result.base}
+              />
             </div>
           </div>
         );
