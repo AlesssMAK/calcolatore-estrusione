@@ -15,7 +15,7 @@
     "profiles": "Profiles"
   },
   "settings": {
-    "title": "Global settings",
+    "title": "Global Settings",
     "startMode": {
       "label": "Start point",
       "now": "Now",
@@ -164,10 +164,10 @@
       "manual": "You can fix or add rows by hand, and scan several photos (they add up)."
     },
     "photo": {
-      "title": "Order photo",
+      "title": "Order Photo",
       "hint": "Take or upload one or more photos, crop the Length and Quantity columns and read the values. You can also enter them by hand.",
-      "take": "Take photo",
-      "upload": "Upload image",
+      "take": "Take Photo",
+      "upload": "Upload Image",
       "crop": "Zoom and pan to frame, select the area with Length and Quantity, then read.",
       "confirmCrop": "✓ Read selection",
       "wholeImage": "Read whole image",
