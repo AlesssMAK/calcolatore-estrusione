@@ -206,6 +206,7 @@
       "title": "Layout",
       "empty": "Enter the sheets and press «Compute layout».",
       "schema": "Diagram (pyramid)",
+      "order": "Production order",
       "base": "Base",
       "corsie": "Lanes",
       "strati": "Layers",

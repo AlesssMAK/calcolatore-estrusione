@@ -206,6 +206,7 @@
       "title": "Distribuzione",
       "empty": "Inserisci le lastre e premi «Calcola distribuzione».",
       "schema": "Schema (piramide)",
+      "order": "Ordine di produzione",
       "base": "Base",
       "corsie": "Corsie",
       "strati": "Strati",

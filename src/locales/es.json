@@ -206,6 +206,7 @@
       "title": "Distribución",
       "empty": "Introduce las láminas y pulsa «Calcular distribución».",
       "schema": "Esquema (pirámide)",
+      "order": "Orden de producción",
       "base": "Base",
       "corsie": "Carriles",
       "strati": "Capas",

@@ -479,6 +479,14 @@ function groupBancaleStrati(strati: Strato[]): { strato: Strato; count: number }
   return [...map.values()].sort((a, b) => len(b.strato) - len(a.strato));
 }
 
+// Text form of a strato's combination for the production-order list, e.g.
+// "8070", "6970 + 3440". Distinct lanes are joined with " / ".
+function stratoComboText(strato: Strato): string {
+  const combos = strato.corsie.map((c) => c.pieces.join(' + '));
+  const uniq = [...new Set(combos)];
+  return uniq.length === 1 ? uniq[0] : combos.join(' / ');
+}
+
 // Pyramid diagram. Each strato (layer) is a group of `lanes` bars stacked
 // together — so a 2-lane bancale visibly shows two sheets across per layer.
 // Every bar's width is proportional to its corsia length vs the base and is
@@ -491,6 +499,7 @@ function PyramidSchema({
   groups: { strato: Strato; count: number }[];
   base: number;
 }) {
+  const { t } = useTranslation();
   if (groups.length === 0 || base <= 0) return null;
 
   const VW = 1000;
@@ -518,13 +527,14 @@ function PyramidSchema({
   const height = y - stratoGap + padY;
 
   return (
-    <svg
-      viewBox={`0 0 ${VW} ${height}`}
-      width="100%"
-      className="mx-auto block"
-      style={{ maxWidth: '660px' }}
-      role="img"
-    >
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+      <svg
+        viewBox={`0 0 ${VW} ${height}`}
+        width="100%"
+        className="block min-w-0 flex-1"
+        style={{ maxWidth: '660px' }}
+        role="img"
+      >
       {laid.map(({ g, y0, h }, i) => (
         <g key={i}>
           {g.strato.corsie.map((c, k) => {
@@ -591,7 +601,21 @@ function PyramidSchema({
           )}
         </g>
       ))}
-    </svg>
+      </svg>
+
+      <div className="shrink-0">
+        <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
+          {t('piramide.result.order')}
+        </div>
+        <ol className="text-sm leading-relaxed text-ink tabular-nums">
+          {rows.map((g, i) => (
+            <li key={i}>
+              {i + 1}. {g.count} × {stratoComboText(g.strato)}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
   );
 }
 
