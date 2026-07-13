@@ -507,17 +507,19 @@ function PyramidSchema({
   const len = (s: Strato) => Math.max(...s.corsie.map((c) => c.length));
   const rows = [...groups].sort((a, b) => len(a.strato) - len(b.strato));
 
-  // Production order: every distinct sheet length with its TOTAL quantity,
-  // longest first. The operator lays the base (longest) down first, so each
-  // sheet can go straight to its final spot — hence one line per size,
-  // combinations split into their pieces.
-  const tally = new Map<number, number>();
-  for (const g of groups)
+  // Production order = the stacking sequence. Rows (strati) go longest-first
+  // (the operator lays the base down first), and each row's own pieces are
+  // listed together: a combination's parts stay next to each other (6970 then
+  // 3440), NOT scattered by size. One line per distinct size within a row.
+  const order: { length: number; qty: number }[] = [];
+  for (const g of [...groups].sort((a, b) => len(b.strato) - len(a.strato))) {
+    const perRow = new Map<number, number>();
     for (const c of g.strato.corsie)
-      for (const p of c.pieces) tally.set(p, (tally.get(p) ?? 0) + g.count);
-  const order = [...tally.entries()]
-    .map(([length, qty]) => ({ length, qty }))
-    .sort((a, b) => b.length - a.length);
+      for (const p of c.pieces) perRow.set(p, (perRow.get(p) ?? 0) + 1);
+    for (const [length, n] of [...perRow.entries()].sort((a, b) => b[0] - a[0])) {
+      order.push({ length, qty: n * g.count });
+    }
+  }
 
   // Pre-compute each layer's y and height (corsie count can vary on the last).
   let y = padY;
