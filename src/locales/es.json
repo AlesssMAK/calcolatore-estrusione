@@ -208,6 +208,7 @@
       "schema": "Esquema (pirámide)",
       "order": "Orden de producción",
       "splitWarning": "⚠ La medida {{length}} mm cae en filas de longitud muy distinta ({{rows}} mm) — mejor recalcular.",
+      "recover": "espacio a recuperar",
       "base": "Base",
       "corsie": "Carriles",
       "strati": "Capas",

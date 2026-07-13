@@ -478,6 +478,7 @@ function PyramidSchema({
   groups: ProductionGroup[];
   base: number;
 }) {
+  const { t } = useTranslation();
   if (groups.length === 0 || base <= 0) return null;
 
   const VW = 1000;
@@ -494,8 +495,9 @@ function PyramidSchema({
 
   let y = padY;
   const laid = rows.map((g) => {
-    const nLanes = g.strato.corsie.length;
-    const h = nLanes * corsiaH + (nLanes - 1) * corsiaGap;
+    // Reserve all `maxLanes` lanes so a partial strato shows its empty
+    // (recoverable) lane instead of collapsing to half height.
+    const h = maxLanes * corsiaH + (maxLanes - 1) * corsiaGap;
     const item = { g, y0: y, h };
     y += h + stratoGap;
     return item;
@@ -512,8 +514,35 @@ function PyramidSchema({
     >
       {laid.map(({ g, y0, h }, i) => (
         <g key={i}>
-          {g.strato.corsie.map((c, k) => {
+          {Array.from({ length: maxLanes }, (_, k) => {
             const by = y0 + k * (corsiaH + corsiaGap);
+            const c = g.strato.corsie[k];
+            if (!c) {
+              // Empty lane of a partial strato — space to reuse.
+              return (
+                <g key={k}>
+                  <rect
+                    x={0}
+                    y={by}
+                    width={BAR_ZONE}
+                    height={corsiaH}
+                    rx={3}
+                    fill="#fafafa"
+                    stroke="#d4d4d4"
+                    strokeDasharray="5 4"
+                  />
+                  <text
+                    x={BAR_ZONE / 2}
+                    y={by + corsiaH * 0.7}
+                    textAnchor="middle"
+                    fontSize={fontSize}
+                    fill="#a3a3a3"
+                  >
+                    {t('piramide.result.recover')}
+                  </text>
+                </g>
+              );
+            }
             const barW = (c.length / base) * BAR_ZONE;
             const x0 = (BAR_ZONE - barW) / 2;
             let cx = x0;

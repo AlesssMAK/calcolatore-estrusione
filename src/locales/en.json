@@ -208,6 +208,7 @@
       "schema": "Diagram (pyramid)",
       "order": "Production order",
       "splitWarning": "⚠ Size {{length}} mm lands in rows of very different length ({{rows}} mm) — better to recalculate.",
+      "recover": "recoverable space",
       "base": "Base",
       "corsie": "Lanes",
       "strati": "Layers",

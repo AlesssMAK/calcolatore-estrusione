@@ -208,6 +208,7 @@
       "schema": "Schema (piramide)",
       "order": "Ordine di produzione",
       "splitWarning": "⚠ La misura {{length}} mm capita in file di lunghezza molto diversa ({{rows}} mm) — meglio ricalcolare.",
+      "recover": "spazio da recuperare",
       "base": "Base",
       "corsie": "Corsie",
       "strati": "Strati",
