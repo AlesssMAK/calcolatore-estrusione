@@ -111,6 +111,24 @@ describe('computeNesting — real order (500 mm sheet, 68 pcs)', () => {
 });
 
 describe('computeNesting — strati & bancali', () => {
+  it('pairs identical corsie into one strato even when totals collide (lanes 2)', () => {
+    // [5000] and [3000+2000] both total 5000 — plain sort-chunking could pair
+    // a 5000 with a 3000+2000. Identical corsie must be kept together instead.
+    const r = computeNesting(
+      [
+        { length: 5000, qty: 2 },
+        { length: 3000, qty: 2 },
+        { length: 2000, qty: 2 },
+      ],
+      { base: 5000, lanes: 2 },
+    );
+    expect(r.strati).toHaveLength(2);
+    for (const st of r.strati) {
+      expect(st.corsie).toHaveLength(2);
+      expect(st.corsie[0].pieces).toEqual(st.corsie[1].pieces);
+    }
+  });
+
   it('leaves a shorter last strato for an odd corsia count', () => {
     const r = computeNesting([{ length: 1000, qty: 3 }], { lanes: 2 });
     expect(r.strati).toHaveLength(2);

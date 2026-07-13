@@ -130,6 +130,39 @@ function bestSubset(pool: number[], room: number, unit: number): number[] {
 }
 
 /**
+ * Group corsie into strati of `lanes`, PREFERRING identical corsie in the same
+ * strato (same combination across all lanes) so equal sizes stay on the same
+ * level — otherwise a size gets scattered across several rows. Corsie left over
+ * (a combination's count not divisible by lanes) are combined into a few
+ * "mixed" strati placed after the uniform ones.
+ */
+function formStrati(slots: Slot[], lanes: number): Slot[][] {
+  if (lanes <= 1) return slots.map((s) => [s]);
+
+  const bySig = new Map<string, Slot[]>();
+  for (const s of slots) {
+    const sig = s.pieces.join('+');
+    const arr = bySig.get(sig);
+    if (arr) arr.push(s);
+    else bySig.set(sig, [s]);
+  }
+
+  const uniform: Slot[][] = [];
+  const leftovers: Slot[] = [];
+  for (const group of bySig.values()) {
+    let i = 0;
+    for (; i + lanes <= group.length; i += lanes) {
+      uniform.push(group.slice(i, i + lanes));
+    }
+    for (; i < group.length; i++) leftovers.push(group[i]);
+  }
+
+  uniform.sort((a, b) => b[0].length - a[0].length);
+  leftovers.sort((a, b) => b.length - a.length);
+  return [...uniform, ...chunk(leftovers, lanes)];
+}
+
+/**
  * Distribute the given sheets into corsie (1D bins of capacity = base),
  * then group them into strati (by `lanes`) and bancali (by `maxRows`).
  *
@@ -199,7 +232,7 @@ export function computeNesting(
     })
     .sort((a, b) => b.length - a.length);
 
-  const strati: Strato[] = chunk(slots, lanes).map((corsie) => ({
+  const strati: Strato[] = formStrati(slots, lanes).map((corsie) => ({
     corsie,
     fogli: corsie.reduce((sum, c) => sum + c.pieces.length, 0),
   }));
