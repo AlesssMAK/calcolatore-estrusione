@@ -6,7 +6,9 @@ import ImageCropper from '../components/piramide/ImageCropper';
 import { recognizeSheets } from '../lib/ocr';
 import {
   computeNesting,
+  buildProductionPlan,
   type NestingResult,
+  type ProductionGroup,
   type SheetInput,
   type Strato,
 } from '../lib/nesting';
@@ -464,34 +466,18 @@ function Chip({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-// Collapse a bancale's strati into unique layer types (by the whole strato's
-// corsie signature), sorted by length descending — same grouping the table
-// uses, so counts match. Each strato carries its corsie (one per lane).
-function groupBancaleStrati(strati: Strato[]): { strato: Strato; count: number }[] {
-  const map = new Map<string, { strato: Strato; count: number }>();
-  for (const st of strati) {
-    const sig = st.corsie.map((c) => c.pieces.join('+')).join('|');
-    const e = map.get(sig);
-    if (e) e.count += 1;
-    else map.set(sig, { strato: st, count: 1 });
-  }
-  const len = (s: Strato) => Math.max(...s.corsie.map((c) => c.length));
-  return [...map.values()].sort((a, b) => len(b.strato) - len(a.strato));
-}
-
-// Pyramid diagram. Each strato (layer) is a group of `lanes` bars stacked
-// together — so a 2-lane bancale visibly shows two sheets across per layer.
-// Every bar's width is proportional to its corsia length vs the base and is
-// centered; the light band behind is the base width, so the side gaps are the
-// scarto. Layers are sorted longest at the bottom → narrows upward (△).
+// Pyramid diagram. Rows are drawn in production / stacking order — the base
+// (first produced, longest) at the bottom, narrowing upward. Each strato is a
+// group of `lanes` bars; every bar's width ∝ its corsia length vs the base and
+// is centered (the side gaps = scarto), with each sheet's length on its segment
+// and the corsia total to the right.
 function PyramidSchema({
   groups,
   base,
 }: {
-  groups: { strato: Strato; count: number }[];
+  groups: ProductionGroup[];
   base: number;
 }) {
-  const { t } = useTranslation();
   if (groups.length === 0 || base <= 0) return null;
 
   const VW = 1000;
@@ -503,29 +489,13 @@ function PyramidSchema({
   const padY = 6;
   const fontSize = maxLanes > 1 ? 13 : 17;
 
-  // Longest layer at the bottom → shortest first (top).
-  const len = (s: Strato) => Math.max(...s.corsie.map((c) => c.length));
-  const rows = [...groups].sort((a, b) => len(a.strato) - len(b.strato));
+  // groups are base-first (production order) → draw base at the bottom.
+  const rows = [...groups].reverse();
 
-  // Production order = the stacking sequence. Rows (strati) go longest-first
-  // (the operator lays the base down first), and each row's own pieces are
-  // listed together: a combination's parts stay next to each other (6970 then
-  // 3440), NOT scattered by size. One line per distinct size within a row.
-  const order: { length: number; qty: number }[] = [];
-  for (const g of [...groups].sort((a, b) => len(b.strato) - len(a.strato))) {
-    const perRow = new Map<number, number>();
-    for (const c of g.strato.corsie)
-      for (const p of c.pieces) perRow.set(p, (perRow.get(p) ?? 0) + 1);
-    for (const [length, n] of [...perRow.entries()].sort((a, b) => b[0] - a[0])) {
-      order.push({ length, qty: n * g.count });
-    }
-  }
-
-  // Pre-compute each layer's y and height (corsie count can vary on the last).
   let y = padY;
   const laid = rows.map((g) => {
-    const n = g.strato.corsie.length;
-    const h = n * corsiaH + (n - 1) * corsiaGap;
+    const nLanes = g.strato.corsie.length;
+    const h = nLanes * corsiaH + (nLanes - 1) * corsiaGap;
     const item = { g, y0: y, h };
     y += h + stratoGap;
     return item;
@@ -533,14 +503,13 @@ function PyramidSchema({
   const height = y - stratoGap + padY;
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      <svg
-        viewBox={`0 0 ${VW} ${height}`}
-        width="100%"
-        className="block min-w-0 flex-1"
-        style={{ maxWidth: '660px' }}
-        role="img"
-      >
+    <svg
+      viewBox={`0 0 ${VW} ${height}`}
+      width="100%"
+      className="block"
+      style={{ maxWidth: '660px' }}
+      role="img"
+    >
       {laid.map(({ g, y0, h }, i) => (
         <g key={i}>
           {g.strato.corsie.map((c, k) => {
@@ -607,21 +576,7 @@ function PyramidSchema({
           )}
         </g>
       ))}
-      </svg>
-
-      <div className="shrink-0">
-        <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
-          {t('piramide.result.order')}
-        </div>
-        <ol className="text-sm leading-relaxed text-ink tabular-nums">
-          {order.map((it, i) => (
-            <li key={i}>
-              {i + 1}. {it.qty} × {it.length}
-            </li>
-          ))}
-        </ol>
-      </div>
-    </div>
+    </svg>
   );
 }
 
@@ -682,19 +637,63 @@ function ResultView({ result }: { result: NestingResult }) {
               </table>
             </div>
 
-            <div className="mt-4">
-              <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
-                {t('piramide.result.schema')}
-              </div>
-              <PyramidSchema
-                groups={groupBancaleStrati(bancale.strati)}
-                base={result.base}
-              />
-            </div>
+            <BancaleSchema strati={bancale.strati} base={result.base} t={t} />
           </div>
         );
       })}
     </section>
+  );
+}
+
+// Pyramid + production-order list + any split warnings for one bancale.
+function BancaleSchema({
+  strati,
+  base,
+  t,
+}: {
+  strati: NestingResult['bancali'][number]['strati'];
+  base: number;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const plan = buildProductionPlan(strati);
+
+  return (
+    <div className="mt-4">
+      <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
+        {t('piramide.result.schema')}
+      </div>
+
+      {plan.warnings.length > 0 && (
+        <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          {plan.warnings.map((w) => (
+            <div key={w.length}>
+              {t('piramide.result.splitWarning', {
+                length: w.length,
+                rows: w.rowLengths.join(', '),
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <PyramidSchema groups={plan.groups} base={base} />
+        </div>
+        <div className="shrink-0">
+          <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
+            {t('piramide.result.order')}
+          </div>
+          <ol className="text-sm leading-relaxed text-ink tabular-nums">
+            {plan.list.map((it, i) => (
+              <li key={i}>
+                {i + 1}. {it.qty} × {it.length}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { computeNesting, type SheetInput } from './nesting';
+import {
+  computeNesting,
+  buildProductionPlan,
+  type SheetInput,
+  type Slot,
+  type Strato,
+} from './nesting';
+
+const slot = (pieces: number[]): Slot => ({
+  pieces,
+  length: pieces.reduce((a, b) => a + b, 0),
+  scarto: 0,
+});
+const strato = (...pieces: number[][]): Strato => ({
+  corsie: pieces.map(slot),
+  fogli: pieces.reduce((sum, p) => sum + p.length, 0),
+});
 
 describe('computeNesting — base', () => {
   it('uses the longest sheet as base when none is given', () => {
@@ -119,5 +135,62 @@ describe('computeNesting — strati & bancali', () => {
     expect(r.totalSlots).toBe(0);
     expect(r.totalFogli).toBe(0);
     expect(r.bancali).toHaveLength(0);
+  });
+});
+
+describe('buildProductionPlan', () => {
+  it('lists each size once, longest first, when nothing is shared', () => {
+    const plan = buildProductionPlan([
+      strato([10000]),
+      strato([8000]),
+      strato([5000]),
+    ]);
+    expect(plan.list).toEqual([
+      { length: 10000, qty: 1 },
+      { length: 8000, qty: 1 },
+      { length: 5000, qty: 1 },
+    ]);
+    expect(plan.warnings).toEqual([]);
+  });
+
+  it('groups rows sharing a size within the gap; size appears once', () => {
+    // 4220 is in both 4220+2990+2990 (10200) and 4220+2550+2550 (9320); the
+    // 880 mm gap ≤ 1000, so the two rows become adjacent and 4220 is one run —
+    // even though 6740+3200 (9940) is longer than 9320.
+    const plan = buildProductionPlan([
+      strato([4220, 2990, 2990]),
+      strato([6740, 3200]),
+      strato([4220, 2550, 2550]),
+    ]);
+    expect(plan.groups.map((g) => g.strato.corsie[0].length)).toEqual([
+      10200, 9320, 9940,
+    ]);
+    expect(plan.list).toEqual([
+      { length: 4220, qty: 2 },
+      { length: 2990, qty: 2 },
+      { length: 2550, qty: 2 },
+      { length: 6740, qty: 1 },
+      { length: 3200, qty: 1 },
+    ]);
+    expect(plan.warnings).toEqual([]);
+  });
+
+  it('warns instead of grouping when the shared size spans a big gap', () => {
+    const plan = buildProductionPlan([
+      strato([4220, 2990, 2990]), // 10200
+      strato([4220, 780]), // 5000, diff 5200 > 1000
+    ]);
+    expect(plan.warnings).toEqual([
+      { length: 4220, rowLengths: [10200, 5000] },
+    ]);
+    // Not grouped — ordered purely by length; the split is only flagged.
+    expect(plan.groups.map((g) => g.strato.corsie[0].length)).toEqual([
+      10200, 5000,
+    ]);
+  });
+
+  it('multiplies quantities by lane count (2 corsie per strato)', () => {
+    const plan = buildProductionPlan([strato([10000], [10000])]);
+    expect(plan.list).toEqual([{ length: 10000, qty: 2 }]);
   });
 });

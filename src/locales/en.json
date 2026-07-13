@@ -207,6 +207,7 @@
       "empty": "Enter the sheets and press «Compute layout».",
       "schema": "Diagram (pyramid)",
       "order": "Production order",
+      "splitWarning": "⚠ Size {{length}} mm lands in rows of very different length ({{rows}} mm) — better to recalculate.",
       "base": "Base",
       "corsie": "Lanes",
       "strati": "Layers",

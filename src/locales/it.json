@@ -207,6 +207,7 @@
       "empty": "Inserisci le lastre e premi «Calcola distribuzione».",
       "schema": "Schema (piramide)",
       "order": "Ordine di produzione",
+      "splitWarning": "⚠ La misura {{length}} mm capita in file di lunghezza molto diversa ({{rows}} mm) — meglio ricalcolare.",
       "base": "Base",
       "corsie": "Corsie",
       "strati": "Strati",
