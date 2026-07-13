@@ -8,7 +8,6 @@ import {
   computeNesting,
   type NestingResult,
   type SheetInput,
-  type Slot,
   type Strato,
 } from '../lib/nesting';
 
@@ -465,87 +464,133 @@ function Chip({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-// Collapse a bancale's corsie into unique slot types (by combination), most
-// frequent grouping kept, sorted by length descending.
-function groupBancaleSlots(strati: Strato[]): { slot: Slot; count: number }[] {
-  const map = new Map<string, { slot: Slot; count: number }>();
+// Collapse a bancale's strati into unique layer types (by the whole strato's
+// corsie signature), sorted by length descending — same grouping the table
+// uses, so counts match. Each strato carries its corsie (one per lane).
+function groupBancaleStrati(strati: Strato[]): { strato: Strato; count: number }[] {
+  const map = new Map<string, { strato: Strato; count: number }>();
   for (const st of strati) {
-    for (const c of st.corsie) {
-      const sig = c.pieces.join('+');
-      const e = map.get(sig);
-      if (e) e.count += 1;
-      else map.set(sig, { slot: c, count: 1 });
-    }
+    const sig = st.corsie.map((c) => c.pieces.join('+')).join('|');
+    const e = map.get(sig);
+    if (e) e.count += 1;
+    else map.set(sig, { strato: st, count: 1 });
   }
-  return [...map.values()].sort((a, b) => b.slot.length - a.slot.length);
+  const len = (s: Strato) => Math.max(...s.corsie.map((c) => c.length));
+  return [...map.values()].sort((a, b) => len(b.strato) - len(a.strato));
 }
 
-// Pyramid diagram: each unique corsia is a centered bar whose width is
-// proportional to its length vs the base. Longest at the bottom, so the whole
-// thing narrows upward (△). The light band behind each bar shows the base
-// width, so the gap on the sides = the scarto. Pure SVG → crisp + exportable.
+// Pyramid diagram. Each strato (layer) is a group of `lanes` bars stacked
+// together — so a 2-lane bancale visibly shows two sheets across per layer.
+// Every bar's width is proportional to its corsia length vs the base and is
+// centered; the light band behind is the base width, so the side gaps are the
+// scarto. Layers are sorted longest at the bottom → narrows upward (△).
 function PyramidSchema({
   groups,
   base,
 }: {
-  groups: { slot: Slot; count: number }[];
+  groups: { strato: Strato; count: number }[];
   base: number;
 }) {
   if (groups.length === 0 || base <= 0) return null;
+
   const VW = 1000;
-  const rowH = 42;
-  const barH = 30;
+  const BAR_ZONE = 700; // bars live in 0..700; length + ×count to the right
+  const maxLanes = Math.max(...groups.map((g) => g.strato.corsie.length));
+  const corsiaH = maxLanes > 1 ? 18 : 26;
+  const corsiaGap = 3;
+  const stratoGap = 12;
   const padY = 6;
-  const height = groups.length * rowH + padY * 2;
-  // Longest at the bottom → render shortest→longest top→bottom.
-  const rows = [...groups].sort((a, b) => a.slot.length - b.slot.length);
+  const fontSize = maxLanes > 1 ? 13 : 17;
+
+  // Longest layer at the bottom → shortest first (top).
+  const len = (s: Strato) => Math.max(...s.corsie.map((c) => c.length));
+  const rows = [...groups].sort((a, b) => len(a.strato) - len(b.strato));
+
+  // Pre-compute each layer's y and height (corsie count can vary on the last).
+  let y = padY;
+  const laid = rows.map((g) => {
+    const n = g.strato.corsie.length;
+    const h = n * corsiaH + (n - 1) * corsiaGap;
+    const item = { g, y0: y, h };
+    y += h + stratoGap;
+    return item;
+  });
+  const height = y - stratoGap + padY;
 
   return (
     <svg
       viewBox={`0 0 ${VW} ${height}`}
       width="100%"
       className="mx-auto block"
-      style={{ maxWidth: '640px' }}
+      style={{ maxWidth: '660px' }}
       role="img"
     >
-      {rows.map((g, i) => {
-        const y = padY + i * rowH + (rowH - barH) / 2;
-        const barW = (g.slot.length / base) * VW;
-        const x0 = (VW - barW) / 2;
-        let cx = x0;
-        return (
-          <g key={i}>
-            <rect x={0} y={y} width={VW} height={barH} rx={3} fill="#f1f1f1" />
-            {g.slot.pieces.map((p, j) => {
-              const w = (p / base) * VW;
-              const rect = (
-                <rect
-                  key={j}
-                  x={cx}
-                  y={y}
-                  width={w}
-                  height={barH}
-                  fill="#c8102e"
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                />
-              );
-              cx += w;
-              return rect;
-            })}
+      {laid.map(({ g, y0, h }, i) => (
+        <g key={i}>
+          {g.strato.corsie.map((c, k) => {
+            const by = y0 + k * (corsiaH + corsiaGap);
+            const barW = (c.length / base) * BAR_ZONE;
+            const x0 = (BAR_ZONE - barW) / 2;
+            let cx = x0;
+            return (
+              <g key={k}>
+                <rect x={0} y={by} width={BAR_ZONE} height={corsiaH} rx={3} fill="#f1f1f1" />
+                {c.pieces.map((p, j) => {
+                  const w = (p / base) * BAR_ZONE;
+                  const segX = cx;
+                  cx += w;
+                  return (
+                    <g key={j}>
+                      <rect
+                        x={segX}
+                        y={by}
+                        width={w}
+                        height={corsiaH}
+                        fill="#c8102e"
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      />
+                      {/* real length of THIS sheet, centered in its segment */}
+                      <text
+                        x={segX + w / 2}
+                        y={by + corsiaH * 0.7}
+                        textAnchor="middle"
+                        fontSize={fontSize}
+                        fontWeight={600}
+                        fill="#ffffff"
+                      >
+                        {p}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* total length of the corsia, to the right of the bar */}
+                <text
+                  x={BAR_ZONE + 12}
+                  y={by + corsiaH * 0.7}
+                  fontSize={fontSize}
+                  fontWeight={600}
+                  fill="#3a3a3a"
+                >
+                  {c.length} mm
+                </text>
+              </g>
+            );
+          })}
+          {g.count > 1 && (
             <text
-              x={VW / 2}
-              y={y + barH * 0.68}
-              textAnchor="middle"
-              fontSize={18}
-              fontWeight={600}
-              fill="#ffffff"
+              x={VW - 8}
+              y={y0 + h / 2 + fontSize * 0.35}
+              textAnchor="end"
+              fontSize={17}
+              fontWeight={700}
+              fill="#c8102e"
             >
-              {g.slot.length} mm{g.count > 1 ? ` ×${g.count}` : ''}
+              ×{g.count}
             </text>
-          </g>
-        );
-      })}
+          )}
+        </g>
+      ))}
     </svg>
   );
 }
@@ -612,7 +657,7 @@ function ResultView({ result }: { result: NestingResult }) {
                 {t('piramide.result.schema')}
               </div>
               <PyramidSchema
-                groups={groupBancaleSlots(bancale.strati)}
+                groups={groupBancaleStrati(bancale.strati)}
                 base={result.base}
               />
             </div>
