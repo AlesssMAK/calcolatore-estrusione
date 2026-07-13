@@ -479,14 +479,6 @@ function groupBancaleStrati(strati: Strato[]): { strato: Strato; count: number }
   return [...map.values()].sort((a, b) => len(b.strato) - len(a.strato));
 }
 
-// Text form of a strato's combination for the production-order list, e.g.
-// "8070", "6970 + 3440". Distinct lanes are joined with " / ".
-function stratoComboText(strato: Strato): string {
-  const combos = strato.corsie.map((c) => c.pieces.join(' + '));
-  const uniq = [...new Set(combos)];
-  return uniq.length === 1 ? uniq[0] : combos.join(' / ');
-}
-
 // Pyramid diagram. Each strato (layer) is a group of `lanes` bars stacked
 // together — so a 2-lane bancale visibly shows two sheets across per layer.
 // Every bar's width is proportional to its corsia length vs the base and is
@@ -514,6 +506,18 @@ function PyramidSchema({
   // Longest layer at the bottom → shortest first (top).
   const len = (s: Strato) => Math.max(...s.corsie.map((c) => c.length));
   const rows = [...groups].sort((a, b) => len(a.strato) - len(b.strato));
+
+  // Production order: every distinct sheet length with its TOTAL quantity,
+  // longest first. The operator lays the base (longest) down first, so each
+  // sheet can go straight to its final spot — hence one line per size,
+  // combinations split into their pieces.
+  const tally = new Map<number, number>();
+  for (const g of groups)
+    for (const c of g.strato.corsie)
+      for (const p of c.pieces) tally.set(p, (tally.get(p) ?? 0) + g.count);
+  const order = [...tally.entries()]
+    .map(([length, qty]) => ({ length, qty }))
+    .sort((a, b) => b.length - a.length);
 
   // Pre-compute each layer's y and height (corsie count can vary on the last).
   let y = padY;
@@ -608,9 +612,9 @@ function PyramidSchema({
           {t('piramide.result.order')}
         </div>
         <ol className="text-sm leading-relaxed text-ink tabular-nums">
-          {rows.map((g, i) => (
+          {order.map((it, i) => (
             <li key={i}>
-              {i + 1}. {g.count} × {stratoComboText(g.strato)}
+              {i + 1}. {it.qty} × {it.length}
             </li>
           ))}
         </ol>
