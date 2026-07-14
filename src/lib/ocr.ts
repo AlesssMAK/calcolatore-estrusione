@@ -102,10 +102,94 @@ export interface OcrResult {
 }
 
 /**
+ * Estimate the skew (rotation) of the text in a grayscale buffer, in degrees.
+ * Uses the projection-profile idea via a fast shear: at the right angle the
+ * text rows line up, so the per-row dark-pixel histogram becomes spiky (high
+ * sum of squares). Downsamples for speed. Returns the angle that straightens
+ * the page (0 if not confidently skewed).
+ */
+export function detectSkewAngle(
+  gray: Uint8ClampedArray,
+  w: number,
+  h: number,
+): number {
+  const step = Math.max(1, Math.floor(Math.max(w, h) / 480));
+  let sum = 0;
+  let cnt = 0;
+  for (let y = 0; y < h; y += step) {
+    const row = y * w;
+    for (let x = 0; x < w; x += step) {
+      sum += gray[row + x];
+      cnt++;
+    }
+  }
+  if (cnt === 0) return 0;
+  const thr = (sum / cnt) * 0.85; // dark = text
+
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let y = 0, sy = 0; y < h; y += step, sy++) {
+    const row = y * w;
+    for (let x = 0, sx = 0; x < w; x += step, sx++) {
+      if (gray[row + x] < thr) {
+        xs.push(sx);
+        ys.push(sy);
+      }
+    }
+  }
+  const n = xs.length;
+  if (n < 200) return 0;
+
+  const sw = Math.ceil(w / step);
+  const sh = Math.ceil(h / step);
+  let bestDeg = 0;
+  let bestScore = -1;
+  for (let deg = -12; deg <= 12; deg += 0.5) {
+    const t = Math.tan((deg * Math.PI) / 180);
+    const span = Math.ceil(Math.abs(t) * sw);
+    const size = sh + span + 2;
+    const bins = new Float64Array(size);
+    const offset = t < 0 ? span : 0;
+    for (let i = 0; i < n; i++) {
+      const r = Math.round(ys[i] + xs[i] * t) + offset;
+      if (r >= 0 && r < size) bins[r] += 1;
+    }
+    let score = 0;
+    for (let i = 0; i < size; i++) score += bins[i] * bins[i];
+    if (score > bestScore) {
+      bestScore = score;
+      bestDeg = deg;
+    }
+  }
+  return bestDeg;
+}
+
+/** Rotate a canvas by `deg` (positive = clockwise) onto a white background. */
+function rotateCanvas(src: HTMLCanvasElement, deg: number): HTMLCanvasElement {
+  const rad = (deg * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(rad));
+  const cos = Math.abs(Math.cos(rad));
+  const nw = Math.ceil(src.width * cos + src.height * sin);
+  const nh = Math.ceil(src.width * sin + src.height * cos);
+  const c = document.createElement('canvas');
+  c.width = nw;
+  c.height = nh;
+  const ctx = c.getContext('2d');
+  if (!ctx) return src;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, nw, nh);
+  ctx.translate(nw / 2, nh / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(src, -src.width / 2, -src.height / 2);
+  return c;
+}
+
+/**
  * Prepare a cropped image for OCR: upscale small crops (Tesseract wants a
- * decent glyph height) and convert to grayscale. No thresholding — Tesseract's
- * own adaptive binarization handles uneven lighting far better than a global
- * cut did.
+ * decent glyph height), convert to grayscale, and auto-deskew — angled phone
+ * photos are the main cause of misreads, and Tesseract handles rotation
+ * poorly. Only rotates when a clear skew (≥ 2°) is detected, so straight
+ * photos are untouched.
  */
 export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
   const MIN_W = 1600;
@@ -124,11 +208,18 @@ export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
 
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
+  const gray = new Uint8ClampedArray(w * h);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
     const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    gray[p] = g;
     d[i] = d[i + 1] = d[i + 2] = g;
   }
   ctx.putImageData(img, 0, 0);
+
+  const angle = detectSkewAngle(gray, w, h);
+  if (Math.abs(angle) >= 2 && Math.abs(angle) <= 12) {
+    return rotateCanvas(canvas, angle);
+  }
   return canvas;
 }
 

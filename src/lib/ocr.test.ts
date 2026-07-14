@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { parseOcrText } from './ocr';
+import { parseOcrText, detectSkewAngle } from './ocr';
+
+// Synthetic "text lines" tilted by `tiltDeg` (positive = clockwise).
+function tiltedGray(w: number, h: number, tiltDeg: number): Uint8ClampedArray {
+  const g = new Uint8ClampedArray(w * h).fill(255);
+  const t = Math.tan((tiltDeg * Math.PI) / 180);
+  for (let lineY = 30; lineY < h - 30; lineY += 50) {
+    for (let x = 20; x < w - 20; x++) {
+      if (x % 6 >= 4) continue; // dashes → text-like
+      const base = Math.round(lineY + x * t);
+      for (let dy = 0; dy < 8; dy++) {
+        const yy = base + dy;
+        if (yy >= 0 && yy < h) g[yy * w + x] = 0;
+      }
+    }
+  }
+  return g;
+}
 
 describe('parseOcrText', () => {
   it('reads qty + length from a full form line, ignoring decimals', () => {
@@ -93,5 +110,26 @@ describe('parseOcrText', () => {
     expect(parseOcrText('4 10460 52,30 20,92')).toEqual([
       { length: 10460, qty: 4 },
     ]);
+  });
+});
+
+describe('detectSkewAngle', () => {
+  it('finds the straightening angle of clockwise-tilted text', () => {
+    // Text tilted +6° (CW) → straighten by ≈ -6°.
+    const angle = detectSkewAngle(tiltedGray(480, 360, 6), 480, 360);
+    expect(angle).toBeGreaterThanOrEqual(-7.5);
+    expect(angle).toBeLessThanOrEqual(-4.5);
+  });
+
+  it('finds the straightening angle of counter-clockwise-tilted text', () => {
+    const angle = detectSkewAngle(tiltedGray(480, 360, -6), 480, 360);
+    expect(angle).toBeGreaterThanOrEqual(4.5);
+    expect(angle).toBeLessThanOrEqual(7.5);
+  });
+
+  it('returns ~0 for straight text', () => {
+    expect(
+      Math.abs(detectSkewAngle(tiltedGray(480, 360, 0), 480, 360)),
+    ).toBeLessThanOrEqual(1);
   });
 });
