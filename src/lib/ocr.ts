@@ -20,7 +20,10 @@ export interface OcrRow {
 const NOISE = /(?:\bml\b|\bkg\b|\bmq\b|m²|totale|peso|quantit|lunghezz|turno|nome|capo|segnalazion|ordine|cliente|articolo)/i;
 
 const MIN_LEN = 300;
-const MAX_LEN = 30000;
+// Real sheet/profile lengths top out around ~11 m. Anything longer is almost
+// always a quantity glued onto the length (e.g. "25095" = qty 2 + 5095), so we
+// cap "plausible length" here and let splitMergedQtyLength un-glue the rest.
+const MAX_LEN = 13000;
 
 /**
  * Recover a qty+length that OCR glued into one token when the space between
@@ -46,7 +49,7 @@ function splitMergedQtyLength(token: string): OcrRow | null {
  *  - Two-decimal tokens (Peso 52,30 / mq 20,92) are stripped first — they can
  *    never be lengths. Only 2-dp values, so a glued number keeps its digits.
  *  - Of the remaining integers on a line: the first small one (< 300) is the
- *    quantity, the plausible sheet length (300–30000 mm) is the length.
+ *    quantity, the plausible sheet length (300–13000 mm) is the length.
  *  - If a line has NO plausible length but an oversized number, it's a glued
  *    qty+length — split it back (this is what fixes the dropped rows).
  */

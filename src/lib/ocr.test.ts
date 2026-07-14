@@ -48,6 +48,18 @@ describe('parseOcrText', () => {
     expect(parseOcrText('1210460')).toEqual([{ length: 10460, qty: 12 }]);
   });
 
+  it('un-glues 5-digit tokens above the real length range (25095 = 2 + 5095)', () => {
+    // OCR often drops the column gap: "2 5095" becomes "25095". 25095 mm is
+    // not a real sheet, so it must split — the previous 30000 cap accepted it.
+    expect(parseOcrText('25095')).toEqual([{ length: 5095, qty: 2 }]);
+    expect(parseOcrText('27005')).toEqual([{ length: 7005, qty: 2 }]);
+    expect(parseOcrText('155985')).toEqual([{ length: 5985, qty: 15 }]);
+  });
+
+  it('keeps a plausible long length (≤ 13000) intact', () => {
+    expect(parseOcrText('10460')).toEqual([{ length: 10460, qty: 1 }]);
+  });
+
   it('parses the exact raw block from the scanned order (all 17 rows)', () => {
     const raw = [
       '4      10460',
