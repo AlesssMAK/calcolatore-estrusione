@@ -129,16 +129,14 @@ function bestSubset(pool: number[], room: number, unit: number): number[] {
   return idx;
 }
 
-/**
- * Group corsie into strati of `lanes`, PREFERRING identical corsie in the same
- * strato (same combination across all lanes) so equal sizes stay on the same
- * level — otherwise a size gets scattered across several rows. Corsie left over
- * (a combination's count not divisible by lanes) are combined into a few
- * "mixed" strati placed after the uniform ones.
- */
-function formStrati(slots: Slot[], lanes: number): Slot[][] {
-  if (lanes <= 1) return slots.map((s) => [s]);
+const byLenDesc = (a: Slot, b: Slot) => b.length - a.length;
 
+/** Group corsie by piece signature; pair `lanes` identical ones into uniform
+ *  strati and return the rest (a signature's count not divisible by lanes). */
+function splitUniform(
+  slots: Slot[],
+  lanes: number,
+): { uniform: Slot[][]; leftovers: Slot[] } {
   const bySig = new Map<string, Slot[]>();
   for (const s of slots) {
     const sig = s.pieces.join('+');
@@ -146,7 +144,6 @@ function formStrati(slots: Slot[], lanes: number): Slot[][] {
     if (arr) arr.push(s);
     else bySig.set(sig, [s]);
   }
-
   const uniform: Slot[][] = [];
   const leftovers: Slot[] = [];
   for (const group of bySig.values()) {
@@ -156,10 +153,74 @@ function formStrati(slots: Slot[], lanes: number): Slot[][] {
     }
     for (; i < group.length; i++) leftovers.push(group[i]);
   }
+  return { uniform, leftovers };
+}
 
-  uniform.sort((a, b) => b[0].length - a[0].length);
-  leftovers.sort((a, b) => b.length - a.length);
-  return [...uniform, ...chunk(leftovers, lanes)];
+/**
+ * Re-pack leftover corsie (lanes>1) grouping their pieces by SIZE, so a size
+ * the scarto-optimal packer scattered across mixed corsie gets its own row(s)
+ * instead. Each size goes into the FEWEST corsie that hold it (so the corsia
+ * count — hence total scarto — is unchanged), the pieces spread as evenly as
+ * possible so paired lanes come out equal-length. Only adopted when it's free
+ * (see formStrati).
+ */
+function regroupLeftoversBySize(leftovers: Slot[], base: number): Slot[] {
+  const count = new Map<number, number>();
+  for (const s of leftovers)
+    for (const p of s.pieces) count.set(p, (count.get(p) ?? 0) + 1);
+
+  const out: Slot[] = [];
+  for (const [size, c] of count) {
+    const maxPer = Math.max(1, Math.floor(base / size));
+    const nc = Math.ceil(c / maxPer); // fewest corsie for this size
+    for (let i = 0; i < nc; i++) {
+      // Even split: the first (c % nc) corsie take one extra piece.
+      const k = Math.floor(c / nc) + (i < c % nc ? 1 : 0);
+      const pieces = new Array<number>(k).fill(size);
+      const length = k * size;
+      out.push({ pieces, length, scarto: base - length });
+    }
+  }
+  return out;
+}
+
+/**
+ * Group corsie into strati of `lanes`, PREFERRING identical corsie in the same
+ * strato so equal sizes stay on one level. For lanes>1 the leftover corsie
+ * (signature count not a multiple of lanes) are heterogeneous, which scatters a
+ * size across mixed rows; we re-pack those pieces grouped by size instead — but
+ * only when it's free: no extra corsie (same scarto) and no extra strati (same
+ * row count). lanes=1 is left completely untouched.
+ */
+function formStrati(slots: Slot[], lanes: number, base: number): Slot[][] {
+  if (lanes <= 1) return slots.map((s) => [s]);
+
+  const { uniform, leftovers } = splitUniform(slots, lanes);
+
+  // Baseline: chunk the heterogeneous leftovers as-is (may mix sizes in a row).
+  const baselineTail = chunk([...leftovers].sort(byLenDesc), lanes);
+
+  // Alternative: leftover pieces regrouped by size, then paired.
+  const repacked = regroupLeftoversBySize(leftovers, base);
+  const second = splitUniform(repacked, lanes);
+  const repackTail = [
+    ...second.uniform,
+    ...chunk([...second.leftovers].sort(byLenDesc), lanes),
+  ];
+
+  // Adopt the grouped version only when it costs nothing: no extra corsie
+  // (scarto) and no extra strati (rows). Otherwise keep the tighter packing.
+  const grouped =
+    repacked.length <= leftovers.length &&
+    repackTail.length <= baselineTail.length;
+  const tail = grouped ? repackTail : baselineTail;
+
+  const uniformSorted = [...uniform].sort((a, b) => b[0].length - a[0].length);
+  tail.sort(
+    (a, b) =>
+      Math.max(...b.map((c) => c.length)) - Math.max(...a.map((c) => c.length)),
+  );
+  return [...uniformSorted, ...tail];
 }
 
 /**
@@ -232,10 +293,14 @@ export function computeNesting(
     })
     .sort((a, b) => b.length - a.length);
 
-  const strati: Strato[] = formStrati(slots, lanes).map((corsie) => ({
+  const strati: Strato[] = formStrati(slots, lanes, base).map((corsie) => ({
     corsie,
     fogli: corsie.reduce((sum, c) => sum + c.pieces.length, 0),
   }));
+
+  // formStrati may re-pack leftover corsie (lanes>1), so derive the final
+  // corsie/totals from the strati to keep everything consistent.
+  const finalSlots = strati.flatMap((s) => s.corsie).sort(byLenDesc);
 
   const bancali: Bancale[] = (
     maxRows > 0 ? chunk(strati, maxRows) : [strati]
@@ -244,12 +309,12 @@ export function computeNesting(
   return {
     base,
     lanes,
-    slots,
+    slots: finalSlots,
     strati,
     bancali,
     totalFogli: pieces.length,
-    totalSlots: slots.length,
-    totalScarto: slots.reduce((sum, s) => sum + s.scarto, 0),
+    totalSlots: finalSlots.length,
+    totalScarto: finalSlots.reduce((sum, s) => sum + s.scarto, 0),
   };
 }
 

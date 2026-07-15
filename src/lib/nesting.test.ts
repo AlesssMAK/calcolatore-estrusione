@@ -110,6 +110,43 @@ describe('computeNesting — real order (500 mm sheet, 68 pcs)', () => {
   });
 });
 
+describe('computeNesting — same-size tail grouping (lanes=2)', () => {
+  // The order from the screenshot: after the good combos (10230, 4220+3440+2550,
+  // 9560), the tail is 4×2990 + 4×2200. The raw packer mixes them
+  // (2990+2200+2200+2200 / 2990×3 / 2200); with lanes=2 that scatters sizes into
+  // an ugly mixed row. Grouping keeps each size in its own row for free.
+  const sheets: SheetInput[] = [
+    10230, 9560, 4220, 3440, 2550, 2990, 2200,
+  ].map((length) => ({ length, qty: 4 }));
+
+  it('never mixes 2990 and 2200 in the same corsia', () => {
+    const r = computeNesting(sheets, { lanes: 2 });
+    const mixed = r.slots.some(
+      (s) => s.pieces.includes(2990) && s.pieces.includes(2200),
+    );
+    expect(mixed).toBe(false);
+  });
+
+  it('puts 2990s in a full uniform row and 2200s in their own row', () => {
+    const r = computeNesting(sheets, { lanes: 2 });
+    expect(r.slots).toContainEqual(
+      expect.objectContaining({ pieces: [2990, 2990], length: 5980 }),
+    );
+    expect(r.slots).toContainEqual(
+      expect.objectContaining({
+        pieces: [2200, 2200, 2200, 2200],
+        length: 8800,
+      }),
+    );
+  });
+
+  it('grouping is free — same corsie count and scarto as the raw optimum', () => {
+    const r = computeNesting(sheets, { lanes: 2 });
+    expect(r.totalSlots).toBe(15);
+    expect(r.totalScarto).toBe(12690); // 15 × 10230 − Σ lunghezze
+  });
+});
+
 describe('computeNesting — strati & bancali', () => {
   it('pairs identical corsie into one strato even when totals collide (lanes 2)', () => {
     // [5000] and [3000+2000] both total 5000 — plain sort-chunking could pair
