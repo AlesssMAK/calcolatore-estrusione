@@ -769,7 +769,8 @@ function ResultView({ result }: { result: NestingResult }) {
                 {t('piramide.result.bancale', { n: bi + 1 })}
               </h3>
             )}
-            <div className="overflow-x-auto">
+            {/* Desktop / print: full table. Mobile: stacked cards (below). */}
+            <div className="hidden overflow-x-auto sm:block print:block">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-neutral-300 text-left text-xs tracking-wide text-ink-soft uppercase">
@@ -790,6 +791,11 @@ function ResultView({ result }: { result: NestingResult }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="space-y-2 sm:hidden print:hidden">
+              {groups.map((g, gi) => (
+                <StratoCard key={gi} group={g} multiLane={multiLane} t={t} />
+              ))}
             </div>
 
             <BancaleSchema strati={bancale.strati} base={result.base} t={t} />
@@ -852,6 +858,58 @@ function BancaleSchema({
   );
 }
 
+// Shared display fields for one strato group — used by both the desktop table
+// row and the mobile card so their formatting can't drift apart.
+function stratoView(group: StratoGroup) {
+  const { strato, start, end, count } = group;
+  const rangeLabel = count > 1 ? `${start}–${end}` : `${start}`;
+  const foldLabel = count > 1 ? ` (×${count})` : '';
+  // Corsie: dedupe display when all identical (common — twin lanes).
+  const combos = strato.corsie.map((c) => c.pieces.join(' + '));
+  const lengths = strato.corsie.map((c) => c.length);
+  const scarti = strato.corsie.map((c) => c.scarto);
+  const allSame = combos.every((x) => x === combos[0]);
+  const lengthText = allSame ? `${lengths[0]} mm` : lengths.join(' / ') + ' mm';
+  const scartoText = allSame ? `${scarti[0]} mm` : scarti.join(' / ') + ' mm';
+  return { strato, rangeLabel, foldLabel, combos, allSame, lengthText, scartoText };
+}
+
+// The Combinazione value: a single combo (+ ×N for twin lanes) or a per-corsia
+// breakdown when the lanes differ.
+function ComboCell({
+  view,
+  multiLane,
+  t,
+}: {
+  view: ReturnType<typeof stratoView>;
+  multiLane: boolean;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const { strato, combos, allSame } = view;
+  if (allSame) {
+    return (
+      <span>
+        {combos[0]}
+        {multiLane && strato.corsie.length > 1 && (
+          <span className="text-ink-soft"> ×{strato.corsie.length}</span>
+        )}
+      </span>
+    );
+  }
+  return (
+    <div className="space-y-0.5">
+      {combos.map((c, i) => (
+        <div key={i}>
+          <span className="text-[11px] text-ink-soft">
+            {t('piramide.result.corsia', { n: i + 1 })}:{' '}
+          </span>
+          {c}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StratoRow({
   group,
   multiLane,
@@ -861,55 +919,63 @@ function StratoRow({
   multiLane: boolean;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
-  const { strato, start, end, count } = group;
-  const rangeLabel = count > 1 ? `${start}–${end}` : `${start}`;
-  const foldLabel = count > 1 ? ` (×${count})` : '';
-
-  // Corsie: dedupe display when all identical (common — twin lanes).
-  const combos = strato.corsie.map((c) => c.pieces.join(' + '));
-  const lengths = strato.corsie.map((c) => c.length);
-  const scarti = strato.corsie.map((c) => c.scarto);
-  const allSame = combos.every((x) => x === combos[0]);
-
+  const v = stratoView(group);
   return (
     <tr className="border-b border-neutral-100 align-top">
-      <td className="py-2 pr-3 font-medium text-ink-soft">{rangeLabel}</td>
+      <td className="py-2 pr-3 font-medium text-ink-soft">{v.rangeLabel}</td>
       <td className="py-2 pr-3 font-medium text-ink">
-        {allSame ? (
-          <span>
-            {combos[0]}
-            {multiLane && strato.corsie.length > 1 && (
-              <span className="text-ink-soft"> ×{strato.corsie.length}</span>
-            )}
-          </span>
-        ) : (
-          <div className="space-y-0.5">
-            {combos.map((c, i) => (
-              <div key={i}>
-                <span className="text-[11px] text-ink-soft">
-                  {t('piramide.result.corsia', { n: i + 1 })}:{' '}
-                </span>
-                {c}
-              </div>
-            ))}
-          </div>
-        )}
+        <ComboCell view={v} multiLane={multiLane} t={t} />
       </td>
+      <td className="py-2 pr-3 whitespace-nowrap text-ink">{v.lengthText}</td>
       <td className="py-2 pr-3 whitespace-nowrap text-ink">
-        {allSame
-          ? `${lengths[0]} mm`
-          : lengths.map((l) => `${l}`).join(' / ') + ' mm'}
+        {v.strato.fogli}
+        {v.foldLabel}
       </td>
-      <td className="py-2 pr-3 whitespace-nowrap text-ink">
-        {strato.fogli}
-        {foldLabel}
-      </td>
-      <td className="py-2 whitespace-nowrap text-ink-soft">
-        {allSame
-          ? `${scarti[0]} mm`
-          : scarti.map((s) => `${s}`).join(' / ') + ' mm'}
-      </td>
+      <td className="py-2 whitespace-nowrap text-ink-soft">{v.scartoText}</td>
     </tr>
+  );
+}
+
+// Mobile equivalent of StratoRow: a stacked card so the 5 columns don't
+// overflow narrow screens.
+function StratoCard({
+  group,
+  multiLane,
+  t,
+}: {
+  group: StratoGroup;
+  multiLane: boolean;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const v = stratoView(group);
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium tracking-wide text-ink-soft">
+          #{v.rangeLabel}
+        </span>
+        <span className="text-xs text-ink-soft">
+          {t('piramide.result.colFogli')}:{' '}
+          <b className="text-ink">
+            {v.strato.fogli}
+            {v.foldLabel}
+          </b>
+        </span>
+      </div>
+      <div className="mt-1 font-medium text-ink">
+        <ComboCell view={v} multiLane={multiLane} t={t} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-ink-soft">
+        <span>
+          {t('piramide.result.colLunghezza')}:{' '}
+          <span className="text-ink">{v.lengthText}</span>
+        </span>
+        <span>
+          {t('piramide.result.colScarto')}:{' '}
+          <span className="text-ink">{v.scartoText}</span>
+        </span>
+      </div>
+    </div>
   );
 }
 
