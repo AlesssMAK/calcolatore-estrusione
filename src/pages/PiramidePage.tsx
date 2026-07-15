@@ -384,8 +384,8 @@ function PiramidePage() {
 
           <div className="space-y-2">
             <div className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:gap-3">
-              <label className={labelCls}>{t('piramide.sheets.length')}</label>
               <label className={labelCls}>{t('piramide.sheets.qty')}</label>
+              <label className={labelCls}>{t('piramide.sheets.length')}</label>
               <span className="w-[84px]" />
             </div>
             {rows.map((r) => (
@@ -399,8 +399,8 @@ function PiramidePage() {
                   step="1"
                   inputMode="numeric"
                   className={inputCls}
-                  value={r.length}
-                  onChange={(e) => setRow(r.id, { length: e.target.value })}
+                  value={r.qty}
+                  onChange={(e) => setRow(r.id, { qty: e.target.value })}
                 />
                 <input
                   type="number"
@@ -408,8 +408,8 @@ function PiramidePage() {
                   step="1"
                   inputMode="numeric"
                   className={inputCls}
-                  value={r.qty}
-                  onChange={(e) => setRow(r.id, { qty: e.target.value })}
+                  value={r.length}
+                  onChange={(e) => setRow(r.id, { length: e.target.value })}
                 />
                 <div className="flex items-end gap-2">
                   <button
