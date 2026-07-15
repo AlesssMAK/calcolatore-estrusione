@@ -130,6 +130,39 @@ function bestSubset(pool: number[], room: number, unit: number): number[] {
 }
 
 /**
+ * Group corsie into strati of `lanes`, PREFERRING identical corsie in the same
+ * strato (same combination across all lanes) so equal sizes stay on the same
+ * level — otherwise a size gets scattered across several rows. Corsie left over
+ * (a combination's count not divisible by lanes) are combined into a few
+ * "mixed" strati placed after the uniform ones.
+ */
+function formStrati(slots: Slot[], lanes: number): Slot[][] {
+  if (lanes <= 1) return slots.map((s) => [s]);
+
+  const bySig = new Map<string, Slot[]>();
+  for (const s of slots) {
+    const sig = s.pieces.join('+');
+    const arr = bySig.get(sig);
+    if (arr) arr.push(s);
+    else bySig.set(sig, [s]);
+  }
+
+  const uniform: Slot[][] = [];
+  const leftovers: Slot[] = [];
+  for (const group of bySig.values()) {
+    let i = 0;
+    for (; i + lanes <= group.length; i += lanes) {
+      uniform.push(group.slice(i, i + lanes));
+    }
+    for (; i < group.length; i++) leftovers.push(group[i]);
+  }
+
+  uniform.sort((a, b) => b[0].length - a[0].length);
+  leftovers.sort((a, b) => b.length - a.length);
+  return [...uniform, ...chunk(leftovers, lanes)];
+}
+
+/**
  * Distribute the given sheets into corsie (1D bins of capacity = base),
  * then group them into strati (by `lanes`) and bancali (by `maxRows`).
  *
@@ -199,7 +232,7 @@ export function computeNesting(
     })
     .sort((a, b) => b.length - a.length);
 
-  const strati: Strato[] = chunk(slots, lanes).map((corsie) => ({
+  const strati: Strato[] = formStrati(slots, lanes).map((corsie) => ({
     corsie,
     fogli: corsie.reduce((sum, c) => sum + c.pieces.length, 0),
   }));
@@ -218,4 +251,137 @@ export function computeNesting(
     totalSlots: slots.length,
     totalScarto: slots.reduce((sum, s) => sum + s.scarto, 0),
   };
+}
+
+// --- Production plan (stacking order) --------------------------------------
+//
+// The operator sets one cut length on the machine and must finish it before
+// switching (a setup is costly), so every length has to be produced in ONE
+// continuous run. Production order = the order sheets are laid on the bancale,
+// base (longest) first. When a length lives in more than one row (e.g. 4220 in
+// both 4220+2990+2990 and 4220+2550+2550), those rows are pulled adjacent so
+// the length stays a single run — even if it slightly breaks the descending
+// pyramid. If the rows are too far apart in length (> gap) we don't force it;
+// we flag a warning instead (a future step will re-nest to avoid it).
+
+export interface ProductionGroup {
+  strato: Strato;
+  /** How many identical strati this group represents. */
+  count: number;
+}
+
+export interface ProductionItem {
+  length: number;
+  qty: number;
+}
+
+export interface ProductionWarning {
+  /** The length shared across rows that are too different to group. */
+  length: number;
+  /** The differing row lengths (desc). */
+  rowLengths: number[];
+}
+
+export interface ProductionPlan {
+  /** Row groups in production / stacking order (base first). */
+  groups: ProductionGroup[];
+  /** Each distinct length once, total quantity, in production order. */
+  list: ProductionItem[];
+  /** Lengths split across rows further apart than the gap. */
+  warnings: ProductionWarning[];
+}
+
+/** Max row-length difference (mm) still allowed to group a shared length. */
+export const SAME_SIZE_GAP_MM = 1000;
+
+export function buildProductionPlan(
+  strati: Strato[],
+  gapMm: number = SAME_SIZE_GAP_MM,
+): ProductionPlan {
+  // Collapse identical strati (same corsie signature) into counted groups.
+  const map = new Map<string, ProductionGroup>();
+  for (const st of strati) {
+    const sig = st.corsie.map((c) => c.pieces.join('+')).join('|');
+    const e = map.get(sig);
+    if (e) e.count += 1;
+    else map.set(sig, { strato: st, count: 1 });
+  }
+  const groups = [...map.values()];
+  const n = groups.length;
+
+  const rowLen = (g: ProductionGroup) =>
+    Math.max(...g.strato.corsie.map((c) => c.length));
+  const groupSizes = groups.map(
+    (g) => new Set(g.strato.corsie.flatMap((c) => c.pieces)),
+  );
+
+  // Union-Find: connect groups that share a length AND whose rows are within
+  // the gap. A shared length across a larger gap raises a warning instead.
+  const parent = groups.map((_, i) => i);
+  const find = (x: number): number =>
+    parent[x] === x ? x : (parent[x] = find(parent[x]));
+
+  const warnings: ProductionWarning[] = [];
+  const warned = new Set<number>();
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const shared = [...groupSizes[i]].filter((s) => groupSizes[j].has(s));
+      if (shared.length === 0) continue;
+      if (Math.abs(rowLen(groups[i]) - rowLen(groups[j])) <= gapMm) {
+        parent[find(i)] = find(j);
+      } else {
+        for (const s of shared) {
+          if (warned.has(s)) continue;
+          warned.add(s);
+          warnings.push({
+            length: s,
+            rowLengths: [rowLen(groups[i]), rowLen(groups[j])].sort(
+              (a, b) => b - a,
+            ),
+          });
+        }
+      }
+    }
+  }
+
+  // Clusters, ordered base-first (by their longest row); rows within a cluster
+  // by length desc.
+  const clusters = new Map<number, number[]>();
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    const arr = clusters.get(r);
+    if (arr) arr.push(i);
+    else clusters.set(r, [i]);
+  }
+  const ordered = [...clusters.values()]
+    .map((members) => {
+      members.sort((a, b) => rowLen(groups[b]) - rowLen(groups[a]));
+      return { members, maxLen: rowLen(groups[members[0]]) };
+    })
+    .sort((a, b) => b.maxLen - a.maxLen)
+    .flatMap((cl) => cl.members.map((m) => groups[m]));
+
+  // Total quantity of each length across the whole bancale.
+  const totalQty = new Map<number, number>();
+  for (const g of groups)
+    for (const c of g.strato.corsie)
+      for (const p of c.pieces) totalQty.set(p, (totalQty.get(p) ?? 0) + g.count);
+
+  // Production list: each length once (total qty), at its first occurrence in
+  // the ordered rows — so a combo's pieces stay together and a shared length
+  // is a single consecutive run.
+  const emitted = new Set<number>();
+  const list: ProductionItem[] = [];
+  for (const g of ordered) {
+    const distinct = [
+      ...new Set(g.strato.corsie.flatMap((c) => c.pieces)),
+    ].sort((a, b) => b - a);
+    for (const p of distinct) {
+      if (emitted.has(p)) continue;
+      emitted.add(p);
+      list.push({ length: p, qty: totalQty.get(p) ?? 0 });
+    }
+  }
+
+  return { groups: ordered, list, warnings };
 }

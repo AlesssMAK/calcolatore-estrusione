@@ -179,7 +179,11 @@
       "readOk": "Leídas {{count}} filas — revisa y corrige abajo.",
       "readLowConfidence": "Leídas {{count}} filas, pero fiabilidad solo {{confidence}}% — revisa que no falte nada o reescanea recortando más ajustado.",
       "readEmpty": "No se reconocieron valores. Recorta más ajustado o introduce a mano.",
-      "readError": "Lectura fallida. Reintenta o introduce a mano."
+      "readError": "Lectura fallida. Reintenta o introduce a mano.",
+      "minLen": "Longitud mín. lámina (mm)",
+      "minLenHint": "opc. — estándar 300; sube para ignorar valores demasiado cortos",
+      "maxLen": "Longitud máx. lámina (mm)",
+      "maxLenHint": "opc. — estándar 11000; sube a 13500 para láminas extralargas"
     },
     "sheets": {
       "title": "Láminas",
@@ -205,6 +209,10 @@
     "result": {
       "title": "Distribución",
       "empty": "Introduce las láminas y pulsa «Calcular distribución».",
+      "schema": "Esquema (pirámide)",
+      "order": "Orden de producción",
+      "splitWarning": "⚠ La medida {{length}} mm cae en filas de longitud muy distinta ({{rows}} mm) — mejor recalcular.",
+      "recover": "espacio a recuperar",
       "base": "Base",
       "corsie": "Carriles",
       "strati": "Capas",

@@ -1,12 +1,15 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
-import { recognizeSheets } from '../lib/ocr';
+import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
 import {
   computeNesting,
+  buildProductionPlan,
   type NestingResult,
+  type ProductionGroup,
   type SheetInput,
   type Strato,
 } from '../lib/nesting';
@@ -73,6 +76,11 @@ function PiramidePage() {
   const [result, setResult] = useState<NestingResult | null>(null);
 
   // Photo / OCR flow.
+  // Plausible-length window for OCR parsing (empty = defaults 300 / 11000).
+  // Raise maxLen (e.g. 13500) to read rare extra-long sheets intact; raise
+  // minLen to drop short noise when short sheets don't occur.
+  const [minLen, setMinLen] = useState('');
+  const [maxLen, setMaxLen] = useState('');
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -105,9 +113,16 @@ function PiramidePage() {
     setOcrBusy(true);
     setOcrProgress(0);
     try {
-      const result = await recognizeSheets(canvas, (p) => {
-        if (p.status === 'recognizing text') setOcrProgress(p.progress);
-      });
+      const result = await recognizeSheets(
+        canvas,
+        (p) => {
+          if (p.status === 'recognizing text') setOcrProgress(p.progress);
+        },
+        {
+          minLen: Number(minLen) > 0 ? Number(minLen) : undefined,
+          maxLen: Number(maxLen) > 0 ? Number(maxLen) : undefined,
+        },
+      );
       setOcrDebug({ rawText: result.rawText, confidence: result.confidence });
       const parsed = result.rows;
       if (parsed.length === 0) {
@@ -158,6 +173,8 @@ function PiramidePage() {
     setResult(null);
     setOcrDebug(null);
     setOcrStatus(null);
+    setMinLen('');
+    setMaxLen('');
   };
 
   const parsedSheets: SheetInput[] = rows
@@ -212,6 +229,53 @@ function PiramidePage() {
               <li>{t('piramide.tips.manual')}</li>
             </ul>
           </details>
+
+          <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <label
+                htmlFor="piramide-minlen"
+                className="w-40 shrink-0 text-xs font-medium text-ink-soft"
+              >
+                {t('piramide.photo.minLen')}
+              </label>
+              <input
+                id="piramide-minlen"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                placeholder={String(DEFAULT_MIN_LEN)}
+                className="h-8 w-24 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                value={minLen}
+                onChange={(e) => setMinLen(e.target.value)}
+              />
+              <span className="text-[11px] text-ink-soft">
+                {t('piramide.photo.minLenHint')}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <label
+                htmlFor="piramide-maxlen"
+                className="w-40 shrink-0 text-xs font-medium text-ink-soft"
+              >
+                {t('piramide.photo.maxLen')}
+              </label>
+              <input
+                id="piramide-maxlen"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                placeholder={String(DEFAULT_MAX_LEN)}
+                className="h-8 w-24 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                value={maxLen}
+                onChange={(e) => setMaxLen(e.target.value)}
+              />
+              <span className="text-[11px] text-ink-soft">
+                {t('piramide.photo.maxLenHint')}
+              </span>
+            </div>
+          </div>
 
           <input
             ref={cameraRef}
@@ -320,8 +384,8 @@ function PiramidePage() {
 
           <div className="space-y-2">
             <div className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:gap-3">
-              <label className={labelCls}>{t('piramide.sheets.length')}</label>
               <label className={labelCls}>{t('piramide.sheets.qty')}</label>
+              <label className={labelCls}>{t('piramide.sheets.length')}</label>
               <span className="w-[84px]" />
             </div>
             {rows.map((r) => (
@@ -335,8 +399,8 @@ function PiramidePage() {
                   step="1"
                   inputMode="numeric"
                   className={inputCls}
-                  value={r.length}
-                  onChange={(e) => setRow(r.id, { length: e.target.value })}
+                  value={r.qty}
+                  onChange={(e) => setRow(r.id, { qty: e.target.value })}
                 />
                 <input
                   type="number"
@@ -344,8 +408,8 @@ function PiramidePage() {
                   step="1"
                   inputMode="numeric"
                   className={inputCls}
-                  value={r.qty}
-                  onChange={(e) => setRow(r.id, { qty: e.target.value })}
+                  value={r.length}
+                  onChange={(e) => setRow(r.id, { length: e.target.value })}
                 />
                 <div className="flex items-end gap-2">
                   <button
@@ -464,18 +528,225 @@ function Chip({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+// Pyramid diagram. Rows are drawn in production / stacking order — the base
+// (first produced, longest) at the bottom, narrowing upward. Each strato is a
+// group of `lanes` bars; every bar's width ∝ its corsia length vs the base and
+// is centered (the side gaps = scarto), with each sheet's length on its segment
+// and the corsia total to the right.
+function PyramidSchema({
+  groups,
+  base,
+}: {
+  groups: ProductionGroup[];
+  base: number;
+}) {
+  const { t } = useTranslation();
+  if (groups.length === 0 || base <= 0) return null;
+
+  const VW = 1000;
+  const BAR_ZONE = 700; // bars live in 0..700; length + ×count to the right
+  const maxLanes = Math.max(...groups.map((g) => g.strato.corsie.length));
+  const corsiaH = maxLanes > 1 ? 18 : 26;
+  const corsiaGap = 3;
+  const stratoGap = 12;
+  const padY = 6;
+  const fontSize = maxLanes > 1 ? 13 : 17;
+
+  // groups are base-first (production order) → draw base at the bottom.
+  const rows = [...groups].reverse();
+
+  let y = padY;
+  const laid = rows.map((g) => {
+    // Reserve all `maxLanes` lanes so a partial strato shows its empty
+    // (recoverable) lane instead of collapsing to half height.
+    const h = maxLanes * corsiaH + (maxLanes - 1) * corsiaGap;
+    const item = { g, y0: y, h };
+    y += h + stratoGap;
+    return item;
+  });
+  const height = y - stratoGap + padY;
+
+  return (
+    <svg
+      viewBox={`0 0 ${VW} ${height}`}
+      width="100%"
+      className="block"
+      style={{ maxWidth: '660px' }}
+      role="img"
+    >
+      {laid.map(({ g, y0, h }, i) => (
+        <g key={i}>
+          {Array.from({ length: maxLanes }, (_, k) => {
+            const by = y0 + k * (corsiaH + corsiaGap);
+            const c = g.strato.corsie[k];
+            if (!c) {
+              // Empty lane of a partial strato — space to reuse.
+              return (
+                <g key={k}>
+                  <rect
+                    x={0}
+                    y={by}
+                    width={BAR_ZONE}
+                    height={corsiaH}
+                    rx={3}
+                    fill="#fafafa"
+                    stroke="#d4d4d4"
+                    strokeDasharray="5 4"
+                  />
+                  <text
+                    x={BAR_ZONE / 2}
+                    y={by + corsiaH * 0.7}
+                    textAnchor="middle"
+                    fontSize={fontSize}
+                    fill="#a3a3a3"
+                  >
+                    {t('piramide.result.recover')}
+                  </text>
+                </g>
+              );
+            }
+            const barW = (c.length / base) * BAR_ZONE;
+            const x0 = (BAR_ZONE - barW) / 2;
+            let cx = x0;
+            return (
+              <g key={k}>
+                <rect x={0} y={by} width={BAR_ZONE} height={corsiaH} rx={3} fill="#f1f1f1" />
+                {c.pieces.map((p, j) => {
+                  const w = (p / base) * BAR_ZONE;
+                  const segX = cx;
+                  cx += w;
+                  return (
+                    <g key={j}>
+                      <rect
+                        x={segX}
+                        y={by}
+                        width={w}
+                        height={corsiaH}
+                        fill="#c8102e"
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      />
+                      {/* real length of THIS sheet, centered in its segment */}
+                      <text
+                        x={segX + w / 2}
+                        y={by + corsiaH * 0.7}
+                        textAnchor="middle"
+                        fontSize={fontSize}
+                        fontWeight={600}
+                        fill="#ffffff"
+                      >
+                        {p}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* total length of the corsia, to the right of the bar */}
+                <text
+                  x={BAR_ZONE + 12}
+                  y={by + corsiaH * 0.7}
+                  fontSize={fontSize}
+                  fontWeight={600}
+                  fill="#3a3a3a"
+                >
+                  {c.length} mm
+                </text>
+              </g>
+            );
+          })}
+          {g.count > 1 && (
+            <text
+              x={VW - 8}
+              y={y0 + h / 2 + fontSize * 0.35}
+              textAnchor="end"
+              fontSize={17}
+              fontWeight={700}
+              fill="#c8102e"
+            >
+              ×{g.count}
+            </text>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function ResultView({ result }: { result: NestingResult }) {
   const { t } = useTranslation();
   const multiLane = result.lanes > 1;
+  const sectionRef = useRef<HTMLElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Global strato numbering across bancali.
   let stratoOffset = 0;
 
+  const exportAsImage = async () => {
+    const node = sectionRef.current;
+    if (!node) return;
+    setExporting(true);
+    try {
+      const blob = await toBlob(node, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        filter: (n) =>
+          !(n instanceof HTMLElement && n.classList.contains('no-print')),
+      });
+      if (!blob) return;
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const file = new File([blob], `piramide-${stamp}.png`, {
+        type: 'image/png',
+      });
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({ files: [file], title: t('piramide.title') });
+          return;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      /* ignore */
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="text-base font-semibold text-ink sm:text-lg">
-        {t('piramide.result.title')}
-      </h2>
+    <section
+      ref={sectionRef}
+      data-print="piramide"
+      className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
+    >
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-base font-semibold text-ink sm:text-lg">
+          {t('piramide.result.title')}
+        </h2>
+        <div className="no-print flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+          >
+            🖨 {t('actions.print')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportAsImage()}
+            disabled={exporting}
+            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            📷 {exporting ? t('actions.exporting') : t('actions.saveImage')}
+          </button>
+        </div>
+      </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Chip label={t('piramide.result.base')} value={`${result.base} mm`} />
@@ -520,10 +791,64 @@ function ResultView({ result }: { result: NestingResult }) {
                 </tbody>
               </table>
             </div>
+
+            <BancaleSchema strati={bancale.strati} base={result.base} t={t} />
           </div>
         );
       })}
     </section>
+  );
+}
+
+// Pyramid + production-order list + any split warnings for one bancale.
+function BancaleSchema({
+  strati,
+  base,
+  t,
+}: {
+  strati: NestingResult['bancali'][number]['strati'];
+  base: number;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const plan = buildProductionPlan(strati);
+
+  return (
+    <div className="mt-4">
+      <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
+        {t('piramide.result.schema')}
+      </div>
+
+      {plan.warnings.length > 0 && (
+        <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          {plan.warnings.map((w) => (
+            <div key={w.length}>
+              {t('piramide.result.splitWarning', {
+                length: w.length,
+                rows: w.rowLengths.join(', '),
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <PyramidSchema groups={plan.groups} base={base} />
+        </div>
+        <div className="shrink-0">
+          <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
+            {t('piramide.result.order')}
+          </div>
+          <ol className="text-sm leading-relaxed text-ink tabular-nums">
+            {plan.list.map((it, i) => (
+              <li key={i}>
+                {i + 1}. {it.qty} × {it.length}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </div>
   );
 }
 

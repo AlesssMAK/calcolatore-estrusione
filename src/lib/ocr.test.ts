@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { parseOcrText } from './ocr';
+import { parseOcrText, detectSkewAngle } from './ocr';
+
+// Synthetic "text lines" tilted by `tiltDeg` (positive = clockwise).
+function tiltedGray(w: number, h: number, tiltDeg: number): Uint8ClampedArray {
+  const g = new Uint8ClampedArray(w * h).fill(255);
+  const t = Math.tan((tiltDeg * Math.PI) / 180);
+  for (let lineY = 30; lineY < h - 30; lineY += 50) {
+    for (let x = 20; x < w - 20; x++) {
+      if (x % 6 >= 4) continue; // dashes → text-like
+      const base = Math.round(lineY + x * t);
+      for (let dy = 0; dy < 8; dy++) {
+        const yy = base + dy;
+        if (yy >= 0 && yy < h) g[yy * w + x] = 0;
+      }
+    }
+  }
+  return g;
+}
 
 describe('parseOcrText', () => {
   it('reads qty + length from a full form line, ignoring decimals', () => {
@@ -48,6 +65,45 @@ describe('parseOcrText', () => {
     expect(parseOcrText('1210460')).toEqual([{ length: 10460, qty: 12 }]);
   });
 
+  it('un-glues 5-digit tokens above the real length range (25095 = 2 + 5095)', () => {
+    // OCR often drops the column gap: "2 5095" becomes "25095". 25095 mm is
+    // not a real sheet, so it must split — the previous 30000 cap accepted it.
+    expect(parseOcrText('25095')).toEqual([{ length: 5095, qty: 2 }]);
+    expect(parseOcrText('27005')).toEqual([{ length: 7005, qty: 2 }]);
+    expect(parseOcrText('155985')).toEqual([{ length: 5985, qty: 15 }]);
+  });
+
+  it('keeps a plausible long length (≤ 11000) intact', () => {
+    expect(parseOcrText('10460')).toEqual([{ length: 10460, qty: 1 }]);
+  });
+
+  it('un-glues the 11000–13000 window by default (11270 = 1 + 1270)', () => {
+    // Small qty-1 orders whose gap collapsed land here; the strict 11000 cap
+    // splits them instead of accepting a phantom 11–13 m sheet.
+    expect(parseOcrText('11270')).toEqual([{ length: 1270, qty: 1 }]);
+    expect(parseOcrText('13000')).toEqual([{ length: 3000, qty: 1 }]);
+  });
+
+  it('honors a raised maxLen so rare extra-long sheets stay intact', () => {
+    // Operator opts into reading real 11–13.5 m sheets by raising the cap.
+    expect(parseOcrText('13000', { maxLen: 13500 })).toEqual([
+      { length: 13000, qty: 1 },
+    ]);
+    expect(parseOcrText('11270', { maxLen: 13500 })).toEqual([
+      { length: 11270, qty: 1 },
+    ]);
+  });
+
+  it('honors a raised minLen so short values below the floor are dropped', () => {
+    // Default reads 800 as a length; with minLen 1000 it falls below the floor.
+    expect(parseOcrText('4 800')).toEqual([{ length: 800, qty: 4 }]);
+    expect(parseOcrText('4 800', { minLen: 1000 })).toEqual([]);
+    // A real length above the raised floor still reads fine.
+    expect(parseOcrText('4 1500', { minLen: 1000 })).toEqual([
+      { length: 1500, qty: 4 },
+    ]);
+  });
+
   it('parses the exact raw block from the scanned order (all 17 rows)', () => {
     const raw = [
       '4      10460',
@@ -81,5 +137,26 @@ describe('parseOcrText', () => {
     expect(parseOcrText('4 10460 52,30 20,92')).toEqual([
       { length: 10460, qty: 4 },
     ]);
+  });
+});
+
+describe('detectSkewAngle', () => {
+  it('finds the straightening angle of clockwise-tilted text', () => {
+    // Text tilted +6° (CW) → straighten by ≈ -6°.
+    const angle = detectSkewAngle(tiltedGray(480, 360, 6), 480, 360);
+    expect(angle).toBeGreaterThanOrEqual(-7.5);
+    expect(angle).toBeLessThanOrEqual(-4.5);
+  });
+
+  it('finds the straightening angle of counter-clockwise-tilted text', () => {
+    const angle = detectSkewAngle(tiltedGray(480, 360, -6), 480, 360);
+    expect(angle).toBeGreaterThanOrEqual(4.5);
+    expect(angle).toBeLessThanOrEqual(7.5);
+  });
+
+  it('returns ~0 for straight text', () => {
+    expect(
+      Math.abs(detectSkewAngle(tiltedGray(480, 360, 0), 480, 360)),
+    ).toBeLessThanOrEqual(1);
   });
 });

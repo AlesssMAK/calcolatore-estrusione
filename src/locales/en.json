@@ -179,7 +179,11 @@
       "readOk": "Read {{count}} rows — check and fix below.",
       "readLowConfidence": "Read {{count}} rows, but reliability only {{confidence}}% — check nothing is missing or rescan with a tighter crop.",
       "readEmpty": "No values recognized. Crop tighter or enter by hand.",
-      "readError": "Reading failed. Retry or enter by hand."
+      "readError": "Reading failed. Retry or enter by hand.",
+      "minLen": "Min sheet length (mm)",
+      "minLenHint": "opt. — default 300; raise to ignore too-short values",
+      "maxLen": "Max sheet length (mm)",
+      "maxLenHint": "opt. — default 11000; raise to 13500 for extra-long sheets"
     },
     "sheets": {
       "title": "Sheets",
@@ -205,6 +209,10 @@
     "result": {
       "title": "Layout",
       "empty": "Enter the sheets and press «Compute layout».",
+      "schema": "Diagram (pyramid)",
+      "order": "Production order",
+      "splitWarning": "⚠ Size {{length}} mm lands in rows of very different length ({{rows}} mm) — better to recalculate.",
+      "recover": "recoverable space",
       "base": "Base",
       "corsie": "Lanes",
       "strati": "Layers",

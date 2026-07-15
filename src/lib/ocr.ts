@@ -19,20 +19,41 @@ export interface OcrRow {
 /** Lines that are headers / totals / unit rows, never a real sheet row. */
 const NOISE = /(?:\bml\b|\bkg\b|\bmq\b|m²|totale|peso|quantit|lunghezz|turno|nome|capo|segnalazion|ordine|cliente|articolo)/i;
 
-const MIN_LEN = 300;
-const MAX_LEN = 30000;
+// Smallest plausible sheet length in mm: anything below is OCR noise, a header
+// figure, or a quantity — never a real sheet. Configurable so the operator can
+// raise the floor when short sheets don't occur in their orders.
+export const DEFAULT_MIN_LEN = 300;
+// Real sheet/profile lengths top out around ~10.5 m, so 11000 is the strict
+// default cap: anything longer is almost always a quantity glued onto the
+// length — including small orders where qty 1 + a 4-digit length reads as
+// "11270" (= 1 + 1270). splitMergedQtyLength un-glues everything above the cap.
+// The cap is configurable (recognizeSheets → parseOcrText) so the operator can
+// raise it (e.g. 13500) to read rare extra-long sheets intact — at the cost of
+// that small-order protection in the widened window.
+export const DEFAULT_MAX_LEN = 11000;
+
+/** Configurable plausible-length window (mm) for OCR parsing. Omitted fields
+ *  fall back to DEFAULT_MIN_LEN / DEFAULT_MAX_LEN. */
+export interface ParseBounds {
+  minLen?: number;
+  maxLen?: number;
+}
 
 /**
  * Recover a qty+length that OCR glued into one token when the space between
  * the two columns collapsed (e.g. "410230" → qty 4 + length 10230, "46740" →
  * 4 + 6740). Peels a 1–2 digit quantity off the front, keeping the rest as a
- * plausible length. Returns null when no such split exists.
+ * plausible length (minLen..maxLen). Returns null when no such split exists.
  */
-function splitMergedQtyLength(token: string): OcrRow | null {
+function splitMergedQtyLength(
+  token: string,
+  minLen: number,
+  maxLen: number,
+): OcrRow | null {
   for (let cut = 1; cut <= 2 && cut < token.length; cut++) {
     const qty = Number(token.slice(0, cut));
     const length = Number(token.slice(cut));
-    if (qty >= 1 && qty < 100 && length >= MIN_LEN && length <= MAX_LEN) {
+    if (qty >= 1 && qty < 100 && length >= minLen && length <= maxLen) {
       return { length, qty };
     }
   }
@@ -46,11 +67,16 @@ function splitMergedQtyLength(token: string): OcrRow | null {
  *  - Two-decimal tokens (Peso 52,30 / mq 20,92) are stripped first — they can
  *    never be lengths. Only 2-dp values, so a glued number keeps its digits.
  *  - Of the remaining integers on a line: the first small one (< 300) is the
- *    quantity, the plausible sheet length (300–30000 mm) is the length.
+ *    quantity, the plausible sheet length (minLen..maxLen mm) is the length.
  *  - If a line has NO plausible length but an oversized number, it's a glued
  *    qty+length — split it back (this is what fixes the dropped rows).
+ *
+ * `bounds.minLen` / `bounds.maxLen` set the plausible-length window (defaults
+ * 300 / 11000). Raise maxLen to read rare extra-long sheets intact; raise
+ * minLen to drop short noise; both fall back to the defaults when omitted.
  */
-export function parseOcrText(text: string): OcrRow[] {
+export function parseOcrText(text: string, bounds: ParseBounds = {}): OcrRow[] {
+  const { minLen = DEFAULT_MIN_LEN, maxLen = DEFAULT_MAX_LEN } = bounds;
   const rows: OcrRow[] = [];
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
@@ -61,7 +87,7 @@ export function parseOcrText(text: string): OcrRow[] {
     if (tokens.length === 0) continue;
     const nums = tokens.map(Number);
 
-    const lengths = nums.filter((n) => n >= MIN_LEN && n <= MAX_LEN);
+    const lengths = nums.filter((n) => n >= minLen && n <= maxLen);
     if (lengths.length > 0) {
       const length = Math.max(...lengths);
       const qty = nums.find((n) => n >= 1 && n < 300) ?? 1;
@@ -70,8 +96,8 @@ export function parseOcrText(text: string): OcrRow[] {
     }
 
     for (const tok of tokens) {
-      if (Number(tok) > MAX_LEN) {
-        const split = splitMergedQtyLength(tok);
+      if (Number(tok) > maxLen) {
+        const split = splitMergedQtyLength(tok, minLen, maxLen);
         if (split) {
           rows.push(split);
           break;
@@ -99,10 +125,94 @@ export interface OcrResult {
 }
 
 /**
+ * Estimate the skew (rotation) of the text in a grayscale buffer, in degrees.
+ * Uses the projection-profile idea via a fast shear: at the right angle the
+ * text rows line up, so the per-row dark-pixel histogram becomes spiky (high
+ * sum of squares). Downsamples for speed. Returns the angle that straightens
+ * the page (0 if not confidently skewed).
+ */
+export function detectSkewAngle(
+  gray: Uint8ClampedArray,
+  w: number,
+  h: number,
+): number {
+  const step = Math.max(1, Math.floor(Math.max(w, h) / 480));
+  let sum = 0;
+  let cnt = 0;
+  for (let y = 0; y < h; y += step) {
+    const row = y * w;
+    for (let x = 0; x < w; x += step) {
+      sum += gray[row + x];
+      cnt++;
+    }
+  }
+  if (cnt === 0) return 0;
+  const thr = (sum / cnt) * 0.85; // dark = text
+
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let y = 0, sy = 0; y < h; y += step, sy++) {
+    const row = y * w;
+    for (let x = 0, sx = 0; x < w; x += step, sx++) {
+      if (gray[row + x] < thr) {
+        xs.push(sx);
+        ys.push(sy);
+      }
+    }
+  }
+  const n = xs.length;
+  if (n < 200) return 0;
+
+  const sw = Math.ceil(w / step);
+  const sh = Math.ceil(h / step);
+  let bestDeg = 0;
+  let bestScore = -1;
+  for (let deg = -12; deg <= 12; deg += 0.5) {
+    const t = Math.tan((deg * Math.PI) / 180);
+    const span = Math.ceil(Math.abs(t) * sw);
+    const size = sh + span + 2;
+    const bins = new Float64Array(size);
+    const offset = t < 0 ? span : 0;
+    for (let i = 0; i < n; i++) {
+      const r = Math.round(ys[i] + xs[i] * t) + offset;
+      if (r >= 0 && r < size) bins[r] += 1;
+    }
+    let score = 0;
+    for (let i = 0; i < size; i++) score += bins[i] * bins[i];
+    if (score > bestScore) {
+      bestScore = score;
+      bestDeg = deg;
+    }
+  }
+  return bestDeg;
+}
+
+/** Rotate a canvas by `deg` (positive = clockwise) onto a white background. */
+function rotateCanvas(src: HTMLCanvasElement, deg: number): HTMLCanvasElement {
+  const rad = (deg * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(rad));
+  const cos = Math.abs(Math.cos(rad));
+  const nw = Math.ceil(src.width * cos + src.height * sin);
+  const nh = Math.ceil(src.width * sin + src.height * cos);
+  const c = document.createElement('canvas');
+  c.width = nw;
+  c.height = nh;
+  const ctx = c.getContext('2d');
+  if (!ctx) return src;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, nw, nh);
+  ctx.translate(nw / 2, nh / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(src, -src.width / 2, -src.height / 2);
+  return c;
+}
+
+/**
  * Prepare a cropped image for OCR: upscale small crops (Tesseract wants a
- * decent glyph height) and convert to grayscale. No thresholding — Tesseract's
- * own adaptive binarization handles uneven lighting far better than a global
- * cut did.
+ * decent glyph height), convert to grayscale, and auto-deskew — angled phone
+ * photos are the main cause of misreads, and Tesseract handles rotation
+ * poorly. Only rotates when a clear skew (≥ 2°) is detected, so straight
+ * photos are untouched.
  */
 export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
   const MIN_W = 1600;
@@ -121,11 +231,18 @@ export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
 
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
+  const gray = new Uint8ClampedArray(w * h);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
     const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    gray[p] = g;
     d[i] = d[i + 1] = d[i + 2] = g;
   }
   ctx.putImageData(img, 0, 0);
+
+  const angle = detectSkewAngle(gray, w, h);
+  if (Math.abs(angle) >= 2 && Math.abs(angle) <= 12) {
+    return rotateCanvas(canvas, angle);
+  }
   return canvas;
 }
 
@@ -138,6 +255,7 @@ export function preprocessForOcr(source: HTMLCanvasElement): HTMLCanvasElement {
 export async function recognizeSheets(
   image: Blob | string | HTMLCanvasElement,
   onProgress?: (p: OcrProgress) => void,
+  bounds: ParseBounds = {},
 ): Promise<OcrResult> {
   const source =
     typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement
@@ -158,7 +276,7 @@ export async function recognizeSheets(
     });
     const { data } = await worker.recognize(source);
     return {
-      rows: parseOcrText(data.text),
+      rows: parseOcrText(data.text, bounds),
       rawText: data.text,
       confidence: data.confidence,
     };

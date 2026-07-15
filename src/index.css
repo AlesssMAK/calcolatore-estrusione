@@ -185,11 +185,11 @@ button:disabled,
   body * {
     visibility: hidden;
   }
-  [data-print="results"],
-  [data-print="results"] * {
+  [data-print],
+  [data-print] * {
     visibility: visible;
   }
-  [data-print="results"] {
+  [data-print] {
     position: absolute;
     left: 0;
     top: 0;
