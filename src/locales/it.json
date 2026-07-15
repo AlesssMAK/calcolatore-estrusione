@@ -179,7 +179,11 @@
       "readOk": "Lette {{count}} righe — controlla e correggi sotto.",
       "readLowConfidence": "Lette {{count}} righe, ma affidabilità solo {{confidence}}% — controlla che non manchi nulla o riscansiona ritagliando più stretto.",
       "readEmpty": "Nessun valore riconosciuto. Ritaglia più stretto o inserisci a mano.",
-      "readError": "Lettura non riuscita. Riprova o inserisci a mano."
+      "readError": "Lettura non riuscita. Riprova o inserisci a mano.",
+      "minLen": "Lunghezza min lastra (mm)",
+      "minLenHint": "opz. — standard 300; alza per ignorare valori troppo corti",
+      "maxLen": "Lunghezza max lastra (mm)",
+      "maxLenHint": "opz. — standard 11000; alza a 13500 per lastre extra-lunghe"
     },
     "sheets": {
       "title": "Lastre",

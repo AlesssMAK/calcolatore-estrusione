@@ -73,8 +73,35 @@ describe('parseOcrText', () => {
     expect(parseOcrText('155985')).toEqual([{ length: 5985, qty: 15 }]);
   });
 
-  it('keeps a plausible long length (≤ 13000) intact', () => {
+  it('keeps a plausible long length (≤ 11000) intact', () => {
     expect(parseOcrText('10460')).toEqual([{ length: 10460, qty: 1 }]);
+  });
+
+  it('un-glues the 11000–13000 window by default (11270 = 1 + 1270)', () => {
+    // Small qty-1 orders whose gap collapsed land here; the strict 11000 cap
+    // splits them instead of accepting a phantom 11–13 m sheet.
+    expect(parseOcrText('11270')).toEqual([{ length: 1270, qty: 1 }]);
+    expect(parseOcrText('13000')).toEqual([{ length: 3000, qty: 1 }]);
+  });
+
+  it('honors a raised maxLen so rare extra-long sheets stay intact', () => {
+    // Operator opts into reading real 11–13.5 m sheets by raising the cap.
+    expect(parseOcrText('13000', { maxLen: 13500 })).toEqual([
+      { length: 13000, qty: 1 },
+    ]);
+    expect(parseOcrText('11270', { maxLen: 13500 })).toEqual([
+      { length: 11270, qty: 1 },
+    ]);
+  });
+
+  it('honors a raised minLen so short values below the floor are dropped', () => {
+    // Default reads 800 as a length; with minLen 1000 it falls below the floor.
+    expect(parseOcrText('4 800')).toEqual([{ length: 800, qty: 4 }]);
+    expect(parseOcrText('4 800', { minLen: 1000 })).toEqual([]);
+    // A real length above the raised floor still reads fine.
+    expect(parseOcrText('4 1500', { minLen: 1000 })).toEqual([
+      { length: 1500, qty: 4 },
+    ]);
   });
 
   it('parses the exact raw block from the scanned order (all 17 rows)', () => {

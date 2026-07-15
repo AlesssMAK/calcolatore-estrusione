@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
-import { recognizeSheets } from '../lib/ocr';
+import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
 import {
   computeNesting,
   buildProductionPlan,
@@ -76,6 +76,11 @@ function PiramidePage() {
   const [result, setResult] = useState<NestingResult | null>(null);
 
   // Photo / OCR flow.
+  // Plausible-length window for OCR parsing (empty = defaults 300 / 11000).
+  // Raise maxLen (e.g. 13500) to read rare extra-long sheets intact; raise
+  // minLen to drop short noise when short sheets don't occur.
+  const [minLen, setMinLen] = useState('');
+  const [maxLen, setMaxLen] = useState('');
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -108,9 +113,16 @@ function PiramidePage() {
     setOcrBusy(true);
     setOcrProgress(0);
     try {
-      const result = await recognizeSheets(canvas, (p) => {
-        if (p.status === 'recognizing text') setOcrProgress(p.progress);
-      });
+      const result = await recognizeSheets(
+        canvas,
+        (p) => {
+          if (p.status === 'recognizing text') setOcrProgress(p.progress);
+        },
+        {
+          minLen: Number(minLen) > 0 ? Number(minLen) : undefined,
+          maxLen: Number(maxLen) > 0 ? Number(maxLen) : undefined,
+        },
+      );
       setOcrDebug({ rawText: result.rawText, confidence: result.confidence });
       const parsed = result.rows;
       if (parsed.length === 0) {
@@ -161,6 +173,8 @@ function PiramidePage() {
     setResult(null);
     setOcrDebug(null);
     setOcrStatus(null);
+    setMinLen('');
+    setMaxLen('');
   };
 
   const parsedSheets: SheetInput[] = rows
@@ -215,6 +229,53 @@ function PiramidePage() {
               <li>{t('piramide.tips.manual')}</li>
             </ul>
           </details>
+
+          <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <label
+                htmlFor="piramide-minlen"
+                className="w-40 shrink-0 text-xs font-medium text-ink-soft"
+              >
+                {t('piramide.photo.minLen')}
+              </label>
+              <input
+                id="piramide-minlen"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                placeholder={String(DEFAULT_MIN_LEN)}
+                className="h-8 w-24 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                value={minLen}
+                onChange={(e) => setMinLen(e.target.value)}
+              />
+              <span className="text-[11px] text-ink-soft">
+                {t('piramide.photo.minLenHint')}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <label
+                htmlFor="piramide-maxlen"
+                className="w-40 shrink-0 text-xs font-medium text-ink-soft"
+              >
+                {t('piramide.photo.maxLen')}
+              </label>
+              <input
+                id="piramide-maxlen"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                placeholder={String(DEFAULT_MAX_LEN)}
+                className="h-8 w-24 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                value={maxLen}
+                onChange={(e) => setMaxLen(e.target.value)}
+              />
+              <span className="text-[11px] text-ink-soft">
+                {t('piramide.photo.maxLenHint')}
+              </span>
+            </div>
+          </div>
 
           <input
             ref={cameraRef}
