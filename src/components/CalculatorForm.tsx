@@ -3,6 +3,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import GlobalSettingsPanel from './GlobalSettingsPanel';
+import WeekendBanner from './WeekendBanner';
 import OrdersList from './OrdersList';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import { calculateSchedule } from '../utils/calculator';
@@ -118,6 +119,7 @@ function CalculatorForm({
         className="space-y-4 sm:space-y-5"
         noValidate
       >
+        <WeekendBanner />
         {settingsOpen && <GlobalSettingsPanel mode={mode} />}
         <OrdersList mode={mode} />
 

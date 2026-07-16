@@ -320,10 +320,7 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
 
       {weekend?.enabled && (
         <div className="mt-3 rounded-md border border-brand-200 bg-brand-50/50 p-3 sm:mt-4">
-          <p className="text-sm font-medium text-brand-700">
-            ✅ {t('settings.weekend.active')}
-          </p>
-          <div className="mt-2 space-y-2">
+          <div className="space-y-2">
             <WeekendDayRow
               dayKey="sat"
               label={t('settings.weekend.sat')}
