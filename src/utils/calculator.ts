@@ -6,6 +6,7 @@ import type {
   ScheduleResult,
   ScheduledOrder,
   ScheduledSizeDetail,
+  WeekendWork,
 } from '../types';
 
 export function sumEntries(entries: ProducedEntry[] | undefined): number {
@@ -150,55 +151,110 @@ export function calculatePackages(
   return Math.ceil(count / perPackage);
 }
 
-// Production line operates Mon 06:00 → Sat 06:00 in local time.
-// Weekend (Sat 06:00 inclusive ↔ Mon 06:00 exclusive) is skipped.
+// Production line operates Mon 06:00 → Sat 06:00 in local time; the weekend
+// (Sat 06:00 ↔ Mon 06:00) is skipped unless the operator enables a weekend
+// shift (see WeekendWork), which opens a working window on Sat and/or Sun.
 const WORKDAY_START_HOUR = 6;
+const MIN_PER_DAY = 1440;
 
-function isWeekend(d: Date): boolean {
-  const dow = d.getDay(); // 0 = Sun, 6 = Sat
-  if (dow === 0) return true;
-  // Sat: weekend starts at 06:00 inclusive
-  if (dow === 6) return d.getHours() >= WORKDAY_START_HOUR;
-  // Mon: weekend ends at 06:00 (06:00 itself is already working time)
-  if (dow === 1 && d.getHours() < WORKDAY_START_HOUR) return true;
-  return false;
+const clampHour = (h: number) => Math.min(24, Math.max(0, Math.floor(h)));
+
+/** Minutes-from-midnight of a Date (fractional for seconds/ms). */
+function minuteOfDay(d: Date): number {
+  return (
+    d.getHours() * 60 +
+    d.getMinutes() +
+    d.getSeconds() / 60 +
+    d.getMilliseconds() / 60_000
+  );
 }
 
-function skipWeekendForward(d: Date): Date {
-  if (!isWeekend(d)) return d;
-  const dow = d.getDay();
-  // Mon < 06:00 → today; Sat → +2 days; Sun → +1 day.
-  const daysAhead = dow === 6 ? 2 : dow === 0 ? 1 : 0;
-  const next = new Date(d);
-  next.setDate(d.getDate() + daysAhead);
-  next.setHours(WORKDAY_START_HOUR, 0, 0, 0);
-  return next;
+/** A Date on the same calendar day as `day`, `minute` minutes past midnight
+ *  (minute may be 1440 → next midnight). */
+function atMinute(day: Date, minute: number): Date {
+  const d = new Date(day);
+  d.setHours(0, 0, 0, 0);
+  d.setMinutes(minute);
+  return d;
 }
 
-// Returns the next Sat 06:00 strictly after `d`, assuming `d` is in a working
-// window (Mon 06:00 ↔ Sat 06:00 exclusive).
-function nextSaturdayMorning(d: Date): Date {
-  const dow = d.getDay();
-  // Sat 00:00–06:00 still in current working window → same Sat date at 06:00.
-  const daysAhead = dow === 6 ? 0 : 6 - dow;
-  const sat = new Date(d);
-  sat.setDate(d.getDate() + daysAhead);
-  sat.setHours(WORKDAY_START_HOUR, 0, 0, 0);
-  return sat;
+function mergeIntervals(iv: Array<[number, number]>): Array<[number, number]> {
+  const sorted = iv.filter(([s, e]) => e > s).sort((a, b) => a[0] - b[0]);
+  const out: Array<[number, number]> = [];
+  for (const [s, e] of sorted) {
+    const last = out[out.length - 1];
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else out.push([s, e]);
+  }
+  return out;
 }
 
-export function addWorkingMinutes(start: Date, minutes: number): Date {
-  if (minutes <= 0) return new Date(start);
-  let cursor = skipWeekendForward(start);
-  let remaining = minutes;
-  while (remaining > 0) {
-    const wkEnd = nextSaturdayMorning(cursor);
-    const availMins = (wkEnd.getTime() - cursor.getTime()) / 60_000;
-    if (remaining <= availMins) {
-      return new Date(cursor.getTime() + remaining * 60_000);
+/** Working minute-intervals [start,end) within a given weekday, from the
+ *  Mon 06:00 → Sat 06:00 block plus any enabled weekend window. */
+function workingIntervals(
+  dow: number,
+  weekend?: WeekendWork,
+): Array<[number, number]> {
+  const wk = WORKDAY_START_HOUR * 60; // 360
+  const iv: Array<[number, number]> = [];
+  if (dow === 1) iv.push([wk, MIN_PER_DAY]); // Mon 06:00 → 24:00
+  else if (dow >= 2 && dow <= 5) iv.push([0, MIN_PER_DAY]); // Tue–Fri
+  else if (dow === 6) iv.push([0, wk]); // Sat 00:00 → 06:00 (weekday tail)
+
+  if (weekend?.enabled) {
+    const s = clampHour(weekend.startHour) * 60;
+    const e = clampHour(weekend.endHour) * 60;
+    if (e > s) {
+      if (dow === 6 && weekend.sat) iv.push([s, e]);
+      if (dow === 0 && weekend.sun) iv.push([s, e]);
     }
-    remaining -= availMins;
-    cursor = skipWeekendForward(wkEnd); // Sat 06:00 → Mon 06:00
+  }
+  return mergeIntervals(iv);
+}
+
+/** The first working instant at or after `d`. */
+function nextWorkingInstant(d: Date, weekend?: WeekendWork): Date {
+  let cursor = new Date(d);
+  for (let guard = 0; guard < 21; guard++) {
+    const mod = minuteOfDay(cursor);
+    for (const [s, e] of workingIntervals(cursor.getDay(), weekend)) {
+      if (mod < e) return mod >= s ? cursor : atMinute(cursor, s);
+    }
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 1);
+    cursor.setHours(0, 0, 0, 0);
+  }
+  return cursor;
+}
+
+export function addWorkingMinutes(
+  start: Date,
+  minutes: number,
+  weekend?: WeekendWork,
+): Date {
+  if (minutes <= 0) return new Date(start);
+  let cursor = nextWorkingInstant(start, weekend);
+  let remaining = minutes;
+  for (let guard = 0; guard < 100_000 && remaining > 0; guard++) {
+    const mod = minuteOfDay(cursor);
+    let consumed = false;
+    for (const [s, e] of workingIntervals(cursor.getDay(), weekend)) {
+      if (mod >= e) continue;
+      const from = mod >= s ? cursor : atMinute(cursor, s);
+      const avail = e - Math.max(mod, s);
+      if (remaining <= avail) {
+        return new Date(from.getTime() + remaining * 60_000);
+      }
+      remaining -= avail;
+      cursor = atMinute(cursor, e);
+      consumed = true;
+      break;
+    }
+    if (!consumed) {
+      cursor = new Date(cursor);
+      cursor.setDate(cursor.getDate() + 1);
+      cursor.setHours(0, 0, 0, 0);
+    }
   }
   return cursor;
 }
@@ -603,8 +659,9 @@ export function calculateSchedule(
   const now = options.now ?? new Date();
   const mode: CalculatorMode = options.mode ?? 'sheets';
 
+  const weekend = settings.weekend;
   const rawStart = resolveStartDate(settings, now);
-  const startAt = skipWeekendForward(rawStart);
+  const startAt = nextWorkingInstant(rawStart, weekend);
   let cursor = startAt;
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
@@ -738,8 +795,8 @@ export function calculateSchedule(
     }
 
     const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
-    const start = skipWeekendForward(cursor);
-    const end = addWorkingMinutes(start, remainingMinutes);
+    const start = nextWorkingInstant(cursor, weekend);
+    const end = addWorkingMinutes(start, remainingMinutes, weekend);
 
     // Per-size breakdown when an order has 2+ sizes (sizes-mode only —
     // useTotalLength has no per-size structure to break out).
@@ -830,8 +887,8 @@ export function calculateSchedule(
         }
 
         const remainingMinsI = minsI * Math.max(0, 1 - sizeFraction);
-        const startI = skipWeekendForward(sizeCursor);
-        const endI = addWorkingMinutes(startI, remainingMinsI);
+        const startI = nextWorkingInstant(sizeCursor, weekend);
+        const endI = addWorkingMinutes(startI, remainingMinsI, weekend);
 
         // Per-unit (pallet/package) metrics for this size — set only if the
         // rate is known. Used by the UI's "Tempo per bancale/pacco" row and
@@ -946,7 +1003,7 @@ export function calculateSchedule(
 
     totalProductionMinutes += remainingMinutes;
     totalGapMinutes += gapAfterMin;
-    cursor = addWorkingMinutes(end, gapAfterMin);
+    cursor = addWorkingMinutes(end, gapAfterMin, weekend);
   });
 
   const endAt = rows[rows.length - 1]!.end;

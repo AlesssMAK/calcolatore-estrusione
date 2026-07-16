@@ -7,7 +7,7 @@ import {
   calculateTotalProfiles,
   splitDuration,
 } from './calculator';
-import type { GlobalSettings, Order } from '../types';
+import type { GlobalSettings, Order, WeekendWork } from '../types';
 
 describe('calculateOrderLengthM', () => {
   it('converts sheets × mm to meters', () => {
@@ -904,6 +904,69 @@ describe('calculateSchedule — work-week (Mon 06:00 → Sat 06:00 local)', () =
     expect(result.rows[1]!.start.getTime()).toBe(
       localDate(2026, 5, 5, 8).getTime(),
     );
+  });
+});
+
+describe('calculateSchedule — weekend shift (opt-in hours)', () => {
+  const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m, d, h, min, 0, 0);
+  // 2026-05-09 Sat, 05-10 Sun, 05-11 Mon.
+  const withWeekend = (
+    w: Partial<WeekendWork>,
+    startAt: Date,
+  ): GlobalSettings => ({
+    startMode: 'manual',
+    startAt: startAt.toISOString(),
+    gapMode: 'continuous',
+    weekend: {
+      enabled: true,
+      sat: true,
+      sun: false,
+      startHour: 6,
+      endHour: 14,
+      ...w,
+    },
+  });
+  const order: Order = { id: 'a', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1 }; // 60 min
+
+  it('works inside the Saturday window instead of shifting to Monday', () => {
+    const start = localDate(2026, 4, 9, 8); // Sat 08:00
+    const r = calculateSchedule(withWeekend({}, start), [order], { now: start });
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 9, 8).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 9, 9).getTime());
+  });
+
+  it('jumps past the Saturday window end to Monday (Sunday off)', () => {
+    const start = localDate(2026, 4, 9, 13); // Sat 13:00, window ends 14:00
+    const r = calculateSchedule(
+      withWeekend({}, start),
+      [{ ...order, sheets: 120 }], // 120 min
+      { now: start },
+    );
+    // 60 min fills Sat 13→14, remaining 60 → Mon 06→07 (Sunday off).
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 7).getTime());
+  });
+
+  it('still skips Sunday when only Saturday is enabled', () => {
+    const start = localDate(2026, 4, 10, 10); // Sun 10:00
+    const r = calculateSchedule(withWeekend({}, start), [order], { now: start });
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
+  });
+
+  it('works inside the Sunday window when enabled', () => {
+    const start = localDate(2026, 4, 10, 8); // Sun 08:00
+    const r = calculateSchedule(withWeekend({ sun: true }, start), [order], {
+      now: start,
+    });
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 10, 9).getTime());
+  });
+
+  it('disabled weekend behaves exactly like before (shift to Monday)', () => {
+    const start = localDate(2026, 4, 9, 8); // Sat 08:00
+    const r = calculateSchedule(withWeekend({ enabled: false }, start), [order], {
+      now: start,
+    });
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
   });
 });
 

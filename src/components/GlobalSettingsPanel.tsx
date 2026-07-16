@@ -7,7 +7,10 @@ import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import FieldError from './FieldError';
+import { saveWeekendPref } from '../utils/defaults';
 import { useEffect, useState } from 'react';
+
+const WORKDAY_START_HOUR = 6;
 
 registerLocale('it', itLocale);
 registerLocale('es', esLocale);
@@ -30,6 +33,10 @@ const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 const labelBase =
   'block text-xs font-medium tracking-wide text-ink-soft uppercase';
+const chipActive =
+  'rounded-md border border-brand-600 bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition';
+const chipIdle =
+  'rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink';
 
 function ToggleButton({
   active,
@@ -80,6 +87,7 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const startAt = useWatch({ control, name: 'settings.startAt' });
   const productName = useWatch({ control, name: 'settings.productName' });
+  const weekend = useWatch({ control, name: 'settings.weekend' });
   const [showProductName, setShowProductName] = useState(false);
   const productNameHasValue =
     typeof productName === 'string' && productName.length > 0;
@@ -120,6 +128,41 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
     } else {
       setShowProductName(true);
     }
+  };
+
+  const toggleWeekend = () => {
+    setValue('settings.weekend.enabled', !weekend?.enabled, {
+      shouldValidate: true,
+    });
+  };
+
+  // Persist the weekend shift (machine setting) so it survives reloads/resets.
+  useEffect(() => {
+    if (weekend) saveWeekendPref(weekend);
+  }, [weekend]);
+
+  // Is a given date pickable as a start? Weekends are blocked unless their
+  // shift is enabled.
+  const isDatePickable = (date: Date): boolean => {
+    const dow = date.getDay();
+    if (dow === 6) return !!(weekend?.enabled && weekend.sat);
+    if (dow === 0) return !!(weekend?.enabled && weekend.sun);
+    return true;
+  };
+
+  // Within a pickable weekend day, restrict times to the shift window; weekdays
+  // keep the future-only rule.
+  const isTimePickable = (time: Date): boolean => {
+    if (time.getTime() < Date.now()) return false;
+    const dow = time.getDay();
+    if (dow !== 6 && dow !== 0) return true;
+    if (!weekend?.enabled) return false;
+    if (dow === 6 && !weekend.sat) return false;
+    if (dow === 0 && !weekend.sun) return false;
+    const h = time.getHours() + time.getMinutes() / 60;
+    // Saturday keeps its weekday tail (00:00–06:00, always working).
+    if (dow === 6 && h < WORKDAY_START_HOUR) return true;
+    return h >= weekend.startHour && h < weekend.endHour;
   };
 
   const lang = (i18n.resolvedLanguage ?? 'it') as 'it' | 'en' | 'es';
@@ -175,7 +218,89 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
           icon="✏"
           label={t('settings.toggle.productName')}
         />
+        <ToggleButton
+          active={!!weekend?.enabled}
+          onClick={toggleWeekend}
+          icon="📅"
+          label={t('settings.toggle.weekend')}
+        />
       </div>
+
+      {weekend?.enabled && (
+        <div className="mt-3 rounded-md border border-brand-200 bg-brand-50/50 p-3 sm:mt-4">
+          <p className="text-sm font-medium text-brand-700">
+            ✅ {t('settings.weekend.active')}
+          </p>
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <div>
+              <span className={labelBase}>{t('settings.weekend.days')}</span>
+              <div className="mt-1 flex gap-2">
+                <button
+                  type="button"
+                  aria-pressed={weekend.sat}
+                  onClick={() =>
+                    setValue('settings.weekend.sat', !weekend.sat, {
+                      shouldValidate: true,
+                    })
+                  }
+                  className={weekend.sat ? chipActive : chipIdle}
+                >
+                  {t('settings.weekend.sat')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={weekend.sun}
+                  onClick={() =>
+                    setValue('settings.weekend.sun', !weekend.sun, {
+                      shouldValidate: true,
+                    })
+                  }
+                  className={weekend.sun ? chipActive : chipIdle}
+                >
+                  {t('settings.weekend.sun')}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className={labelBase} htmlFor="weekendStart">
+                {t('settings.weekend.from')}
+              </label>
+              <input
+                id="weekendStart"
+                type="number"
+                min={0}
+                max={23}
+                step={1}
+                inputMode="numeric"
+                className={`${inputBase} mt-1 w-20`}
+                {...register('settings.weekend.startHour', {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
+            <div>
+              <label className={labelBase} htmlFor="weekendEnd">
+                {t('settings.weekend.to')}
+              </label>
+              <input
+                id="weekendEnd"
+                type="number"
+                min={1}
+                max={24}
+                step={1}
+                inputMode="numeric"
+                className={`${inputBase} mt-1 w-20`}
+                {...register('settings.weekend.endHour', {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-ink-soft">
+            {t('settings.weekend.hint')}
+          </p>
+        </div>
+      )}
 
       {productNameOpen && (
         <div className="mt-3 pb-5 sm:mt-4">
@@ -215,7 +340,8 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
                 locale={lang}
                 placeholderText={t('settings.startAt')}
                 minDate={minDate}
-                filterTime={time => time.getTime() >= Date.now()}
+                filterDate={isDatePickable}
+                filterTime={isTimePickable}
                 withPortal={isMobile}
                 onCalendarOpen={() => setCalendarOpen(true)}
                 onCalendarClose={() => setCalendarOpen(false)}

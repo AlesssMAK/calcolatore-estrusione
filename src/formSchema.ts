@@ -45,6 +45,15 @@ const settingsSchema = z.object({
   startAt: z.string().optional(),
   gapMode: z.enum(['continuous', 'withGaps']),
   productName: z.string().optional(),
+  weekend: z
+    .object({
+      enabled: z.boolean(),
+      sat: z.boolean(),
+      sun: z.boolean(),
+      startHour: z.number().min(0).max(23),
+      endHour: z.number().min(1).max(24),
+    })
+    .optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

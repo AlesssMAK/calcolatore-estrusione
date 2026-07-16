@@ -31,12 +31,22 @@
     "toggle": {
       "manualStart": "Imposta orario",
       "gaps": "Pause tra ordini",
-      "productName": "Nome prodotto"
+      "productName": "Nome prodotto",
+      "weekend": "Weekend"
     },
     "productName": "Nome del prodotto",
     "productNamePlaceholder": {
       "sheets": "es. Lastra alveolare 6 mm",
       "profiles": "es. Profilo a H 16 mm"
+    },
+    "weekend": {
+      "active": "Lavoro nei weekend attivo — incluso nel calcolo",
+      "days": "Giorni",
+      "sat": "Sabato",
+      "sun": "Domenica",
+      "from": "Dalle (h)",
+      "to": "Alle (h)",
+      "hint": "La linea lavora nella finestra oraria scelta, solo nei giorni selezionati."
     }
   },
   "orders": {
@@ -75,7 +85,7 @@
     "print": "Stampa",
     "copy": "Copia",
     "copied": "Copiato!",
-    "saveImage": "Salva immagine",
+    "saveImage": "Condividi foto",
     "exporting": "Salvando…",
     "saved": "Salvati"
   },

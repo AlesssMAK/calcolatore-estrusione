@@ -31,12 +31,22 @@
     "toggle": {
       "manualStart": "Fijar hora",
       "gaps": "Pausas entre pedidos",
-      "productName": "Nombre del producto"
+      "productName": "Nombre del producto",
+      "weekend": "Fin de semana"
     },
     "productName": "Nombre del producto",
     "productNamePlaceholder": {
       "sheets": "p. ej. Placa alveolar 6 mm",
       "profiles": "p. ej. Perfil H 16 mm"
+    },
+    "weekend": {
+      "active": "Trabajo en fin de semana activo — incluido en el cálculo",
+      "days": "Días",
+      "sat": "Sábado",
+      "sun": "Domingo",
+      "from": "Desde (h)",
+      "to": "Hasta (h)",
+      "hint": "La línea trabaja en la franja horaria elegida, solo los días seleccionados."
     }
   },
   "orders": {
@@ -75,7 +85,7 @@
     "print": "Imprimir",
     "copy": "Copiar",
     "copied": "¡Copiado!",
-    "saveImage": "Guardar imagen",
+    "saveImage": "Compartir foto",
     "exporting": "Guardando…",
     "saved": "Guardados"
   },

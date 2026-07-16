@@ -31,12 +31,22 @@
     "toggle": {
       "manualStart": "Set time",
       "gaps": "Gaps between orders",
-      "productName": "Product name"
+      "productName": "Product name",
+      "weekend": "Weekend"
     },
     "productName": "Product name",
     "productNamePlaceholder": {
       "sheets": "e.g. Multiwall sheet 6 mm",
       "profiles": "e.g. H-profile 16 mm"
+    },
+    "weekend": {
+      "active": "Weekend work active — included in the calculation",
+      "days": "Days",
+      "sat": "Saturday",
+      "sun": "Sunday",
+      "from": "From (h)",
+      "to": "To (h)",
+      "hint": "The line runs in the chosen time window, only on the selected days."
     }
   },
   "orders": {
@@ -75,7 +85,7 @@
     "print": "Print",
     "copy": "Copy",
     "copied": "Copied!",
-    "saveImage": "Save image",
+    "saveImage": "Share photo",
     "exporting": "Saving…",
     "saved": "Saved"
   },

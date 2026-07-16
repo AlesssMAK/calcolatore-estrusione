@@ -53,11 +53,24 @@ export interface ProducedSummary {
   source: 'profiles' | 'packages';
 }
 
+// Optional weekend shift. Normally the line runs Mon 06:00 → Sat 06:00 and the
+// whole weekend is skipped. When `enabled`, the picked weekend day(s) get a
+// working window [startHour, endHour) that the scheduler and the start-date
+// picker honour.
+export interface WeekendWork {
+  enabled: boolean;
+  sat: boolean;
+  sun: boolean;
+  startHour: number; // 0–23
+  endHour: number; // 1–24, > startHour
+}
+
 export interface GlobalSettings {
   startMode: StartMode;
   startAt?: string;
   gapMode: GapMode;
   productName?: string;
+  weekend?: WeekendWork;
 }
 
 export interface ScheduledSizeDetail {
