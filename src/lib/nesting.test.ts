@@ -147,6 +147,33 @@ describe('computeNesting — same-size tail grouping (lanes=2)', () => {
   });
 });
 
+describe('computeNesting — de-scatter (free grouping of split sizes)', () => {
+  // The scarto-optimal packer scatters 1200 (6740+1200+1200+1200 in one row,
+  // 2550+1200 in another) and 2550 for no global benefit — a same-corsia-count
+  // packing keeps them together. De-scatter adopts it since it's free.
+  const sheets: SheetInput[] = [
+    10460, 6740, 1200, 10230, 4220, 3440, 2550, 2990,
+  ].map((length) => ({ length, qty: 4 }));
+
+  it('groups scattered sizes without adding corsie or scarto (lanes=1)', () => {
+    const r = computeNesting(sheets, { lanes: 1 });
+    expect(r.totalSlots).toBe(17);
+    expect(r.totalScarto).toBe(10500);
+    expect(r.slots).toContainEqual(
+      expect.objectContaining({ pieces: [1200, 1200, 1200, 1200] }),
+    );
+    expect(r.slots).toContainEqual(
+      expect.objectContaining({ pieces: [2550, 2550, 2550, 2550] }),
+    );
+  });
+
+  it('leaves no split warning at lanes=2 for the same order', () => {
+    const r = computeNesting(sheets, { lanes: 2 });
+    expect(r.totalSlots).toBe(17);
+    expect(buildProductionPlan(r.strati).warnings).toEqual([]);
+  });
+});
+
 describe('computeNesting — strati & bancali', () => {
   it('pairs identical corsie into one strato even when totals collide (lanes 2)', () => {
     // [5000] and [3000+2000] both total 5000 — plain sort-chunking could pair

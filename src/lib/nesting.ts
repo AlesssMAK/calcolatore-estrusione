@@ -129,6 +129,100 @@ function bestSubset(pool: number[], room: number, unit: number): number[] {
   return idx;
 }
 
+/** Seed-and-subset-sum packing: fill one corsia at a time (seed = longest
+ *  remaining, then the best-filling subset of the rest). */
+function packBins(pieces: number[], base: number, unit: number): number[][] {
+  const remaining = [...pieces].sort((a, b) => b - a);
+  const bins: number[][] = [];
+  while (remaining.length > 0) {
+    const seed = remaining.shift() as number;
+    const room = base - seed;
+    // Remove chosen pieces high-index-first so earlier splices don't shift the
+    // indices we still have to remove.
+    const pick = bestSubset(remaining, room, unit).sort((a, b) => b - a);
+    const chosen = pick.map((i) => remaining[i]);
+    for (const i of pick) remaining.splice(i, 1);
+    bins.push([seed, ...chosen].sort((a, b) => b - a));
+  }
+  return bins;
+}
+
+/** Corsie ordinate per lunghezza decrescente → effetto "piramide". */
+function binsToSlots(bins: number[][], base: number): Slot[] {
+  return bins
+    .map((pcs) => {
+      const length = pcs.reduce((sum, p) => sum + p, 0);
+      return { pieces: pcs, length, scarto: base - length };
+    })
+    .sort((a, b) => b.length - a.length);
+}
+
+/** Sizes that sit in corsie whose lengths differ by more than `gap` — a size
+ *  split across dissimilar rows, which raises a production split warning. */
+function scatteredSizes(slots: Slot[], gap: number): Set<number> {
+  const span = new Map<number, { min: number; max: number }>();
+  for (const s of slots) {
+    for (const size of new Set(s.pieces)) {
+      const e = span.get(size);
+      if (e) {
+        e.min = Math.min(e.min, s.length);
+        e.max = Math.max(e.max, s.length);
+      } else span.set(size, { min: s.length, max: s.length });
+    }
+  }
+  const out = new Set<number>();
+  for (const [size, { min, max }] of span) if (max - min > gap) out.add(size);
+  return out;
+}
+
+/**
+ * The subset-sum packer maximises per-corsia fill, which can scatter a size
+ * across dissimilar rows (e.g. 6740+1200+1200+1200 here, one lone 1200 there)
+ * for no global benefit — often another packing with the SAME corsia count
+ * keeps that size together. When sizes are scattered, reserve them into their
+ * own (evenly split) corsie, re-pack the rest, and adopt the result only when
+ * it's FREE: no extra corsie (so total scarto is unchanged) and strictly fewer
+ * scattered sizes. Lanes-agnostic — runs before strati are formed.
+ */
+function deScatter(
+  slots: Slot[],
+  pieces: number[],
+  base: number,
+  unit: number,
+  gap: number,
+): Slot[] {
+  const scattered = scatteredSizes(slots, gap);
+  if (scattered.size === 0) return slots;
+
+  const count = new Map<number, number>();
+  const rest: number[] = [];
+  for (const p of pieces) {
+    if (scattered.has(p)) count.set(p, (count.get(p) ?? 0) + 1);
+    else rest.push(p);
+  }
+
+  // Reserve each scattered size into its own corsie, split evenly so the
+  // reserved corsie are equal-length (and the size can't re-scatter itself).
+  const reserved: number[][] = [];
+  for (const [size, c] of count) {
+    const per = Math.max(1, Math.floor(base / size));
+    const nc = Math.ceil(c / per);
+    for (let i = 0; i < nc; i++) {
+      const k = Math.floor(c / nc) + (i < c % nc ? 1 : 0);
+      reserved.push(new Array<number>(k).fill(size));
+    }
+  }
+
+  const candidate = binsToSlots(
+    [...reserved, ...packBins(rest, base, unit)],
+    base,
+  );
+  const free =
+    candidate.length <= slots.length &&
+    scatteredSizes(candidate, gap).size < scattered.size;
+  return free ? candidate : slots;
+}
+
 const byLenDesc = (a: Slot, b: Slot) => b.length - a.length;
 
 /** Group corsie by piece signature; pair `lanes` identical ones into uniform
@@ -270,28 +364,10 @@ export function computeNesting(
 
   const unit = pieces.reduce((g, p) => gcd(g, p), 0) || 1;
 
-  // Fill one corsia at a time: seed with the longest remaining sheet, then
-  // complete it with the best-filling subset of what's left.
-  const remaining = [...pieces].sort((a, b) => b - a);
-  const bins: number[][] = [];
-  while (remaining.length > 0) {
-    const seed = remaining.shift() as number;
-    const room = base - seed;
-    // Remove chosen pieces high-index-first so earlier splices don't shift the
-    // indices we still have to remove.
-    const pick = bestSubset(remaining, room, unit).sort((a, b) => b - a);
-    const chosen = pick.map((i) => remaining[i]);
-    for (const i of pick) remaining.splice(i, 1);
-    bins.push([seed, ...chosen].sort((a, b) => b - a));
-  }
-
-  // Corsie ordinate per lunghezza decrescente → effetto "piramide".
-  const slots: Slot[] = bins
-    .map((pcs) => {
-      const length = pcs.reduce((sum, p) => sum + p, 0);
-      return { pieces: pcs, length, scarto: base - length };
-    })
-    .sort((a, b) => b.length - a.length);
+  // Optimal (scarto-minimal) packing, then a free de-scatter pass that keeps a
+  // size together when another same-corsia-count packing allows it.
+  let slots = binsToSlots(packBins(pieces, base, unit), base);
+  slots = deScatter(slots, pieces, base, unit, SAME_SIZE_GAP_MM);
 
   const strati: Strato[] = formStrati(slots, lanes, base).map((corsie) => ({
     corsie,
