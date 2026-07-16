@@ -64,6 +64,12 @@
     "productName": "Nome prodotto",
     "addSize": "Aggiungi misura",
     "removeSize": "Rimuovi misura",
+    "scan": {
+      "label": "Leggi misure da foto",
+      "take": "Scatta foto",
+      "upload": "Carica",
+      "hint": "Ritaglia le colonne Lunghezza e Quantità, poi leggi."
+    },
     "toggleTotalLength": "Metri totali",
     "totalLength": "Metri totali",
     "optionalInherit": "opz. — eredita",

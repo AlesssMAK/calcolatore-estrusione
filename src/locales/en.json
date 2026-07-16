@@ -64,6 +64,12 @@
     "productName": "Product name",
     "addSize": "Add size",
     "removeSize": "Remove size",
+    "scan": {
+      "label": "Read sizes from photo",
+      "take": "Take photo",
+      "upload": "Upload",
+      "hint": "Crop the Length and Quantity columns, then read."
+    },
     "toggleTotalLength": "Total meters",
     "totalLength": "Total meters",
     "optionalInherit": "optional — inherits",
