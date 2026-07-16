@@ -166,7 +166,7 @@ function OrdersList({ mode }: Props) {
           <button
             type="button"
             onClick={appendOrder}
-            className="rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+            className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:text-sm"
           >
             {t('orders.add')}
           </button>
