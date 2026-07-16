@@ -11,8 +11,10 @@ import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
 import FieldError from './FieldError';
+import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { useCatalog } from '../contexts/CatalogContext';
+import type { OcrRow } from '../lib/ocr';
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
@@ -1338,10 +1340,27 @@ function SizesFieldArray({
     fields: sizeFields,
     append: appendSize,
     remove: removeSize,
+    replace: replaceSize,
   } = useFieldArray({
     control,
     name: `orders.${orderIdx}.sizes`,
   });
+
+  const watchedSizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
+
+  // Fill sizes from a scanned photo: keep any already-filled rows, then append
+  // the scanned {length, qty} pairs as {length, sheets}.
+  const onScanRows = (rows: OcrRow[]) => {
+    const kept = (watchedSizes ?? []).filter(
+      (s) => Number(s?.sheets) > 0 || Number(s?.length) > 0,
+    );
+    const scanned = rows.map((r) => ({
+      sheets: r.qty,
+      length: r.length,
+      profilesPerPackage: undefined,
+    }));
+    replaceSize([...kept, ...scanned] as never);
+  };
 
   const orderErr = errors.orders?.[orderIdx];
   const sizesRootError =
@@ -1475,6 +1494,11 @@ function SizesFieldArray({
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-3 border-t border-neutral-200 pt-3">
+        <p className={`${labelBase} mb-1.5`}>{t('orders.scan.label')}</p>
+        <SheetScanner onRows={onScanRows} t={t} />
       </div>
     </div>
   );

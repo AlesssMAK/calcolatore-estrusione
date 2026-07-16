@@ -31,12 +31,23 @@
     "toggle": {
       "manualStart": "Set time",
       "gaps": "Gaps between orders",
-      "productName": "Product name"
+      "productName": "Product name",
+      "weekend": "Weekend"
     },
     "productName": "Product name",
     "productNamePlaceholder": {
       "sheets": "e.g. Multiwall sheet 6 mm",
       "profiles": "e.g. H-profile 16 mm"
+    },
+    "weekend": {
+      "active": "Weekend work active — included in the calculation",
+      "days": "Days",
+      "sat": "Saturday",
+      "sun": "Sunday",
+      "from": "From",
+      "to": "To",
+      "full24": "24 h",
+      "hint": "Each day runs in its own time window (or 24 h)."
     }
   },
   "orders": {
@@ -54,6 +65,12 @@
     "productName": "Product name",
     "addSize": "Add size",
     "removeSize": "Remove size",
+    "scan": {
+      "label": "Read sizes from photo",
+      "take": "Take photo",
+      "upload": "Upload",
+      "hint": "Crop the Length and Quantity columns, then read."
+    },
     "toggleTotalLength": "Total meters",
     "totalLength": "Total meters",
     "optionalInherit": "optional — inherits",
@@ -75,7 +92,7 @@
     "print": "Print",
     "copy": "Copy",
     "copied": "Copied!",
-    "saveImage": "Save image",
+    "saveImage": "Share photo",
     "exporting": "Saving…",
     "saved": "Saved"
   },

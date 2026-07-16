@@ -40,11 +40,25 @@ const orderSchema = z.object({
   profilesPerPackage: z.array(producedEntrySchema).optional(),
 });
 
+const weekendDaySchema = z.object({
+  enabled: z.boolean(),
+  full24: z.boolean(),
+  start: z.number().min(0).max(23.5),
+  end: z.number().min(0.5).max(24),
+});
+
 const settingsSchema = z.object({
   startMode: z.enum(['now', 'manual']),
   startAt: z.string().optional(),
   gapMode: z.enum(['continuous', 'withGaps']),
   productName: z.string().optional(),
+  weekend: z
+    .object({
+      enabled: z.boolean(),
+      sat: weekendDaySchema,
+      sun: weekendDaySchema,
+    })
+    .optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

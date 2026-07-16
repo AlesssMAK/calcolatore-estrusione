@@ -5,9 +5,25 @@ import { it as itLocale } from 'date-fns/locale/it';
 import { es as esLocale } from 'date-fns/locale/es';
 import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
-import type { CalculatorMode } from '../types';
+import type { CalculatorMode, WeekendDay } from '../types';
 import FieldError from './FieldError';
+import { saveWeekendPref } from '../utils/defaults';
 import { useEffect, useState } from 'react';
+
+const WORKDAY_START_HOUR = 6;
+
+// Half-hour slots for the weekend time dropdowns (values in hours).
+const fmtHour = (h: number) => {
+  const hh = Math.floor(h);
+  const mm = h - hh >= 0.5 ? '30' : '00';
+  return `${String(hh).padStart(2, '0')}:${mm}`;
+};
+const START_SLOTS: number[] = [];
+for (let h = 0; h < 24; h += 0.5) START_SLOTS.push(h);
+const END_SLOTS: number[] = [];
+for (let h = 0.5; h <= 24; h += 0.5) END_SLOTS.push(h);
+const selectCls =
+  'rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 
 registerLocale('it', itLocale);
 registerLocale('es', esLocale);
@@ -30,6 +46,10 @@ const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 const labelBase =
   'block text-xs font-medium tracking-wide text-ink-soft uppercase';
+const chipActive =
+  'rounded-md border border-brand-600 bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition';
+const chipIdle =
+  'rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink';
 
 function ToggleButton({
   active,
@@ -61,6 +81,83 @@ function ToggleButton({
   );
 }
 
+// One weekend day: enable chip + 24h checkbox + a from/to pair of 30-min
+// dropdowns (disabled when 24h is on).
+function WeekendDayRow({
+  dayKey,
+  label,
+  cfg,
+}: {
+  dayKey: 'sat' | 'sun';
+  label: string;
+  cfg: WeekendDay | undefined;
+}) {
+  'use no memo';
+  const { register, setValue } = useFormContext<FormValues>();
+  const { t } = useTranslation();
+  const base = `settings.weekend.${dayKey}` as const;
+  const enabled = !!cfg?.enabled;
+  const full24 = !!cfg?.full24;
+  const dim = full24 ? 'opacity-40' : '';
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        aria-pressed={enabled}
+        onClick={() =>
+          setValue(`${base}.enabled`, !enabled, { shouldValidate: true })
+        }
+        className={`${enabled ? chipActive : chipIdle} w-24 shrink-0`}
+      >
+        {label}
+      </button>
+      {enabled && (
+        <>
+          <label className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
+            <input
+              type="checkbox"
+              checked={full24}
+              onChange={(e) =>
+                setValue(`${base}.full24`, e.target.checked, {
+                  shouldValidate: true,
+                })
+              }
+              className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+            />
+            {t('settings.weekend.full24')}
+          </label>
+          <select
+            aria-label={t('settings.weekend.from')}
+            disabled={full24}
+            className={`${selectCls} ${dim}`}
+            {...register(`${base}.start`, { valueAsNumber: true })}
+          >
+            {START_SLOTS.map((h) => (
+              <option key={h} value={h}>
+                {fmtHour(h)}
+              </option>
+            ))}
+          </select>
+          <span className={`text-ink-soft ${dim}`}>–</span>
+          <select
+            aria-label={t('settings.weekend.to')}
+            disabled={full24}
+            className={`${selectCls} ${dim}`}
+            {...register(`${base}.end`, { valueAsNumber: true })}
+          >
+            {END_SLOTS.map((h) => (
+              <option key={h} value={h}>
+                {fmtHour(h)}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+    </div>
+  );
+}
+
 interface GlobalSettingsPanelProps {
   mode: CalculatorMode;
 }
@@ -80,6 +177,7 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const startAt = useWatch({ control, name: 'settings.startAt' });
   const productName = useWatch({ control, name: 'settings.productName' });
+  const weekend = useWatch({ control, name: 'settings.weekend' });
   const [showProductName, setShowProductName] = useState(false);
   const productNameHasValue =
     typeof productName === 'string' && productName.length > 0;
@@ -120,6 +218,43 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
     } else {
       setShowProductName(true);
     }
+  };
+
+  const toggleWeekend = () => {
+    setValue('settings.weekend.enabled', !weekend?.enabled, {
+      shouldValidate: true,
+    });
+  };
+
+  // Persist the weekend shift (machine setting) so it survives reloads/resets.
+  useEffect(() => {
+    if (weekend) saveWeekendPref(weekend);
+  }, [weekend]);
+
+  const dayCfg = (dow: number): WeekendDay | undefined =>
+    dow === 6 ? weekend?.sat : dow === 0 ? weekend?.sun : undefined;
+
+  // Is a given date pickable as a start? Weekends are blocked unless their
+  // shift is enabled.
+  const isDatePickable = (date: Date): boolean => {
+    const dow = date.getDay();
+    if (dow !== 6 && dow !== 0) return true;
+    return !!(weekend?.enabled && dayCfg(dow)?.enabled);
+  };
+
+  // Within a pickable weekend day, restrict times to that day's window (or all
+  // day when 24h); weekdays keep the future-only rule.
+  const isTimePickable = (time: Date): boolean => {
+    if (time.getTime() < Date.now()) return false;
+    const dow = time.getDay();
+    if (dow !== 6 && dow !== 0) return true;
+    const d = dayCfg(dow);
+    if (!weekend?.enabled || !d?.enabled) return false;
+    const h = time.getHours() + time.getMinutes() / 60;
+    // Saturday keeps its weekday tail (00:00–06:00, always working).
+    if (dow === 6 && h < WORKDAY_START_HOUR) return true;
+    if (d.full24) return true;
+    return h >= d.start && h < d.end;
   };
 
   const lang = (i18n.resolvedLanguage ?? 'it') as 'it' | 'en' | 'es';
@@ -175,7 +310,33 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
           icon="✏"
           label={t('settings.toggle.productName')}
         />
+        <ToggleButton
+          active={!!weekend?.enabled}
+          onClick={toggleWeekend}
+          icon="📅"
+          label={t('settings.toggle.weekend')}
+        />
       </div>
+
+      {weekend?.enabled && (
+        <div className="mt-3 rounded-md border border-brand-200 bg-brand-50/50 p-3 sm:mt-4">
+          <div className="space-y-2">
+            <WeekendDayRow
+              dayKey="sat"
+              label={t('settings.weekend.sat')}
+              cfg={weekend.sat}
+            />
+            <WeekendDayRow
+              dayKey="sun"
+              label={t('settings.weekend.sun')}
+              cfg={weekend.sun}
+            />
+          </div>
+          <p className="mt-2 text-xs text-ink-soft">
+            {t('settings.weekend.hint')}
+          </p>
+        </div>
+      )}
 
       {productNameOpen && (
         <div className="mt-3 pb-5 sm:mt-4">
@@ -215,7 +376,8 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
                 locale={lang}
                 placeholderText={t('settings.startAt')}
                 minDate={minDate}
-                filterTime={time => time.getTime() >= Date.now()}
+                filterDate={isDatePickable}
+                filterTime={isTimePickable}
                 withPortal={isMobile}
                 onCalendarOpen={() => setCalendarOpen(true)}
                 onCalendarClose={() => setCalendarOpen(false)}
