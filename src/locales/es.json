@@ -44,9 +44,10 @@
       "days": "Días",
       "sat": "Sábado",
       "sun": "Domingo",
-      "from": "Desde (h)",
-      "to": "Hasta (h)",
-      "hint": "La línea trabaja en la franja horaria elegida, solo los días seleccionados."
+      "from": "Desde",
+      "to": "Hasta",
+      "full24": "24 h",
+      "hint": "Cada día trabaja en su propia franja horaria (o 24 h)."
     }
   },
   "orders": {

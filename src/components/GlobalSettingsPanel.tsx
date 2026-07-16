@@ -5,12 +5,25 @@ import { it as itLocale } from 'date-fns/locale/it';
 import { es as esLocale } from 'date-fns/locale/es';
 import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
-import type { CalculatorMode } from '../types';
+import type { CalculatorMode, WeekendDay } from '../types';
 import FieldError from './FieldError';
 import { saveWeekendPref } from '../utils/defaults';
 import { useEffect, useState } from 'react';
 
 const WORKDAY_START_HOUR = 6;
+
+// Half-hour slots for the weekend time dropdowns (values in hours).
+const fmtHour = (h: number) => {
+  const hh = Math.floor(h);
+  const mm = h - hh >= 0.5 ? '30' : '00';
+  return `${String(hh).padStart(2, '0')}:${mm}`;
+};
+const START_SLOTS: number[] = [];
+for (let h = 0; h < 24; h += 0.5) START_SLOTS.push(h);
+const END_SLOTS: number[] = [];
+for (let h = 0.5; h <= 24; h += 0.5) END_SLOTS.push(h);
+const selectCls =
+  'rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 
 registerLocale('it', itLocale);
 registerLocale('es', esLocale);
@@ -65,6 +78,83 @@ function ToggleButton({
       <span aria-hidden>{icon}</span>
       <span className="hidden whitespace-nowrap md:inline">{label}</span>
     </button>
+  );
+}
+
+// One weekend day: enable chip + 24h checkbox + a from/to pair of 30-min
+// dropdowns (disabled when 24h is on).
+function WeekendDayRow({
+  dayKey,
+  label,
+  cfg,
+}: {
+  dayKey: 'sat' | 'sun';
+  label: string;
+  cfg: WeekendDay | undefined;
+}) {
+  'use no memo';
+  const { register, setValue } = useFormContext<FormValues>();
+  const { t } = useTranslation();
+  const base = `settings.weekend.${dayKey}` as const;
+  const enabled = !!cfg?.enabled;
+  const full24 = !!cfg?.full24;
+  const dim = full24 ? 'opacity-40' : '';
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        aria-pressed={enabled}
+        onClick={() =>
+          setValue(`${base}.enabled`, !enabled, { shouldValidate: true })
+        }
+        className={`${enabled ? chipActive : chipIdle} w-24 shrink-0`}
+      >
+        {label}
+      </button>
+      {enabled && (
+        <>
+          <label className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
+            <input
+              type="checkbox"
+              checked={full24}
+              onChange={(e) =>
+                setValue(`${base}.full24`, e.target.checked, {
+                  shouldValidate: true,
+                })
+              }
+              className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+            />
+            {t('settings.weekend.full24')}
+          </label>
+          <select
+            aria-label={t('settings.weekend.from')}
+            disabled={full24}
+            className={`${selectCls} ${dim}`}
+            {...register(`${base}.start`, { valueAsNumber: true })}
+          >
+            {START_SLOTS.map((h) => (
+              <option key={h} value={h}>
+                {fmtHour(h)}
+              </option>
+            ))}
+          </select>
+          <span className={`text-ink-soft ${dim}`}>–</span>
+          <select
+            aria-label={t('settings.weekend.to')}
+            disabled={full24}
+            className={`${selectCls} ${dim}`}
+            {...register(`${base}.end`, { valueAsNumber: true })}
+          >
+            {END_SLOTS.map((h) => (
+              <option key={h} value={h}>
+                {fmtHour(h)}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -141,28 +231,30 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
     if (weekend) saveWeekendPref(weekend);
   }, [weekend]);
 
+  const dayCfg = (dow: number): WeekendDay | undefined =>
+    dow === 6 ? weekend?.sat : dow === 0 ? weekend?.sun : undefined;
+
   // Is a given date pickable as a start? Weekends are blocked unless their
   // shift is enabled.
   const isDatePickable = (date: Date): boolean => {
     const dow = date.getDay();
-    if (dow === 6) return !!(weekend?.enabled && weekend.sat);
-    if (dow === 0) return !!(weekend?.enabled && weekend.sun);
-    return true;
+    if (dow !== 6 && dow !== 0) return true;
+    return !!(weekend?.enabled && dayCfg(dow)?.enabled);
   };
 
-  // Within a pickable weekend day, restrict times to the shift window; weekdays
-  // keep the future-only rule.
+  // Within a pickable weekend day, restrict times to that day's window (or all
+  // day when 24h); weekdays keep the future-only rule.
   const isTimePickable = (time: Date): boolean => {
     if (time.getTime() < Date.now()) return false;
     const dow = time.getDay();
     if (dow !== 6 && dow !== 0) return true;
-    if (!weekend?.enabled) return false;
-    if (dow === 6 && !weekend.sat) return false;
-    if (dow === 0 && !weekend.sun) return false;
+    const d = dayCfg(dow);
+    if (!weekend?.enabled || !d?.enabled) return false;
     const h = time.getHours() + time.getMinutes() / 60;
     // Saturday keeps its weekday tail (00:00–06:00, always working).
     if (dow === 6 && h < WORKDAY_START_HOUR) return true;
-    return h >= weekend.startHour && h < weekend.endHour;
+    if (d.full24) return true;
+    return h >= d.start && h < d.end;
   };
 
   const lang = (i18n.resolvedLanguage ?? 'it') as 'it' | 'en' | 'es';
@@ -231,70 +323,17 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
           <p className="text-sm font-medium text-brand-700">
             ✅ {t('settings.weekend.active')}
           </p>
-          <div className="mt-2 flex flex-wrap items-end gap-3">
-            <div>
-              <span className={labelBase}>{t('settings.weekend.days')}</span>
-              <div className="mt-1 flex gap-2">
-                <button
-                  type="button"
-                  aria-pressed={weekend.sat}
-                  onClick={() =>
-                    setValue('settings.weekend.sat', !weekend.sat, {
-                      shouldValidate: true,
-                    })
-                  }
-                  className={weekend.sat ? chipActive : chipIdle}
-                >
-                  {t('settings.weekend.sat')}
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={weekend.sun}
-                  onClick={() =>
-                    setValue('settings.weekend.sun', !weekend.sun, {
-                      shouldValidate: true,
-                    })
-                  }
-                  className={weekend.sun ? chipActive : chipIdle}
-                >
-                  {t('settings.weekend.sun')}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className={labelBase} htmlFor="weekendStart">
-                {t('settings.weekend.from')}
-              </label>
-              <input
-                id="weekendStart"
-                type="number"
-                min={0}
-                max={23}
-                step={1}
-                inputMode="numeric"
-                className={`${inputBase} mt-1 w-20`}
-                {...register('settings.weekend.startHour', {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-            <div>
-              <label className={labelBase} htmlFor="weekendEnd">
-                {t('settings.weekend.to')}
-              </label>
-              <input
-                id="weekendEnd"
-                type="number"
-                min={1}
-                max={24}
-                step={1}
-                inputMode="numeric"
-                className={`${inputBase} mt-1 w-20`}
-                {...register('settings.weekend.endHour', {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
+          <div className="mt-2 space-y-2">
+            <WeekendDayRow
+              dayKey="sat"
+              label={t('settings.weekend.sat')}
+              cfg={weekend.sat}
+            />
+            <WeekendDayRow
+              dayKey="sun"
+              label={t('settings.weekend.sun')}
+              cfg={weekend.sun}
+            />
           </div>
           <p className="mt-2 text-xs text-ink-soft">
             {t('settings.weekend.hint')}

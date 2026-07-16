@@ -53,16 +53,23 @@ export interface ProducedSummary {
   source: 'profiles' | 'packages';
 }
 
+// One weekend day's shift: whether it is worked, and its window. `full24`
+// overrides start/end and works the whole day. Hours are in 30-min steps
+// (multiples of 0.5), 0–24.
+export interface WeekendDay {
+  enabled: boolean;
+  full24: boolean;
+  start: number;
+  end: number;
+}
+
 // Optional weekend shift. Normally the line runs Mon 06:00 → Sat 06:00 and the
-// whole weekend is skipped. When `enabled`, the picked weekend day(s) get a
-// working window [startHour, endHour) that the scheduler and the start-date
-// picker honour.
+// whole weekend is skipped. When `enabled`, each picked weekend day gets its
+// own window (or 24h) that the scheduler and the start-date picker honour.
 export interface WeekendWork {
   enabled: boolean;
-  sat: boolean;
-  sun: boolean;
-  startHour: number; // 0–23
-  endHour: number; // 1–24, > startHour
+  sat: WeekendDay;
+  sun: WeekendDay;
 }
 
 export interface GlobalSettings {

@@ -6,6 +6,7 @@ import type {
   ScheduleResult,
   ScheduledOrder,
   ScheduledSizeDetail,
+  WeekendDay,
   WeekendWork,
 } from '../types';
 
@@ -157,7 +158,9 @@ export function calculatePackages(
 const WORKDAY_START_HOUR = 6;
 const MIN_PER_DAY = 1440;
 
-const clampHour = (h: number) => Math.min(24, Math.max(0, Math.floor(h)));
+// Clamp to [0,24] and snap to a 30-min slot (the picker's granularity).
+const clampHalf = (h: number) =>
+  Math.min(24, Math.max(0, Math.round(h * 2) / 2));
 
 /** Minutes-from-midnight of a Date (fractional for seconds/ms). */
 function minuteOfDay(d: Date): number {
@@ -189,6 +192,15 @@ function mergeIntervals(iv: Array<[number, number]>): Array<[number, number]> {
   return out;
 }
 
+/** The working window of one weekend day, in minute-intervals. */
+function weekendDayIntervals(day: WeekendDay | undefined): Array<[number, number]> {
+  if (!day?.enabled) return [];
+  if (day.full24) return [[0, MIN_PER_DAY]];
+  const s = clampHalf(day.start) * 60;
+  const e = clampHalf(day.end) * 60;
+  return e > s ? [[s, e]] : [];
+}
+
 /** Working minute-intervals [start,end) within a given weekday, from the
  *  Mon 06:00 → Sat 06:00 block plus any enabled weekend window. */
 function workingIntervals(
@@ -202,12 +214,8 @@ function workingIntervals(
   else if (dow === 6) iv.push([0, wk]); // Sat 00:00 → 06:00 (weekday tail)
 
   if (weekend?.enabled) {
-    const s = clampHour(weekend.startHour) * 60;
-    const e = clampHour(weekend.endHour) * 60;
-    if (e > s) {
-      if (dow === 6 && weekend.sat) iv.push([s, e]);
-      if (dow === 0 && weekend.sun) iv.push([s, e]);
-    }
+    if (dow === 6) iv.push(...weekendDayIntervals(weekend.sat));
+    if (dow === 0) iv.push(...weekendDayIntervals(weekend.sun));
   }
   return mergeIntervals(iv);
 }

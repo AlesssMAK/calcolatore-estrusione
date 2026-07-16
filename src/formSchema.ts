@@ -40,6 +40,13 @@ const orderSchema = z.object({
   profilesPerPackage: z.array(producedEntrySchema).optional(),
 });
 
+const weekendDaySchema = z.object({
+  enabled: z.boolean(),
+  full24: z.boolean(),
+  start: z.number().min(0).max(23.5),
+  end: z.number().min(0.5).max(24),
+});
+
 const settingsSchema = z.object({
   startMode: z.enum(['now', 'manual']),
   startAt: z.string().optional(),
@@ -48,10 +55,8 @@ const settingsSchema = z.object({
   weekend: z
     .object({
       enabled: z.boolean(),
-      sat: z.boolean(),
-      sun: z.boolean(),
-      startHour: z.number().min(0).max(23),
-      endHour: z.number().min(1).max(24),
+      sat: weekendDaySchema,
+      sun: weekendDaySchema,
     })
     .optional(),
 });
