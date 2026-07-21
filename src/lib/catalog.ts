@@ -32,7 +32,9 @@ export interface CompanySettings {
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   modes: 'both',
-  showPiramide: true,
+  // Piramide is off by default (removed from the base project); a company
+  // opts in via the admin checkbox.
+  showPiramide: false,
   schedule: null,
 };
 
@@ -55,7 +57,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
   const p = (raw ?? {}) as Record<string, unknown>;
   const modes: CalcModes =
     p.modes === 'sheets' || p.modes === 'profiles' ? p.modes : 'both';
-  const showPiramide = p.showPiramide !== false; // default true
+  const showPiramide = p.showPiramide === true; // default false (opt-in)
   let schedule: WeekSchedule | null = null;
   if (p.schedule && typeof p.schedule === 'object') {
     const src = p.schedule as Record<string, unknown>;
