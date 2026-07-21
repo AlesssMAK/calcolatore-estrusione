@@ -14,9 +14,15 @@ function Header({ title, homeHref }: Props) {
   const { t } = useTranslation();
   const { company, loading, error } = useCatalog();
   const heading = title ?? t('app.title');
+  // Keep the active company link (?company=<slug>) when going home, so the
+  // logo returns to the company calculator, not the base one.
+  const base = homeHref ?? '/';
+  const homeUrl = company
+    ? `${base}?company=${encodeURIComponent(company.slug)}`
+    : base;
   const logoProps = homeHref
-    ? { href: homeHref }
-    : { href: '/', target: '_blank' as const, rel: 'noreferrer' };
+    ? { href: homeUrl }
+    : { href: homeUrl, target: '_blank' as const, rel: 'noreferrer' };
 
   return (
     <header className="no-print border-b border-neutral-200 bg-white">

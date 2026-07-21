@@ -42,6 +42,10 @@ function AdminPage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings>(
     DEFAULT_COMPANY_SETTINGS,
   );
+  const [company, setCompany] = useState<{ slug: string; name: string } | null>(
+    null,
+  );
+  const [copied, setCopied] = useState(false);
 
   const reload = useCallback(async () => {
     if (!supabase || !companyId) return;
@@ -63,6 +67,33 @@ function AdminPage() {
   useEffect(() => {
     if (companyId) void fetchCompanySettings(companyId).then(setCompanySettings);
   }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId || !supabase) return;
+    void supabase
+      .from('companies')
+      .select('slug, name')
+      .eq('id', companyId)
+      .maybeSingle()
+      .then(({ data }) =>
+        setCompany((data as { slug: string; name: string } | null) ?? null),
+      );
+  }, [companyId]);
+
+  const calcHref = company ? `/?company=${encodeURIComponent(company.slug)}` : '/';
+  const calcUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${calcHref}`
+      : calcHref;
+  const copyCalcUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(calcUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard may be unavailable */
+    }
+  };
 
   // Redirect / authorization gates
   if (!authLoading && !user) return <Navigate to="/admin/login" replace />;
@@ -149,12 +180,10 @@ function AdminPage() {
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:py-4">
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-ink sm:text-lg">
-              Admin · Listino prodotti
+            <h1 className="truncate text-base font-semibold text-ink sm:text-lg">
+              Admin{company ? ` · ${company.name}` : ' · Listino prodotti'}
             </h1>
-            <p className="truncate text-xs text-ink-soft">
-              {user?.email}
-            </p>
+            <p className="truncate text-xs text-ink-soft">{user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -165,7 +194,7 @@ function AdminPage() {
               ⚙ Impostazioni
             </button>
             <Link
-              to="/"
+              to={calcHref}
               className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-brand-500 sm:text-sm"
             >
               Calcolatore
@@ -179,6 +208,28 @@ function AdminPage() {
             </button>
           </div>
         </div>
+        {company && (
+          <div className="border-t border-neutral-200 bg-neutral-50">
+            <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2">
+              <span className="shrink-0 text-xs font-medium text-ink-soft">
+                Link calcolatore:
+              </span>
+              <input
+                readOnly
+                value={calcUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-ink"
+              />
+              <button
+                type="button"
+                onClick={() => void copyCalcUrl()}
+                className="shrink-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-ink hover:border-brand-500"
+              >
+                {copied ? '✓ Copiato' : '📋 Copia'}
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
