@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
 import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsPanel from './components/ResultsPanel';
-import { CatalogProvider } from './contexts/CatalogContext';
+import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
@@ -14,7 +14,12 @@ import type { CalculatorMode, ScheduleResult } from './types';
 
 function CalculatorApp() {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<CalculatorMode>('sheets');
+  const { settings } = useCatalog();
+  const [selectedMode, setSelectedMode] = useState<CalculatorMode>('sheets');
+  // A company can restrict to a single mode; otherwise the user's tab wins.
+  // Derived (not state) so it stays in sync with settings without an effect.
+  const mode: CalculatorMode =
+    settings.modes === 'both' ? selectedMode : settings.modes;
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -23,7 +28,7 @@ function CalculatorApp() {
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
-    setMode(next);
+    setSelectedMode(next);
     setResult(null);
     setFormKey((k) => k + 1);
   };
@@ -38,7 +43,7 @@ function CalculatorApp() {
   // not re-edit its inputs (those weren't even stored). If the saved result
   // was computed in the other tab, switch tab so the panel context matches.
   const onRestore = (restored: ScheduleResult) => {
-    if (restored.mode !== mode) setMode(restored.mode);
+    if (restored.mode !== mode) setSelectedMode(restored.mode);
     setResult(restored);
     window.requestAnimationFrame(() => {
       document
@@ -55,12 +60,14 @@ function CalculatorApp() {
         <Tabs
           value={mode}
           onChange={onModeChange}
+          modes={settings.modes}
+          showPiramide={settings.showPiramide}
           settingsOpen={settingsOpen}
           onToggleSettings={() => setSettingsOpen((v) => !v)}
         />
 
         <CalculatorForm
-          key={formKey}
+          key={`${formKey}:${mode}`}
           mode={mode}
           settingsOpen={settingsOpen}
           onSettingsErrors={() => setSettingsOpen(true)}
@@ -83,18 +90,29 @@ function CalculatorApp() {
       </main>
 
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">
-        <Link
-          to="/piramide"
-          className="font-medium text-brand-700 transition hover:text-brand-800"
-        >
-          {t('piramide.openLink')}
-        </Link>
+        {settings.showPiramide && (
+          <Link
+            to="/piramide"
+            className="font-medium text-brand-700 transition hover:text-brand-800"
+          >
+            {t('piramide.openLink')}
+          </Link>
+        )}
         <div className="mt-2">
           © {new Date().getFullYear()} {t('footer.madeBy')}
         </div>
       </footer>
     </div>
   );
+}
+
+// Guard: a company can hide Piramide. Redirect to the calculator once settings
+// have loaded and the page is disabled (default-visible while loading / no
+// company link).
+function PiramideRoute() {
+  const { settings, loading } = useCatalog();
+  if (!loading && !settings.showPiramide) return <Navigate to="/" replace />;
+  return <PiramidePage />;
 }
 
 function App() {
@@ -105,7 +123,7 @@ function App() {
           <Routes>
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin" element={<AdminPage />} />
-            <Route path="/piramide" element={<PiramidePage />} />
+            <Route path="/piramide" element={<PiramideRoute />} />
             <Route path="*" element={<CalculatorApp />} />
           </Routes>
         </CatalogProvider>

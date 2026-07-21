@@ -7,6 +7,7 @@ import WeekendBanner from './WeekendBanner';
 import OrdersList from './OrdersList';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import { calculateSchedule } from '../utils/calculator';
+import { useCatalog } from '../contexts/CatalogContext';
 import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode, ScheduleResult } from '../types';
@@ -43,6 +44,7 @@ function CalculatorForm({
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
+  const { settings: catalogSettings } = useCatalog();
 
   const methods = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(mode)),
@@ -77,6 +79,7 @@ function CalculatorForm({
     setSubmitError(null);
     const schedule = calculateSchedule(values.settings, values.orders, {
       mode,
+      schedule: catalogSettings.schedule,
     });
     onResult(schedule);
     // Persist the computed result so the user can re-open it from the

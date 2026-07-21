@@ -8,6 +8,7 @@ import type {
   ScheduledSizeDetail,
   WeekendDay,
   WeekendWork,
+  WeekSchedule,
 } from '../types';
 
 export function sumEntries(entries: ProducedEntry[] | undefined): number {
@@ -201,12 +202,23 @@ function weekendDayIntervals(day: WeekendDay | undefined): Array<[number, number
   return e > s ? [[s, e]] : [];
 }
 
-/** Working minute-intervals [start,end) within a given weekday, from the
- *  Mon 06:00 → Sat 06:00 block plus any enabled weekend window. */
-function workingIntervals(
-  dow: number,
-  weekend?: WeekendWork,
-): Array<[number, number]> {
+/** Machine working-time config: either a full 7-day schedule (company, source
+ *  of truth) or the Mon–Fri default plus an optional weekend shift. */
+interface Work {
+  weekend?: WeekendWork;
+  schedule?: WeekSchedule | null;
+}
+// getDay() (0=Sun … 6=Sat) → schedule key.
+const DOW_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+/** Working minute-intervals [start,end) within a given weekday. A company
+ *  7-day schedule (when present) drives every day; otherwise the Mon 06:00 →
+ *  Sat 06:00 block plus any enabled weekend window. */
+function workingIntervals(dow: number, work?: Work): Array<[number, number]> {
+  if (work?.schedule) {
+    return mergeIntervals(weekendDayIntervals(work.schedule[DOW_TO_KEY[dow]]));
+  }
+  const weekend = work?.weekend;
   const wk = WORKDAY_START_HOUR * 60; // 360
   const iv: Array<[number, number]> = [];
   if (dow === 1) iv.push([wk, MIN_PER_DAY]); // Mon 06:00 → 24:00
@@ -221,11 +233,11 @@ function workingIntervals(
 }
 
 /** The first working instant at or after `d`. */
-function nextWorkingInstant(d: Date, weekend?: WeekendWork): Date {
+function nextWorkingInstant(d: Date, work?: Work): Date {
   let cursor = new Date(d);
   for (let guard = 0; guard < 21; guard++) {
     const mod = minuteOfDay(cursor);
-    for (const [s, e] of workingIntervals(cursor.getDay(), weekend)) {
+    for (const [s, e] of workingIntervals(cursor.getDay(), work)) {
       if (mod < e) return mod >= s ? cursor : atMinute(cursor, s);
     }
     cursor = new Date(cursor);
@@ -238,15 +250,15 @@ function nextWorkingInstant(d: Date, weekend?: WeekendWork): Date {
 export function addWorkingMinutes(
   start: Date,
   minutes: number,
-  weekend?: WeekendWork,
+  work?: Work,
 ): Date {
   if (minutes <= 0) return new Date(start);
-  let cursor = nextWorkingInstant(start, weekend);
+  let cursor = nextWorkingInstant(start, work);
   let remaining = minutes;
   for (let guard = 0; guard < 100_000 && remaining > 0; guard++) {
     const mod = minuteOfDay(cursor);
     let consumed = false;
-    for (const [s, e] of workingIntervals(cursor.getDay(), weekend)) {
+    for (const [s, e] of workingIntervals(cursor.getDay(), work)) {
       if (mod >= e) continue;
       const from = mod >= s ? cursor : atMinute(cursor, s);
       const avail = e - Math.max(mod, s);
@@ -653,6 +665,9 @@ export function calculateProducedSheets(
 interface ScheduleOptions {
   now?: Date;
   mode?: CalculatorMode;
+  /** Company 7-day schedule (from the catalog settings); overrides the
+   *  Mon–Fri default when present. */
+  schedule?: WeekSchedule | null;
 }
 
 export function calculateSchedule(
@@ -667,9 +682,12 @@ export function calculateSchedule(
   const now = options.now ?? new Date();
   const mode: CalculatorMode = options.mode ?? 'sheets';
 
-  const weekend = settings.weekend;
+  const work: Work = {
+    weekend: settings.weekend,
+    schedule: options.schedule ?? null,
+  };
   const rawStart = resolveStartDate(settings, now);
-  const startAt = nextWorkingInstant(rawStart, weekend);
+  const startAt = nextWorkingInstant(rawStart, work);
   let cursor = startAt;
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
@@ -803,8 +821,8 @@ export function calculateSchedule(
     }
 
     const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
-    const start = nextWorkingInstant(cursor, weekend);
-    const end = addWorkingMinutes(start, remainingMinutes, weekend);
+    const start = nextWorkingInstant(cursor, work);
+    const end = addWorkingMinutes(start, remainingMinutes, work);
 
     // Per-size breakdown when an order has 2+ sizes (sizes-mode only —
     // useTotalLength has no per-size structure to break out).
@@ -895,8 +913,8 @@ export function calculateSchedule(
         }
 
         const remainingMinsI = minsI * Math.max(0, 1 - sizeFraction);
-        const startI = nextWorkingInstant(sizeCursor, weekend);
-        const endI = addWorkingMinutes(startI, remainingMinsI, weekend);
+        const startI = nextWorkingInstant(sizeCursor, work);
+        const endI = addWorkingMinutes(startI, remainingMinsI, work);
 
         // Per-unit (pallet/package) metrics for this size — set only if the
         // rate is known. Used by the UI's "Tempo per bancale/pacco" row and
@@ -1011,7 +1029,7 @@ export function calculateSchedule(
 
     totalProductionMinutes += remainingMinutes;
     totalGapMinutes += gapAfterMin;
-    cursor = addWorkingMinutes(end, gapAfterMin, weekend);
+    cursor = addWorkingMinutes(end, gapAfterMin, work);
   });
 
   const endAt = rows[rows.length - 1]!.end;
