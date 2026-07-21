@@ -2,8 +2,15 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { sortProductsNaturally, type CatalogProduct } from '../lib/catalog';
+import {
+  DEFAULT_COMPANY_SETTINGS,
+  fetchCompanySettings,
+  sortProductsNaturally,
+  type CatalogProduct,
+  type CompanySettings,
+} from '../lib/catalog';
 import CompaniesTab from '../components/admin/CompaniesTab';
+import GlobalSettingsModal from '../components/admin/GlobalSettingsModal';
 
 type AdminTab = 'products' | 'companies';
 
@@ -31,6 +38,10 @@ function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showGlobal, setShowGlobal] = useState(false);
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(
+    DEFAULT_COMPANY_SETTINGS,
+  );
 
   const reload = useCallback(async () => {
     if (!supabase || !companyId) return;
@@ -48,6 +59,10 @@ function AdminPage() {
   useEffect(() => {
     if (companyId) void reload();
   }, [companyId, reload]);
+
+  useEffect(() => {
+    if (companyId) void fetchCompanySettings(companyId).then(setCompanySettings);
+  }, [companyId]);
 
   // Redirect / authorization gates
   if (!authLoading && !user) return <Navigate to="/admin/login" replace />;
@@ -142,6 +157,13 @@ function AdminPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowGlobal(true)}
+              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-brand-500 sm:text-sm"
+            >
+              ⚙ Impostazioni
+            </button>
             <Link
               to="/"
               className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-brand-500 sm:text-sm"
@@ -392,6 +414,16 @@ function AdminPage() {
             </div>
           </form>
         </div>
+      )}
+
+      {showGlobal && companyId && (
+        <GlobalSettingsModal
+          companyId={companyId}
+          subtitle={user?.email}
+          initial={companySettings}
+          onClose={() => setShowGlobal(false)}
+          onSaved={setCompanySettings}
+        />
       )}
     </div>
   );

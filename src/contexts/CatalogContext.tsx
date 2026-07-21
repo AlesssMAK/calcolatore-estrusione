@@ -7,16 +7,21 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  DEFAULT_COMPANY_SETTINGS,
   fetchCompanyBySlug,
+  fetchCompanySettings,
   fetchProductsForCompany,
   readSlugFromUrl,
   type CatalogProduct,
   type Company,
+  type CompanySettings,
 } from '../lib/catalog';
 
 interface CatalogState {
   company: Company | null;
   products: CatalogProduct[];
+  /** Per-company settings; app defaults when no company link is active. */
+  settings: CompanySettings;
   loading: boolean;
   /** True when a slug exists but the lookup failed (bad slug, offline, etc.). */
   error: string | null;
@@ -25,6 +30,7 @@ interface CatalogState {
 const CatalogCtx = createContext<CatalogState>({
   company: null,
   products: [],
+  settings: DEFAULT_COMPANY_SETTINGS,
   loading: false,
   error: null,
 });
@@ -32,6 +38,9 @@ const CatalogCtx = createContext<CatalogState>({
 export function CatalogProvider({ children }: { children: ReactNode }) {
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [settings, setSettings] = useState<CompanySettings>(
+    DEFAULT_COMPANY_SETTINGS,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,9 +72,13 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
           return;
         }
         setCompany(c);
-        const items = await fetchProductsForCompany(c.id);
+        const [items, s] = await Promise.all([
+          fetchProductsForCompany(c.id),
+          fetchCompanySettings(c.id),
+        ]);
         if (cancelled) return;
         setProducts(items);
+        setSettings(s);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -76,8 +89,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<CatalogState>(
-    () => ({ company, products, loading, error }),
-    [company, products, loading, error],
+    () => ({ company, products, settings, loading, error }),
+    [company, products, settings, loading, error],
   );
 
   return <CatalogCtx.Provider value={value}>{children}</CatalogCtx.Provider>;

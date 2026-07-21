@@ -7,7 +7,13 @@ import {
   calculateTotalProfiles,
   splitDuration,
 } from './calculator';
-import type { GlobalSettings, Order, WeekendDay, WeekendWork } from '../types';
+import type {
+  GlobalSettings,
+  Order,
+  WeekendDay,
+  WeekendWork,
+  WeekSchedule,
+} from '../types';
 
 describe('calculateOrderLengthM', () => {
   it('converts sheets × mm to meters', () => {
@@ -999,6 +1005,56 @@ describe('calculateSchedule — weekend shift (per-day opt-in hours)', () => {
     };
     const r = calculateSchedule(wk(weekend, start), [order], { now: start });
     expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
+  });
+});
+
+describe('calculateSchedule — company 7-day schedule', () => {
+  const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m, d, h, min, 0, 0);
+  const day = (o: Partial<WeekendDay> = {}): WeekendDay => ({
+    enabled: true,
+    full24: false,
+    start: 6,
+    end: 14,
+    ...o,
+  });
+  const off = day({ enabled: false });
+  const order: Order = { id: 'a', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1 }; // 60 min
+  const settings = (start: Date): GlobalSettings => ({
+    startMode: 'manual',
+    startAt: start.toISOString(),
+    gapMode: 'continuous',
+  });
+  // Only Monday worked, 08:00–12:00; every other day off. 2026-05-11 is a Monday.
+  const monOnly: WeekSchedule = {
+    mon: day({ start: 8, end: 12 }),
+    tue: off,
+    wed: off,
+    thu: off,
+    fri: off,
+    sat: off,
+    sun: off,
+  };
+
+  it('overrides the Mon–Fri default and honours the day window', () => {
+    const start = localDate(2026, 4, 11, 10); // Mon 10:00
+    const r = calculateSchedule(settings(start), [order], {
+      now: start,
+      schedule: monOnly,
+    });
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 11).getTime());
+  });
+
+  it('jumps to the next working day when the window is exhausted', () => {
+    const start = localDate(2026, 4, 11, 11, 30); // Mon 11:30, window ends 12:00
+    const r = calculateSchedule(settings(start), [order], {
+      now: start,
+      schedule: monOnly,
+    });
+    // 30 min Mon 11:30→12:00, remaining 30 → next Monday 08:00 → 08:30.
+    expect(r.rows[0]!.end.getTime()).toBe(
+      localDate(2026, 4, 18, 8, 30).getTime(),
+    );
   });
 });
 

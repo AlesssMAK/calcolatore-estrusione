@@ -72,6 +72,11 @@ export interface WeekendWork {
   sun: WeekendDay;
 }
 
+// Full 7-day working schedule (per-company, set in /admin). When present it is
+// the source of truth for every day and overrides the Mon–Fri default.
+export type WeekdayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+export type WeekSchedule = Record<WeekdayKey, WeekendDay>;
+
 export interface GlobalSettings {
   startMode: StartMode;
   startAt?: string;
