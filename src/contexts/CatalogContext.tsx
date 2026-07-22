@@ -41,7 +41,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<CompanySettings>(
     DEFAULT_COMPANY_SETTINGS,
   );
-  const [loading, setLoading] = useState(false);
+  // Start "loading" when a ?company= slug is present so route guards (e.g.
+  // Piramide) wait for the real settings instead of acting on the defaults on
+  // the very first render (which would wrongly redirect on a hard reload).
+  const [loading, setLoading] = useState(() => readSlugFromUrl() !== null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
