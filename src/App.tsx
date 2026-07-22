@@ -14,7 +14,12 @@ import type { CalculatorMode, ScheduleResult } from './types';
 
 function CalculatorApp() {
   const { t } = useTranslation();
-  const { settings } = useCatalog();
+  const { settings, company } = useCatalog();
+  // Keep the active company link on the Piramide navigation, so a reload of
+  // /piramide doesn't lose ?company= and bounce back to the calculator.
+  const piramideHref = company
+    ? `/piramide?company=${encodeURIComponent(company.slug)}`
+    : '/piramide';
   const [selectedMode, setSelectedMode] = useState<CalculatorMode>('sheets');
   // A company can restrict to a single mode; otherwise the user's tab wins.
   // Derived (not state) so it stays in sync with settings without an effect.
@@ -62,6 +67,7 @@ function CalculatorApp() {
           onChange={onModeChange}
           modes={settings.modes}
           showPiramide={settings.showPiramide}
+          piramideHref={piramideHref}
           settingsOpen={settingsOpen}
           onToggleSettings={() => setSettingsOpen((v) => !v)}
         />
@@ -92,7 +98,7 @@ function CalculatorApp() {
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">
         {settings.showPiramide && (
           <Link
-            to="/piramide"
+            to={piramideHref}
             className="font-medium text-brand-700 transition hover:text-brand-800"
           >
             {t('piramide.openLink')}

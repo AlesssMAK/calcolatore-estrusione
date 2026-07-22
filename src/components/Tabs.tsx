@@ -10,6 +10,8 @@ interface Props {
   modes: CalcModes;
   /** Whether to show the Piramide link. */
   showPiramide: boolean;
+  /** Piramide link target (carries ?company= when a company is active). */
+  piramideHref: string;
   settingsOpen: boolean;
   onToggleSettings: () => void;
 }
@@ -21,6 +23,7 @@ function Tabs({
   onChange,
   modes,
   showPiramide,
+  piramideHref,
   settingsOpen,
   onToggleSettings,
 }: Props) {
@@ -62,7 +65,7 @@ function Tabs({
       <div className="flex items-center gap-2">
         {showPiramide && (
           <Link
-            to="/piramide"
+            to={piramideHref}
             aria-label={t('piramide.title')}
             title={t('piramide.title')}
             className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink"
