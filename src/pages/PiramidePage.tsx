@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
+import { useCatalog } from '../contexts/CatalogContext';
 import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
 import {
   computeNesting,
@@ -68,6 +69,11 @@ function groupStrati(strati: Strato[], startNumber: number): StratoGroup[] {
 
 function PiramidePage() {
   const { t } = useTranslation();
+  const { company } = useCatalog();
+  // Keep the company link so the back button (and a reload) stays in context.
+  const homeHref = company
+    ? `/?company=${encodeURIComponent(company.slug)}`
+    : '/';
 
   const [rows, setRows] = useState<SheetRow[]>([newRow()]);
   const [base, setBase] = useState('');
@@ -204,7 +210,7 @@ function PiramidePage() {
 
       <main className="mx-auto max-w-6xl space-y-4 px-3 py-4 sm:space-y-5 sm:px-4 sm:py-8">
         <Link
-          to="/"
+          to={homeHref}
           className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
         >
           ← {t('piramide.backToCalculator')}
