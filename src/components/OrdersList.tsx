@@ -862,6 +862,18 @@ function SizeAdvancedBlockListi({
     totals.append({ value: undefined, sizeIndex: sizeIdx });
   };
 
+  // Seed an empty entry for this size so its inputs are directly typeable —
+  // every size behaves like the first, without needing a manual "+" first.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!seededRef.current && positions.length === 0) {
+      seededRef.current = true;
+      appendAll();
+    }
+    // once, on mount of this size block
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const removeAll = (rowIdx: number) => {
     const arrayPos = rows[rowIdx];
     if (arrayPos === null || arrayPos === undefined) return;
@@ -1019,6 +1031,19 @@ function SizeAdvancedBlockProfili({
     counts.append({ value: undefined, sizeIndex: sizeIdx });
     totals.append({ value: undefined, sizeIndex: sizeIdx });
   };
+
+  // Seed an empty entry for this size so its inputs are directly typeable —
+  // every size behaves like the first, without needing a manual "+" first.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!seededRef.current && positions.length === 0) {
+      seededRef.current = true;
+      appendAll();
+    }
+    // once, on mount of this size block
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const removeAll = (rowIdx: number) => {
     const arrayPos = rows[rowIdx];
     if (arrayPos === null || arrayPos === undefined) return;
