@@ -83,6 +83,26 @@ export interface GlobalSettings {
   gapMode: GapMode;
   productName?: string;
   weekend?: WeekendWork;
+  /** Minutes of warm-up spent at the start of each working block (line goes
+   *  cold during stops). Undefined → 0. */
+  warmupMinutes?: number;
+  /** Minutes reserved before the end of each working block for shutdown.
+   *  Undefined → 0. */
+  shutdownMinutes?: number;
+}
+
+/** A single continuous production window (used when an order is split across
+ *  non-working gaps in the results). */
+export interface Segment {
+  start: Date;
+  end: Date;
+  /** Duration of this window, in minutes. */
+  minutes: number;
+  /** Meters produced in this window (minutes × effective speed). */
+  metersM: number;
+  /** Sheets/profiles produced in this window (proportional to time; undefined
+   *  when the piece count is unknown, e.g. total-meters mode). */
+  pieces?: number;
 }
 
 export interface ScheduledSizeDetail {
@@ -146,6 +166,9 @@ export interface ScheduledOrder {
   timePerUnitMin?: number;
   totalUnits?: number;
   sizeDetails?: ScheduledSizeDetail[];
+  /** Production windows this order occupied. Length > 1 means a non-working
+   *  gap (weekend / off-window) split it into parts. */
+  segments?: Segment[];
 }
 
 export interface ScheduleResult {

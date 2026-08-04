@@ -8,6 +8,7 @@ import type { FormValues } from '../formSchema';
 import type { CalculatorMode, WeekendDay } from '../types';
 import FieldError from './FieldError';
 import { saveWeekendPref } from '../utils/defaults';
+import { isContinuous } from '../utils/calculator';
 import { useEffect, useState } from 'react';
 
 const WORKDAY_START_HOUR = 6;
@@ -22,6 +23,14 @@ const START_SLOTS: number[] = [];
 for (let h = 0; h < 24; h += 0.5) START_SLOTS.push(h);
 const END_SLOTS: number[] = [];
 for (let h = 0.5; h <= 24; h += 0.5) END_SLOTS.push(h);
+// Duration slots for the warm-up / shutdown dropdowns (minutes, 30-min steps).
+const BUF_SLOTS: number[] = [];
+for (let m = 0; m <= 720; m += 30) BUF_SLOTS.push(m);
+const fmtDur = (min: number) => {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
+};
 const selectCls =
   'rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 
@@ -178,6 +187,11 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
   const startAt = useWatch({ control, name: 'settings.startAt' });
   const productName = useWatch({ control, name: 'settings.productName' });
   const weekend = useWatch({ control, name: 'settings.weekend' });
+  const warmupMinutes = useWatch({ control, name: 'settings.warmupMinutes' });
+  const shutdownMinutes = useWatch({ control, name: 'settings.shutdownMinutes' });
+  // When the line runs continuously (no stops) buffers have no effect — disable
+  // the inputs. Mirrors the scheduler's own `isContinuous` so UI and math agree.
+  const continuous = isContinuous({ weekend });
   const [showProductName, setShowProductName] = useState(false);
   const productNameHasValue =
     typeof productName === 'string' && productName.length > 0;
@@ -239,7 +253,11 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
   const isDatePickable = (date: Date): boolean => {
     const dow = date.getDay();
     if (dow !== 6 && dow !== 0) return true;
-    return !!(weekend?.enabled && dayCfg(dow)?.enabled);
+    // Saturday morning 00:00–06:00 is always worked (tail of the Mon→Sat
+    // continuous run), so Saturday is pickable even without a weekend shift.
+    // The time filter narrows the selectable hours.
+    if (dow === 6) return true;
+    return !!(weekend?.enabled && dayCfg(dow)?.enabled); // Sunday only when enabled
   };
 
   // Within a pickable weekend day, restrict times to that day's window (or all
@@ -248,11 +266,12 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
     if (time.getTime() < Date.now()) return false;
     const dow = time.getDay();
     if (dow !== 6 && dow !== 0) return true;
+    const h = time.getHours() + time.getMinutes() / 60;
+    // Saturday keeps its weekday tail (00:00–06:00), always working regardless
+    // of any weekend shift — check it before the weekend-enabled gate.
+    if (dow === 6 && h < WORKDAY_START_HOUR) return true;
     const d = dayCfg(dow);
     if (!weekend?.enabled || !d?.enabled) return false;
-    const h = time.getHours() + time.getMinutes() / 60;
-    // Saturday keeps its weekday tail (00:00–06:00, always working).
-    if (dow === 6 && h < WORKDAY_START_HOUR) return true;
     if (d.full24) return true;
     return h >= d.start && h < d.end;
   };
@@ -334,6 +353,50 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
           </div>
           <p className="mt-2 text-xs text-ink-soft">
             {t('settings.weekend.hint')}
+          </p>
+
+          <div
+            className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-brand-200/70 pt-3 ${
+              continuous ? 'opacity-50' : ''
+            }`}
+          >
+            {(
+              [
+                ['warmup', warmupMinutes, 'settings.warmupMinutes'] as const,
+                ['shutdown', shutdownMinutes, 'settings.shutdownMinutes'] as const,
+              ] as const
+            ).map(([key, val, name]) => (
+              <div key={key} className="flex items-center gap-2">
+                <label
+                  htmlFor={`buf-${key}`}
+                  className="text-xs font-medium text-ink-soft"
+                >
+                  {t(`settings.buffers.${key}`)}
+                </label>
+                <select
+                  id={`buf-${key}`}
+                  className={`${selectCls} disabled:cursor-not-allowed disabled:bg-neutral-100`}
+                  disabled={continuous}
+                  value={typeof val === 'number' ? val : 0}
+                  onChange={(e) =>
+                    setValue(name, Number(e.target.value), {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  {BUF_SLOTS.map((m) => (
+                    <option key={m} value={m}>
+                      {fmtDur(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-ink-soft">
+            {continuous
+              ? t('settings.buffers.continuousHint')
+              : t('settings.buffers.hint')}
           </p>
         </div>
       )}

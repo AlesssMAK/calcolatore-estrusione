@@ -32,7 +32,7 @@
       "manualStart": "Imposta orario",
       "gaps": "Pause tra ordini",
       "productName": "Nome prodotto",
-      "weekend": "Weekend"
+      "weekend": "Orario linea"
     },
     "productName": "Nome del prodotto",
     "productNamePlaceholder": {
@@ -48,6 +48,13 @@
       "to": "Alle",
       "full24": "24 h",
       "hint": "Ogni giorno lavora nella sua finestra oraria (o 24 h)."
+    },
+    "buffers": {
+      "warmup": "Riscaldamento",
+      "shutdown": "Arresto",
+      "hours": "ore",
+      "hint": "Riscaldamento a inizio blocco, arresto prima della fine di ogni blocco. Ignorati se la linea è continua.",
+      "continuousHint": "Linea continua: riscaldamento e arresto non vengono applicati."
     }
   },
   "orders": {
@@ -143,7 +150,9 @@
       "many": "pacchi",
       "timesPerUnit": "Tempi per pacco",
       "timePerOne": "Tempo per pacco"
-    }
+    },
+    "splitParts": "Diviso in {{n}} parti",
+    "part": "Parte {{n}}"
   },
   "units": {
     "day": "g",

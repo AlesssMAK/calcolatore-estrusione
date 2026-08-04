@@ -32,7 +32,7 @@
       "manualStart": "Fijar hora",
       "gaps": "Pausas entre pedidos",
       "productName": "Nombre del producto",
-      "weekend": "Fin de semana"
+      "weekend": "Horario línea"
     },
     "productName": "Nombre del producto",
     "productNamePlaceholder": {
@@ -48,6 +48,13 @@
       "to": "Hasta",
       "full24": "24 h",
       "hint": "Cada día trabaja en su propia franja horaria (o 24 h)."
+    },
+    "buffers": {
+      "warmup": "Calentamiento",
+      "shutdown": "Parada",
+      "hours": "h",
+      "hint": "Calentamiento al inicio de cada bloque, parada antes del final. Se omiten si la línea es continua.",
+      "continuousHint": "Línea continua: el calentamiento y la parada no se aplican."
     }
   },
   "orders": {
@@ -143,7 +150,9 @@
       "many": "paquetes",
       "timesPerUnit": "Tiempos por paquete",
       "timePerOne": "Tiempo por paquete"
-    }
+    },
+    "splitParts": "Dividido en {{n}} partes",
+    "part": "Parte {{n}}"
   },
   "units": {
     "day": "d",

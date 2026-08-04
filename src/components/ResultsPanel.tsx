@@ -152,6 +152,19 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
       );
 
+      if (row.segments && row.segments.length > 1) {
+        const unit = isProfiles
+          ? t('results.col.profiles').toLowerCase()
+          : t('results.col.sheets').toLowerCase();
+        row.segments.forEach((seg, sIdx) => {
+          const pcs =
+            seg.pieces !== undefined ? ` · ${seg.pieces} ${unit}` : '';
+          lines.push(
+            `   • ${t('results.part', { n: sIdx + 1 })}: ${formatShortDateTime(seg.start, lang)} – ${formatShortDateTime(seg.end, lang)}  ${formatLength(seg.metersM)} m${pcs} · ${formatDuration(seg.minutes, units)}`,
+          );
+        });
+      }
+
       if (row.sizeDetails && row.sizeDetails.length > 1) {
         row.sizeDetails.forEach((sd, sIdx) => {
           const sdMeters = `${formatLength(sd.metersM)} m`;
@@ -405,6 +418,49 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   </dd>
                 </dl>
 
+                {row.segments && row.segments.length > 1 && (
+                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/50 p-2 text-xs">
+                    <div className="mb-1 font-semibold text-amber-700">
+                      {t('results.splitParts', { n: row.segments.length })}
+                    </div>
+                    <ol className="space-y-1">
+                      {row.segments.map((seg, sIdx) => (
+                        <li
+                          key={sIdx}
+                          className="rounded border border-amber-100 bg-white/70 p-1.5 tabular-nums"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-amber-700">
+                              {t('results.part', { n: sIdx + 1 })}
+                            </span>
+                            <span className="text-ink-soft">
+                              {formatDuration(seg.minutes, units)}
+                            </span>
+                          </div>
+                          <div className="text-ink-soft">
+                            {formatShortDateTime(seg.start, lang)} –{' '}
+                            {formatShortDateTime(seg.end, lang)}
+                          </div>
+                          <div>
+                            <span className="font-medium text-ink">
+                              {formatLength(seg.metersM)} m
+                            </span>
+                            {seg.pieces !== undefined && (
+                              <span className="text-ink-soft">
+                                {' · '}
+                                {seg.pieces}{' '}
+                                {isProfiles
+                                  ? t('results.col.profiles').toLowerCase()
+                                  : t('results.col.sheets').toLowerCase()}
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
                 {row.sizeDetails && row.sizeDetails.length > 1 && (
                   <ul className="mt-2 space-y-1.5">
                     {row.sizeDetails.map((sd, sIdx) => {
@@ -536,13 +592,18 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                 const hasSizeBreakdown =
                   row.sizeDetails !== undefined &&
                   row.sizeDetails.length > 1;
+                const hasSegments =
+                  row.segments !== undefined && row.segments.length > 1;
                 // When sizes are broken out, hide the aggregate produced
                 // block and show per-size produced inside each sub-row.
                 const showAggregateProduced = hasProduced && !hasSizeBreakdown;
                 const hasRowPerUnit =
                   !hasSizeBreakdown && row.timePerUnitMin !== undefined;
                 const mainRowBorder =
-                  showAggregateProduced || hasSizeBreakdown || hasRowPerUnit
+                  showAggregateProduced ||
+                  hasSizeBreakdown ||
+                  hasRowPerUnit ||
+                  hasSegments
                     ? 'border-b-0'
                     : 'border-b border-neutral-100 last:border-b-0';
                 return (
@@ -578,6 +639,51 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                         {formatShortDateTime(row.end, lang)}
                       </td>
                     </tr>
+                    {hasSegments &&
+                      row.segments!.map((seg, sIdx) => {
+                        const lastSeg = sIdx === row.segments!.length - 1;
+                        const closesGroup =
+                          lastSeg &&
+                          !hasSizeBreakdown &&
+                          !showAggregateProduced &&
+                          !hasRowPerUnit;
+                        return (
+                          <tr
+                            key={`seg-${sIdx}`}
+                            className={
+                              closesGroup
+                                ? 'border-b border-neutral-100 bg-amber-50/40 text-xs text-ink-soft last:border-b-0'
+                                : 'border-b-0 bg-amber-50/40 text-xs text-ink-soft'
+                            }
+                          >
+                            <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap text-amber-700">
+                              ↳ {t('results.part', { n: sIdx + 1 })}
+                            </td>
+                            {isProfiles && (
+                              <td className="py-1.5 pr-3">{seg.pieces ?? '—'}</td>
+                            )}
+                            <td className="py-1.5 pr-3">
+                              {formatLength(seg.metersM)} m
+                              {!isProfiles && seg.pieces !== undefined && (
+                                <span className="ml-1 text-ink-soft">
+                                  ({seg.pieces} pz)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-1.5 pr-3"></td>
+                            <td className="py-1.5 pr-3 font-medium text-ink">
+                              {formatDuration(seg.minutes, units)}
+                            </td>
+                            {isProfiles && <td className="py-1.5 pr-3"></td>}
+                            <td className="py-1.5 pr-3 whitespace-nowrap">
+                              {formatShortDateTime(seg.start, lang)}
+                            </td>
+                            <td className="py-1.5 whitespace-nowrap">
+                              {formatShortDateTime(seg.end, lang)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     {hasSizeBreakdown &&
                       row.sizeDetails!.map((sd, sIdx) => {
                         const isLastSub =
