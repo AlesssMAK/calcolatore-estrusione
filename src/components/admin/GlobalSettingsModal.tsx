@@ -180,6 +180,45 @@ export default function GlobalSettingsModal({
           )}
         </section>
 
+        {/* Buffer linea */}
+        <section className="mt-5">
+          <h4 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Buffer linea (ore)
+          </h4>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            {(
+              [
+                ['Riscaldamento', 'warmupMinutes'],
+                ['Arresto', 'shutdownMinutes'],
+              ] as const
+            ).map(([label, key]) => (
+              <div key={key} className="flex items-center gap-2">
+                <label className="text-sm text-ink-soft">{label}</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  inputMode="decimal"
+                  className="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:outline-none"
+                  value={draft[key] / 60}
+                  onChange={(e) => {
+                    const h = parseFloat(e.target.value);
+                    setDraft({
+                      ...draft,
+                      [key]: Number.isFinite(h) ? Math.round(h * 60) : 0,
+                    });
+                  }}
+                />
+                <span className="text-xs text-ink-soft">ore</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-ink-soft">
+            Riscaldamento a inizio blocco, arresto prima della fine di ogni
+            blocco. Ignorati se la linea è continua (nessuna pausa).
+          </p>
+        </section>
+
         {error && (
           <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">
             ⚠ {error}

@@ -111,6 +111,8 @@ export function buildEmptyDefaults(
       gapMode: 'continuous',
       productName: '',
       weekend: loadWeekendPref(),
+      warmupMinutes: 240, // 4 h warm-up at each block start (default)
+      shutdownMinutes: 60, // 1 h reserved before each block end (default)
     },
     orders: [makeEmptyOrder(mode)],
   } as unknown as FormValues;

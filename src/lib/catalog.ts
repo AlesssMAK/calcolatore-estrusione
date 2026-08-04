@@ -28,6 +28,10 @@ export interface CompanySettings {
   showPiramide: boolean;
   /** Per-day working hours (7 days). null → app default (Mon–Fri 24h). */
   schedule: WeekSchedule | null;
+  /** Warm-up / shutdown buffers (minutes) applied at each working-block start /
+   *  end. */
+  warmupMinutes: number;
+  shutdownMinutes: number;
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -36,6 +40,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   // opts in via the admin checkbox.
   showPiramide: false,
   schedule: null,
+  warmupMinutes: 240,
+  shutdownMinutes: 60,
 };
 
 function parseDay(raw: unknown): WeekendDay {
@@ -65,7 +71,15 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
       WEEKDAY_KEYS.map((k) => [k, parseDay(src[k])]),
     ) as WeekSchedule;
   }
-  return { modes, showPiramide, schedule };
+  const num = (v: unknown, d: number) =>
+    Number.isFinite(v) ? Math.min(1440, Math.max(0, Number(v))) : d;
+  return {
+    modes,
+    showPiramide,
+    schedule,
+    warmupMinutes: num(p.warmupMinutes, 240),
+    shutdownMinutes: num(p.shutdownMinutes, 60),
+  };
 }
 
 export interface CatalogProduct {

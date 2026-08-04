@@ -59,6 +59,8 @@ const settingsSchema = z.object({
       sun: weekendDaySchema,
     })
     .optional(),
+  warmupMinutes: z.number().min(0).max(1440).optional(),
+  shutdownMinutes: z.number().min(0).max(1440).optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

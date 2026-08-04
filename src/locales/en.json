@@ -32,7 +32,7 @@
       "manualStart": "Set time",
       "gaps": "Gaps between orders",
       "productName": "Product name",
-      "weekend": "Weekend"
+      "weekend": "Line schedule"
     },
     "productName": "Product name",
     "productNamePlaceholder": {
@@ -48,6 +48,13 @@
       "to": "To",
       "full24": "24 h",
       "hint": "Each day runs in its own time window (or 24 h)."
+    },
+    "buffers": {
+      "warmup": "Warm-up",
+      "shutdown": "Shutdown",
+      "hours": "h",
+      "hint": "Warm-up at each block start, shutdown before each block end. Skipped on a continuous line.",
+      "continuousHint": "Continuous line: warm-up and shutdown are not applied."
     }
   },
   "orders": {
@@ -143,7 +150,9 @@
       "many": "packages",
       "timesPerUnit": "Times per package",
       "timePerOne": "Time per package"
-    }
+    },
+    "splitParts": "Split into {{n}} parts",
+    "part": "Part {{n}}"
   },
   "units": {
     "day": "d",

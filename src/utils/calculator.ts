@@ -6,6 +6,7 @@ import type {
   ScheduleResult,
   ScheduledOrder,
   ScheduledSizeDetail,
+  Segment,
   WeekendDay,
   WeekendWork,
   WeekSchedule,
@@ -221,8 +222,14 @@ function workingIntervals(dow: number, work?: Work): Array<[number, number]> {
   const weekend = work?.weekend;
   const wk = WORKDAY_START_HOUR * 60; // 360
   const iv: Array<[number, number]> = [];
-  if (dow === 1) iv.push([wk, MIN_PER_DAY]); // Mon 06:00 → 24:00
-  else if (dow >= 2 && dow <= 5) iv.push([0, MIN_PER_DAY]); // Tue–Fri
+  if (dow === 1) {
+    // Monday normally cold-starts at 06:00 after the weekend stop. But when the
+    // weekend runs through to Sunday 24:00 the line never stopped, so Monday
+    // opens at 00:00 (no phantom Mon 00:00–06:00 gap → truly continuous).
+    const sun = weekend?.enabled ? weekendDayIntervals(weekend.sun) : [];
+    const sunToMidnight = sun.length > 0 && sun[sun.length - 1][1] === MIN_PER_DAY;
+    iv.push([sunToMidnight ? 0 : wk, MIN_PER_DAY]);
+  } else if (dow >= 2 && dow <= 5) iv.push([0, MIN_PER_DAY]); // Tue–Fri
   else if (dow === 6) iv.push([0, wk]); // Sat 00:00 → 06:00 (weekday tail)
 
   if (weekend?.enabled) {
@@ -232,8 +239,8 @@ function workingIntervals(dow: number, work?: Work): Array<[number, number]> {
   return mergeIntervals(iv);
 }
 
-/** The first working instant at or after `d`. */
-function nextWorkingInstant(d: Date, work?: Work): Date {
+/** The first (raw) working instant at or after `d` — ignores buffers. */
+function rawNextWorkingInstant(d: Date, work?: Work): Date {
   let cursor = new Date(d);
   for (let guard = 0; guard < 21; guard++) {
     const mod = minuteOfDay(cursor);
@@ -253,7 +260,7 @@ export function addWorkingMinutes(
   work?: Work,
 ): Date {
   if (minutes <= 0) return new Date(start);
-  let cursor = nextWorkingInstant(start, work);
+  let cursor = rawNextWorkingInstant(start, work);
   let remaining = minutes;
   for (let guard = 0; guard < 100_000 && remaining > 0; guard++) {
     const mod = minuteOfDay(cursor);
@@ -277,6 +284,161 @@ export function addWorkingMinutes(
     }
   }
   return cursor;
+}
+
+// ── Working blocks & productive windows (buffers) ──────────────────────────
+//
+// A "block" is a maximal continuous run of working time (working intervals with
+// no gap between them). Warm-up is spent at the start of every block and a
+// shutdown margin is reserved at its end, so the productive window of a block is
+// [blockStart + warmup, blockEnd − shutdown]. Orders are split (in the results)
+// at block boundaries. A fully continuous schedule (no gaps at all) has no
+// restarts → no buffers and no split.
+
+/** Warm-up (start-of-block) and shutdown (end-of-block) buffers, in minutes. */
+interface Buffers {
+  warmup: number;
+  shutdown: number;
+}
+
+/** End of the continuous working run that starts at working instant `start`. */
+function blockEndFrom(start: Date, work?: Work): Date {
+  let cursor = new Date(start);
+  for (let guard = 0; guard < 30; guard++) {
+    const mod = minuteOfDay(cursor);
+    const iv = workingIntervals(cursor.getDay(), work).find(
+      ([s, e]) => mod >= s && mod < e,
+    );
+    if (!iv) return cursor; // safety — cursor should be inside an interval
+    const e = iv[1];
+    if (e < MIN_PER_DAY) return atMinute(cursor, e); // gap follows same day
+    // interval runs to midnight — continue only if the next day opens at 00:00
+    const nd = new Date(cursor);
+    nd.setDate(nd.getDate() + 1);
+    nd.setHours(0, 0, 0, 0);
+    const ndIvs = workingIntervals(nd.getDay(), work);
+    if (ndIvs.length && ndIvs[0][0] === 0) {
+      cursor = nd;
+      continue;
+    }
+    return atMinute(cursor, MIN_PER_DAY);
+  }
+  return cursor;
+}
+
+/** True when every weekday is a single 00:00–24:00 interval — the line never
+ *  stops, so buffers (and splitting) don't apply. */
+export function isContinuous(work?: Work): boolean {
+  for (let dow = 0; dow < 7; dow++) {
+    const ivs = workingIntervals(dow, work);
+    if (ivs.length !== 1 || ivs[0][0] !== 0 || ivs[0][1] !== MIN_PER_DAY)
+      return false;
+  }
+  return true;
+}
+
+/** Start of the continuous working run that contains working instant `d`
+ *  (walks back across contiguous days so the warm-up lands at the true block
+ *  start even when the schedule begins mid-block). */
+function blockStartFrom(d: Date, work?: Work): Date {
+  let cursor = new Date(d);
+  for (let guard = 0; guard < 30; guard++) {
+    const mod = minuteOfDay(cursor);
+    const iv = workingIntervals(cursor.getDay(), work).find(
+      ([s, e]) => mod >= s && mod < e,
+    );
+    if (!iv) return cursor;
+    const s = iv[0];
+    if (s > 0) return atMinute(cursor, s); // block starts this day
+    // opens at 00:00 — extend back only if the previous day runs to midnight
+    const pd = new Date(cursor);
+    pd.setDate(pd.getDate() - 1);
+    pd.setHours(0, 0, 0, 0);
+    const pdIvs = workingIntervals(pd.getDay(), work);
+    const last = pdIvs[pdIvs.length - 1];
+    if (last && last[1] === MIN_PER_DAY) {
+      cursor = atMinute(pd, Math.max(last[0], MIN_PER_DAY - 1));
+      continue;
+    }
+    return atMinute(cursor, 0);
+  }
+  return cursor;
+}
+
+/** A bare production window (enriched into a full Segment later). */
+interface RawSegment {
+  start: Date;
+  end: Date;
+}
+
+/** Lazily generates the productive windows (trimmed blocks) from `from`. */
+function makeWindowFeed(from: Date, work: Work | undefined, buf: Buffers) {
+  const wins: RawSegment[] = [];
+  let genFrom = new Date(from);
+  let genCount = 0;
+  const generateOne = (): boolean => {
+    if (genCount > 6000) return false;
+    genCount++;
+    const bStart = rawNextWorkingInstant(genFrom, work);
+    const bEnd = blockEndFrom(bStart, work);
+    genFrom = bEnd; // bEnd is non-working (interval end) — next call finds the next block
+    const ps = new Date(bStart.getTime() + buf.warmup * 60_000);
+    const pe = new Date(bEnd.getTime() - buf.shutdown * 60_000);
+    if (pe.getTime() > ps.getTime()) wins.push({ start: ps, end: pe });
+    return true;
+  };
+  const ensure = (i: number): boolean => {
+    while (i >= wins.length) if (!generateOne()) return false;
+    return true;
+  };
+  return {
+    /** Index of the first window whose end is after `t` (generating as needed). */
+    seek(t: Date): number {
+      for (let i = 0; ; i++) {
+        if (!ensure(i)) return wins.length;
+        if (wins[i].end.getTime() > t.getTime()) return i;
+      }
+    },
+    at(i: number): RawSegment | null {
+      return ensure(i) ? wins[i] : null;
+    },
+  };
+}
+type WindowFeed = ReturnType<typeof makeWindowFeed>;
+
+/** First productive instant at/after `cursor` on the feed. */
+function feedStart(feed: WindowFeed, cursor: Date): Date {
+  const w = feed.at(feed.seek(cursor));
+  if (!w) return cursor;
+  return cursor.getTime() > w.start.getTime() ? cursor : w.start;
+}
+
+/** Run `minutes` of production from `start`, returning the end and the working
+ *  segments it occupied (one per productive window it spans). */
+function runOnFeed(
+  feed: WindowFeed,
+  start: Date,
+  minutes: number,
+): { end: Date; segments: RawSegment[] } {
+  if (minutes <= 0) return { end: new Date(start), segments: [] };
+  const segments: RawSegment[] = [];
+  let cursor = feedStart(feed, start);
+  let remaining = minutes;
+  for (let i = feed.seek(cursor), guard = 0; guard < 6000; guard++, i++) {
+    const w = feed.at(i);
+    if (!w) break;
+    const from = cursor.getTime() > w.start.getTime() ? cursor : w.start;
+    const avail = (w.end.getTime() - from.getTime()) / 60_000;
+    if (remaining <= avail) {
+      const segEnd = new Date(from.getTime() + remaining * 60_000);
+      segments.push({ start: from, end: segEnd });
+      return { end: segEnd, segments };
+    }
+    segments.push({ start: from, end: w.end });
+    remaining -= avail;
+    cursor = w.end;
+  }
+  return { end: cursor, segments };
 }
 
 function resolveStartDate(settings: GlobalSettings, now: Date): Date {
@@ -668,6 +830,9 @@ interface ScheduleOptions {
   /** Company 7-day schedule (from the catalog settings); overrides the
    *  Mon–Fri default when present. */
   schedule?: WeekSchedule | null;
+  /** Company buffer overrides (fall back to settings, then 0). */
+  warmupMinutes?: number;
+  shutdownMinutes?: number;
 }
 
 export function calculateSchedule(
@@ -686,8 +851,43 @@ export function calculateSchedule(
     weekend: settings.weekend,
     schedule: options.schedule ?? null,
   };
+  const buf: Buffers = {
+    warmup: Math.max(0, options.warmupMinutes ?? settings.warmupMinutes ?? 0),
+    shutdown: Math.max(
+      0,
+      options.shutdownMinutes ?? settings.shutdownMinutes ?? 0,
+    ),
+  };
   const rawStart = resolveStartDate(settings, now);
-  const startAt = nextWorkingInstant(rawStart, work);
+
+  // A fully continuous line never stops → no warm-up/shutdown and no splitting.
+  // Otherwise production runs on "productive windows" (blocks trimmed by the
+  // buffers), and an order that spans several windows is split into segments.
+  const continuous = isContinuous(work);
+  const feed = continuous
+    ? null
+    : makeWindowFeed(
+        blockStartFrom(rawNextWorkingInstant(rawStart, work), work),
+        work,
+        buf,
+      );
+  const startOf = (c: Date): Date =>
+    continuous ? rawNextWorkingInstant(c, work) : feedStart(feed!, c);
+  const run = (
+    from: Date,
+    minutes: number,
+  ): { end: Date; segments: RawSegment[] } => {
+    if (continuous) {
+      const end = addWorkingMinutes(from, minutes, work);
+      return {
+        end,
+        segments: minutes > 0 ? [{ start: startOf(from), end }] : [],
+      };
+    }
+    return runOnFeed(feed!, from, minutes);
+  };
+
+  const startAt = startOf(rawStart);
   let cursor = startAt;
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
@@ -821,8 +1021,27 @@ export function calculateSchedule(
     }
 
     const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
-    const start = nextWorkingInstant(cursor, work);
-    const end = addWorkingMinutes(start, remainingMinutes, work);
+    const start = startOf(cursor);
+    const { end, segments: rawSegments } = run(start, remainingMinutes);
+    // Enrich each production window with what it produces (time / meters / pcs),
+    // distributed in proportion to its duration.
+    const remPieces =
+      mode === 'profiles'
+        ? remainingProfiles ?? totalProfiles
+        : remainingSheets ?? totalSheets;
+    const orderSegments: Segment[] = rawSegments.map((s) => {
+      const minutes = (s.end.getTime() - s.start.getTime()) / 60_000;
+      return {
+        start: s.start,
+        end: s.end,
+        minutes,
+        metersM: minutes * effectiveSpeed,
+        pieces:
+          remPieces !== undefined && remainingMinutes > 0
+            ? Math.round((remPieces * minutes) / remainingMinutes)
+            : undefined,
+      };
+    });
 
     // Per-size breakdown when an order has 2+ sizes (sizes-mode only —
     // useTotalLength has no per-size structure to break out).
@@ -913,8 +1132,8 @@ export function calculateSchedule(
         }
 
         const remainingMinsI = minsI * Math.max(0, 1 - sizeFraction);
-        const startI = nextWorkingInstant(sizeCursor, work);
-        const endI = addWorkingMinutes(startI, remainingMinsI, work);
+        const startI = startOf(sizeCursor);
+        const endI = run(startI, remainingMinsI).end;
 
         // Per-unit (pallet/package) metrics for this size — set only if the
         // rate is known. Used by the UI's "Tempo per bancale/pacco" row and
@@ -1007,6 +1226,7 @@ export function calculateSchedule(
       remainingMinutes,
       start,
       end,
+      segments: orderSegments.length > 1 ? orderSegments : undefined,
       sizeDetails,
       gapAfterMin,
       packages,
@@ -1029,7 +1249,7 @@ export function calculateSchedule(
 
     totalProductionMinutes += remainingMinutes;
     totalGapMinutes += gapAfterMin;
-    cursor = addWorkingMinutes(end, gapAfterMin, work);
+    cursor = run(end, gapAfterMin).end;
   });
 
   const endAt = rows[rows.length - 1]!.end;

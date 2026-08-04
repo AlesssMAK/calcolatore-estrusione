@@ -44,7 +44,7 @@ function CalculatorForm({
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
-  const { settings: catalogSettings } = useCatalog();
+  const { company, settings: catalogSettings } = useCatalog();
 
   const methods = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(mode)),
@@ -77,9 +77,13 @@ function CalculatorForm({
 
   const onSubmit = (values: FormValues) => {
     setSubmitError(null);
+    // A company's settings (schedule + buffers) are the source of truth when a
+    // company link is active; otherwise fall back to the local settings.
     const schedule = calculateSchedule(values.settings, values.orders, {
       mode,
-      schedule: catalogSettings.schedule,
+      schedule: company ? catalogSettings.schedule : undefined,
+      warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
+      shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
     });
     onResult(schedule);
     // Persist the computed result so the user can re-open it from the

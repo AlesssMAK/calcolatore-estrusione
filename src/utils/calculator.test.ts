@@ -1058,6 +1058,104 @@ describe('calculateSchedule — company 7-day schedule', () => {
   });
 });
 
+describe('calculateSchedule — warm-up / shutdown buffers & splitting', () => {
+  const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m, d, h, min, 0, 0);
+  const order = (min: number): Order => ({
+    id: 'a',
+    sheets: min,
+    sheetLengthMm: 1000,
+    speedMPerMin: 1,
+  }); // `min` sheets × 1000mm ÷ 1 m/min = `min` minutes
+  const settings = (start: Date, extra?: Partial<GlobalSettings>): GlobalSettings => ({
+    startMode: 'manual',
+    startAt: start.toISOString(),
+    gapMode: 'continuous',
+    ...extra,
+  });
+
+  it('warm-up delays production to N minutes after the block start', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    const r = calculateSchedule(settings(start, { warmupMinutes: 240 }), [order(60)], {
+      now: start,
+    });
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 10).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 11).getTime());
+  });
+
+  it('shutdown reserves the block end and splits across the weekend', () => {
+    const start = localDate(2026, 4, 8, 22); // Fri 22:00 (2026-05-08)
+    const r = calculateSchedule(settings(start, { shutdownMinutes: 60 }), [order(480)], {
+      now: start,
+    });
+    // Fri 22:00 → Sat 05:00 (last hour reserved) = 420 min; remaining 60 →
+    // next block Mon 06:00 → Mon 07:00.
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 7).getTime());
+    expect(r.rows[0]!.segments).toHaveLength(2);
+    expect(r.rows[0]!.segments![0]!.end.getTime()).toBe(localDate(2026, 4, 9, 5).getTime());
+    expect(r.rows[0]!.segments![1]!.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
+  });
+
+  it('splits a weekend-crossing order into segments even with no buffers', () => {
+    const start = localDate(2026, 4, 8, 22); // Fri 22:00
+    const r = calculateSchedule(settings(start), [order(600)], { now: start });
+    expect(r.rows[0]!.segments).toHaveLength(2);
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 8).getTime());
+  });
+
+  it('re-applies warm-up after each weekly restart', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    // Week-1 productive = (Mon 06:00→Sat 06:00 = 7200) − 240 warm-up = 6960 min.
+    const r = calculateSchedule(settings(start, { warmupMinutes: 240 }), [order(7000)], {
+      now: start,
+    });
+    expect(r.rows[0]!.segments).toHaveLength(2);
+    // Part 2 starts after the next Monday's warm-up (2026-05-18 10:00).
+    expect(r.rows[0]!.segments![1]!.start.getTime()).toBe(
+      localDate(2026, 4, 18, 10).getTime(),
+    );
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 18, 10, 40).getTime());
+  });
+
+  it('a fully continuous schedule ignores buffers and never splits', () => {
+    const full: WeekendDay = { enabled: true, full24: true, start: 0, end: 24 };
+    const schedule: WeekSchedule = {
+      mon: full,
+      tue: full,
+      wed: full,
+      thu: full,
+      fri: full,
+      sat: full,
+      sun: full,
+    };
+    const start = localDate(2026, 4, 11, 6);
+    const r = calculateSchedule(
+      settings(start, { warmupMinutes: 240, shutdownMinutes: 60 }),
+      [order(120)],
+      { now: start, schedule },
+    );
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 8).getTime());
+    expect(r.rows[0]!.segments).toBeUndefined();
+  });
+
+  it('a bridged weekend (Sat+Sun 24h) is continuous → Monday opens at 00:00, no buffers/split', () => {
+    const full: WeekendDay = { enabled: true, full24: true, start: 0, end: 24 };
+    const weekend: WeekendWork = { enabled: true, sat: full, sun: full };
+    const start = localDate(2026, 4, 10, 22); // Sun 22:00
+    const r = calculateSchedule(
+      settings(start, { warmupMinutes: 240, shutdownMinutes: 60, weekend }),
+      [order(300)],
+      { now: start },
+    );
+    // Continuous: no warm-up delay, runs straight through Sun 24:00 into Monday
+    // (which now opens at 00:00), so 300 min → Mon 03:00 with no split.
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 10, 22).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 3).getTime());
+    expect(r.rows[0]!.segments).toBeUndefined();
+  });
+});
+
 describe('calculateSchedule — "now" mode', () => {
   it('uses the provided "now" when startMode is "now"', () => {
     const now = new Date('2026-04-23T08:00:00Z');
