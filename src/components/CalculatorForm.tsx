@@ -12,7 +12,11 @@ import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode, ScheduleResult } from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
-import { deriveLabel, saveCalculation } from '../lib/calcHistory';
+import {
+  deriveLabel,
+  saveCalculation,
+  type SavedCalculation,
+} from '../lib/calcHistory';
 import type { FieldErrors } from 'react-hook-form';
 
 interface Props {
@@ -25,11 +29,14 @@ interface Props {
    *  list dropdown badge / contents. */
   onSaved?: () => void;
   /** Called when the user picks an entry from the "Salvati" dropdown — the
-   *  parent shows that result directly (no recalc, form is left untouched).
-   *  Switches tab if `result.mode` differs from the current one. */
-  onRestore?: (result: ScheduleResult) => void;
+   *  parent refills the form with the saved inputs and shows the result below.
+   *  Switches tab if the saved mode differs from the current one. */
+  onRestore?: (entry: SavedCalculation) => void;
   /** Bump from parent to force the saved-list to re-read history when reopened. */
   savedRefreshKey?: number;
+  /** When restoring a saved calculation, the form mounts pre-filled with these
+   *  inputs so the user can tweak and recalculate. Undefined → empty defaults. */
+  initialValues?: FormValues;
 }
 
 function CalculatorForm({
@@ -41,6 +48,7 @@ function CalculatorForm({
   onSaved,
   onRestore,
   savedRefreshKey,
+  initialValues,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -48,7 +56,7 @@ function CalculatorForm({
 
   const methods = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(mode)),
-    defaultValues: buildEmptyDefaults(mode),
+    defaultValues: initialValues ?? buildEmptyDefaults(mode),
     mode: 'onBlur',
     reValidateMode: 'onChange',
   });
@@ -90,7 +98,13 @@ function CalculatorForm({
     // "Salvati" dropdown without recalculating. Best-effort: storage errors
     // are swallowed inside `saveCalculation`.
     try {
-      saveCalculation(schedule, deriveLabel(schedule));
+      saveCalculation(
+        schedule,
+        values,
+        deriveLabel(schedule),
+        catalogSettings.maxSavedResults,
+        catalogSettings.savedRetentionDays,
+      );
       onSaved?.();
     } catch {
       /* never block submit on storage failure */

@@ -152,7 +152,11 @@
       "timePerOne": "Tiempo por paquete"
     },
     "splitParts": "Dividido en {{n}} partes",
-    "part": "Parte {{n}}"
+    "part": "Parte {{n}}",
+    "timePerItem": {
+      "sheets": "Tiempo por lámina",
+      "profiles": "Tiempo por perfil"
+    }
   },
   "units": {
     "day": "d",

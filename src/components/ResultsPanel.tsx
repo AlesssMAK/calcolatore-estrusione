@@ -109,6 +109,23 @@ function ResultsPanel({ result, mode, onReset }: Props) {
   const profilesCountFor = (row: ScheduledOrder): number | undefined =>
     isProfiles ? calculateTotalProfiles(row.order) : undefined;
 
+  // Time to produce a single sheet / profile (full production time ÷ total
+  // pieces). Exact for single-size orders, an average across sizes otherwise;
+  // undefined when the piece count is unknown (total-meters mode).
+  const perItemMinFor = (row: ScheduledOrder): number | undefined => {
+    // Piece count from the inputs (works in sheets & profiles mode, undefined
+    // in total-meters mode) — row.totalSheets/totalProfiles are only set when
+    // produced data is entered, so we can't rely on them here.
+    const items = calculateTotalProfiles(row.order);
+    return items && items > 0 && row.productionMinutes > 0
+      ? row.productionMinutes / items
+      : undefined;
+  };
+
+  const timePerItemLabel = t(
+    isProfiles ? 'results.timePerItem.profiles' : 'results.timePerItem.sheets',
+  );
+
   const buildPlainText = () => {
     const lines: string[] = [];
     lines.push(t('app.title'));
@@ -148,8 +165,13 @@ function ResultsPanel({ result, mode, onReset }: Props) {
       const namePart = row.order.productName
         ? ` ${row.order.productName}`
         : '';
+      const perItemMin = perItemMinFor(row);
+      const perItemPart =
+        perItemMin !== undefined
+          ? `  ·  ${timePerItemLabel}: ${formatDuration(perItemMin, units)}`
+          : '';
       lines.push(
-        `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}`,
+        `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}${perItemPart}`,
       );
 
       if (row.segments && row.segments.length > 1) {
@@ -361,6 +383,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
         <ul className="space-y-2 sm:hidden">
           {result.rows.map((row, idx) => {
             const profilesCount = profilesCountFor(row);
+            const perItemMin = perItemMinFor(row);
             return (
               <li
                 key={row.order.id}
@@ -398,6 +421,14 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   </dd>
                   <dt className="text-ink-soft">{t('results.col.speed')}</dt>
                   <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
+                  {perItemMin !== undefined && (
+                    <>
+                      <dt className="text-ink-soft">{timePerItemLabel}</dt>
+                      <dd className="font-medium text-ink">
+                        {formatDuration(perItemMin, units)}
+                      </dd>
+                    </>
+                  )}
                   {isProfiles && (
                     <>
                       <dt className="text-ink-soft">
@@ -583,6 +614,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                 <th className="py-2 pr-3">{t('results.col.meters')}</th>
                 <th className="py-2 pr-3">{t('results.col.speed')}</th>
                 <th className="py-2 pr-3">{t('results.col.productionTime')}</th>
+                <th className="py-2 pr-3">{timePerItemLabel}</th>
                 {isProfiles && (
                   <th className="py-2 pr-3">{t('results.col.packages')}</th>
                 )}
@@ -593,10 +625,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             <tbody>
               {result.rows.map((row, idx) => {
                 const profilesCount = profilesCountFor(row);
+                const perItemMin = perItemMinFor(row);
                 const hasProduced =
                   row.producedProfiles !== undefined ||
                   row.producedSheets !== undefined;
-                const colSpan = isProfiles ? 8 : 6;
+                const colSpan = isProfiles ? 9 : 7;
                 const hasSizeBreakdown =
                   row.sizeDetails !== undefined &&
                   row.sizeDetails.length > 1;
@@ -634,6 +667,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                       <td className="py-2 pr-3">{row.speedMPerMin}</td>
                       <td className="py-2 pr-3 font-medium">
                         {formatDuration(row.remainingMinutes, units)}
+                      </td>
+                      <td className="py-2 pr-3 whitespace-nowrap">
+                        {perItemMin !== undefined
+                          ? formatDuration(perItemMin, units)
+                          : '—'}
                       </td>
                       {isProfiles && (
                         <td className="py-2 pr-3 font-medium text-brand-700">
@@ -682,6 +720,7 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                             <td className="py-1.5 pr-3 font-medium text-ink">
                               {formatDuration(seg.minutes, units)}
                             </td>
+                            <td className="py-1.5 pr-3"></td>
                             {isProfiles && <td className="py-1.5 pr-3"></td>}
                             <td className="py-1.5 pr-3 whitespace-nowrap">
                               {formatShortDateTime(seg.start, lang)}
@@ -725,6 +764,14 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                               <td className="py-1.5 pr-3"></td>
                               <td className="py-1.5 pr-3 font-medium text-ink">
                                 {formatDuration(sd.remainingMinutes, units)}
+                              </td>
+                              <td className="py-1.5 pr-3">
+                                {sd.sheets > 0
+                                  ? formatDuration(
+                                      sd.productionMinutes / sd.sheets,
+                                      units,
+                                    )
+                                  : ''}
                               </td>
                               {isProfiles && (
                                 <td className="py-1.5 pr-3 font-medium text-brand-700">

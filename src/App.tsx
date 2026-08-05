@@ -11,6 +11,8 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
 import type { CalculatorMode, ScheduleResult } from './types';
+import type { FormValues } from './formSchema';
+import type { SavedCalculation } from './lib/calcHistory';
 
 function CalculatorApp() {
   const { t } = useTranslation();
@@ -27,6 +29,11 @@ function CalculatorApp() {
     settings.modes === 'both' ? selectedMode : settings.modes;
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [formKey, setFormKey] = useState(0);
+  // When a saved calc is restored, the form remounts pre-filled with these
+  // inputs; cleared on reset / tab change so the next mount is empty.
+  const [restoredValues, setRestoredValues] = useState<FormValues | undefined>(
+    undefined,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
@@ -35,21 +42,24 @@ function CalculatorApp() {
     if (next === mode) return;
     setSelectedMode(next);
     setResult(null);
+    setRestoredValues(undefined);
     setFormKey((k) => k + 1);
   };
 
   const onReset = () => {
     setResult(null);
+    setRestoredValues(undefined);
     setFormKey((k) => k + 1);
   };
 
-  // Restore a saved result directly into ResultsPanel. The form is left
-  // untouched on purpose — the user just wants to review the prior result,
-  // not re-edit its inputs (those weren't even stored). If the saved result
-  // was computed in the other tab, switch tab so the panel context matches.
-  const onRestore = (restored: ScheduleResult) => {
-    if (restored.mode !== mode) setSelectedMode(restored.mode);
-    setResult(restored);
+  // Restore a saved calculation: refill the form with its saved inputs (so the
+  // user can tweak & recalculate) and show the result below — like a fresh
+  // calculation. Switch tab if the saved mode differs from the current one.
+  const onRestore = (entry: SavedCalculation) => {
+    if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
+    setRestoredValues(entry.values);
+    setFormKey((k) => k + 1); // remount the form with the restored inputs
+    setResult(entry.result);
     window.requestAnimationFrame(() => {
       document
         .getElementById('results')
@@ -82,6 +92,7 @@ function CalculatorApp() {
           onSaved={() => setSavedRefreshKey((k) => k + 1)}
           onRestore={onRestore}
           savedRefreshKey={savedRefreshKey}
+          initialValues={restoredValues}
         />
 
         <div id="results" className="mt-5 sm:mt-6">

@@ -152,7 +152,11 @@
       "timePerOne": "Tempo per pacco"
     },
     "splitParts": "Diviso in {{n}} parti",
-    "part": "Parte {{n}}"
+    "part": "Parte {{n}}",
+    "timePerItem": {
+      "sheets": "Tempo per lastra",
+      "profiles": "Tempo per profilo"
+    }
   },
   "units": {
     "day": "g",
