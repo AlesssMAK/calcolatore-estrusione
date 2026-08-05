@@ -530,8 +530,12 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                             sd.totalUnits !== undefined && (
                               <PerUnitBlock
                                 start={sd.start}
+                                end={sd.end}
                                 timePerUnitMin={sd.timePerUnitMin}
                                 totalUnits={sd.totalUnits}
+                                producedMinutes={
+                                  sd.productionMinutes - sd.remainingMinutes
+                                }
                                 mode={mode}
                                 t={t}
                               />
@@ -552,8 +556,12 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                   row.totalUnits !== undefined && (
                     <PerUnitBlock
                       start={row.start}
+                      end={row.end}
                       timePerUnitMin={row.timePerUnitMin}
                       totalUnits={row.totalUnits}
+                      producedMinutes={
+                        row.productionMinutes - row.remainingMinutes
+                      }
                       mode={mode}
                       t={t}
                     />
@@ -766,8 +774,13 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                                   >
                                     <PerUnitBlock
                                       start={sd.start}
+                                      end={sd.end}
                                       timePerUnitMin={sd.timePerUnitMin}
                                       totalUnits={sd.totalUnits}
+                                      producedMinutes={
+                                        sd.productionMinutes -
+                                        sd.remainingMinutes
+                                      }
                                       mode={mode}
                                       t={t}
                                     />
@@ -801,8 +814,12 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                           <td colSpan={colSpan} className="px-3 pb-3 pt-1">
                             <PerUnitBlock
                               start={row.start}
+                              end={row.end}
                               timePerUnitMin={row.timePerUnitMin}
                               totalUnits={row.totalUnits}
+                              producedMinutes={
+                                row.productionMinutes - row.remainingMinutes
+                              }
                               mode={mode}
                               t={t}
                             />
@@ -1037,14 +1054,18 @@ function ProducedRemainingBlock({
 
 function PerUnitBlock({
   start,
+  end,
   timePerUnitMin,
   totalUnits,
+  producedMinutes,
   mode,
   t,
 }: {
   start: Date;
+  end: Date;
   timePerUnitMin: number;
   totalUnits: number;
+  producedMinutes: number;
   mode: CalculatorMode;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
@@ -1066,8 +1087,10 @@ function PerUnitBlock({
       </div>
       <UnitsTimeline
         start={start}
+        end={end}
         timePerUnitMin={timePerUnitMin}
         totalUnits={totalUnits}
+        producedMinutes={producedMinutes}
         kind={kind}
       />
     </div>

@@ -513,6 +513,9 @@ function AdvancedSection({
   // value. Conversely, a stale count after the rate is cleared keeps
   // its own input disabled (gated by !rateEntered) and stops
   // contributing, so it must not keep the direct path locked either.
+  // NB: the *rate* input (sheetsPerPallet / profilesPerPackage) is never
+  // disabled — it also drives the total pallet/package count, so the user
+  // must be able to type it alongside a direct produced-sheets/profiles value.
   const sheetsBlockedByPalletPath = perPalletEntered && palletsEntered;
   const palletPathBlockedBySheets = sheetsEntered;
   const profilesBlockedByPackagePath =
@@ -548,7 +551,7 @@ function AdvancedSection({
                 rateLabel={t('orders.profilesPerPackage')}
                 totalLabel={t('orders.advanced.packagesProduced')}
                 countDisabled={profilesBlockedByPackagePath}
-                rateDisabled={packagePathBlockedByProfiles}
+                rateDisabled={false}
                 totalDisabled={
                   packagePathBlockedByProfiles || !perPackageEntered
                 }
@@ -565,7 +568,7 @@ function AdvancedSection({
                 rateLabel={t('orders.advanced.sheetsPerPallet')}
                 totalLabel={t('orders.advanced.palletsProduced')}
                 countDisabled={sheetsBlockedByPalletPath}
-                rateDisabled={palletPathBlockedBySheets}
+                rateDisabled={false}
                 totalDisabled={
                   palletPathBlockedBySheets || !perPalletEntered
                 }
@@ -595,7 +598,7 @@ function AdvancedSection({
                   sizeIdx={sIdx}
                   totalSizes={watchedSizes?.length ?? 1}
                   countDisabled={sheetsBlockedByPalletPath}
-                  rateDisabled={palletPathBlockedBySheets}
+                  rateDisabled={false}
                   totalDisabled={
                     palletPathBlockedBySheets || !perPalletEntered
                   }

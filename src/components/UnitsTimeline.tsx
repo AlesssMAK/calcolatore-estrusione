@@ -4,12 +4,18 @@ import { addWorkingMinutes } from '../utils/calculator';
 import { formatDuration, formatShortDateTime } from '../utils/format';
 
 interface Props {
-  /** When this unit's production starts (already shifted past weekends). */
+  /** When the remaining production starts (already shifted past weekends). */
   start: Date;
-  /** Minutes needed to produce one unit (pallet / package). */
+  /** When the remaining production ends — the last (often partial) unit is
+   *  pinned here so it lines up exactly with the order's Fine. */
+  end: Date;
+  /** Minutes needed to produce one full unit (pallet / package). */
   timePerUnitMin: number;
-  /** Total number of units for this slot. */
+  /** Total number of units for this slot (full order, incl. already produced). */
   totalUnits: number;
+  /** Minutes already produced (full order production − remaining). Shifts the
+   *  first ready-times earlier and skips units finished before `start`. */
+  producedMinutes: number;
   /** 'bancale' | 'pacco' — picks the i18n key prefix. */
   kind: 'pallet' | 'package';
 }
@@ -27,7 +33,14 @@ const PAGE_STEP = 20;
  * Used both at the row level (single-size order) and inside per-size
  * sub-rows of multi-size orders.
  */
-function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
+function UnitsTimeline({
+  start,
+  end,
+  timePerUnitMin,
+  totalUnits,
+  producedMinutes,
+  kind,
+}: Props) {
   'use no memo';
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? 'it';
@@ -39,23 +52,36 @@ function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
   const labelOne = t(`results.${kind}.one`);
   const labelMany = t(`results.${kind}.many`);
 
+  // Units already fully produced before `start` are skipped; the list runs
+  // from the first not-yet-finished unit to the last.
+  const producedUnits =
+    timePerUnitMin > 0 ? Math.max(0, producedMinutes / timePerUnitMin) : 0;
+  const firstUnit = Math.min(totalUnits, Math.floor(producedUnits) + 1);
+  const remainingUnits = Math.max(0, totalUnits - firstUnit + 1);
+
   // The "Mostra altri" cursor never shrinks the list — increasing pageSize
   // only adds rows on screen.
-  const visibleCount = Math.min(pageSize, totalUnits);
+  const visibleCount = Math.min(pageSize, remainingUnits);
 
-  // Cheap closed-form lookup: each unit starts at `start + (i-1) * timePerUnit`,
-  // shifted past weekend gaps via the existing helper.
-  const startTimeFor = (unitNumber: number): Date =>
-    addWorkingMinutes(start, (unitNumber - 1) * timePerUnitMin);
+  // Ready-time of unit N (when it's finished). Already-produced pieces shift
+  // it earlier; the last unit is partial, so it's pinned to the order's end
+  // (exact even across weekend gaps / buffers).
+  const readyTimeFor = (unitNumber: number): Date =>
+    unitNumber >= totalUnits
+      ? end
+      : addWorkingMinutes(
+          start,
+          Math.max(0, unitNumber - producedUnits) * timePerUnitMin,
+        );
 
   const visible = useMemo(
     () =>
       Array.from({ length: visibleCount }, (_, i) => {
-        const n = i + 1;
-        return { n, at: startTimeFor(n) };
+        const n = firstUnit + i;
+        return { n, at: readyTimeFor(n) };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [start, timePerUnitMin, visibleCount],
+    [start, end, timePerUnitMin, producedUnits, firstUnit, visibleCount],
   );
 
   // Numeric input handler: clamp to [1, totalUnits], live preview.
@@ -66,12 +92,12 @@ function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
   const queryValid =
     query !== '' &&
     Number.isFinite(queryNum) &&
-    queryNum >= 1 &&
+    queryNum >= firstUnit &&
     queryNum <= totalUnits &&
     Number.isInteger(queryNum);
-  const queryResultAt = queryValid ? startTimeFor(queryNum) : null;
+  const queryResultAt = queryValid ? readyTimeFor(queryNum) : null;
 
-  const remainingInList = totalUnits - visibleCount;
+  const remainingInList = remainingUnits - visibleCount;
 
   return (
     <div className="mt-1">
@@ -92,7 +118,7 @@ function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
               <input
                 type="number"
                 inputMode="numeric"
-                min="1"
+                min={firstUnit}
                 max={totalUnits}
                 step="1"
                 value={query}
@@ -111,7 +137,7 @@ function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
             )}
             {query !== '' && !queryValid && (
               <span className="text-xs text-danger">
-                1 – {totalUnits}
+                {firstUnit} – {totalUnits}
               </span>
             )}
           </div>
@@ -139,14 +165,14 @@ function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
               <span className="text-ink-soft">
                 {t('results.shownOf', {
                   shown: visibleCount,
-                  total: totalUnits,
+                  total: remainingUnits,
                   many: labelMany,
                 })}
               </span>
               <button
                 type="button"
                 onClick={() =>
-                  setPageSize((p) => Math.min(p + PAGE_STEP, totalUnits))
+                  setPageSize((p) => Math.min(p + PAGE_STEP, remainingUnits))
                 }
                 className="rounded-md border border-neutral-300 bg-white px-2 py-1 font-medium text-ink hover:border-brand-500 hover:text-brand-700"
               >
@@ -155,7 +181,7 @@ function UnitsTimeline({ start, timePerUnitMin, totalUnits, kind }: Props) {
               {remainingInList > PAGE_STEP && (
                 <button
                   type="button"
-                  onClick={() => setPageSize(totalUnits)}
+                  onClick={() => setPageSize(remainingUnits)}
                   className="rounded-md border border-neutral-300 bg-white px-2 py-1 font-medium text-ink hover:border-brand-500 hover:text-brand-700"
                 >
                   {t('results.showAll')}
