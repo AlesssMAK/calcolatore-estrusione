@@ -1,18 +1,20 @@
 import type { ScheduleResult } from '../types';
+import type { FormValues } from '../formSchema';
 
-// Bumped key — v1 stored FormValues, v2 stores the computed ScheduleResult
-// instead (so restore can show the result panel directly without recalc).
-// Old v1 entries are simply ignored; the localStorage slot will be
-// overwritten the next time the user presses Calcola.
-const STORAGE_KEY = 'calc.history.v2';
-const MAX_ENTRIES = 10;
-const TTL_DAYS = 7;
-const TTL_MS = TTL_DAYS * 24 * 60 * 60 * 1000;
+// v2 stored only the computed ScheduleResult; v3 also stores the raw input
+// `values` (settings + orders) so restore can refill the form for editing /
+// recalculation. Older-key entries are ignored and overwritten on next save.
+const STORAGE_KEY = 'calc.history.v3';
+// Defaults used when no company link is active; per-company values (set in
+// /admin) override these via the callers.
+export const DEFAULT_MAX_ENTRIES = 10;
+export const DEFAULT_RETENTION_DAYS = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface SavedCalculation {
   /** Stable id (timestamp + small random) so React keys / removes stay stable. */
   id: string;
-  /** Saved-at epoch ms. Older than TTL_DAYS entries are dropped on read. */
+  /** Saved-at epoch ms. Entries older than the retention window are dropped. */
   ts: number;
   /** Free-form label (product name, fallback to a localized timestamp). */
   label: string;
@@ -20,6 +22,10 @@ export interface SavedCalculation {
    *  Date fields (startAt/endAt and per-row/per-size start/end) are revived
    *  from ISO strings on read; mode lives inside the result. */
   result: ScheduleResult;
+  /** Raw form inputs (settings + orders) at submit time. Optional for forward
+   *  compatibility; when present, restore refills the form so the user can
+   *  tweak and recalculate. All values are plain JSON (dates are ISO strings). */
+  values?: FormValues;
 }
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
@@ -40,7 +46,15 @@ function safeParse(raw: string | null): SavedCalculation[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw, dateReviver);
-    return Array.isArray(parsed) ? (parsed as SavedCalculation[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // dateReviver revives `startAt` inside the result (wanted) but would also
+    // revive `values.settings.startAt`, where the form expects a plain ISO
+    // string — turn that one back into a string.
+    for (const e of parsed as SavedCalculation[]) {
+      const s = e?.values?.settings as { startAt?: unknown } | undefined;
+      if (s?.startAt instanceof Date) s.startAt = s.startAt.toISOString();
+    }
+    return parsed as SavedCalculation[];
   } catch {
     return [];
   }
@@ -55,12 +69,14 @@ function safeWrite(items: SavedCalculation[]): void {
   }
 }
 
-/** Read the history; transparently drops entries older than TTL and any
- *  malformed ones (missing result / dates). */
-export function loadHistory(): SavedCalculation[] {
+/** Read the history; transparently drops entries older than the retention
+ *  window and any malformed ones (missing result / dates). */
+export function loadHistory(
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): SavedCalculation[] {
   if (typeof window === 'undefined') return [];
   const items = safeParse(window.localStorage.getItem(STORAGE_KEY));
-  const cutoff = Date.now() - TTL_MS;
+  const cutoff = Date.now() - Math.max(0, retentionDays) * DAY_MS;
   const fresh = items.filter(
     (i) =>
       i?.ts &&
@@ -73,24 +89,32 @@ export function loadHistory(): SavedCalculation[] {
   return fresh;
 }
 
-/** Add a new entry; FIFO-evicts past MAX_ENTRIES. Returns the saved entry. */
+/** Add a new entry; FIFO-evicts past `maxEntries`. Returns the saved entry. */
 export function saveCalculation(
   result: ScheduleResult,
+  values: FormValues,
   label: string,
+  maxEntries: number = DEFAULT_MAX_ENTRIES,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
 ): SavedCalculation {
   const entry: SavedCalculation = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: Date.now(),
     label,
     result,
+    values,
   };
-  const next = [entry, ...loadHistory()].slice(0, MAX_ENTRIES);
+  const cap = Math.max(1, Math.floor(maxEntries));
+  const next = [entry, ...loadHistory(retentionDays)].slice(0, cap);
   safeWrite(next);
   return entry;
 }
 
-export function removeCalculation(id: string): void {
-  safeWrite(loadHistory().filter((i) => i.id !== id));
+export function removeCalculation(
+  id: string,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): void {
+  safeWrite(loadHistory(retentionDays).filter((i) => i.id !== id));
 }
 
 /** Pick the most useful human label for a saved result, in this order:

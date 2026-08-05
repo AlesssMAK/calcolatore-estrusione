@@ -5,12 +5,12 @@ import {
   removeCalculation,
   type SavedCalculation,
 } from '../lib/calcHistory';
-import type { ScheduleResult } from '../types';
+import { useCatalog } from '../contexts/CatalogContext';
 
 interface Props {
-  /** Called when the user picks a saved calculation; parent shows that
-   *  result directly in the ResultsPanel (no recalc, form untouched). */
-  onRestore: (result: ScheduleResult) => void;
+  /** Called when the user picks a saved calculation; parent refills the form
+   *  with its inputs and shows the result below. */
+  onRestore: (entry: SavedCalculation) => void;
   /** Bump from the parent to force the dropdown to re-read history after a
    *  fresh save — avoids stale lists when the dropdown is reopened. */
   refreshKey?: number;
@@ -35,15 +35,19 @@ function formatRelative(ts: number, lang: string): string {
 
 function SavedCalculationsButton({ onRestore, refreshKey = 0 }: Props) {
   const { t, i18n } = useTranslation();
+  const { settings } = useCatalog();
+  const retentionDays = settings.savedRetentionDays;
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<SavedCalculation[]>(() => loadHistory());
+  const [items, setItems] = useState<SavedCalculation[]>(() =>
+    loadHistory(retentionDays),
+  );
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Refresh whenever the dropdown opens, or the parent bumps the key after a
   // fresh save. Keeps the list in sync without prop-drilling the whole array.
   useEffect(() => {
-    if (open) setItems(loadHistory());
-  }, [open, refreshKey]);
+    if (open) setItems(loadHistory(retentionDays));
+  }, [open, refreshKey, retentionDays]);
 
   // Close on outside click + Esc.
   useEffect(() => {
@@ -109,7 +113,7 @@ function SavedCalculationsButton({ onRestore, refreshKey = 0 }: Props) {
                     role="option"
                     aria-selected={false}
                     onClick={() => {
-                      onRestore(it.result);
+                      onRestore(it);
                       setOpen(false);
                     }}
                     className="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-2 py-2 text-left"
@@ -130,8 +134,8 @@ function SavedCalculationsButton({ onRestore, refreshKey = 0 }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      removeCalculation(it.id);
-                      setItems(loadHistory());
+                      removeCalculation(it.id, retentionDays);
+                      setItems(loadHistory(retentionDays));
                     }}
                     aria-label={t('saved.delete')}
                     title={t('saved.delete')}

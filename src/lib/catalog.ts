@@ -32,6 +32,10 @@ export interface CompanySettings {
    *  end. */
   warmupMinutes: number;
   shutdownMinutes: number;
+  /** Saved-calculations history: cap on stored entries and how many days they
+   *  are kept before being dropped. */
+  maxSavedResults: number;
+  savedRetentionDays: number;
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -42,6 +46,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   schedule: null,
   warmupMinutes: 240,
   shutdownMinutes: 60,
+  maxSavedResults: 10,
+  savedRetentionDays: 5,
 };
 
 function parseDay(raw: unknown): WeekendDay {
@@ -73,12 +79,16 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
   }
   const num = (v: unknown, d: number) =>
     Number.isFinite(v) ? Math.min(1440, Math.max(0, Number(v))) : d;
+  const intIn = (v: unknown, d: number, lo: number, hi: number) =>
+    Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(Number(v)))) : d;
   return {
     modes,
     showPiramide,
     schedule,
     warmupMinutes: num(p.warmupMinutes, 240),
     shutdownMinutes: num(p.shutdownMinutes, 60),
+    maxSavedResults: intIn(p.maxSavedResults, 10, 1, 100),
+    savedRetentionDays: intIn(p.savedRetentionDays, 5, 1, 365),
   };
 }
 

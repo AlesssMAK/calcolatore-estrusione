@@ -219,6 +219,47 @@ export default function GlobalSettingsModal({
           </p>
         </section>
 
+        {/* Cronologia salvataggi */}
+        <section className="mt-5">
+          <h4 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Risultati salvati
+          </h4>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            {(
+              [
+                ['Max risultati', 'maxSavedResults', 1, 100],
+                ['Giorni di conservazione', 'savedRetentionDays', 1, 365],
+              ] as const
+            ).map(([label, key, lo, hi]) => (
+              <div key={key} className="flex items-center gap-2">
+                <label className="text-sm text-ink-soft">{label}</label>
+                <input
+                  type="number"
+                  min={lo}
+                  max={hi}
+                  step={1}
+                  inputMode="numeric"
+                  className="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:outline-none"
+                  value={draft[key]}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setDraft({
+                      ...draft,
+                      [key]: Number.isFinite(n)
+                        ? Math.min(hi, Math.max(lo, n))
+                        : lo,
+                    });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-ink-soft">
+            Numero massimo di calcoli tenuti nella cronologia «Salvati» e per
+            quanti giorni conservarli.
+          </p>
+        </section>
+
         {error && (
           <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">
             ⚠ {error}
