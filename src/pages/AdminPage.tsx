@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { companyUrl } from '../lib/appUrl';
 import { useAuth } from '../contexts/AuthContext';
 import {
   DEFAULT_COMPANY_SETTINGS,
@@ -81,10 +82,10 @@ function AdminPage() {
   }, [companyId]);
 
   const calcHref = company ? `/?company=${encodeURIComponent(company.slug)}` : '/';
-  const calcUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${calcHref}`
-      : calcHref;
+  // Always build the shareable link on the canonical production domain, so a
+  // link copied from the admin points there even when the panel is opened on a
+  // preview / localhost / old domain.
+  const calcUrl = companyUrl(company?.slug);
   const copyCalcUrl = async () => {
     try {
       await navigator.clipboard.writeText(calcUrl);
