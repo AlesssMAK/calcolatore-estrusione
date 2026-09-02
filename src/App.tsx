@@ -5,6 +5,7 @@ import Header from './components/Header';
 import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsPanel from './components/ResultsPanel';
+import AdvanceBanner from './components/AdvanceBanner';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -13,6 +14,7 @@ import PiramidePage from './pages/PiramidePage';
 import type { CalculatorMode, ScheduleResult } from './types';
 import type { FormValues } from './formSchema';
 import type { SavedCalculation } from './lib/calcHistory';
+import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
 
 function CalculatorApp() {
   const { t } = useTranslation();
@@ -34,37 +36,88 @@ function CalculatorApp() {
   const [restoredValues, setRestoredValues] = useState<FormValues | undefined>(
     undefined,
   );
+  // The saved entry currently on screen + its "as of now" view (null when the
+  // calc can't be advanced). Drives the advance/original banner + toggle.
+  const [restoredEntry, setRestoredEntry] = useState<SavedCalculation | null>(
+    null,
+  );
+  const [advancedCalc, setAdvancedCalc] = useState<AdvancedCalc | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
+
+  const scrollToResults = () => {
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById('results')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const clearRestored = () => {
+    setRestoredEntry(null);
+    setAdvancedCalc(null);
+    setShowOriginal(false);
+  };
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
     setSelectedMode(next);
     setResult(null);
     setRestoredValues(undefined);
+    clearRestored();
     setFormKey((k) => k + 1);
   };
 
   const onReset = () => {
     setResult(null);
     setRestoredValues(undefined);
+    clearRestored();
     setFormKey((k) => k + 1);
   };
 
-  // Restore a saved calculation: refill the form with its saved inputs (so the
-  // user can tweak & recalculate) and show the result below — like a fresh
-  // calculation. Switch tab if the saved mode differs from the current one.
+  // A fresh Calcola from the form clears the restored/advanced banner — it's a
+  // new calculation now, not a viewed saved one.
+  const onFormResult = (r: ScheduleResult) => {
+    clearRestored();
+    setResult(r);
+  };
+
+  // Restore a saved calculation. If it's stale (real time has moved past its
+  // start), auto-advance to "now": produced-so-far is filled from elapsed time
+  // and the schedule is recomputed — shown with a banner + link to the
+  // original. Either way the form is refilled so the user can tweak &
+  // recalculate. Switch tab if the saved mode differs from the current one.
   const onRestore = (entry: SavedCalculation) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
-    setRestoredValues(entry.values);
-    setFormKey((k) => k + 1); // remount the form with the restored inputs
-    setResult(entry.result);
-    window.requestAnimationFrame(() => {
-      document
-        .getElementById('results')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    const adv = buildAdvancedCalc(entry, new Date());
+    setRestoredEntry(entry);
+    setAdvancedCalc(adv);
+    setShowOriginal(false);
+    const view = adv ?? { result: entry.result, values: entry.values };
+    setRestoredValues(view.values);
+    setResult(view.result);
+    setFormKey((k) => k + 1);
+    scrollToResults();
+  };
+
+  const viewOriginal = () => {
+    if (!restoredEntry) return;
+    setShowOriginal(true);
+    setRestoredValues(restoredEntry.values);
+    setResult(restoredEntry.result);
+    setFormKey((k) => k + 1);
+    scrollToResults();
+  };
+
+  const viewAdvanced = () => {
+    if (!advancedCalc) return;
+    setShowOriginal(false);
+    setRestoredValues(advancedCalc.values);
+    setResult(advancedCalc.result);
+    setFormKey((k) => k + 1);
+    scrollToResults();
   };
 
   return (
@@ -87,7 +140,7 @@ function CalculatorApp() {
           mode={mode}
           settingsOpen={settingsOpen}
           onSettingsErrors={() => setSettingsOpen(true)}
-          onResult={setResult}
+          onResult={onFormResult}
           onRequestReset={onReset}
           onSaved={() => setSavedRefreshKey((k) => k + 1)}
           onRestore={onRestore}
@@ -96,6 +149,14 @@ function CalculatorApp() {
         />
 
         <div id="results" className="mt-5 sm:mt-6">
+          {result && restoredEntry && advancedCalc && (
+            <AdvanceBanner
+              showOriginal={showOriginal}
+              ts={restoredEntry.ts}
+              onViewOriginal={viewOriginal}
+              onViewAdvanced={viewAdvanced}
+            />
+          )}
           {result ? (
             <ResultsPanel result={result} mode={mode} onReset={onReset} />
           ) : (

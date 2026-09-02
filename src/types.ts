@@ -105,6 +105,35 @@ export interface Segment {
   pieces?: number;
 }
 
+/** Snapshot of the effective working schedule + buffers used for a computation.
+ *  Stored with a saved calculation so it can be advanced to "now" / recalculated
+ *  later without depending on (possibly changed) company settings. */
+export interface ScheduleSnapshot {
+  weekend?: WeekendWork;
+  schedule?: WeekSchedule | null;
+  warmupMinutes: number;
+  shutdownMinutes: number;
+}
+
+/** Per-order production progress as of a given instant — used to auto-advance
+ *  and calibrate a saved calculation. Counts are cumulative (already-entered
+ *  produced + what elapsed since the original start). */
+export interface OrderProgress {
+  orderId: string;
+  /** True when this order is fully produced by the reference instant. */
+  done: boolean;
+  /** Cumulative pieces produced per size (single element for single-size
+   *  orders). Undefined in total-meters mode. */
+  producedCountPerSize?: number[];
+  /** Cumulative meters produced (total-meters mode only). */
+  producedLengthM?: number;
+}
+
+export interface ScheduleProgress {
+  now: Date;
+  orders: OrderProgress[];
+}
+
 export interface ScheduledSizeDetail {
   sheets: number;
   length: number;

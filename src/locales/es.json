@@ -257,5 +257,12 @@
       "colScarto": "Desperdicio",
       "corsia": "Carril {{n}}"
     }
+  },
+  "advance": {
+    "updatedToNow": "Actualizado a ahora",
+    "originalView": "Cálculo original",
+    "viewOriginal": "Ver original",
+    "updateToNow": "Actualizar a ahora",
+    "assumption": "asumiendo producción según lo previsto"
   }
 }

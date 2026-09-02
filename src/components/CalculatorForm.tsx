@@ -10,7 +10,7 @@ import { calculateSchedule } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
-import type { CalculatorMode, ScheduleResult } from '../types';
+import type { CalculatorMode, ScheduleResult, ScheduleSnapshot } from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
 import {
   deriveLabel,
@@ -94,6 +94,20 @@ function CalculatorForm({
       shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
     });
     onResult(schedule);
+    // Snapshot the *effective* schedule + buffers so the saved calc can be
+    // advanced to "now" / recalculated later without depending on (possibly
+    // changed) company settings. Mirrors what calculateSchedule just used.
+    const snapshot: ScheduleSnapshot = {
+      weekend: values.settings.weekend,
+      schedule: (company ? catalogSettings.schedule : undefined) ?? null,
+      warmupMinutes:
+        (company ? catalogSettings.warmupMinutes : values.settings.warmupMinutes) ??
+        0,
+      shutdownMinutes:
+        (company
+          ? catalogSettings.shutdownMinutes
+          : values.settings.shutdownMinutes) ?? 0,
+    };
     // Persist the computed result so the user can re-open it from the
     // "Salvati" dropdown without recalculating. Best-effort: storage errors
     // are swallowed inside `saveCalculation`.
@@ -101,6 +115,7 @@ function CalculatorForm({
       saveCalculation(
         schedule,
         values,
+        snapshot,
         deriveLabel(schedule),
         catalogSettings.maxSavedResults,
         catalogSettings.savedRetentionDays,

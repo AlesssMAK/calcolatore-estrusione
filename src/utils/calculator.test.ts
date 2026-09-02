@@ -5,11 +5,14 @@ import {
   calculateProductionMinutes,
   calculateSchedule,
   calculateTotalProfiles,
+  productionMinutesBetween,
+  progressAsOf,
   splitDuration,
 } from './calculator';
 import type {
   GlobalSettings,
   Order,
+  ScheduleSnapshot,
   WeekendDay,
   WeekendWork,
   WeekSchedule,
@@ -1248,5 +1251,95 @@ describe('splitDuration', () => {
       minutes: 30,
     });
     expect(splitDuration(0)).toEqual({ days: 0, hours: 0, minutes: 0 });
+  });
+});
+
+describe('productionMinutesBetween & progressAsOf (advance to now)', () => {
+  const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m, d, h, min, 0, 0);
+  // `min` sheets × 1000mm ÷ 1 m/min = `min` minutes of production.
+  const order = (min: number, id = 'a'): Order => ({
+    id,
+    sheets: min,
+    sheetLengthMm: 1000,
+    speedMPerMin: 1,
+  });
+  const settings = (start: Date): GlobalSettings => ({
+    startMode: 'manual',
+    startAt: start.toISOString(),
+    gapMode: 'continuous',
+  });
+  const snap = (extra: Partial<ScheduleSnapshot> = {}): ScheduleSnapshot => ({
+    warmupMinutes: 0,
+    shutdownMinutes: 0,
+    schedule: null,
+    ...extra,
+  });
+  const noBuf = { warmup: 0, shutdown: 0 };
+
+  it('productionMinutesBetween: mid-block equals wall clock', () => {
+    expect(
+      productionMinutesBetween(
+        localDate(2026, 4, 11, 10),
+        localDate(2026, 4, 11, 14),
+        undefined,
+        noBuf,
+      ),
+    ).toBe(240);
+  });
+
+  it('productionMinutesBetween: skips the weekend gap', () => {
+    // Fri 22:00 → Mon 08:00: Fri22–Sat06 (480) + Mon06–Mon08 (120) = 600.
+    expect(
+      productionMinutesBetween(
+        localDate(2026, 4, 8, 22),
+        localDate(2026, 4, 11, 8),
+        undefined,
+        noBuf,
+      ),
+    ).toBe(600);
+  });
+
+  it('progressAsOf: half-done single order', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    const result = calculateSchedule(settings(start), [order(600)], {
+      now: start,
+    });
+    const prog = progressAsOf(result, localDate(2026, 4, 11, 11), snap()); // +300
+    expect(prog.orders[0]!.producedCountPerSize).toEqual([300]);
+    expect(prog.orders[0]!.done).toBe(false);
+  });
+
+  it('progressAsOf: order finished before now is fully produced', () => {
+    const start = localDate(2026, 4, 11, 6);
+    const result = calculateSchedule(settings(start), [order(120)], {
+      now: start,
+    }); // ends 08:00
+    const prog = progressAsOf(result, localDate(2026, 4, 11, 10), snap());
+    expect(prog.orders[0]!.done).toBe(true);
+    expect(prog.orders[0]!.producedCountPerSize).toEqual([120]);
+  });
+
+  it('progressAsOf: order not started yet keeps entered produced (0)', () => {
+    const start = localDate(2026, 4, 11, 6);
+    const result = calculateSchedule(
+      settings(start),
+      [order(120, 'a'), order(120, 'b')],
+      { now: start },
+    );
+    // now = 07:00 → order #2 starts at 08:00, not started.
+    const prog = progressAsOf(result, localDate(2026, 4, 11, 7), snap());
+    expect(prog.orders[1]!.producedCountPerSize).toEqual([0]);
+    expect(prog.orders[1]!.done).toBe(false);
+  });
+
+  it('progressAsOf: elapsed production skips the weekend', () => {
+    const start = localDate(2026, 4, 8, 22); // Fri 22:00
+    const result = calculateSchedule(settings(start), [order(600)], {
+      now: start,
+    });
+    // now = Mon 07:00 → Fri22–Sat06 (480) + Mon06–07 (60) = 540 produced.
+    const prog = progressAsOf(result, localDate(2026, 4, 11, 7), snap());
+    expect(prog.orders[0]!.producedCountPerSize).toEqual([540]);
   });
 });
