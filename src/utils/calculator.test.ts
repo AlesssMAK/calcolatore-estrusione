@@ -1342,4 +1342,20 @@ describe('productionMinutesBetween & progressAsOf (advance to now)', () => {
     const prog = progressAsOf(result, localDate(2026, 4, 11, 7), snap());
     expect(prog.orders[0]!.producedCountPerSize).toEqual([540]);
   });
+
+  it('progressAsOf: total-meters order tracks produced meters', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    const totalOrder: Order = {
+      id: 'a',
+      useTotalLength: true,
+      totalLengthM: 600,
+      speedMPerMin: 1,
+    }; // 600 m ÷ 1 = 600 min
+    const result = calculateSchedule(settings(start), [totalOrder], {
+      now: start,
+    });
+    const prog = progressAsOf(result, localDate(2026, 4, 11, 11), snap()); // +300
+    expect(prog.orders[0]!.producedLengthM).toBeCloseTo(300, 5);
+    expect(prog.orders[0]!.done).toBe(false);
+  });
 });

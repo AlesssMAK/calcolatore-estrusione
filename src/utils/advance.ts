@@ -17,8 +17,7 @@ export interface AdvancedCalc {
  * doesn't depend on possibly-changed company settings).
  *
  * Returns null when it can't / shouldn't advance: missing inputs or snapshot,
- * nothing elapsed yet (calc at/in the future), or a total-meters order (not
- * supported for auto-advance yet — those recalc manually).
+ * or nothing elapsed yet (calc at/in the future).
  */
 export function buildAdvancedCalc(
   entry: SavedCalculation,
@@ -27,13 +26,44 @@ export function buildAdvancedCalc(
   const { values, snapshot, result } = entry;
   if (!values || !snapshot) return null;
   if (now.getTime() <= result.startAt.getTime()) return null;
-  if (values.orders.some((o) => o.useTotalLength)) return null;
 
   const mode = result.mode;
   const progress = progressAsOf(result, now, snapshot);
 
   const orders = values.orders.map((order, i) => {
-    const counts = progress.orders[i]?.producedCountPerSize ?? [];
+    const p = progress.orders[i];
+
+    // Total-meters mode: express elapsed meters as a single produced batch of
+    // 1 m units (count = meters, length = 1000 mm) so it flows through the
+    // existing count×length subtraction. The operator can overwrite it with the
+    // real count×length breakdown when calibrating.
+    if (order.useTotalLength) {
+      const meters = Math.round(p?.producedLengthM ?? 0);
+      const count: ProducedEntry[] = [{ value: meters }];
+      const length: ProducedEntry[] = [{ value: 1000 }];
+      const empty: ProducedEntry[] = [{}];
+      return mode === 'profiles'
+        ? {
+            ...order,
+            producedProfiles: count,
+            producedItemLength: length,
+            profilesPerPackage: empty,
+            producedPackages: empty,
+            producedSheets: [],
+            producedPallets: [],
+          }
+        : {
+            ...order,
+            producedSheets: count,
+            producedItemLength: length,
+            sheetsPerPallet: empty,
+            producedPallets: empty,
+            producedProfiles: [],
+            producedPackages: [],
+          };
+    }
+
+    const counts = p?.producedCountPerSize ?? [];
     const produced: ProducedEntry[] = counts.map((value, sizeIndex) => ({
       sizeIndex,
       value,
