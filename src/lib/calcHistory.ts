@@ -1,4 +1,4 @@
-import type { ScheduleResult } from '../types';
+import type { ScheduleResult, ScheduleSnapshot } from '../types';
 import type { FormValues } from '../formSchema';
 
 // v2 stored only the computed ScheduleResult; v3 also stores the raw input
@@ -26,6 +26,10 @@ export interface SavedCalculation {
    *  compatibility; when present, restore refills the form so the user can
    *  tweak and recalculate. All values are plain JSON (dates are ISO strings). */
   values?: FormValues;
+  /** Effective working schedule + buffers used for the computation. Lets the
+   *  saved calc be advanced to "now" / recalculated without depending on
+   *  (possibly changed) company settings. */
+  snapshot?: ScheduleSnapshot;
 }
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
@@ -93,6 +97,7 @@ export function loadHistory(
 export function saveCalculation(
   result: ScheduleResult,
   values: FormValues,
+  snapshot: ScheduleSnapshot,
   label: string,
   maxEntries: number = DEFAULT_MAX_ENTRIES,
   retentionDays: number = DEFAULT_RETENTION_DAYS,
@@ -103,6 +108,7 @@ export function saveCalculation(
     label,
     result,
     values,
+    snapshot,
   };
   const cap = Math.max(1, Math.floor(maxEntries));
   const next = [entry, ...loadHistory(retentionDays)].slice(0, cap);

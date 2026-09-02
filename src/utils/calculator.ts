@@ -2,8 +2,11 @@ import type {
   CalculatorMode,
   GlobalSettings,
   Order,
+  OrderProgress,
   ProducedEntry,
+  ScheduleProgress,
   ScheduleResult,
+  ScheduleSnapshot,
   ScheduledOrder,
   ScheduledSizeDetail,
   Segment,
@@ -439,6 +442,35 @@ function runOnFeed(
     cursor = w.end;
   }
   return { end: cursor, segments };
+}
+
+/** How many *production* minutes fall between `from` and `to` — i.e. minutes
+ *  inside the productive windows (blocks trimmed by warm-up/shutdown), skipping
+ *  weekends/off-hours and buffer time. The inverse of running production
+ *  forward: used to work out how much an order has produced by a given moment. */
+export function productionMinutesBetween(
+  from: Date,
+  to: Date,
+  work: Work | undefined,
+  buf: Buffers,
+): number {
+  if (to.getTime() <= from.getTime()) return 0;
+  // Continuous line: no gaps or buffers, production runs wall-clock.
+  if (isContinuous(work)) return (to.getTime() - from.getTime()) / 60_000;
+  const feed = makeWindowFeed(
+    blockStartFrom(rawNextWorkingInstant(from, work), work),
+    work,
+    buf,
+  );
+  let total = 0;
+  for (let i = feed.seek(from), guard = 0; guard < 6000; guard++, i++) {
+    const w = feed.at(i);
+    if (!w || w.start.getTime() >= to.getTime()) break;
+    const lo = Math.max(w.start.getTime(), from.getTime());
+    const hi = Math.min(w.end.getTime(), to.getTime());
+    if (hi > lo) total += (hi - lo) / 60_000;
+  }
+  return total;
 }
 
 function resolveStartDate(settings: GlobalSettings, now: Date): Date {
@@ -1266,6 +1298,119 @@ export function calculateSchedule(
     mode,
     productName: productName ? productName : undefined,
   };
+}
+
+/** Production progress of a saved schedule as of `now`. Each order (and each
+ *  size of a multi-size order) is treated as its own [start,end] span from the
+ *  saved result: a span finished before `now` is fully produced, one straddling
+ *  `now` is filled by the fraction of its production time elapsed, later ones
+ *  keep the entered amount. Counts are cumulative (already-produced + elapsed).
+ *  Feeds the "update to now" / calibrate flow by pre-filling produced fields. */
+export function progressAsOf(
+  result: ScheduleResult,
+  now: Date,
+  snapshot: ScheduleSnapshot,
+): ScheduleProgress {
+  const work: Work = { weekend: snapshot.weekend, schedule: snapshot.schedule };
+  const buf: Buffers = {
+    warmup: Math.max(0, snapshot.warmupMinutes),
+    shutdown: Math.max(0, snapshot.shutdownMinutes),
+  };
+  const isProfiles = result.mode === 'profiles';
+
+  // Cumulative pieces for a [start,end] span producing `remaining` of `total`
+  // over `remMin` production minutes (rounded to whole pieces).
+  const cumPieces = (
+    start: Date,
+    end: Date,
+    remMin: number,
+    total: number,
+    remaining: number,
+  ): number => {
+    const original = total - remaining;
+    if (now.getTime() >= end.getTime()) return total;
+    if (now.getTime() <= start.getTime() || remMin <= 0 || remaining <= 0)
+      return original;
+    const frac = Math.min(
+      1,
+      Math.max(0, productionMinutesBetween(start, now, work, buf) / remMin),
+    );
+    return original + Math.round(frac * remaining);
+  };
+
+  const orders: OrderProgress[] = result.rows.map((row) => {
+    // Total-meters mode: track meters (unrounded) instead of pieces.
+    if (row.order.useTotalLength) {
+      const total = row.totalLengthM;
+      const remaining = row.remainingLengthM ?? total;
+      const original = total - remaining;
+      let cum: number;
+      if (now.getTime() >= row.end.getTime()) cum = total;
+      else if (
+        now.getTime() <= row.start.getTime() ||
+        row.remainingMinutes <= 0 ||
+        remaining <= 0
+      )
+        cum = original;
+      else {
+        const frac = Math.min(
+          1,
+          Math.max(
+            0,
+            productionMinutesBetween(row.start, now, work, buf) /
+              row.remainingMinutes,
+          ),
+        );
+        cum = original + frac * remaining;
+      }
+      return {
+        orderId: row.order.id,
+        done: cum >= total - 1e-6,
+        producedLengthM: cum,
+      };
+    }
+
+    // Multi-size: each size is its own sequential span from the result.
+    if (row.sizeDetails && row.sizeDetails.length > 1) {
+      const totals = row.sizeDetails.map((sd) => sd.sheets);
+      const perSize = row.sizeDetails.map((sd) => {
+        const remaining =
+          (isProfiles ? sd.remainingProfiles : sd.remainingSheetsAtSize) ??
+          sd.sheets;
+        return cumPieces(
+          sd.start,
+          sd.end,
+          sd.remainingMinutes,
+          sd.sheets,
+          remaining,
+        );
+      });
+      return {
+        orderId: row.order.id,
+        done: perSize.every((c, i) => c >= totals[i]),
+        producedCountPerSize: perSize,
+      };
+    }
+
+    // Single size / no breakdown.
+    const total = calculateTotalProfiles(row.order) ?? 0;
+    const remaining =
+      (isProfiles ? row.remainingProfiles : row.remainingSheets) ?? total;
+    const cum = cumPieces(
+      row.start,
+      row.end,
+      row.remainingMinutes,
+      total,
+      remaining,
+    );
+    return {
+      orderId: row.order.id,
+      done: total > 0 ? cum >= total : now.getTime() >= row.end.getTime(),
+      producedCountPerSize: total > 0 ? [cum] : undefined,
+    };
+  });
+
+  return { now, orders };
 }
 
 export function splitDuration(totalMinutes: number): {

@@ -257,5 +257,12 @@
       "colScarto": "Scarto",
       "corsia": "Corsia {{n}}"
     }
+  },
+  "advance": {
+    "updatedToNow": "Aggiornato a ora",
+    "originalView": "Calcolo originale",
+    "viewOriginal": "Vedi originale",
+    "updateToNow": "Aggiorna a ora",
+    "assumption": "assumendo produzione secondo piano"
   }
 }

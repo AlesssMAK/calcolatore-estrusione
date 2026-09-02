@@ -257,5 +257,12 @@
       "colScarto": "Waste",
       "corsia": "Lane {{n}}"
     }
+  },
+  "advance": {
+    "updatedToNow": "Updated to now",
+    "originalView": "Original calculation",
+    "viewOriginal": "View original",
+    "updateToNow": "Update to now",
+    "assumption": "assuming production went to plan"
   }
 }
