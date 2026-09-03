@@ -92,7 +92,8 @@
       "palletsProduced": "Pallets produced",
       "autoFilledNote": "Produced so far — filled from elapsed time"
     },
-    "minRequired": "At least one order is required."
+    "minRequired": "At least one order is required.",
+    "expandList": "Expand to full screen"
   },
   "actions": {
     "calculate": "Calculate",
@@ -104,7 +105,8 @@
     "exporting": "Saving…",
     "saved": "Saved",
     "recalc": "Recalculate",
-    "recalcHint": "Recalculate keeping completed orders"
+    "recalcHint": "Recalculate keeping completed orders",
+    "close": "Close"
   },
   "saved": {
     "title": "Saved calculations",

@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   useFieldArray,
   useFormContext,
@@ -721,11 +722,9 @@ function OrderNameField({
   // dropdown — confusing UX). Same behaviour on every device now.
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  // On phones the dropdown breaks out to (almost) the full viewport width so
-  // long product names are readable; on ≥sm it stays anchored under the input.
-  const [menuStyle, setMenuStyle] = useState<CSSProperties | undefined>(
-    undefined,
-  );
+  // Phone-only: expand the suggestion list into a full-screen picker so long
+  // product names are fully readable. Toggled by a button under the list.
+  const [fullScreen, setFullScreen] = useState(false);
 
   // Close on click outside (also handles taps on mobile via mousedown).
   useEffect(() => {
@@ -737,40 +736,6 @@ function OrderNameField({
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [dropdownOpen]);
-
-  // Full-viewport positioning for the dropdown on small screens (fixed, so it
-  // isn't clipped by the narrow input column). Recomputes on scroll/resize.
-  useEffect(() => {
-    if (!dropdownOpen) {
-      setMenuStyle(undefined);
-      return;
-    }
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    if (!isMobile) {
-      setMenuStyle(undefined);
-      return;
-    }
-    const M = 8; // viewport side margin (px)
-    const compute = () => {
-      const el = wrapperRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setMenuStyle({
-        position: 'fixed',
-        top: r.bottom + 4,
-        left: M,
-        right: M,
-        maxHeight: `${Math.max(140, window.innerHeight - r.bottom - 16)}px`,
-      });
-    };
-    compute();
-    window.addEventListener('resize', compute);
-    window.addEventListener('scroll', compute, true);
-    return () => {
-      window.removeEventListener('resize', compute);
-      window.removeEventListener('scroll', compute, true);
-    };
   }, [dropdownOpen]);
 
   // Filter visible suggestions by what's currently in the input.
@@ -837,29 +802,97 @@ function OrderNameField({
             }}
           />
           {dropdownOpen && suggestions.length > 0 && (
-            <ul
-              role="listbox"
-              style={menuStyle}
-              className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
-            >
+            <div className="absolute top-full left-0 right-0 z-30 mt-1 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
+              <ul
+                role="listbox"
+                className="max-h-60 overflow-y-auto py-1"
+              >
+                {suggestions.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => pickProduct(p)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs text-ink transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm"
+                    >
+                      <MarqueeText text={p.name} />
+                      <span className="shrink-0 text-[10px] font-medium text-ink-soft sm:text-xs">
+                        {p.speed_m_per_min} m/min
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {/* Phone-only: always-visible button to open the full-screen picker. */}
+              <button
+                type="button"
+                onClick={() => setFullScreen(true)}
+                className="flex w-full items-center justify-center gap-1 border-t border-neutral-100 px-3 py-2 text-xs font-medium text-brand-700 transition hover:bg-brand-50 sm:hidden"
+              >
+                ⤢ {t('orders.expandList')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {fullScreen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
+              <span className="text-sm font-semibold text-ink">
+                {t('orders.productName')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFullScreen(false)}
+                aria-label={t('actions.close')}
+                className="rounded-md px-3 py-1.5 text-lg leading-none text-ink-soft transition hover:bg-neutral-100"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="border-b border-neutral-100 p-3">
+              <input
+                type="text"
+                autoFocus
+                autoComplete="off"
+                value={typeof value === 'string' ? value : ''}
+                placeholder={t('orders.productName')}
+                onChange={(e) =>
+                  setValue(`orders.${idx}.productName`, e.target.value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+              />
+            </div>
+            <ul className="flex-1 overflow-y-auto">
               {suggestions.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
-                    onClick={() => pickProduct(p)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs text-ink transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm"
+                    onClick={() => {
+                      pickProduct(p);
+                      setFullScreen(false);
+                      setDropdownOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 text-left text-sm text-ink transition hover:bg-brand-50 hover:text-brand-700"
                   >
-                    <MarqueeText text={p.name} />
-                    <span className="shrink-0 text-[10px] font-medium text-ink-soft sm:text-xs">
+                    <span className="min-w-0 flex-1 break-words">{p.name}</span>
+                    <span className="shrink-0 text-xs font-medium text-ink-soft">
                       {p.speed_m_per_min} m/min
                     </span>
                   </button>
                 </li>
               ))}
+              {suggestions.length === 0 && (
+                <li className="px-4 py-3 text-sm text-ink-soft">—</li>
+              )}
             </ul>
-          )}
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
