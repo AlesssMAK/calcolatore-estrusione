@@ -89,7 +89,8 @@
       "packagesProduced": "Pacchi prodotti",
       "sheetsProduced": "Lastre prodotte",
       "sheetsPerPallet": "Lastre per bancale",
-      "palletsProduced": "Bancali prodotti"
+      "palletsProduced": "Bancali prodotti",
+      "autoFilledNote": "Prodotti finora — compilato in base al tempo trascorso"
     },
     "minRequired": "Almeno un ordine è richiesto."
   },
