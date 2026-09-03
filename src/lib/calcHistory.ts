@@ -1,4 +1,8 @@
-import type { ScheduleResult, ScheduleSnapshot } from '../types';
+import type {
+  ScheduledOrder,
+  ScheduleResult,
+  ScheduleSnapshot,
+} from '../types';
 import type { FormValues } from '../formSchema';
 
 // v2 stored only the computed ScheduleResult; v3 also stores the raw input
@@ -30,6 +34,10 @@ export interface SavedCalculation {
    *  saved calc be advanced to "now" / recalculated without depending on
    *  (possibly changed) company settings. */
   snapshot?: ScheduleSnapshot;
+  /** Orders already fully produced as of the last advance — kept aside (not in
+   *  `result.rows`/`values.orders`, so re-advance stays aligned) and shown as
+   *  completed rows. Accumulates as more orders finish. */
+  completedRows?: ScheduledOrder[];
 }
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
@@ -108,6 +116,7 @@ export function saveCalculation(
   maxEntries: number = DEFAULT_MAX_ENTRIES,
   retentionDays: number = DEFAULT_RETENTION_DAYS,
   replaceId?: string,
+  completedRows?: ScheduledOrder[],
 ): SavedCalculation {
   const entry: SavedCalculation = {
     id: replaceId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -116,6 +125,7 @@ export function saveCalculation(
     result,
     values,
     snapshot,
+    completedRows: completedRows && completedRows.length ? completedRows : undefined,
   };
   const cap = Math.max(1, Math.floor(maxEntries));
   const rest = loadHistory(retentionDays).filter((i) => i.id !== entry.id);

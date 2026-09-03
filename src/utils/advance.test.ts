@@ -49,4 +49,44 @@ describe('buildAdvancedCalc', () => {
     const entry = makeEntry();
     expect(buildAdvancedCalc(entry, localDate(2026, 4, 11, 6))).toBeNull();
   });
+
+  it('splits finished orders into completedRows, keeps only active in the form', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    const values = {
+      settings: {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      orders: [
+        { id: 'a', sheets: 120, sheetLengthMm: 1000, speedMPerMin: 1 }, // 06:00–08:00
+        { id: 'b', sheets: 300, sheetLengthMm: 1000, speedMPerMin: 1 }, // 08:00–13:00
+      ],
+    } as unknown as FormValues;
+    const result = calculateSchedule(values.settings, values.orders, {
+      now: start,
+    });
+    const snapshot: ScheduleSnapshot = {
+      warmupMinutes: 0,
+      shutdownMinutes: 0,
+      schedule: null,
+    };
+    const entry: SavedCalculation = {
+      id: 'x',
+      ts: start.getTime(),
+      label: 't',
+      result,
+      values,
+      snapshot,
+    };
+    // now = Mon 10:00 → 'a' finished, 'b' in progress.
+    const adv = buildAdvancedCalc(entry, localDate(2026, 4, 11, 10));
+    expect(adv).not.toBeNull();
+    expect(adv!.completedRows).toHaveLength(1);
+    expect(adv!.completedRows[0]!.order.id).toBe('a');
+    expect(adv!.completedRows[0]!.completed).toBe(true);
+    expect(adv!.values.orders).toHaveLength(1);
+    expect(adv!.values.orders[0]!.id).toBe('b');
+    expect(adv!.result.rows).toHaveLength(1);
+  });
 });

@@ -198,6 +198,10 @@ export interface ScheduledOrder {
   /** Production windows this order occupied. Length > 1 means a non-working
    *  gap (weekend / off-window) split it into parts. */
   segments?: Segment[];
+  /** True when this order was already fully produced as of the advance moment —
+   *  shown in the results as a completed row (with its historical times) but
+   *  removed from the editable form. */
+  completed?: boolean;
 }
 
 export interface ScheduleResult {

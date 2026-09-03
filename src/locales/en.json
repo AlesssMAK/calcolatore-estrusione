@@ -101,7 +101,9 @@
     "copied": "Copied!",
     "saveImage": "Share photo",
     "exporting": "Saving…",
-    "saved": "Saved"
+    "saved": "Saved",
+    "recalc": "Recalculate",
+    "recalcHint": "Recalculate keeping completed orders"
   },
   "saved": {
     "title": "Saved calculations",
@@ -156,7 +158,8 @@
     "timePerItem": {
       "sheets": "Time per sheet",
       "profiles": "Time per profile"
-    }
+    },
+    "completed": "Completed"
   },
   "units": {
     "day": "d",
@@ -263,6 +266,9 @@
     "originalView": "Original calculation",
     "viewOriginal": "View original",
     "updateToNow": "Update to now",
-    "assumption": "assuming production went to plan"
+    "assumption": "assuming production went to plan",
+    "completedCount": "{{n}} completed",
+    "restoreCompleted": "Restore",
+    "restoreHint": "Click: one · Hold: all"
   }
 }
