@@ -460,8 +460,7 @@ function AdvancedSection({
   t: TFunction;
 }) {
   'use no memo';
-  const [expanded, setExpanded] = useState(false);
-  const { control } = useFormContext<FormValues>();
+  const { control, getValues } = useFormContext<FormValues>();
 
   const useTotalLength = useWatch({
     control,
@@ -512,6 +511,23 @@ function AdvancedSection({
   const sheetsEntered = sumOf(watchedSheets) > 0;
   const perPalletEntered = sumOf(watchedPerPallet) > 0;
   const palletsEntered = sumOf(watchedPallets) > 0;
+
+  // Produced values already present at mount → a restored / advanced calc.
+  // Read synchronously via getValues (reliable at mount, unlike useWatch's
+  // first render) so the advanced section auto-opens and the produced block is
+  // highlighted, making the time-based auto-fill obvious.
+  const [hadProducedAtMount] = useState(() => {
+    const o = getValues(`orders.${idx}`);
+    const sum = (a?: { value?: number }[]) =>
+      (a ?? []).reduce((s, e) => s + (e?.value ?? 0), 0);
+    return (
+      sum(o?.producedProfiles) > 0 ||
+      sum(o?.producedPackages) > 0 ||
+      sum(o?.producedSheets) > 0 ||
+      sum(o?.producedPallets) > 0
+    );
+  });
+  const [expanded, setExpanded] = useState(hadProducedAtMount);
   // The 'rate × count' path (perPallet × pallets, perPackage × packages)
   // is *fully active* only when both rate AND count are filled. The
   // direct path (sheets / profiles) is blocked just in that combined
@@ -542,10 +558,19 @@ function AdvancedSection({
 
       {expanded && (
         <div
-          className={`mt-2 rounded-md border border-brand-100 bg-brand-50/40 p-2 sm:p-3 ${
+          className={`mt-2 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
             useTotalLength ? '' : 'space-y-3'
+          } ${
+            hadProducedAtMount
+              ? 'border-amber-300 ring-2 ring-amber-300'
+              : 'border-brand-100'
           }`}
         >
+          {hadProducedAtMount && (
+            <p className="mb-2 text-[11px] font-medium text-amber-700">
+              ↳ {t('orders.advanced.autoFilledNote')}
+            </p>
+          )}
           {useTotalLength ? (
             isProfiles ? (
               <BatchRowsArray
@@ -696,6 +721,11 @@ function OrderNameField({
   // dropdown — confusing UX). Same behaviour on every device now.
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // On phones the dropdown breaks out to (almost) the full viewport width so
+  // long product names are readable; on ≥sm it stays anchored under the input.
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | undefined>(
+    undefined,
+  );
 
   // Close on click outside (also handles taps on mobile via mousedown).
   useEffect(() => {
@@ -707,6 +737,40 @@ function OrderNameField({
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [dropdownOpen]);
+
+  // Full-viewport positioning for the dropdown on small screens (fixed, so it
+  // isn't clipped by the narrow input column). Recomputes on scroll/resize.
+  useEffect(() => {
+    if (!dropdownOpen) {
+      setMenuStyle(undefined);
+      return;
+    }
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (!isMobile) {
+      setMenuStyle(undefined);
+      return;
+    }
+    const M = 8; // viewport side margin (px)
+    const compute = () => {
+      const el = wrapperRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setMenuStyle({
+        position: 'fixed',
+        top: r.bottom + 4,
+        left: M,
+        right: M,
+        maxHeight: `${Math.max(140, window.innerHeight - r.bottom - 16)}px`,
+      });
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    window.addEventListener('scroll', compute, true);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', compute, true);
+    };
   }, [dropdownOpen]);
 
   // Filter visible suggestions by what's currently in the input.
@@ -775,7 +839,8 @@ function OrderNameField({
           {dropdownOpen && suggestions.length > 0 && (
             <ul
               role="listbox"
-              className="absolute top-full left-0 right-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+              style={menuStyle}
+              className="absolute top-full left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
             >
               {suggestions.map((p) => (
                 <li key={p.id}>

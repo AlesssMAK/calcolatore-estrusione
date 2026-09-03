@@ -89,7 +89,8 @@
       "packagesProduced": "Packages produced",
       "sheetsProduced": "Sheets produced",
       "sheetsPerPallet": "Sheets per pallet",
-      "palletsProduced": "Pallets produced"
+      "palletsProduced": "Pallets produced",
+      "autoFilledNote": "Produced so far — filled from elapsed time"
     },
     "minRequired": "At least one order is required."
   },
