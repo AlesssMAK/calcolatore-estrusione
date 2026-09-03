@@ -93,7 +93,13 @@ export function loadHistory(
   return fresh;
 }
 
-/** Add a new entry; FIFO-evicts past `maxEntries`. Returns the saved entry. */
+/**
+ * Add a new entry (or update an existing one), moved to the front; FIFO-evicts
+ * past `maxEntries`. When `replaceId` is given, any entry with that id is
+ * removed first and the new entry reuses it — so re-calculating a restored /
+ * just-saved calc updates the same slot and bumps it to the top instead of
+ * piling up duplicates. Returns the saved entry.
+ */
 export function saveCalculation(
   result: ScheduleResult,
   values: FormValues,
@@ -101,9 +107,10 @@ export function saveCalculation(
   label: string,
   maxEntries: number = DEFAULT_MAX_ENTRIES,
   retentionDays: number = DEFAULT_RETENTION_DAYS,
+  replaceId?: string,
 ): SavedCalculation {
   const entry: SavedCalculation = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: replaceId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: Date.now(),
     label,
     result,
@@ -111,7 +118,8 @@ export function saveCalculation(
     snapshot,
   };
   const cap = Math.max(1, Math.floor(maxEntries));
-  const next = [entry, ...loadHistory(retentionDays)].slice(0, cap);
+  const rest = loadHistory(retentionDays).filter((i) => i.id !== entry.id);
+  const next = [entry, ...rest].slice(0, cap);
   safeWrite(next);
   return entry;
 }
