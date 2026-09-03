@@ -92,7 +92,8 @@
       "palletsProduced": "Palets producidos",
       "autoFilledNote": "Producido hasta ahora — rellenado según el tiempo transcurrido"
     },
-    "minRequired": "Se requiere al menos un pedido."
+    "minRequired": "Se requiere al menos un pedido.",
+    "expandList": "Expandir a pantalla completa"
   },
   "actions": {
     "calculate": "Calcular",
@@ -104,7 +105,8 @@
     "exporting": "Guardando…",
     "saved": "Guardados",
     "recalc": "Recalcular",
-    "recalcHint": "Recalcular manteniendo los pedidos completados"
+    "recalcHint": "Recalcular manteniendo los pedidos completados",
+    "close": "Cerrar"
   },
   "saved": {
     "title": "Cálculos guardados",

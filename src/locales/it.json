@@ -92,7 +92,8 @@
       "palletsProduced": "Bancali prodotti",
       "autoFilledNote": "Prodotti finora — compilato in base al tempo trascorso"
     },
-    "minRequired": "Almeno un ordine è richiesto."
+    "minRequired": "Almeno un ordine è richiesto.",
+    "expandList": "Espandi a schermo intero"
   },
   "actions": {
     "calculate": "Calcola",
@@ -104,7 +105,8 @@
     "exporting": "Salvando…",
     "saved": "Salvati",
     "recalc": "Ricalcola",
-    "recalcHint": "Ricalcola mantenendo gli ordini completati"
+    "recalcHint": "Ricalcola mantenendo gli ordini completati",
+    "close": "Chiudi"
   },
   "saved": {
     "title": "Calcoli salvati",
