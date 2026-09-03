@@ -101,7 +101,9 @@
     "copied": "Copiato!",
     "saveImage": "Condividi foto",
     "exporting": "Salvando…",
-    "saved": "Salvati"
+    "saved": "Salvati",
+    "recalc": "Ricalcola",
+    "recalcHint": "Ricalcola mantenendo gli ordini completati"
   },
   "saved": {
     "title": "Calcoli salvati",
@@ -156,7 +158,8 @@
     "timePerItem": {
       "sheets": "Tempo per lastra",
       "profiles": "Tempo per profilo"
-    }
+    },
+    "completed": "Completato"
   },
   "units": {
     "day": "g",
@@ -263,6 +266,9 @@
     "originalView": "Calcolo originale",
     "viewOriginal": "Vedi originale",
     "updateToNow": "Aggiorna a ora",
-    "assumption": "assumendo produzione secondo piano"
+    "assumption": "assumendo produzione secondo piano",
+    "completedCount": "{{n}} completati",
+    "restoreCompleted": "Ripristina",
+    "restoreHint": "Clic: uno · Tieni premuto: tutti"
   }
 }

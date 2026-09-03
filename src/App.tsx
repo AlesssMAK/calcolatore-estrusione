@@ -6,12 +6,13 @@ import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsPanel from './components/ResultsPanel';
 import AdvanceBanner from './components/AdvanceBanner';
+import RestoreCompletedButton from './components/RestoreCompletedButton';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
-import type { CalculatorMode, ScheduleResult } from './types';
+import type { CalculatorMode, ScheduledOrder, ScheduleResult } from './types';
 import type { FormValues } from './formSchema';
 import type { SavedCalculation } from './lib/calcHistory';
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
@@ -43,12 +44,22 @@ function CalculatorApp() {
   );
   const [advancedCalc, setAdvancedCalc] = useState<AdvancedCalc | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  // Orders already completed as of "now" — shown (done) in the result but kept
+  // out of the form. Prepended to the displayed result; restorable to the form.
+  const [completedRows, setCompletedRows] = useState<ScheduledOrder[]>([]);
   // Id of the saved entry the current form is bound to (restored or just
   // saved). Submitting updates this slot in place instead of duplicating.
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
+
+  // Prepend already-completed orders (shown as done) to a result for display.
+  const withCompleted = (
+    r: ScheduleResult,
+    completed: ScheduledOrder[],
+  ): ScheduleResult =>
+    completed.length > 0 ? { ...r, rows: [...completed, ...r.rows] } : r;
 
   const scrollToResults = () => {
     window.requestAnimationFrame(() => {
@@ -70,6 +81,7 @@ function CalculatorApp() {
     setResult(null);
     setRestoredValues(undefined);
     setEditingId(undefined);
+    setCompletedRows([]);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -78,14 +90,17 @@ function CalculatorApp() {
     setResult(null);
     setRestoredValues(undefined);
     setEditingId(undefined);
+    setCompletedRows([]);
     clearRestored();
     setFormKey((k) => k + 1);
   };
 
-  // A fresh Calcola from the form clears the restored/advanced banner — it's a
-  // new calculation now, not a viewed saved one.
-  const onFormResult = (r: ScheduleResult) => {
+  // A submit from the form. "Calcola" (keepCompleted=false) is a fresh result —
+  // drop the completed orders; "Ricalcola" (keepCompleted=true) keeps them.
+  // Either way it clears the advance/original banner (it's a new result now).
+  const onFormResult = (r: ScheduleResult, keepCompleted?: boolean) => {
     clearRestored();
+    if (!keepCompleted) setCompletedRows([]);
     setResult(r);
   };
 
@@ -101,9 +116,15 @@ function CalculatorApp() {
     setAdvancedCalc(adv);
     setShowOriginal(false);
     setEditingId(entry.id); // re-Calcola updates this saved entry in place
-    const view = adv ?? { result: entry.result, values: entry.values };
-    setRestoredValues(view.values);
-    setResult(view.result);
+    if (adv) {
+      setRestoredValues(adv.values);
+      setResult(adv.result);
+      setCompletedRows(adv.completedRows);
+    } else {
+      setRestoredValues(entry.values);
+      setResult(entry.result);
+      setCompletedRows([]);
+    }
     setFormKey((k) => k + 1);
     scrollToResults();
   };
@@ -113,6 +134,7 @@ function CalculatorApp() {
     setShowOriginal(true);
     setRestoredValues(restoredEntry.values);
     setResult(restoredEntry.result);
+    setCompletedRows([]);
     setFormKey((k) => k + 1);
     scrollToResults();
   };
@@ -122,9 +144,40 @@ function CalculatorApp() {
     setShowOriginal(false);
     setRestoredValues(advancedCalc.values);
     setResult(advancedCalc.result);
+    setCompletedRows(advancedCalc.completedRows);
     setFormKey((k) => k + 1);
     scrollToResults();
   };
+
+  // Bring completed orders back into the form (they weren't actually done).
+  // Their produced fields are cleared so the operator re-enters the real state.
+  // Remounts the form, so unsaved edits to other fields are reset.
+  const restoreCompleted = (rows: ScheduledOrder[]) => {
+    if (rows.length === 0) return;
+    const restoredOrders = rows.map((r) => ({
+      ...r.order,
+      producedProfiles: [],
+      producedPackages: [],
+      producedSheets: [],
+      producedPallets: [],
+      producedItemLength: [],
+    }));
+    setRestoredValues((prev) => ({
+      settings:
+        prev?.settings ??
+        ({ startMode: 'now', gapMode: 'continuous' } as FormValues['settings']),
+      orders: [...(prev?.orders ?? []), ...restoredOrders],
+    }));
+    const restoredIds = new Set(rows.map((r) => r.order.id));
+    setCompletedRows((prev) => prev.filter((r) => !restoredIds.has(r.order.id)));
+    setFormKey((k) => k + 1);
+  };
+
+  const restoreOneCompleted = () => {
+    const last = completedRows[completedRows.length - 1];
+    if (last) restoreCompleted([last]);
+  };
+  const restoreAllCompleted = () => restoreCompleted(completedRows);
 
   return (
     <div className="min-h-full bg-surface-alt">
@@ -156,6 +209,8 @@ function CalculatorApp() {
           savedRefreshKey={savedRefreshKey}
           initialValues={restoredValues}
           editingId={editingId}
+          completedRows={completedRows}
+          showRicalcola={completedRows.length > 0}
         />
 
         <div id="results" className="mt-5 sm:mt-6">
@@ -167,8 +222,19 @@ function CalculatorApp() {
               onViewAdvanced={viewAdvanced}
             />
           )}
+          {result && completedRows.length > 0 && (
+            <RestoreCompletedButton
+              count={completedRows.length}
+              onRestoreOne={restoreOneCompleted}
+              onRestoreAll={restoreAllCompleted}
+            />
+          )}
           {result ? (
-            <ResultsPanel result={result} mode={mode} onReset={onReset} />
+            <ResultsPanel
+              result={withCompleted(result, completedRows)}
+              mode={mode}
+              onReset={onReset}
+            />
           ) : (
             <div className="no-print rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft sm:p-6">
               {t('results.empty')}

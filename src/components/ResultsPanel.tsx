@@ -387,7 +387,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
             return (
               <li
                 key={row.order.id}
-                className="rounded-lg border border-neutral-200 bg-surface-alt p-3"
+                className={`rounded-lg border p-3 ${
+                  row.completed
+                    ? 'border-success/30 bg-success/5'
+                    : 'border-neutral-200 bg-surface-alt'
+                }`}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
@@ -397,6 +401,11 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                     {row.order.productName && (
                       <span className="truncate text-xs font-medium text-ink">
                         {row.order.productName}
+                      </span>
+                    )}
+                    {row.completed && (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                        ✓ {t('results.completed')}
                       </span>
                     )}
                   </div>
@@ -649,12 +658,19 @@ function ResultsPanel({ result, mode, onReset }: Props) {
                     : 'border-b border-neutral-100 last:border-b-0';
                 return (
                   <Fragment key={row.order.id}>
-                    <tr className={mainRowBorder}>
+                    <tr
+                      className={`${mainRowBorder}${row.completed ? ' bg-success/5' : ''}`}
+                    >
                       <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
                         #{idx + 1}
                         {row.order.productName && (
                           <span className="ml-2 font-medium text-ink">
                             {row.order.productName}
+                          </span>
+                        )}
+                        {row.completed && (
+                          <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-success">
+                            ✓ {t('results.completed')}
                           </span>
                         )}
                       </td>

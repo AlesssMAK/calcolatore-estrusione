@@ -10,7 +10,12 @@ import { calculateSchedule } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
-import type { CalculatorMode, ScheduleResult, ScheduleSnapshot } from '../types';
+import type {
+  CalculatorMode,
+  ScheduledOrder,
+  ScheduleResult,
+  ScheduleSnapshot,
+} from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
 import {
   deriveLabel,
@@ -23,7 +28,9 @@ interface Props {
   mode: CalculatorMode;
   settingsOpen: boolean;
   onSettingsErrors: () => void;
-  onResult: (result: ScheduleResult) => void;
+  /** `keepCompleted` = the "Ricalcola" button was used (keep completed orders
+   *  in the result); false/omitted = plain "Calcola" (fresh, drop completed). */
+  onResult: (result: ScheduleResult, keepCompleted?: boolean) => void;
   onRequestReset: () => void;
   /** Called after a successful submit with the saved entry's id, so the parent
    *  can refresh the dropdown and keep editing the same slot. */
@@ -41,6 +48,11 @@ interface Props {
    *  previous save). When set, submitting updates that entry in place instead
    *  of creating a duplicate. */
   editingId?: string;
+  /** Completed (done) orders carried alongside the advanced view; persisted
+   *  with the entry only when the user presses "Ricalcola". */
+  completedRows?: ScheduledOrder[];
+  /** Show the "Ricalcola" button (advanced view with completed orders). */
+  showRicalcola?: boolean;
 }
 
 function CalculatorForm({
@@ -54,6 +66,8 @@ function CalculatorForm({
   savedRefreshKey,
   initialValues,
   editingId,
+  completedRows,
+  showRicalcola,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -68,6 +82,9 @@ function CalculatorForm({
 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const hideTimerRef = useRef<number | null>(null);
+  // Which submit button was pressed: "Ricalcola" keeps completed orders in the
+  // saved result, plain "Calcola" drops them. Read in onSubmit, reset after.
+  const keepCompletedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -90,6 +107,8 @@ function CalculatorForm({
 
   const onSubmit = (values: FormValues) => {
     setSubmitError(null);
+    const keepCompleted = keepCompletedRef.current;
+    keepCompletedRef.current = false;
     // A company's settings (schedule + buffers) are the source of truth when a
     // company link is active; otherwise fall back to the local settings.
     const schedule = calculateSchedule(values.settings, values.orders, {
@@ -98,7 +117,7 @@ function CalculatorForm({
       warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
       shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
     });
-    onResult(schedule);
+    onResult(schedule, keepCompleted);
     // Snapshot the *effective* schedule + buffers so the saved calc can be
     // advanced to "now" / recalculated later without depending on (possibly
     // changed) company settings. Mirrors what calculateSchedule just used.
@@ -125,6 +144,7 @@ function CalculatorForm({
         catalogSettings.maxSavedResults,
         catalogSettings.savedRetentionDays,
         editingId,
+        keepCompleted ? completedRows : undefined,
       );
       onSaved?.(saved.id);
     } catch {
@@ -172,9 +192,24 @@ function CalculatorForm({
               refreshKey={savedRefreshKey}
             />
           )}
+          {showRicalcola && (
+            <button
+              type="submit"
+              onClick={() => {
+                keepCompletedRef.current = true;
+              }}
+              title={t('actions.recalcHint')}
+              className="order-1 w-full rounded-md border border-amber-400 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-100 focus:ring-2 focus:ring-amber-200 focus:outline-none sm:order-2 sm:w-auto sm:py-2.5"
+            >
+              ↻ {t('actions.recalc')}
+            </button>
+          )}
           <button
             type="submit"
-            className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-2 sm:w-auto sm:py-2.5"
+            onClick={() => {
+              keepCompletedRef.current = false;
+            }}
+            className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-3 sm:w-auto sm:py-2.5"
           >
             {t('actions.calculate')} →
           </button>
