@@ -43,6 +43,9 @@ function CalculatorApp() {
   );
   const [advancedCalc, setAdvancedCalc] = useState<AdvancedCalc | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  // Id of the saved entry the current form is bound to (restored or just
+  // saved). Submitting updates this slot in place instead of duplicating.
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
@@ -66,6 +69,7 @@ function CalculatorApp() {
     setSelectedMode(next);
     setResult(null);
     setRestoredValues(undefined);
+    setEditingId(undefined);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -73,6 +77,7 @@ function CalculatorApp() {
   const onReset = () => {
     setResult(null);
     setRestoredValues(undefined);
+    setEditingId(undefined);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -95,6 +100,7 @@ function CalculatorApp() {
     setRestoredEntry(entry);
     setAdvancedCalc(adv);
     setShowOriginal(false);
+    setEditingId(entry.id); // re-Calcola updates this saved entry in place
     const view = adv ?? { result: entry.result, values: entry.values };
     setRestoredValues(view.values);
     setResult(view.result);
@@ -142,10 +148,14 @@ function CalculatorApp() {
           onSettingsErrors={() => setSettingsOpen(true)}
           onResult={onFormResult}
           onRequestReset={onReset}
-          onSaved={() => setSavedRefreshKey((k) => k + 1)}
+          onSaved={(id) => {
+            setEditingId(id);
+            setSavedRefreshKey((k) => k + 1);
+          }}
           onRestore={onRestore}
           savedRefreshKey={savedRefreshKey}
           initialValues={restoredValues}
+          editingId={editingId}
         />
 
         <div id="results" className="mt-5 sm:mt-6">

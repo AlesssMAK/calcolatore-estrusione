@@ -199,3 +199,26 @@ button:disabled,
     box-shadow: none !important;
   }
 }
+
+/* Marquee for long text (e.g. product names in the picker) that overflows its
+   container: slide from start to end and back, pausing at each end. The shift
+   distance (--marquee-shift) and duration (--marquee-dur) are set inline once
+   the overflow is measured; short text keeps the class off and stays static. */
+@keyframes marquee-x {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  88%,
+  100% {
+    transform: translateX(var(--marquee-shift, 0));
+  }
+}
+.marquee-anim {
+  animation: marquee-x var(--marquee-dur, 6s) ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-anim {
+    animation: none;
+  }
+}

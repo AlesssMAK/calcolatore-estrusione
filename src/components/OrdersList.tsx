@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import {
   useFieldArray,
   useFormContext,
@@ -616,6 +623,48 @@ function AdvancedSection({
   );
 }
 
+/** Text that horizontally scrolls (marquee) when it overflows its container,
+ *  so long product names stay fully readable on narrow screens. Static when it
+ *  fits, or when the user prefers reduced motion (CSS-gated). */
+function MarqueeText({ text }: { text: string }) {
+  'use no memo';
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [shift, setShift] = useState(0);
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const measure = () => {
+      const over = inner.scrollWidth - outer.clientWidth;
+      setShift(over > 4 ? over : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(outer);
+    return () => ro.disconnect();
+  }, [text]);
+  const dur = Math.max(3, Math.round(shift / 25)); // slow: ~25px/s
+  return (
+    <span ref={outerRef} className="block min-w-0 flex-1 overflow-hidden">
+      <span
+        ref={innerRef}
+        className={`inline-block whitespace-nowrap${shift > 0 ? ' marquee-anim' : ''}`}
+        style={
+          shift > 0
+            ? ({
+                '--marquee-shift': `-${shift}px`,
+                '--marquee-dur': `${dur}s`,
+              } as CSSProperties)
+            : undefined
+        }
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 function OrderNameField({
   idx,
   mode,
@@ -735,7 +784,7 @@ function OrderNameField({
                     onClick={() => pickProduct(p)}
                     className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs text-ink transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm"
                   >
-                    <span className="truncate">{p.name}</span>
+                    <MarqueeText text={p.name} />
                     <span className="shrink-0 text-[10px] font-medium text-ink-soft sm:text-xs">
                       {p.speed_m_per_min} m/min
                     </span>

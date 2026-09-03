@@ -25,9 +25,9 @@ interface Props {
   onSettingsErrors: () => void;
   onResult: (result: ScheduleResult) => void;
   onRequestReset: () => void;
-  /** Called after a successful submit so the parent can refresh the saved
-   *  list dropdown badge / contents. */
-  onSaved?: () => void;
+  /** Called after a successful submit with the saved entry's id, so the parent
+   *  can refresh the dropdown and keep editing the same slot. */
+  onSaved?: (savedId: string) => void;
   /** Called when the user picks an entry from the "Salvati" dropdown — the
    *  parent refills the form with the saved inputs and shows the result below.
    *  Switches tab if the saved mode differs from the current one. */
@@ -37,6 +37,10 @@ interface Props {
   /** When restoring a saved calculation, the form mounts pre-filled with these
    *  inputs so the user can tweak and recalculate. Undefined → empty defaults. */
   initialValues?: FormValues;
+  /** Id of the saved entry the form is currently bound to (from a restore or a
+   *  previous save). When set, submitting updates that entry in place instead
+   *  of creating a duplicate. */
+  editingId?: string;
 }
 
 function CalculatorForm({
@@ -49,6 +53,7 @@ function CalculatorForm({
   onRestore,
   savedRefreshKey,
   initialValues,
+  editingId,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -112,15 +117,16 @@ function CalculatorForm({
     // "Salvati" dropdown without recalculating. Best-effort: storage errors
     // are swallowed inside `saveCalculation`.
     try {
-      saveCalculation(
+      const saved = saveCalculation(
         schedule,
         values,
         snapshot,
         deriveLabel(schedule),
         catalogSettings.maxSavedResults,
         catalogSettings.savedRetentionDays,
+        editingId,
       );
-      onSaved?.();
+      onSaved?.(saved.id);
     } catch {
       /* never block submit on storage failure */
     }
