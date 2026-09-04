@@ -183,7 +183,8 @@
     "enterLength": "Introduce la longitud (mm)"
   },
   "footer": {
-    "madeBy": "Calculadora de Extrusión"
+    "madeBy": "Calculadora de Extrusión",
+    "installApp": "📲 Instalar la app"
   },
   "piramide": {
     "title": "Pirámide",

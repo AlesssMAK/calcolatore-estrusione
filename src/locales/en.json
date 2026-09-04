@@ -183,7 +183,8 @@
     "enterLength": "Enter the length (mm)"
   },
   "footer": {
-    "madeBy": "Extrusion Calculator"
+    "madeBy": "Extrusion Calculator",
+    "installApp": "📲 Install the app"
   },
   "piramide": {
     "title": "Pyramid",

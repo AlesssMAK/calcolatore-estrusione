@@ -244,14 +244,24 @@ function CalculatorApp() {
       </main>
 
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">
-        {settings.showPiramide && (
-          <Link
-            to={piramideHref}
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {settings.showPiramide && (
+            <Link
+              to={piramideHref}
+              className="font-medium text-brand-700 transition hover:text-brand-800"
+            >
+              {t('piramide.openLink')}
+            </Link>
+          )}
+          <a
+            href="/installa.html"
+            target="_blank"
+            rel="noopener"
             className="font-medium text-brand-700 transition hover:text-brand-800"
           >
-            {t('piramide.openLink')}
-          </Link>
-        )}
+            {t('footer.installApp')}
+          </a>
+        </div>
         <div className="mt-2">
           © {new Date().getFullYear()} {t('footer.madeBy')}
         </div>
