@@ -183,7 +183,8 @@
     "enterLength": "Inserisci la lunghezza (mm)"
   },
   "footer": {
-    "madeBy": "Calcolatore di Estrusione"
+    "madeBy": "Calcolatore di Estrusione",
+    "installApp": "📲 Installa l’app"
   },
   "piramide": {
     "title": "Piramide",
