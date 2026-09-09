@@ -18,12 +18,16 @@ import {
 interface Props {
   result: ScheduleResult;
   mode: CalculatorMode;
-  onReset: () => void;
+  /** Persist the whole calculation and return a short shareable link. Absent
+   *  when sharing is unavailable (Supabase not configured) → button hidden. */
+  onShare?: () => Promise<string | null>;
 }
 
-function ResultsPanel({ result, mode, onReset }: Props) {
+function ResultsPanel({ result, mode, onShare }: Props) {
   const { t, i18n } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const [shareState, setShareState] = useState<
+    'idle' | 'sharing' | 'copied' | 'error'
+  >('idle');
   const [exporting, setExporting] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -126,167 +130,56 @@ function ResultsPanel({ result, mode, onReset }: Props) {
     isProfiles ? 'results.timePerItem.profiles' : 'results.timePerItem.sheets',
   );
 
-  const buildPlainText = () => {
-    const lines: string[] = [];
-    lines.push(t('app.title'));
-    if (result.productName) {
-      lines.push(`${t('settings.productName')}: ${result.productName}`);
-    }
-    lines.push('');
-    lines.push(
-      `${t('results.totalProduction')}: ${formatDuration(result.totalProductionMinutes, units)}`,
-    );
-    if (result.totalGapMinutes > 0) {
-      lines.push(
-        `${t('results.totalGap')}: ${formatDuration(result.totalGapMinutes, units)}`,
-      );
-    }
-    lines.push(
-      `${t('results.totalDuration')}: ${formatDuration(result.totalDurationMinutes, units)}`,
-    );
-    lines.push(`${t('results.endAt')}: ${formatDateTime(result.endAt, lang)}`);
-    if (isProfiles && result.totalPackages !== undefined) {
-      lines.push(`${t('results.totalPackages')}: ${result.totalPackages}`);
-    }
-    lines.push('');
-    lines.push(t('results.breakdown'));
-
-    result.rows.forEach((row, idx) => {
-      const meters = `${formatLength(row.totalLengthM)} m`;
-      const profilesCount = profilesCountFor(row);
-      const head =
-        profilesCount !== undefined
-          ? `${profilesCount} ${t('results.col.profiles').toLowerCase()}, ${meters}`
-          : meters;
-      const pkgPart =
-        isProfiles && row.packages !== undefined
-          ? `  →  ${row.packages} ${t('results.col.packages').toLowerCase()}`
-          : '';
-      const namePart = row.order.productName
-        ? ` ${row.order.productName}`
-        : '';
-      const perItemMin = perItemMinFor(row);
-      const perItemPart =
-        perItemMin !== undefined
-          ? `  ·  ${timePerItemLabel}: ${formatDuration(perItemMin, units)}`
-          : '';
-      lines.push(
-        `#${idx + 1}${namePart}  ${head}  @ ${row.speedMPerMin} m/min  →  ${formatDuration(row.remainingMinutes, units)}  (${formatShortDateTime(row.start, lang)} – ${formatShortDateTime(row.end, lang)})${pkgPart}${perItemPart}`,
-      );
-
-      if (row.segments && row.segments.length > 1) {
-        const unit = isProfiles
-          ? t('results.col.profiles').toLowerCase()
-          : t('results.col.sheets').toLowerCase();
-        row.segments.forEach((seg, sIdx) => {
-          const pcs =
-            seg.pieces !== undefined ? ` · ${seg.pieces} ${unit}` : '';
-          lines.push(
-            `   • ${t('results.part', { n: sIdx + 1 })}: ${formatShortDateTime(seg.start, lang)} – ${formatShortDateTime(seg.end, lang)}  ${formatLength(seg.metersM)} m${pcs} · ${formatDuration(seg.minutes, units)}`,
-          );
-        });
-      }
-
-      if (row.sizeDetails && row.sizeDetails.length > 1) {
-        row.sizeDetails.forEach((sd, sIdx) => {
-          const sdMeters = `${formatLength(sd.metersM)} m`;
-          const sdPkg =
-            isProfiles && sd.packages !== undefined
-              ? `  →  ${sd.packages} ${t('results.col.packages').toLowerCase()}`
-              : '';
-          const sdHead = isProfiles
-            ? `${sd.sheets} prof. × ${sd.length} mm`
-            : `${sd.sheets} pz × ${sd.length} mm`;
-          lines.push(
-            `   ↳ #${idx + 1}.${sIdx + 1}  ${sdHead}  ${sdMeters}  →  ${formatDuration(sd.remainingMinutes, units)}  (${formatShortDateTime(sd.start, lang)} – ${formatShortDateTime(sd.end, lang)})${sdPkg}`,
-          );
-          // Per-size produced/remaining line.
-          const subParts: string[] = [];
-          if (sd.producedProfiles !== undefined) {
-            subParts.push(
-              `${t('results.produced')}: ${sd.producedProfiles}/${sd.sheets} prof.`,
-            );
-            if (sd.producedPackages !== undefined) {
-              subParts.push(
-                `${sd.producedPackages}${sd.packages !== undefined ? `/${sd.packages}` : ''} pacchi`,
-              );
-            }
-            if (sd.remainingProfiles !== undefined) {
-              subParts.push(`${t('results.remaining')}: ${sd.remainingProfiles}`);
-            }
-          }
-          if (sd.producedSheetsAtSize !== undefined) {
-            subParts.push(
-              `${t('results.produced')}: ${sd.producedSheetsAtSize}/${sd.sheets} pz.`,
-            );
-            if (sd.producedPalletsAtSize !== undefined) {
-              subParts.push(`${sd.producedPalletsAtSize} bancali`);
-            }
-            if (sd.remainingSheetsAtSize !== undefined) {
-              subParts.push(
-                `${t('results.remaining')}: ${sd.remainingSheetsAtSize}`,
-              );
-            }
-          }
-          if (subParts.length > 0) {
-            subParts.push(
-              `${t('results.timeToFinish')}: ${formatDuration(sd.remainingMinutes, units)}`,
-            );
-            lines.push(`        ${subParts.join(' · ')}`);
-          }
-        });
-      }
-
-      const showAggregateProduced =
-        !(row.sizeDetails && row.sizeDetails.length > 1) &&
-        (row.producedProfiles !== undefined ||
-          row.producedSheets !== undefined);
-
-      if (showAggregateProduced) {
-        const parts: string[] = [];
-        if (row.producedProfiles !== undefined) {
-          parts.push(
-            `${t('results.produced')}: ${row.producedProfiles}/${row.totalProfiles ?? '?'} prof.`,
-          );
-          if (row.producedPackages !== undefined) {
-            parts.push(`${row.producedPackages} pacchi`);
-          }
-          if (row.remainingProfiles !== undefined) {
-            parts.push(`${t('results.remaining')}: ${row.remainingProfiles}`);
-          }
-        }
-        if (row.producedSheets !== undefined) {
-          parts.push(
-            `${t('results.produced')}: ${row.producedSheets}${row.totalSheets ? `/${row.totalSheets}` : ''} pz.`,
-          );
-          if (row.producedPallets !== undefined) {
-            parts.push(`${row.producedPallets} bancali`);
-          }
-          if (row.remainingSheets !== undefined) {
-            parts.push(`${t('results.remaining')}: ${row.remainingSheets}`);
-          }
-        }
-        parts.push(
-          `${t('results.timeToFinish')}: ${formatDuration(row.remainingMinutes, units)}`,
-        );
-        if (parts.length > 0) {
-          lines.push(`     ${parts.join(' · ')}`);
-        }
-      }
-    });
-
-    return lines.join('\n');
-  };
-
-  const onCopy = async () => {
+  // Share the whole calculation as a short link (persisted to Supabase by the
+  // parent). Prefers the native share sheet on mobile; falls back to copying
+  // the link to the clipboard with a transient "copied" confirmation.
+  const onShareClick = async () => {
+    if (!onShare) return;
+    setShareState('sharing');
     try {
-      await navigator.clipboard.writeText(buildPlainText());
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      const url = await onShare();
+      if (!url) {
+        setShareState('error');
+        window.setTimeout(() => setShareState('idle'), 2200);
+        return;
+      }
+      const shareData = { title: result.productName || t('app.title'), url };
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.share === 'function' &&
+        (typeof navigator.canShare !== 'function' ||
+          navigator.canShare(shareData))
+      ) {
+        try {
+          await navigator.share(shareData);
+          setShareState('idle');
+          return;
+        } catch (err) {
+          // AbortError = user dismissed the sheet — leave silently; any other
+          // error falls through to the clipboard path so the link isn't lost.
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            setShareState('idle');
+            return;
+          }
+        }
+      }
+      await navigator.clipboard.writeText(url);
+      setShareState('copied');
+      window.setTimeout(() => setShareState('idle'), 2200);
     } catch {
-      /* ignore */
+      setShareState('error');
+      window.setTimeout(() => setShareState('idle'), 2200);
     }
   };
+
+  const shareLabel =
+    shareState === 'sharing'
+      ? t('actions.sharing')
+      : shareState === 'copied'
+        ? t('actions.linkCopied')
+        : shareState === 'error'
+          ? t('actions.shareError')
+          : t('actions.share');
 
   return (
     <section
@@ -322,20 +215,16 @@ function ResultsPanel({ result, mode, onReset }: Props) {
           >
             📷 {exporting ? t('actions.exporting') : t('actions.saveImage')}
           </button>
-          <button
-            type="button"
-            onClick={() => void onCopy()}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
-          >
-            📋 {copied ? t('actions.copied') : t('actions.copy')}
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-md bg-ink-soft px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-ink"
-          >
-            ↺ {t('actions.reset')}
-          </button>
+          {onShare && (
+            <button
+              type="button"
+              onClick={() => void onShareClick()}
+              disabled={shareState === 'sharing'}
+              className="rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-500 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              🔗 {shareLabel}
+            </button>
+          )}
         </div>
       </div>
 

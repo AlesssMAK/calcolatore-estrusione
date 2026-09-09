@@ -42,8 +42,9 @@ export interface SavedCalculation {
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
  *  small set of date fields used inside ScheduleResult. Other strings are
- *  left untouched. */
-function dateReviver(key: string, value: unknown): unknown {
+ *  left untouched. Exported so shared-calc payloads (fetched from Supabase)
+ *  can be revived with the exact same rules. */
+export function dateReviver(key: string, value: unknown): unknown {
   if (
     typeof value === 'string' &&
     (key === 'start' || key === 'end' || key === 'startAt' || key === 'endAt')

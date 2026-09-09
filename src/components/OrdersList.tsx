@@ -55,8 +55,15 @@ function OrdersList({ mode }: Props) {
   const rootError =
     typeof errors.orders?.message === 'string' ? errors.orders.message : null;
 
+  // After a new order mounts, move focus to its quantity input (Lastre/Profili
+  // pz, or the total-length field) instead of the product-name combobox — the
+  // name is inherited and stays filled, but the operator's next action is
+  // almost always entering the quantity.
+  const pendingFocusIdx = useRef<number | null>(null);
+
   const appendOrder = () => {
     const last = watchedOrders?.[watchedOrders.length - 1];
+    pendingFocusIdx.current = fields.length; // index the new order will take
     append(
       makeEmptyOrder(
         mode,
@@ -65,6 +72,13 @@ function OrdersList({ mode }: Props) {
       ),
     );
   };
+
+  useEffect(() => {
+    const idx = pendingFocusIdx.current;
+    if (idx === null) return;
+    pendingFocusIdx.current = null;
+    document.getElementById(`qty-${idx}`)?.focus();
+  }, [fields.length]);
 
   const topButtonRef = useRef<HTMLButtonElement>(null);
   const [showBottomButton, setShowBottomButton] = useState(false);
@@ -331,31 +345,44 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
       </div>
 
       {useTotalLength ? (
-        <div className="pb-5">
-          <label className={labelBase}>{t('orders.totalLength')}</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            className={`${inputBase} mt-1 sm:max-w-xs`}
-            {...register(`orders.${idx}.totalLengthM`, {
-              setValueAs: numericSetValueAs,
-            })}
-          />
-          <FieldError
-            message={
-              rowErr?.totalLengthM?.message
-                ? t(`validation.${rowErr.totalLengthM.message}`)
-                : undefined
-            }
-          />
-        </div>
+        <>
+          <div className="pb-5">
+            <label className={labelBase}>{t('orders.totalLength')}</label>
+            <input
+              id={`qty-${idx}`}
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              className={`${inputBase} mt-1 sm:max-w-xs`}
+              {...register(`orders.${idx}.totalLengthM`, {
+                setValueAs: numericSetValueAs,
+              })}
+            />
+            <FieldError
+              message={
+                rowErr?.totalLengthM?.message
+                  ? t(`validation.${rowErr.totalLengthM.message}`)
+                  : undefined
+              }
+            />
+          </div>
+          {/* Advanced section sits above the (nonexistent) scanner here too,
+              matching the sizes layout order. */}
+          <AdvancedSection idx={idx} mode={mode} t={t} />
+        </>
       ) : (
-        <SizesFieldArray orderIdx={idx} mode={mode} t={t} />
+        // Order matters: sizes → advanced → scanner. AdvancedSection is passed
+        // in so it renders between the size rows and the photo-scanner block
+        // (more convenient reach on mobile), while the scanner stays coupled to
+        // the sizes field-array state where its replace() lives.
+        <SizesFieldArray
+          orderIdx={idx}
+          mode={mode}
+          t={t}
+          afterSizes={<AdvancedSection idx={idx} mode={mode} t={t} />}
+        />
       )}
-
-      <AdvancedSection idx={idx} mode={mode} t={t} />
     </div>
   );
 }
@@ -1499,10 +1526,14 @@ function SizesFieldArray({
   orderIdx,
   mode,
   t,
+  afterSizes,
 }: {
   orderIdx: number;
   mode: CalculatorMode;
   t: TFunction;
+  /** Rendered between the size rows and the photo-scanner block (used for the
+   *  advanced section, so its order is sizes → advanced → scanner). */
+  afterSizes?: ReactNode;
 }) {
   'use no memo';
   const {
@@ -1574,6 +1605,7 @@ function SizesFieldArray({
               <div className="min-w-0">
                 <label className={labelBase}>{sheetsLabel}</label>
                 <input
+                  id={sIdx === 0 ? `qty-${orderIdx}` : undefined}
                   type="number"
                   min="1"
                   step="1"
@@ -1670,6 +1702,8 @@ function SizesFieldArray({
           );
         })}
       </div>
+
+      {afterSizes}
 
       <div className="mt-3 border-t border-neutral-200 pt-3">
         <p className={`${labelBase} mb-1.5`}>{t('orders.scan.label')}</p>
