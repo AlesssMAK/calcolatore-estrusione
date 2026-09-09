@@ -29,8 +29,14 @@ interface Props {
   settingsOpen: boolean;
   onSettingsErrors: () => void;
   /** `keepCompleted` = the "Ricalcola" button was used (keep completed orders
-   *  in the result); false/omitted = plain "Calcola" (fresh, drop completed). */
-  onResult: (result: ScheduleResult, keepCompleted?: boolean) => void;
+   *  in the result); false/omitted = plain "Calcola" (fresh, drop completed).
+   *  `values` are the submitted inputs, carried up so the parent can persist a
+   *  consistent {values, result} pair for the share-link feature. */
+  onResult: (
+    result: ScheduleResult,
+    values: FormValues,
+    keepCompleted?: boolean,
+  ) => void;
   onRequestReset: () => void;
   /** Called after a successful submit with the saved entry's id, so the parent
    *  can refresh the dropdown and keep editing the same slot. */
@@ -117,7 +123,7 @@ function CalculatorForm({
       warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
       shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
     });
-    onResult(schedule, keepCompleted);
+    onResult(schedule, values, keepCompleted);
     // Snapshot the *effective* schedule + buffers so the saved calc can be
     // advanced to "now" / recalculated later without depending on (possibly
     // changed) company settings. Mirrors what calculateSchedule just used.

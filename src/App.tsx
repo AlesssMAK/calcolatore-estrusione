@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
@@ -14,8 +14,15 @@ import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
 import type { CalculatorMode, ScheduledOrder, ScheduleResult } from './types';
 import type { FormValues } from './formSchema';
-import type { SavedCalculation } from './lib/calcHistory';
+import { deriveLabel, type SavedCalculation } from './lib/calcHistory';
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
+import { isSupabaseConfigured } from './lib/supabase';
+import {
+  createSharedCalc,
+  fetchSharedCalc,
+  type SharedPayload,
+} from './lib/sharedCalc';
+import { APP_ORIGIN } from './lib/appUrl';
 
 function CalculatorApp() {
   const { t } = useTranslation();
@@ -35,6 +42,12 @@ function CalculatorApp() {
   // When a saved calc is restored, the form remounts pre-filled with these
   // inputs; cleared on reset / tab change so the next mount is empty.
   const [restoredValues, setRestoredValues] = useState<FormValues | undefined>(
+    undefined,
+  );
+  // The form inputs that produced the currently-displayed `result`. Kept so the
+  // "share link" button can persist a consistent {values, result} pair even for
+  // a fresh Calcola (where nothing was restored). Threaded up from the form.
+  const [resultValues, setResultValues] = useState<FormValues | undefined>(
     undefined,
   );
   // The saved entry currently on screen + its "as of now" view (null when the
@@ -80,6 +93,7 @@ function CalculatorApp() {
     setSelectedMode(next);
     setResult(null);
     setRestoredValues(undefined);
+    setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
     clearRestored();
@@ -89,6 +103,7 @@ function CalculatorApp() {
   const onReset = () => {
     setResult(null);
     setRestoredValues(undefined);
+    setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
     clearRestored();
@@ -98,10 +113,16 @@ function CalculatorApp() {
   // A submit from the form. "Calcola" (keepCompleted=false) is a fresh result —
   // drop the completed orders; "Ricalcola" (keepCompleted=true) keeps them.
   // Either way it clears the advance/original banner (it's a new result now).
-  const onFormResult = (r: ScheduleResult, keepCompleted?: boolean) => {
+  // `values` are captured so the share button can persist the exact inputs.
+  const onFormResult = (
+    r: ScheduleResult,
+    values: FormValues,
+    keepCompleted?: boolean,
+  ) => {
     clearRestored();
     if (!keepCompleted) setCompletedRows([]);
     setResult(r);
+    setResultValues(values);
   };
 
   // Restore a saved calculation. If it's stale (real time has moved past its
@@ -118,10 +139,12 @@ function CalculatorApp() {
     setEditingId(entry.id); // re-Calcola updates this saved entry in place
     if (adv) {
       setRestoredValues(adv.values);
+      setResultValues(adv.values);
       setResult(adv.result);
       setCompletedRows(adv.completedRows);
     } else {
       setRestoredValues(entry.values);
+      setResultValues(entry.values);
       setResult(entry.result);
       setCompletedRows([]);
     }
@@ -133,6 +156,7 @@ function CalculatorApp() {
     if (!restoredEntry) return;
     setShowOriginal(true);
     setRestoredValues(restoredEntry.values);
+    setResultValues(restoredEntry.values);
     setResult(restoredEntry.result);
     setCompletedRows([]);
     setFormKey((k) => k + 1);
@@ -143,6 +167,7 @@ function CalculatorApp() {
     if (!advancedCalc) return;
     setShowOriginal(false);
     setRestoredValues(advancedCalc.values);
+    setResultValues(advancedCalc.values);
     setResult(advancedCalc.result);
     setCompletedRows(advancedCalc.completedRows);
     setFormKey((k) => k + 1);
@@ -178,6 +203,56 @@ function CalculatorApp() {
     if (last) restoreCompleted([last]);
   };
   const restoreAllCompleted = () => restoreCompleted(completedRows);
+
+  // Persist the whole displayed calculation to Supabase and return a short
+  // shareable link. Preserves the active company so the recipient opens the
+  // same catalog/branding. Returns null when there's nothing to share.
+  const createShareUrl = async (): Promise<string | null> => {
+    if (!result || !resultValues) return null;
+    const payload: SharedPayload = {
+      v: 1,
+      mode,
+      values: resultValues,
+      result,
+      completedRows: completedRows.length > 0 ? completedRows : undefined,
+      label: deriveLabel(result),
+    };
+    const id = await createSharedCalc(payload);
+    const params = new URLSearchParams();
+    params.set('shared', id);
+    if (company) params.set('company', company.slug);
+    return `${APP_ORIGIN}/?${params.toString()}`;
+  };
+
+  // On first load, hydrate a shared calculation from a ?shared=<id> link:
+  // fetch it, refill the form + show the result as-is (no auto-advance), then
+  // strip the ?shared= param (keeping ?company=) so a reload doesn't re-fetch.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('shared');
+    if (!id) return;
+    let cancelled = false;
+    void fetchSharedCalc(id).then((payload) => {
+      if (cancelled || !payload) return;
+      if (payload.mode !== mode) setSelectedMode(payload.mode);
+      clearRestored();
+      setEditingId(undefined); // a shared calc isn't tied to a local saved slot
+      setRestoredValues(payload.values);
+      setResultValues(payload.values);
+      setResult(payload.result);
+      setCompletedRows(payload.completedRows ?? []);
+      setFormKey((k) => k + 1);
+      scrollToResults();
+      params.delete('shared');
+      const qs = params.toString();
+      window.history.replaceState(null, '', qs ? `/?${qs}` : '/');
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Run once on mount; `mode` is read for the initial comparison only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-full bg-surface-alt">
@@ -233,7 +308,7 @@ function CalculatorApp() {
             <ResultsPanel
               result={withCompleted(result, completedRows)}
               mode={mode}
-              onReset={onReset}
+              onShare={isSupabaseConfigured ? createShareUrl : undefined}
             />
           ) : (
             <div className="no-print rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft sm:p-6">
