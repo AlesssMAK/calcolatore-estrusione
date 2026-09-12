@@ -165,7 +165,9 @@
       "sheets": "Tiempo por lámina",
       "profiles": "Tiempo por perfil"
     },
-    "completed": "Completado"
+    "completed": "Completado",
+    "advanceFailed": "No se pudo actualizar el cálculo guardado a «ahora» — se muestra como se guardó.",
+    "renderError": "No se pudo mostrar este cálculo guardado."
   },
   "units": {
     "day": "d",

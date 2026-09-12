@@ -165,7 +165,9 @@
       "sheets": "Tempo per lastra",
       "profiles": "Tempo per profilo"
     },
-    "completed": "Completato"
+    "completed": "Completato",
+    "advanceFailed": "Impossibile aggiornare il calcolo salvato ad «ora» — mostrato com'era salvato.",
+    "renderError": "Impossibile mostrare questo calcolo salvato."
   },
   "units": {
     "day": "g",
