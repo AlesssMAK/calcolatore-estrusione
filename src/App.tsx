@@ -7,6 +7,7 @@ import CalculatorForm from './components/CalculatorForm';
 import ResultsPanel from './components/ResultsPanel';
 import AdvanceBanner from './components/AdvanceBanner';
 import RestoreCompletedButton from './components/RestoreCompletedButton';
+import ErrorBoundary from './components/ErrorBoundary';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -66,6 +67,9 @@ function CalculatorApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
+  // Set when advancing a restored calc to "now" throws — the saved result is
+  // shown as-is instead, and a small note explains why.
+  const [restoreAdvanceFailed, setRestoreAdvanceFailed] = useState(false);
 
   // Prepend already-completed orders (shown as done) to a result for display.
   const withCompleted = (
@@ -86,6 +90,7 @@ function CalculatorApp() {
     setRestoredEntry(null);
     setAdvancedCalc(null);
     setShowOriginal(false);
+    setRestoreAdvanceFailed(false);
   };
 
   const onModeChange = (next: CalculatorMode) => {
@@ -132,7 +137,18 @@ function CalculatorApp() {
   // recalculate. Switch tab if the saved mode differs from the current one.
   const onRestore = (entry: SavedCalculation) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
-    const adv = buildAdvancedCalc(entry, new Date());
+    // Advancing a malformed saved entry must never leave its row un-openable:
+    // on failure fall back to showing the saved result as-is (and note why),
+    // so the click always does something instead of silently dying.
+    let adv: AdvancedCalc | null = null;
+    try {
+      adv = buildAdvancedCalc(entry, new Date());
+      setRestoreAdvanceFailed(false);
+    } catch (err) {
+      console.error('Failed to advance saved calc', entry.id, err);
+      adv = null;
+      setRestoreAdvanceFailed(true);
+    }
     setRestoredEntry(entry);
     setAdvancedCalc(adv);
     setShowOriginal(false);
@@ -304,12 +320,36 @@ function CalculatorApp() {
               onRestoreAll={restoreAllCompleted}
             />
           )}
+          {result && restoreAdvanceFailed && (
+            <div className="no-print mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+              {t('results.advanceFailed')}
+            </div>
+          )}
           {result ? (
-            <ResultsPanel
-              result={withCompleted(result, completedRows)}
-              mode={mode}
-              onShare={isSupabaseConfigured ? createShareUrl : undefined}
-            />
+            <ErrorBoundary
+              key={formKey}
+              fallback={(error) => (
+                <div className="rounded-xl border border-danger/40 bg-red-50 p-4 text-sm text-danger sm:p-5">
+                  <p className="font-semibold">{t('results.renderError')}</p>
+                  <p className="mt-1 break-words font-mono text-xs opacity-80">
+                    {error.message}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onReset}
+                    className="mt-3 rounded-md bg-ink-soft px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-ink"
+                  >
+                    ↺ {t('actions.reset')}
+                  </button>
+                </div>
+              )}
+            >
+              <ResultsPanel
+                result={withCompleted(result, completedRows)}
+                mode={mode}
+                onShare={isSupabaseConfigured ? createShareUrl : undefined}
+              />
+            </ErrorBoundary>
           ) : (
             <div className="no-print rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft sm:p-6">
               {t('results.empty')}
