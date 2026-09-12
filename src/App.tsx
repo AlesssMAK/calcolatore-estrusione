@@ -327,10 +327,7 @@ function CalculatorApp() {
           )}
           {result && restoreAdvanceError && (
             <div className="no-print mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-              <p>{t('results.advanceFailed')}</p>
-              <p className="mt-1 break-words font-mono text-xs opacity-80">
-                {restoreAdvanceError}
-              </p>
+              {t('results.advanceFailed')}
             </div>
           )}
           {result ? (

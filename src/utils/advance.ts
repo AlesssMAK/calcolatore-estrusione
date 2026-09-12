@@ -80,6 +80,28 @@ export function buildAdvancedCalc(
   const completedRows: ScheduledOrder[] = [...(entry.completedRows ?? [])];
   const activeOrders: FormValues['orders'] = [];
 
+  // Replay speed + cavity inheritance across the original orders. Only the
+  // first order carries a required speed; later ones inherit it (same for the
+  // cavity multiplier). Once earlier orders are split off as completed, the new
+  // first active order would lose those inherited values — the re-calc then
+  // throws "speedMPerMin required on the first order" (and cavity would wrongly
+  // reset to 1). So materialize the resolved values onto each order, keeping
+  // every active order self-contained.
+  let lastSpeed: number | undefined;
+  let lastCavity: number | undefined;
+  const resolvedSpeed: (number | undefined)[] = [];
+  const resolvedCavity: (number | undefined)[] = [];
+  values.orders.forEach((order) => {
+    if (order.speedMPerMin && order.speedMPerMin > 0) {
+      lastSpeed = order.speedMPerMin;
+    }
+    resolvedSpeed.push(lastSpeed);
+    const ownCavity =
+      order.cavity && order.cavity > 0 ? order.cavity : undefined;
+    resolvedCavity.push(ownCavity ?? lastCavity);
+    if (ownCavity) lastCavity = ownCavity;
+  });
+
   values.orders.forEach((order, i) => {
     const p = progress.orders[i];
 
@@ -90,8 +112,15 @@ export function buildAdvancedCalc(
       return;
     }
 
-    // Still active → inject produced-so-far and keep it editable.
-    if (order.useTotalLength) {
+    // Still active → inject produced-so-far and keep it editable. Stamp the
+    // inherited speed/cavity so the order stands alone if it's now the first.
+    const base = {
+      ...order,
+      speedMPerMin: resolvedSpeed[i] ?? order.speedMPerMin,
+      cavity: resolvedCavity[i] ?? order.cavity,
+    };
+
+    if (base.useTotalLength) {
       // Total-meters: elapsed meters as a single 1 m-unit produced batch
       // (count = meters, length = 1000 mm) → flows through count×length.
       const meters = Math.round(p?.producedLengthM ?? 0);
@@ -101,7 +130,7 @@ export function buildAdvancedCalc(
       activeOrders.push(
         mode === 'profiles'
           ? {
-              ...order,
+              ...base,
               producedProfiles: count,
               producedItemLength: length,
               profilesPerPackage: empty,
@@ -110,7 +139,7 @@ export function buildAdvancedCalc(
               producedPallets: [],
             }
           : {
-              ...order,
+              ...base,
               producedSheets: count,
               producedItemLength: length,
               sheetsPerPallet: empty,
@@ -131,8 +160,8 @@ export function buildAdvancedCalc(
     // double-count. Rate arrays stay (they drive totals).
     activeOrders.push(
       mode === 'profiles'
-        ? { ...order, producedProfiles: produced, producedPackages: [] }
-        : { ...order, producedSheets: produced, producedPallets: [] },
+        ? { ...base, producedProfiles: produced, producedPackages: [] }
+        : { ...base, producedSheets: produced, producedPallets: [] },
     );
   });
 
