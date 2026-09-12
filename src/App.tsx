@@ -67,9 +67,12 @@ function CalculatorApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Bumped after each successful save so the dropdown re-reads history.
   const [savedRefreshKey, setSavedRefreshKey] = useState(0);
-  // Set when advancing a restored calc to "now" throws — the saved result is
-  // shown as-is instead, and a small note explains why.
-  const [restoreAdvanceFailed, setRestoreAdvanceFailed] = useState(false);
+  // Set to the error message when advancing a restored calc to "now" throws —
+  // the saved result is shown as-is instead, and the note surfaces the actual
+  // message (so the cause is visible even on a phone with no console).
+  const [restoreAdvanceError, setRestoreAdvanceError] = useState<string | null>(
+    null,
+  );
 
   // Prepend already-completed orders (shown as done) to a result for display.
   const withCompleted = (
@@ -90,7 +93,7 @@ function CalculatorApp() {
     setRestoredEntry(null);
     setAdvancedCalc(null);
     setShowOriginal(false);
-    setRestoreAdvanceFailed(false);
+    setRestoreAdvanceError(null);
   };
 
   const onModeChange = (next: CalculatorMode) => {
@@ -143,11 +146,13 @@ function CalculatorApp() {
     let adv: AdvancedCalc | null = null;
     try {
       adv = buildAdvancedCalc(entry, new Date());
-      setRestoreAdvanceFailed(false);
+      setRestoreAdvanceError(null);
     } catch (err) {
       console.error('Failed to advance saved calc', entry.id, err);
       adv = null;
-      setRestoreAdvanceFailed(true);
+      setRestoreAdvanceError(
+        err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      );
     }
     setRestoredEntry(entry);
     setAdvancedCalc(adv);
@@ -320,9 +325,12 @@ function CalculatorApp() {
               onRestoreAll={restoreAllCompleted}
             />
           )}
-          {result && restoreAdvanceFailed && (
+          {result && restoreAdvanceError && (
             <div className="no-print mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-              {t('results.advanceFailed')}
+              <p>{t('results.advanceFailed')}</p>
+              <p className="mt-1 break-words font-mono text-xs opacity-80">
+                {restoreAdvanceError}
+              </p>
             </div>
           )}
           {result ? (
