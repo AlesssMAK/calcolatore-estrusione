@@ -89,4 +89,47 @@ describe('buildAdvancedCalc', () => {
     expect(adv!.values.orders[0]!.id).toBe('b');
     expect(adv!.result.rows).toHaveLength(1);
   });
+
+  it('materializes inherited speed when the first order is completed', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    const values = {
+      settings: {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      orders: [
+        { id: 'a', sheets: 120, sheetLengthMm: 1000, speedMPerMin: 1 }, // first: speed set
+        { id: 'b', sheets: 300, sheetLengthMm: 1000 }, // inherits 'a' speed
+      ],
+    } as unknown as FormValues;
+    const result = calculateSchedule(values.settings, values.orders, {
+      now: start,
+    });
+    const snapshot: ScheduleSnapshot = {
+      warmupMinutes: 0,
+      shutdownMinutes: 0,
+      schedule: null,
+    };
+    const entry: SavedCalculation = {
+      id: 'x',
+      ts: start.getTime(),
+      label: 't',
+      result,
+      values,
+      snapshot,
+    };
+    // now = Mon 10:00 → 'a' finished, 'b' active and now the first order.
+    // Without materializing the inherited speed, the re-calc would throw
+    // "speedMPerMin required on the first order".
+    let adv: ReturnType<typeof buildAdvancedCalc> = null;
+    expect(() => {
+      adv = buildAdvancedCalc(entry, localDate(2026, 4, 11, 10));
+    }).not.toThrow();
+    expect(adv).not.toBeNull();
+    expect(adv!.values.orders).toHaveLength(1);
+    expect(adv!.values.orders[0]!.id).toBe('b');
+    expect(adv!.values.orders[0]!.speedMPerMin).toBe(1);
+    expect(adv!.result.rows).toHaveLength(1);
+  });
 });
