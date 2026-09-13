@@ -8,12 +8,25 @@ import type {
   ScheduledSizeDetail,
 } from '../types';
 import { calculateTotalProfiles } from '../utils/calculator';
+import MarqueeText from './MarqueeText';
 import UnitsTimeline from './UnitsTimeline';
 import {
   formatDateTime,
   formatShortDateTime,
   formatDuration,
 } from '../utils/format';
+
+// An order counts as "done" (✓ Completato) either when it was split off as
+// already-produced during advance (row.completed), or when it's still in the
+// result but fully produced — its whole production time was entered as done, so
+// nothing remains. productionMinutes>0 excludes empty rows; a fresh (un-entered)
+// order keeps its full remainingMinutes, so this never misfires on it.
+function isRowDone(row: ScheduledOrder): boolean {
+  return (
+    row.completed === true ||
+    (row.productionMinutes >= 0.5 && row.remainingMinutes < 0.5)
+  );
+}
 
 interface Props {
   result: ScheduleResult;
@@ -273,26 +286,28 @@ function ResultsPanel({ result, mode, onShare }: Props) {
           {result.rows.map((row, idx) => {
             const profilesCount = profilesCountFor(row);
             const perItemMin = perItemMinFor(row);
+            const done = isRowDone(row);
             return (
               <li
                 key={row.order.id}
                 className={`rounded-lg border p-3 ${
-                  row.completed
+                  done
                     ? 'border-success/30 bg-success/5'
                     : 'border-neutral-200 bg-surface-alt'
                 }`}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
                       #{idx + 1}
                     </span>
                     {row.order.productName && (
-                      <span className="truncate text-xs font-medium text-ink">
-                        {row.order.productName}
-                      </span>
+                      <MarqueeText
+                        text={row.order.productName}
+                        className="text-xs font-medium text-ink"
+                      />
                     )}
-                    {row.completed && (
+                    {done && (
                       <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         ✓ {t('results.completed')}
                       </span>
@@ -524,6 +539,7 @@ function ResultsPanel({ result, mode, onShare }: Props) {
               {result.rows.map((row, idx) => {
                 const profilesCount = profilesCountFor(row);
                 const perItemMin = perItemMinFor(row);
+                const done = isRowDone(row);
                 const hasProduced =
                   row.producedProfiles !== undefined ||
                   row.producedSheets !== undefined;
@@ -548,7 +564,7 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                 return (
                   <Fragment key={row.order.id}>
                     <tr
-                      className={`${mainRowBorder}${row.completed ? ' bg-success/5' : ''}`}
+                      className={`${mainRowBorder}${done ? ' bg-success/5' : ''}`}
                     >
                       <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
                         #{idx + 1}
@@ -557,7 +573,7 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                             {row.order.productName}
                           </span>
                         )}
-                        {row.completed && (
+                        {done && (
                           <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-success">
                             ✓ {t('results.completed')}
                           </span>
