@@ -112,7 +112,7 @@ export function loadHistory(
 export function saveCalculation(
   result: ScheduleResult,
   values: FormValues,
-  snapshot: ScheduleSnapshot,
+  snapshot: ScheduleSnapshot | undefined,
   label: string,
   maxEntries: number = DEFAULT_MAX_ENTRIES,
   retentionDays: number = DEFAULT_RETENTION_DAYS,

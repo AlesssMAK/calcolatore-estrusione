@@ -15,7 +15,12 @@ import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
 import type { CalculatorMode, ScheduledOrder, ScheduleResult } from './types';
 import type { FormValues } from './formSchema';
-import { deriveLabel, type SavedCalculation } from './lib/calcHistory';
+import {
+  deriveLabel,
+  loadHistory,
+  saveCalculation,
+  type SavedCalculation,
+} from './lib/calcHistory';
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
@@ -230,6 +235,12 @@ function CalculatorApp() {
   // same catalog/branding. Returns null when there's nothing to share.
   const createShareUrl = async (): Promise<string | null> => {
     if (!result || !resultValues) return null;
+    // Carry the snapshot from the saved entry this result is bound to, so the
+    // recipient's saved copy can be advanced to "now" like any local calc.
+    const snapshot = editingId
+      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
+          ?.snapshot
+      : undefined;
     const payload: SharedPayload = {
       v: 1,
       mode,
@@ -237,6 +248,7 @@ function CalculatorApp() {
       result,
       completedRows: completedRows.length > 0 ? completedRows : undefined,
       label: deriveLabel(result),
+      snapshot,
     };
     const id = await createSharedCalc(payload);
     const params = new URLSearchParams();
@@ -257,11 +269,31 @@ function CalculatorApp() {
       if (cancelled || !payload) return;
       if (payload.mode !== mode) setSelectedMode(payload.mode);
       clearRestored();
-      setEditingId(undefined); // a shared calc isn't tied to a local saved slot
       setRestoredValues(payload.values);
       setResultValues(payload.values);
       setResult(payload.result);
       setCompletedRows(payload.completedRows ?? []);
+      // Save the shared calc into the recipient's local "Salvati" history so
+      // they keep a copy without having to press Calcola. A stable id keyed on
+      // the share id dedups re-opens of the same link; bind editingId to it so
+      // a later recalc updates that same slot.
+      const savedId = `shared-${id}`;
+      try {
+        saveCalculation(
+          payload.result,
+          payload.values,
+          payload.snapshot,
+          payload.label ?? deriveLabel(payload.result),
+          settings.maxSavedResults,
+          settings.savedRetentionDays,
+          savedId,
+          payload.completedRows,
+        );
+        setEditingId(savedId);
+        setSavedRefreshKey((k) => k + 1);
+      } catch {
+        setEditingId(undefined);
+      }
       setFormKey((k) => k + 1);
       scrollToResults();
       params.delete('shared');
