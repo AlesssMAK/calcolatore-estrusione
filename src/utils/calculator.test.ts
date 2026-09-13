@@ -962,6 +962,34 @@ describe('calculateSchedule — weekend shift (per-day opt-in hours)', () => {
     expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
   });
 
+  it('times a finished order at the last working moment, not the next window', () => {
+    const start = localDate(2026, 4, 10, 10); // Sun 10:00 (line closed)
+    const doneOrder: Order = {
+      id: 'done',
+      sheets: 10,
+      sheetLengthMm: 1000,
+      speedMPerMin: 1,
+      producedSheets: [{ value: 10 }], // fully produced
+    };
+    const activeOrder: Order = {
+      id: 'active',
+      sheets: 120,
+      sheetLengthMm: 1000,
+      speedMPerMin: 1,
+    };
+    const r = calculateSchedule(wk(satOnly(), start), [doneOrder, activeOrder], {
+      now: start,
+    });
+    const done = r.rows.find((x) => x.order.id === 'done')!;
+    const active = r.rows.find((x) => x.order.id === 'active')!;
+    // Finished order is timed at Saturday's close (14:00), not the coming Monday.
+    expect(done.remainingMinutes).toBe(0);
+    expect(done.start.getTime()).toBe(localDate(2026, 4, 9, 14).getTime());
+    expect(done.end.getTime()).toBe(localDate(2026, 4, 9, 14).getTime());
+    // Remaining work still starts Monday 06:00.
+    expect(active.start.getTime()).toBe(localDate(2026, 4, 11, 6).getTime());
+  });
+
   it('honours a Sunday-only window with its own hours', () => {
     const start = localDate(2026, 4, 10, 8); // Sun 08:00
     const weekend: WeekendWork = {
