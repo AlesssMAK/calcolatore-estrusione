@@ -258,8 +258,11 @@ function CalculatorApp() {
   };
 
   // On first load, hydrate a shared calculation from a ?shared=<id> link:
-  // fetch it, refill the form + show the result as-is (no auto-advance), then
-  // strip the ?shared= param (keeping ?company=) so a reload doesn't re-fetch.
+  // save it into the recipient's local "Salvati" history (deduped by a stable
+  // shared-<id> slot so re-opening the same link doesn't pile up copies), then
+  // open it exactly like picking it from Salvati — advanced to "now", with the
+  // "Vedi originale" toggle (and Ricalcola when there are completed orders).
+  // Finally strip ?shared= (keeping ?company=) so a reload doesn't re-fetch.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('shared');
@@ -267,35 +270,35 @@ function CalculatorApp() {
     let cancelled = false;
     void fetchSharedCalc(id).then((payload) => {
       if (cancelled || !payload) return;
-      if (payload.mode !== mode) setSelectedMode(payload.mode);
-      clearRestored();
-      setRestoredValues(payload.values);
-      setResultValues(payload.values);
-      setResult(payload.result);
-      setCompletedRows(payload.completedRows ?? []);
-      // Save the shared calc into the recipient's local "Salvati" history so
-      // they keep a copy without having to press Calcola. A stable id keyed on
-      // the share id dedups re-opens of the same link; bind editingId to it so
-      // a later recalc updates that same slot.
       const savedId = `shared-${id}`;
+      const label = payload.label ?? deriveLabel(payload.result);
+      let entry: SavedCalculation;
       try {
-        saveCalculation(
+        entry = saveCalculation(
           payload.result,
           payload.values,
           payload.snapshot,
-          payload.label ?? deriveLabel(payload.result),
+          label,
           settings.maxSavedResults,
           settings.savedRetentionDays,
           savedId,
           payload.completedRows,
         );
-        setEditingId(savedId);
         setSavedRefreshKey((k) => k + 1);
       } catch {
-        setEditingId(undefined);
+        // Storage failed (quota/private mode) — restore from an in-memory entry
+        // so the link still opens, just without a persisted copy.
+        entry = {
+          id: savedId,
+          ts: Date.now(),
+          label,
+          result: payload.result,
+          values: payload.values,
+          snapshot: payload.snapshot,
+          completedRows: payload.completedRows,
+        };
       }
-      setFormKey((k) => k + 1);
-      scrollToResults();
+      onRestore(entry);
       params.delete('shared');
       const qs = params.toString();
       window.history.replaceState(null, '', qs ? `/?${qs}` : '/');
@@ -303,7 +306,7 @@ function CalculatorApp() {
     return () => {
       cancelled = true;
     };
-    // Run once on mount; `mode` is read for the initial comparison only.
+    // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
