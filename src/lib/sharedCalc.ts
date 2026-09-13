@@ -5,15 +5,13 @@ import type {
   CalculatorMode,
   ScheduledOrder,
   ScheduleResult,
+  ScheduleSnapshot,
 } from '../types';
 
 // A whole calculation shared via a short link. Stored as a single jsonb row in
 // the Supabase `shared_calcs` table and re-hydrated on the recipient's side
-// into filled form fields + the result panel (shown as sent, not advanced).
-//
-// Deliberately does NOT carry the ScheduleSnapshot: a shared calc is displayed
-// as-is, and if the recipient edits & recalculates, the snapshot is rebuilt
-// from their current settings — so persisting it would only add weight.
+// into filled form fields + the result panel (shown as sent, not advanced) and
+// saved into their local "Salvati" history so they keep a copy.
 export interface SharedPayload {
   /** Schema version, so an old link stays readable if the shape changes. */
   v: 1;
@@ -27,6 +25,10 @@ export interface SharedPayload {
   completedRows?: ScheduledOrder[];
   /** Human label (product name / timestamp) — currently informational. */
   label?: string;
+  /** Effective schedule + buffers used for the calc. Carried so the saved copy
+   *  can be advanced to "now" / recalculated later, exactly like a locally
+   *  saved calculation. Optional for links created before this field existed. */
+  snapshot?: ScheduleSnapshot;
 }
 
 // Short, link-friendly id. 10 chars from a 32-symbol alphabet (~50 bits) with
