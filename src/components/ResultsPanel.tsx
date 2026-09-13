@@ -28,15 +28,45 @@ function isRowDone(row: ScheduledOrder): boolean {
   );
 }
 
+// Same idea for a single size of a multi-size order.
+function isSizeDone(sd: ScheduledSizeDetail): boolean {
+  return sd.productionMinutes >= 0.5 && sd.remainingMinutes < 0.5;
+}
+
+// Small "mark fully produced" button shown per order / per size while tracking
+// a saved calc. no-print so it's excluded from the exported image / print.
+function CompleteBtn({
+  onClick,
+  label,
+}: {
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="no-print inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-success/40 bg-success/10 align-middle text-[11px] font-bold text-success transition hover:bg-success/20"
+    >
+      ✓
+    </button>
+  );
+}
+
 interface Props {
   result: ScheduleResult;
   mode: CalculatorMode;
   /** Persist the whole calculation and return a short shareable link. Absent
    *  when sharing is unavailable (Supabase not configured) → button hidden. */
   onShare?: () => Promise<string | null>;
+  /** Mark an order (or a single size) fully produced. Present only when
+   *  tracking a saved/shared calc → renders per-row "✓" buttons. */
+  onComplete?: (orderId: string, sizeIdx?: number) => void;
 }
 
-function ResultsPanel({ result, mode, onShare }: Props) {
+function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
   const { t, i18n } = useTranslation();
   const [shareState, setShareState] = useState<
     'idle' | 'sharing' | 'copied' | 'error'
@@ -326,9 +356,17 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                       </span>
                     )}
                   </div>
-                  <span className="shrink-0 text-sm font-semibold text-brand-700">
-                    {formatDuration(row.remainingMinutes, units)}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-sm font-semibold text-brand-700">
+                      {formatDuration(row.remainingMinutes, units)}
+                    </span>
+                    {onComplete && !done && (
+                      <CompleteBtn
+                        onClick={() => onComplete(row.order.id)}
+                        label={t('orders.complete')}
+                      />
+                    )}
+                  </div>
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                   {isProfiles && (
@@ -438,9 +476,19 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                             <span className="font-semibold text-brand-700">
                               ↳ #{idx + 1}.{sIdx + 1}
                             </span>
-                            <span className="font-semibold text-ink">
-                              {formatDuration(sd.remainingMinutes, units)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-ink">
+                                {formatDuration(sd.remainingMinutes, units)}
+                              </span>
+                              {onComplete && !isSizeDone(sd) && (
+                                <CompleteBtn
+                                  onClick={() =>
+                                    onComplete(row.order.id, sIdx)
+                                  }
+                                  label={t('orders.complete')}
+                                />
+                              )}
+                            </div>
                           </div>
                           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                             <dt className="text-ink-soft">
@@ -596,6 +644,14 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                             ✓ {t('results.completed')}
                           </span>
                         )}
+                        {onComplete && !done && (
+                          <span className="ml-2">
+                            <CompleteBtn
+                              onClick={() => onComplete(row.order.id)}
+                              label={t('orders.complete')}
+                            />
+                          </span>
+                        )}
                       </td>
                       {isProfiles && (
                         <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
@@ -695,6 +751,16 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                             >
                               <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap">
                                 ↳ #{idx + 1}.{sIdx + 1}
+                                {onComplete && !isSizeDone(sd) && (
+                                  <span className="ml-2">
+                                    <CompleteBtn
+                                      onClick={() =>
+                                        onComplete(row.order.id, sIdx)
+                                      }
+                                      label={t('orders.complete')}
+                                    />
+                                  </span>
+                                )}
                               </td>
                               {isProfiles && (
                                 <td className="py-1.5 pr-3">{sd.sheets}</td>

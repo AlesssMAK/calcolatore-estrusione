@@ -33,9 +33,12 @@ type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
 
 interface Props {
   mode: CalculatorMode;
+  /** When set (tracking a saved/shared calc), renders per-order and per-size
+   *  "✓ Completa" buttons that mark that order / size fully produced. */
+  onComplete?: (orderId: string, sizeIdx?: number) => void;
 }
 
-function OrdersList({ mode }: Props) {
+function OrdersList({ mode, onComplete }: Props) {
   'use no memo';
   const { t } = useTranslation();
   const {
@@ -132,6 +135,22 @@ function OrdersList({ mode }: Props) {
               <div className="mb-2 flex items-center justify-between gap-2">
                 <OrderNameField idx={idx} mode={mode} t={t} />
                 <div className="flex items-center gap-2">
+                  {onComplete && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = watchedOrders?.[idx]?.id;
+                        if (id) onComplete(id);
+                      }}
+                      title={t('orders.complete')}
+                      className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
+                    >
+                      ✓{' '}
+                      <span className="hidden sm:inline">
+                        {t('orders.complete')}
+                      </span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() =>
