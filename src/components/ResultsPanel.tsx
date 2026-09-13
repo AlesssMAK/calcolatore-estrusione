@@ -123,6 +123,19 @@ function ResultsPanel({ result, mode, onShare }: Props) {
   const formatLength = (m: number) =>
     m >= 100 ? m.toFixed(0) : m.toFixed(2).replace(/\.?0+$/, '');
 
+  // For a single-size order, the "count × length" detail to show next to the
+  // meters — mirrors what multi-size orders already show per sub-row. Null for
+  // total-meters orders and multi-size orders (which break it out per size).
+  const sizeSuffixFor = (row: ScheduledOrder): string | null => {
+    if (row.order.useTotalLength) return null;
+    const sizes = row.order.sizes ?? [];
+    if (sizes.length !== 1) return null;
+    const sheets = sizes[0]?.sheets;
+    const length = sizes[0]?.length;
+    if (!sheets || !length) return null;
+    return `${sheets}×${length}`;
+  };
+
   const profilesCountFor = (row: ScheduledOrder): number | undefined =>
     isProfiles ? calculateTotalProfiles(row.order) : undefined;
 
@@ -282,7 +295,7 @@ function ResultsPanel({ result, mode, onShare }: Props) {
         </h3>
 
         {/* Mobile: stacked cards */}
-        <ul className="space-y-2 sm:hidden">
+        <ul className="space-y-2 lg:hidden">
           {result.rows.map((row, idx) => {
             const profilesCount = profilesCountFor(row);
             const perItemMin = perItemMinFor(row);
@@ -331,6 +344,11 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                   <dt className="text-ink-soft">{t('results.col.meters')}</dt>
                   <dd className="font-medium text-ink">
                     {formatLength(row.totalLengthM)} m
+                    {sizeSuffixFor(row) && (
+                      <span className="ml-1 font-normal text-ink-soft">
+                        ({sizeSuffixFor(row)})
+                      </span>
+                    )}
                   </dd>
                   <dt className="text-ink-soft">{t('results.col.speed')}</dt>
                   <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
@@ -516,7 +534,7 @@ function ResultsPanel({ result, mode, onShare }: Props) {
         </ul>
 
         {/* Desktop: table */}
-        <div className="hidden sm:block sm:overflow-x-auto">
+        <div className="hidden lg:block lg:overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
@@ -582,8 +600,13 @@ function ResultsPanel({ result, mode, onShare }: Props) {
                       {isProfiles && (
                         <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
                       )}
-                      <td className="py-2 pr-3">
+                      <td className="py-2 pr-3 whitespace-nowrap">
                         {formatLength(row.totalLengthM)} m
+                        {sizeSuffixFor(row) && (
+                          <span className="ml-1 text-ink-soft">
+                            ({sizeSuffixFor(row)})
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 pr-3">{row.speedMPerMin}</td>
                       <td className="py-2 pr-3 font-medium">
