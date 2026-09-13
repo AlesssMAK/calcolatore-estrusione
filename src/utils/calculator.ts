@@ -257,6 +257,27 @@ function rawNextWorkingInstant(d: Date, work?: Work): Date {
   return cursor;
 }
 
+/** The last (raw) working instant at or before `d` — ignores buffers. Returns
+ *  `d` itself when it falls inside a working interval; otherwise the close of
+ *  the most recent working interval before it (e.g. a Sunday resolves back to
+ *  the previous Saturday's close). Used to time already-finished work at the
+ *  last working moment instead of jumping it to the next open window. */
+function lastWorkingInstant(d: Date, work?: Work): Date {
+  let cursor = new Date(d);
+  for (let guard = 0; guard < 21; guard++) {
+    const mod = minuteOfDay(cursor);
+    const ivs = workingIntervals(cursor.getDay(), work);
+    for (let i = ivs.length - 1; i >= 0; i--) {
+      const [s, e] = ivs[i];
+      if (mod >= s) return mod < e ? cursor : atMinute(cursor, e);
+    }
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() - 1);
+    cursor.setHours(23, 59, 59, 999);
+  }
+  return cursor;
+}
+
 export function addWorkingMinutes(
   start: Date,
   minutes: number,
@@ -920,7 +941,10 @@ export function calculateSchedule(
   };
 
   const startAt = startOf(rawStart);
-  let cursor = startAt;
+  // Cursor tracks the raw schedule position (not the forward-snapped start): a
+  // finished order sits at the last working moment, while an order with work
+  // left snaps forward to the next productive window (see `start` below).
+  let cursor = rawStart;
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
   let totalGapMinutes = 0;
@@ -1053,7 +1077,11 @@ export function calculateSchedule(
     }
 
     const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
-    const start = startOf(cursor);
+    // A finished order (nothing left to run) is timed at the last working
+    // moment before the cursor — so completing during a weekend shows e.g.
+    // "Sat 12:00", not the next Monday. Orders with work left snap forward.
+    const start =
+      remainingMinutes > 0 ? startOf(cursor) : lastWorkingInstant(cursor, work);
     const { end, segments: rawSegments } = run(start, remainingMinutes);
     // Enrich each production window with what it produces (time / meters / pcs),
     // distributed in proportion to its duration.
@@ -1280,20 +1308,38 @@ export function calculateSchedule(
     });
 
     totalProductionMinutes += remainingMinutes;
-    totalGapMinutes += gapAfterMin;
-    cursor = run(end, gapAfterMin).end;
+    // A finished order adds no real gap and must not push the cursor forward —
+    // keep it (and any following finished orders) at the last working moment
+    // instead of dragging them past the weekend into the next window.
+    if (remainingMinutes > 0) {
+      totalGapMinutes += gapAfterMin;
+      cursor = run(end, gapAfterMin).end;
+    } else {
+      cursor = end;
+    }
   });
 
-  const endAt = rows[rows.length - 1]!.end;
+  // endAt is the latest end across all rows (a finished order may be timed in
+  // the past, so it isn't necessarily the last row). startAt tracks the first
+  // order that still has work — so the total duration reflects the remaining
+  // span, not the weekend gap behind already-finished rows.
+  const endAt = new Date(
+    Math.max(...rows.map((r) => r.end.getTime())),
+  );
+  const resultStartAt =
+    rows.find((r) => r.remainingMinutes > 0)?.start ?? rows[0]?.start ?? startAt;
 
   const productName = settings.productName?.trim();
   return {
     rows,
-    startAt,
+    startAt: resultStartAt,
     endAt,
     totalProductionMinutes,
     totalGapMinutes,
-    totalDurationMinutes: (endAt.getTime() - startAt.getTime()) / 60_000,
+    totalDurationMinutes: Math.max(
+      0,
+      (endAt.getTime() - resultStartAt.getTime()) / 60_000,
+    ),
     totalPackages,
     mode,
     productName: productName ? productName : undefined,
