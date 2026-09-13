@@ -1077,11 +1077,15 @@ export function calculateSchedule(
     }
 
     const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
-    // A finished order (nothing left to run) is timed at the last working
-    // moment before the cursor — so completing during a weekend shows e.g.
-    // "Sat 12:00", not the next Monday. Orders with work left snap forward.
+    // A finished order (nothing left to run) was produced in the past, so it's
+    // timed at the last working moment before the schedule start — e.g. the
+    // previous Saturday's close — regardless of its position in the queue (the
+    // cursor may already be in the future behind active orders). Orders with
+    // work left snap forward from the cursor to the next productive window.
     const start =
-      remainingMinutes > 0 ? startOf(cursor) : lastWorkingInstant(cursor, work);
+      remainingMinutes > 0
+        ? startOf(cursor)
+        : lastWorkingInstant(rawStart, work);
     const { end, segments: rawSegments } = run(start, remainingMinutes);
     // Enrich each production window with what it produces (time / meters / pcs),
     // distributed in proportion to its duration.
