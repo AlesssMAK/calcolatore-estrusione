@@ -134,17 +134,29 @@ function CalculatorApp() {
     setFormKey((k) => k + 1);
   };
 
-  // A submit from the form. "Calcola" (keepCompleted=false) is a fresh result —
-  // drop the completed orders; "Ricalcola" (keepCompleted=true) keeps them.
+  // A submit from the form. "Calcola" (keepCompleted=false) drops the prior
+  // completed orders; "Ricalcola" (keepCompleted=true) keeps them. Orders fully
+  // produced this submit arrive in `newlyCompleted` — they leave the form (it
+  // remounts without them) and join the completed rows shown in the results.
   // Either way it clears the advance/original banner (it's a new result now).
-  // `values` are captured so the share button can persist the exact inputs.
   const onFormResult = (
     r: ScheduleResult,
     values: FormValues,
     keepCompleted?: boolean,
+    newlyCompleted: ScheduledOrder[] = [],
   ) => {
     clearRestored();
-    if (!keepCompleted) setCompletedRows([]);
+    if (newlyCompleted.length > 0) {
+      setCompletedRows((prev) => [
+        ...(keepCompleted ? prev : []),
+        ...newlyCompleted,
+      ]);
+      // Orders were split off → remount the form with only the active ones.
+      setRestoredValues(values);
+      setFormKey((k) => k + 1);
+    } else if (!keepCompleted) {
+      setCompletedRows([]);
+    }
     setResult(r);
     setResultValues(values);
   };

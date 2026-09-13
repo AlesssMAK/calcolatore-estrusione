@@ -17,6 +17,7 @@ import type {
   ScheduleSnapshot,
 } from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
+import { toCompletedRow } from '../utils/advance';
 import {
   deriveLabel,
   saveCalculation,
@@ -36,6 +37,9 @@ interface Props {
     result: ScheduleResult,
     values: FormValues,
     keepCompleted?: boolean,
+    /** Orders that were fully produced this submit — split out of the form and
+     *  shown as completed rows in the results. */
+    newlyCompleted?: ScheduledOrder[],
   ) => void;
   onRequestReset: () => void;
   /** Called after a successful submit with the saved entry's id, so the parent
@@ -134,7 +138,24 @@ function CalculatorForm({
       warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
       shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
     });
-    onResult(schedule, values, keepCompleted);
+    // Split fully-produced orders out of the editable queue: they become
+    // completed rows (shown done in the results, at their last-working-moment
+    // time) and leave the form. Rows map 1:1 to orders, so filter by index.
+    const isDone = schedule.rows.map(
+      (r) => r.productionMinutes >= 0.5 && r.remainingMinutes < 0.5,
+    );
+    const newlyCompleted = schedule.rows
+      .filter((_, i) => isDone[i])
+      .map(toCompletedRow);
+    const outValues: FormValues =
+      newlyCompleted.length > 0
+        ? { ...values, orders: values.orders.filter((_, i) => !isDone[i]) }
+        : values;
+    const outSchedule: ScheduleResult =
+      newlyCompleted.length > 0
+        ? { ...schedule, rows: schedule.rows.filter((_, i) => !isDone[i]) }
+        : schedule;
+    onResult(outSchedule, outValues, keepCompleted, newlyCompleted);
     // Snapshot the *effective* schedule + buffers so the saved calc can be
     // advanced to "now" / recalculated later without depending on (possibly
     // changed) company settings. Mirrors what calculateSchedule just used.
@@ -153,15 +174,21 @@ function CalculatorForm({
     // "Salvati" dropdown without recalculating. Best-effort: storage errors
     // are swallowed inside `saveCalculation`.
     try {
+      // Persist the active queue + the accumulated completed rows (prior ones
+      // kept only on "Ricalcola", plus any split off this submit).
+      const combinedCompleted = [
+        ...(keepCompleted ? (completedRows ?? []) : []),
+        ...newlyCompleted,
+      ];
       const saved = saveCalculation(
-        schedule,
-        values,
+        outSchedule,
+        outValues,
         snapshot,
         deriveLabel(schedule),
         catalogSettings.maxSavedResults,
         catalogSettings.savedRetentionDays,
         editingId,
-        keepCompleted ? completedRows : undefined,
+        combinedCompleted.length ? combinedCompleted : undefined,
       );
       onSaved?.(saved.id);
     } catch {
