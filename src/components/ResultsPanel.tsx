@@ -644,14 +644,6 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
                             ✓ {t('results.completed')}
                           </span>
                         )}
-                        {onComplete && !done && (
-                          <span className="ml-2">
-                            <CompleteBtn
-                              onClick={() => onComplete(row.order.id)}
-                              label={t('orders.complete')}
-                            />
-                          </span>
-                        )}
                       </td>
                       {isProfiles && (
                         <td className="py-2 pr-3">{profilesCount ?? '—'}</td>
@@ -682,7 +674,15 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
                         {formatShortDateTime(row.start, lang)}
                       </td>
                       <td className="py-2 whitespace-nowrap">
-                        {formatShortDateTime(row.end, lang)}
+                        <span className="inline-flex items-center gap-2">
+                          {formatShortDateTime(row.end, lang)}
+                          {onComplete && !done && (
+                            <CompleteBtn
+                              onClick={() => onComplete(row.order.id)}
+                              label={t('orders.complete')}
+                            />
+                          )}
+                        </span>
                       </td>
                     </tr>
                     {hasSegments &&
@@ -751,16 +751,6 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
                             >
                               <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap">
                                 ↳ #{idx + 1}.{sIdx + 1}
-                                {onComplete && !isSizeDone(sd) && (
-                                  <span className="ml-2">
-                                    <CompleteBtn
-                                      onClick={() =>
-                                        onComplete(row.order.id, sIdx)
-                                      }
-                                      label={t('orders.complete')}
-                                    />
-                                  </span>
-                                )}
                               </td>
                               {isProfiles && (
                                 <td className="py-1.5 pr-3">{sd.sheets}</td>
@@ -797,7 +787,17 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
                                 {formatShortDateTime(sd.start, lang)}
                               </td>
                               <td className="py-1.5 whitespace-nowrap">
-                                {formatShortDateTime(sd.end, lang)}
+                                <span className="inline-flex items-center gap-2">
+                                  {formatShortDateTime(sd.end, lang)}
+                                  {onComplete && !isSizeDone(sd) && (
+                                    <CompleteBtn
+                                      onClick={() =>
+                                        onComplete(row.order.id, sIdx)
+                                      }
+                                      label={t('orders.complete')}
+                                    />
+                                  )}
+                                </span>
                               </td>
                             </tr>
                             {hasProducedAtSize && (
