@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
@@ -78,6 +78,15 @@ function CalculatorApp() {
   const [restoreAdvanceError, setRestoreAdvanceError] = useState<string | null>(
     null,
   );
+  // True while viewing a calc opened from Salvati / a shared link (production
+  // tracking) — gates the per-order / per-size "✓ Completa" buttons. A fresh
+  // calc keeps it false.
+  const [fromSaved, setFromSaved] = useState(false);
+  // The form registers its "mark fully produced" handler here, so the results
+  // panel (a sibling of the form) can trigger completion too.
+  const completeRef = useRef<
+    ((orderId: string, sizeIdx?: number) => void) | null
+  >(null);
 
   // Prepend already-completed orders (shown as done) to a result for display.
   const withCompleted = (
@@ -109,6 +118,7 @@ function CalculatorApp() {
     setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
+    setFromSaved(false);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -119,6 +129,7 @@ function CalculatorApp() {
     setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
+    setFromSaved(false);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -162,6 +173,7 @@ function CalculatorApp() {
     setRestoredEntry(entry);
     setAdvancedCalc(adv);
     setShowOriginal(false);
+    setFromSaved(true); // tracking a saved calc → enable "✓ Completa" buttons
     setEditingId(entry.id); // re-Calcola updates this saved entry in place
     if (adv) {
       setRestoredValues(adv.values);
@@ -342,6 +354,10 @@ function CalculatorApp() {
           editingId={editingId}
           completedRows={completedRows}
           showRicalcola={completedRows.length > 0}
+          canComplete={fromSaved}
+          registerComplete={(fn) => {
+            completeRef.current = fn;
+          }}
         />
 
         <div id="results" className="mt-5 sm:mt-6">
@@ -388,6 +404,12 @@ function CalculatorApp() {
                 result={withCompleted(result, completedRows)}
                 mode={mode}
                 onShare={isSupabaseConfigured ? createShareUrl : undefined}
+                onComplete={
+                  fromSaved
+                    ? (orderId, sizeIdx) =>
+                        completeRef.current?.(orderId, sizeIdx)
+                    : undefined
+                }
               />
             </ErrorBoundary>
           ) : (

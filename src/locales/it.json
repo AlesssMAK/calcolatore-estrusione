@@ -93,7 +93,8 @@
       "autoFilledNote": "Prodotti finora — compilato in base al tempo trascorso"
     },
     "minRequired": "Almeno un ordine è richiesto.",
-    "expandList": "Espandi a schermo intero"
+    "expandList": "Espandi a schermo intero",
+    "complete": "Completa"
   },
   "actions": {
     "calculate": "Calcola",

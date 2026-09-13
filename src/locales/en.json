@@ -93,7 +93,8 @@
       "autoFilledNote": "Produced so far — filled from elapsed time"
     },
     "minRequired": "At least one order is required.",
-    "expandList": "Expand to full screen"
+    "expandList": "Expand to full screen",
+    "complete": "Complete"
   },
   "actions": {
     "calculate": "Calculate",

@@ -59,6 +59,15 @@ interface Props {
   completedRows?: ScheduledOrder[];
   /** Show the "Ricalcola" button (advanced view with completed orders). */
   showRicalcola?: boolean;
+  /** Show per-order / per-size "✓ Completa" buttons (only meaningful when
+   *  tracking a saved/shared calc). */
+  canComplete?: boolean;
+  /** Register the "mark fully produced" action so the results panel (a sibling
+   *  of the form) can trigger it too. Called with the current handler on mount
+   *  and null on unmount. */
+  registerComplete?: (
+    fn: ((orderId: string, sizeIdx?: number) => void) | null,
+  ) => void;
 }
 
 function CalculatorForm({
@@ -74,6 +83,8 @@ function CalculatorForm({
   editingId,
   completedRows,
   showRicalcola,
+  canComplete,
+  registerComplete,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -178,6 +189,64 @@ function CalculatorForm({
     });
   };
 
+  // Mark an order (or a single size of it) as fully produced, then recompute
+  // keeping already-completed rows (like "Ricalcola"). Used by the per-order /
+  // per-size "✓ Completa" buttons in both the form and the results panel.
+  const completeItem = (orderId: string, sizeIdx?: number) => {
+    const orders = methods.getValues('orders');
+    const idx = orders.findIndex((o) => o?.id === orderId);
+    if (idx < 0) return;
+    const o = orders[idx];
+    if (o.useTotalLength) {
+      // No per-size split — mark all meters produced (1 m-unit batch).
+      const meters = Math.round(o.totalLengthM ?? 0);
+      if (mode === 'profiles') {
+        methods.setValue(`orders.${idx}.producedProfiles`, [{ value: meters }], {
+          shouldDirty: true,
+        });
+      } else {
+        methods.setValue(`orders.${idx}.producedSheets`, [{ value: meters }], {
+          shouldDirty: true,
+        });
+      }
+      methods.setValue(`orders.${idx}.producedItemLength`, [{ value: 1000 }], {
+        shouldDirty: true,
+      });
+    } else {
+      const sizes = o.sizes ?? [];
+      const field =
+        mode === 'profiles'
+          ? (`orders.${idx}.producedProfiles` as const)
+          : (`orders.${idx}.producedSheets` as const);
+      const cur =
+        (methods.getValues(field) as
+          | { sizeIndex?: number; value?: number }[]
+          | undefined) ?? [];
+      // Fill the targeted size (or all, when sizeIdx is undefined) to its total;
+      // keep whatever was already entered for the other sizes.
+      const next = sizes.map((s, i) =>
+        sizeIdx === undefined || sizeIdx === i
+          ? { sizeIndex: i, value: s?.sheets ?? 0 }
+          : (cur[i] ?? { sizeIndex: i, value: undefined }),
+      );
+      methods.setValue(field, next, { shouldDirty: true });
+    }
+    keepCompletedRef.current = true;
+    void methods.handleSubmit(onSubmit, onInvalid)();
+  };
+
+  // Keep the registered handler pointing at the latest closure (so it uses the
+  // current editingId / settings) while exposing a stable function reference.
+  const completeRef = useRef(completeItem);
+  completeRef.current = completeItem;
+  useEffect(() => {
+    if (!registerComplete) return;
+    const fn = (orderId: string, sizeIdx?: number) =>
+      completeRef.current(orderId, sizeIdx);
+    registerComplete(fn);
+    return () => registerComplete(null);
+  }, [registerComplete]);
+
   return (
     <FormProvider {...methods}>
       <form
@@ -189,7 +258,10 @@ function CalculatorForm({
       >
         <WeekendBanner />
         {settingsOpen && <GlobalSettingsPanel mode={mode} />}
-        <OrdersList mode={mode} />
+        <OrdersList
+          mode={mode}
+          onComplete={canComplete ? completeItem : undefined}
+        />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           {onRestore && (
