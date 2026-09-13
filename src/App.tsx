@@ -241,7 +241,9 @@ function CalculatorApp() {
       settings:
         prev?.settings ??
         ({ startMode: 'now', gapMode: 'continuous' } as FormValues['settings']),
-      orders: [...(prev?.orders ?? []), ...restoredOrders],
+      // Restored orders were produced before the active ones, so they go back
+      // to the front of the queue, not the end.
+      orders: [...restoredOrders, ...(prev?.orders ?? [])],
     }));
     const restoredIds = new Set(rows.map((r) => r.order.id));
     setCompletedRows((prev) => prev.filter((r) => !restoredIds.has(r.order.id)));
