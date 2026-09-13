@@ -17,7 +17,7 @@ export interface AdvancedCalc {
  *  time window (start / end / duration / meters) but drop produced/remaining,
  *  per-size, per-unit and segment data so it renders as a single done row
  *  without confusing "produced 0/total" sub-blocks. */
-function toCompletedRow(row: ScheduledOrder): ScheduledOrder {
+export function toCompletedRow(row: ScheduledOrder): ScheduledOrder {
   return {
     ...row,
     completed: true,
