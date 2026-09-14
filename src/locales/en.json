@@ -94,7 +94,9 @@
     },
     "minRequired": "At least one order is required.",
     "expandList": "Expand to full screen",
-    "complete": "Complete"
+    "complete": "Complete",
+    "completeOrder": "Complete order",
+    "completeSize": "Complete size"
   },
   "actions": {
     "calculate": "Calculate",

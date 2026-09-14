@@ -94,7 +94,9 @@
     },
     "minRequired": "Almeno un ordine è richiesto.",
     "expandList": "Espandi a schermo intero",
-    "complete": "Completa"
+    "complete": "Completa",
+    "completeOrder": "Completa ordine",
+    "completeSize": "Completa misura"
   },
   "actions": {
     "calculate": "Calcola",
