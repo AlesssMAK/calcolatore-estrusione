@@ -1700,7 +1700,7 @@ function SizesFieldArray({
                 type="button"
                 onClick={() => removeSize(sIdx)}
                 disabled={sizeFields.length <= 1}
-                className="mb-[2px] flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9"
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9"
                 aria-label={t('orders.removeSize')}
                 title={t('orders.removeSize')}
               >
@@ -1710,7 +1710,7 @@ function SizesFieldArray({
               <button
                 type="button"
                 onClick={() => appendSize(makeEmptySize())}
-                className="mb-[2px] flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}
               >
@@ -1721,7 +1721,7 @@ function SizesFieldArray({
                 <button
                   type="button"
                   onClick={() => onCompleteSize?.(sIdx)}
-                  className="mb-[2px] flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9"
                   aria-label={t('orders.completeSize')}
                   title={t('orders.completeSize')}
                 >
