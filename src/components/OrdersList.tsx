@@ -24,8 +24,16 @@ import { numericSetValueAs } from '../utils/numeric';
 import { useCatalog } from '../contexts/CatalogContext';
 import type { OcrRow } from '../lib/ocr';
 
+// All form inputs share a fixed height: 32px on mobile, 36px on sm+ (matching
+// the +/− action buttons). Height controls the size, so no vertical padding.
 const inputBase =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
+  'h-8 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9';
+// Size-row inputs sit next to the +/−/✓ action buttons. Fixed height so they
+// line up with the buttons — 36px on sm+ (= button height), a smaller 32px on
+// mobile (with the buttons also shrunk) so the buttons take less room and the
+// number fields get more width. Height controls the size, so no vertical pad.
+const sizeInputBase =
+  'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 const labelBase =
   'block text-xs font-medium tracking-wide text-ink-soft uppercase';
 
@@ -941,9 +949,9 @@ function arrayPositionsForSize(
 }
 
 const sizeBlockInputCls =
-  'w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-2 sm:text-sm';
+  'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 const sizeBlockBtnBase =
-  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
 
 function SizeBlockHeader({
   sizeIdx,
@@ -1361,7 +1369,7 @@ function BatchInput({
       step="1"
       inputMode="numeric"
       disabled={disabled}
-      className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-2.5 sm:py-1.5 sm:text-sm"
+      className="h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-2.5 sm:text-sm"
       {...register(
         `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
         { setValueAs: numericSetValueAs },
@@ -1616,7 +1624,7 @@ function SizesFieldArray({
                   min="1"
                   step="1"
                   inputMode="numeric"
-                  className={`${inputBase} mt-1`}
+                  className={`${sizeInputBase} mt-1`}
                   {...register(`orders.${orderIdx}.sizes.${sIdx}.sheets`, {
                     setValueAs: numericSetValueAs,
                   })}
@@ -1637,7 +1645,7 @@ function SizesFieldArray({
                   min="1"
                   step="1"
                   inputMode="numeric"
-                  className={`${inputBase} mt-1`}
+                  className={`${sizeInputBase} mt-1`}
                   {...register(`orders.${orderIdx}.sizes.${sIdx}.length`, {
                     setValueAs: numericSetValueAs,
                   })}
@@ -1670,7 +1678,7 @@ function SizesFieldArray({
                     min="1"
                     step="1"
                     inputMode="numeric"
-                    className={`${inputBase} mt-1`}
+                    className={`${sizeInputBase} mt-1`}
                     {...register(
                       `orders.${orderIdx}.sizes.${sIdx}.profilesPerPackage`,
                       { setValueAs: numericSetValueAs },
@@ -1692,7 +1700,7 @@ function SizesFieldArray({
                 type="button"
                 onClick={() => removeSize(sIdx)}
                 disabled={sizeFields.length <= 1}
-                className="mb-[2px] flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft"
+                className="mb-[2px] flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9"
                 aria-label={t('orders.removeSize')}
                 title={t('orders.removeSize')}
               >
@@ -1702,7 +1710,7 @@ function SizesFieldArray({
               <button
                 type="button"
                 onClick={() => appendSize(makeEmptySize())}
-                className="mb-[2px] flex h-9 w-9 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50"
+                className="mb-[2px] flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}
               >
@@ -1713,7 +1721,7 @@ function SizesFieldArray({
                 <button
                   type="button"
                   onClick={() => onCompleteSize?.(sIdx)}
-                  className="mb-[2px] flex h-9 w-9 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20"
+                  className="mb-[2px] flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9"
                   aria-label={t('orders.completeSize')}
                   title={t('orders.completeSize')}
                 >

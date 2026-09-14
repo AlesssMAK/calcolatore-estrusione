@@ -464,9 +464,12 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
                 {row.sizeDetails && row.sizeDetails.length > 1 && (
                   <ul className="mt-2 space-y-1.5">
                     {row.sizeDetails.map((sd, sIdx) => {
+                      // Hide the "produced X/X" block for a finished size — the
+                      // ✓ already marks it done.
                       const hasProducedAtSize =
-                        sd.producedProfiles !== undefined ||
-                        sd.producedSheetsAtSize !== undefined;
+                        (sd.producedProfiles !== undefined ||
+                          sd.producedSheetsAtSize !== undefined) &&
+                        !isSizeDone(sd);
                       return (
                         <li
                           key={sIdx}
@@ -735,9 +738,12 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
                       row.sizeDetails!.map((sd, sIdx) => {
                         const isLastSub =
                           sIdx === row.sizeDetails!.length - 1;
+                        // A finished size needs no "produced X/X" block — the
+                        // ✓ already says it's done — so treat it as no-produced.
                         const hasProducedAtSize =
-                          sd.producedProfiles !== undefined ||
-                          sd.producedSheetsAtSize !== undefined;
+                          (sd.producedProfiles !== undefined ||
+                            sd.producedSheetsAtSize !== undefined) &&
+                          !isSizeDone(sd);
                         return (
                           <Fragment key={sIdx}>
                             <tr
