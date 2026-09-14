@@ -142,12 +142,12 @@ function OrdersList({ mode, onComplete }: Props) {
                         const id = watchedOrders?.[idx]?.id;
                         if (id) onComplete(id);
                       }}
-                      title={t('orders.complete')}
+                      title={t('orders.completeOrder')}
                       className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
                     >
                       ✓{' '}
                       <span className="hidden sm:inline">
-                        {t('orders.complete')}
+                        {t('orders.completeOrder')}
                       </span>
                     </button>
                   )}
@@ -196,6 +196,14 @@ function OrdersList({ mode, onComplete }: Props) {
                 showGap={showGap}
                 mode={mode}
                 t={t}
+                onCompleteSize={
+                  onComplete
+                    ? (sizeIdx) => {
+                        const id = watchedOrders?.[idx]?.id;
+                        if (id) onComplete(id, sizeIdx);
+                      }
+                    : undefined
+                }
               />
             </div>
           );
@@ -223,9 +231,18 @@ interface FieldsProps {
   showGap: boolean;
   mode: CalculatorMode;
   t: TFunction;
+  /** Mark a single size fully produced (bound to this order's id). */
+  onCompleteSize?: (sizeIdx: number) => void;
 }
 
-function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
+function OrderFields({
+  idx,
+  rowErr,
+  showGap,
+  mode,
+  t,
+  onCompleteSize,
+}: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
   const useTotalLength = useWatch({
@@ -399,6 +416,7 @@ function OrderFields({ idx, rowErr, showGap, mode, t }: FieldsProps) {
           orderIdx={idx}
           mode={mode}
           t={t}
+          onCompleteSize={onCompleteSize}
           afterSizes={<AdvancedSection idx={idx} mode={mode} t={t} />}
         />
       )}
@@ -1504,6 +1522,7 @@ function SizesFieldArray({
   mode,
   t,
   afterSizes,
+  onCompleteSize,
 }: {
   orderIdx: number;
   mode: CalculatorMode;
@@ -1511,6 +1530,9 @@ function SizesFieldArray({
   /** Rendered between the size rows and the photo-scanner block (used for the
    *  advanced section, so its order is sizes → advanced → scanner). */
   afterSizes?: ReactNode;
+  /** Mark a single size fully produced (bound to this order's id). Renders a
+   *  per-size "✓" button after the +/− controls (multi-size orders only). */
+  onCompleteSize?: (sizeIdx: number) => void;
 }) {
   'use no memo';
   const {
@@ -1571,9 +1593,16 @@ function SizesFieldArray({
           const showPerPackage = isProfiles && sizeFields.length > 1;
           // Mobile: always 4 cols (sheets, length, −, +); perPackage wraps to its own row.
           // sm+ : 5 cols when perPackage shows, otherwise 4.
+          // Per-size "✓" completa button adds one more auto column (multi-size
+          // orders only). Class strings are literal so Tailwind generates them.
+          const showSizeComplete = !!onCompleteSize && sizeFields.length > 1;
           const gridCols = showPerPackage
-            ? 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
-            : 'grid-cols-[1fr_1fr_auto_auto]';
+            ? showSizeComplete
+              ? 'grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]'
+              : 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
+            : showSizeComplete
+              ? 'grid-cols-[1fr_1fr_auto_auto_auto]'
+              : 'grid-cols-[1fr_1fr_auto_auto]';
           return (
             <div
               key={sizeField.id}
@@ -1623,7 +1652,11 @@ function SizesFieldArray({
               </div>
 
               {showPerPackage && (
-                <div className="col-span-4 min-w-0 sm:col-span-1">
+                <div
+                  className={`min-w-0 sm:col-span-1 ${
+                    showSizeComplete ? 'col-span-5' : 'col-span-4'
+                  }`}
+                >
                   <label className={labelBase}>
                     {t('orders.profilesPerPackage')}
                     {sIdx > 0 && (
@@ -1675,6 +1708,18 @@ function SizesFieldArray({
               >
                 +
               </button>
+
+              {showSizeComplete && (
+                <button
+                  type="button"
+                  onClick={() => onCompleteSize?.(sIdx)}
+                  className="mb-[2px] flex h-9 w-9 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20"
+                  aria-label={t('orders.completeSize')}
+                  title={t('orders.completeSize')}
+                >
+                  ✓
+                </button>
+              )}
             </div>
           );
         })}
