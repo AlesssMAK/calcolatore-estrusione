@@ -17,24 +17,24 @@
   "settings": {
     "title": "Global Settings",
     "startMode": {
-      "label": "Start point",
+      "label": "Start Point",
       "now": "Now",
-      "manual": "Set date and time manually"
+      "manual": "Set Date and Time Manually"
     },
-    "startAt": "Start date and time",
+    "startAt": "Start Date and Time",
     "startAtPastWarning": "The start date is in the past.",
     "gapMode": {
-      "label": "Gaps between orders",
+      "label": "Gaps Between Orders",
       "continuous": "Continuous (no breaks)",
       "withGaps": "With gaps between orders"
     },
     "toggle": {
-      "manualStart": "Set time",
-      "gaps": "Gaps between orders",
-      "productName": "Product name",
-      "weekend": "Line schedule"
+      "manualStart": "Set Time",
+      "gaps": "Gaps Between Orders",
+      "productName": "Product Name",
+      "weekend": "Line Schedule"
     },
-    "productName": "Product name",
+    "productName": "Product Name",
     "productNamePlaceholder": {
       "sheets": "e.g. Multiwall sheet 6 mm",
       "profiles": "e.g. H-profile 16 mm"
@@ -58,56 +58,56 @@
     }
   },
   "orders": {
-    "title": "Order queue",
+    "title": "Order Queue",
     "add": "+ Add",
     "remove": "Remove",
     "number": "#",
     "sheets": "Sheets (pcs)",
     "profiles": "Profiles (pcs)",
-    "sheetLength": "Sheet length (mm)",
-    "profileLength": "Profile length (mm)",
+    "sheetLength": "Sheet Length (mm)",
+    "profileLength": "Profile Length (mm)",
     "speed": "Speed (m/min)",
-    "gapAfter": "Gap after (min)",
-    "profilesPerPackage": "Profiles per package",
-    "productName": "Product name",
-    "addSize": "Add size",
-    "removeSize": "Remove size",
+    "gapAfter": "Gap After (min)",
+    "profilesPerPackage": "Profiles per Package",
+    "productName": "Product Name",
+    "addSize": "Add Size",
+    "removeSize": "Remove Size",
     "scan": {
-      "label": "Read sizes from photo",
-      "take": "Take photo",
+      "label": "Read Sizes From Photo",
+      "take": "Take Photo",
       "upload": "Upload",
       "hint": "Crop the Length and Quantity columns, then read."
     },
-    "toggleTotalLength": "Total meters",
-    "totalLength": "Total meters",
+    "toggleTotalLength": "Total Meters",
+    "totalLength": "Total Meters",
     "optionalInherit": "optional — inherits",
     "cavity": "Cavities",
     "cavityHint": "optional — multiplies the speed",
-    "advancedToggle": "Advanced calculation",
+    "advancedToggle": "Advanced Calculation",
     "advanced": {
-      "profilesProduced": "Profiles produced",
-      "packagesProduced": "Packages produced",
-      "sheetsProduced": "Sheets produced",
-      "sheetsPerPallet": "Sheets per pallet",
-      "palletsProduced": "Pallets produced",
+      "profilesProduced": "Profiles Produced",
+      "packagesProduced": "Packages Produced",
+      "sheetsProduced": "Sheets Produced",
+      "sheetsPerPallet": "Sheets per Pallet",
+      "palletsProduced": "Pallets Produced",
       "autoFilledNote": "Produced so far — filled from elapsed time"
     },
     "minRequired": "At least one order is required.",
     "expandList": "Expand to full screen",
     "complete": "Complete",
-    "completeOrder": "Complete order",
-    "completeSize": "Complete size"
+    "completeOrder": "Complete Order",
+    "completeSize": "Complete Size"
   },
   "actions": {
     "calculate": "Calculate",
-    "reset": "New calculation",
+    "reset": "New Calculation",
     "print": "Print",
     "copy": "Copy",
-    "share": "Share link",
-    "sharing": "Creating link…",
-    "linkCopied": "Link copied!",
+    "share": "Share Link",
+    "sharing": "Creating Link…",
+    "linkCopied": "Link Copied!",
     "shareError": "Error",
-    "saveImage": "Share photo",
+    "saveImage": "Share Photo",
     "exporting": "Saving…",
     "saved": "Saved",
     "recalc": "Recalculate",
@@ -115,7 +115,7 @@
     "close": "Close"
   },
   "saved": {
-    "title": "Saved calculations",
+    "title": "Saved Calculations",
     "empty": "No saved calculations.",
     "restore": "Restore",
     "delete": "Delete",
@@ -123,21 +123,21 @@
   },
   "results": {
     "title": "Result",
-    "totalProduction": "Total net production time",
-    "totalGap": "Total gap time",
-    "endAt": "Queue finish",
-    "totalDuration": "Total duration",
-    "totalPackages": "Total packages",
-    "breakdown": "Per-order breakdown",
+    "totalProduction": "Total Net Production Time",
+    "totalGap": "Total Gap Time",
+    "endAt": "Queue Finish",
+    "totalDuration": "Total Duration",
+    "totalPackages": "Total Packages",
+    "breakdown": "Per-order Breakdown",
     "col": {
       "number": "#",
       "sheets": "Sheets",
       "profiles": "Profiles",
       "sheetLength": "Length (mm)",
-      "totalLength": "Total meters",
+      "totalLength": "Total Meters",
       "meters": "Meters",
       "speed": "Speed (m/min)",
-      "productionTime": "Production time",
+      "productionTime": "Production Time",
       "packages": "Packages",
       "start": "Start",
       "end": "End"
@@ -145,28 +145,28 @@
     "empty": "Enter orders and click «Calculate».",
     "produced": "Produced",
     "remaining": "Remaining",
-    "timeToFinish": "Time for the remainder",
-    "timePerUnit": "Time per unit",
+    "timeToFinish": "Time for the Remainder",
+    "timePerUnit": "Time per Unit",
     "shownOf": "Showing {{shown}} of {{total}} {{many}}",
-    "showMore": "Show {{n}} more",
-    "showAll": "Show all",
+    "showMore": "Show {{n}} More",
+    "showAll": "Show All",
     "pallet": {
       "one": "Pallet",
       "many": "pallets",
-      "timesPerUnit": "Times per pallet",
-      "timePerOne": "Time per pallet"
+      "timesPerUnit": "Times per Pallet",
+      "timePerOne": "Time per Pallet"
     },
     "package": {
       "one": "Package",
       "many": "packages",
-      "timesPerUnit": "Times per package",
-      "timePerOne": "Time per package"
+      "timesPerUnit": "Times per Package",
+      "timePerOne": "Time per Package"
     },
     "splitParts": "Split into {{n}} parts",
     "part": "Part {{n}}",
     "timePerItem": {
-      "sheets": "Time per sheet",
-      "profiles": "Time per profile"
+      "sheets": "Time per Sheet",
+      "profiles": "Time per Profile"
     },
     "completed": "Completed",
     "advanceFailed": "Couldn't update this saved calculation to «now» — showing it as saved.",
@@ -255,7 +255,7 @@
       "title": "Layout",
       "empty": "Enter the sheets and press «Compute layout».",
       "schema": "Diagram (pyramid)",
-      "order": "Production order",
+      "order": "Production Order",
       "splitWarning": "⚠ Size {{length}} mm lands in rows of very different length ({{rows}} mm) — better to recalculate.",
       "recover": "recoverable space",
       "base": "Base",
@@ -274,10 +274,10 @@
     }
   },
   "advance": {
-    "updatedToNow": "Updated to now",
-    "originalView": "Original calculation",
-    "viewOriginal": "View original",
-    "updateToNow": "Update to now",
+    "updatedToNow": "Updated to Now",
+    "originalView": "Original Calculation",
+    "viewOriginal": "View Original",
+    "updateToNow": "Update to Now",
     "assumption": "assuming production went to plan",
     "completedCount": "{{n}} completed",
     "restoreCompleted": "Restore",

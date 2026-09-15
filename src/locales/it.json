@@ -15,26 +15,26 @@
     "profiles": "Profili"
   },
   "settings": {
-    "title": "Impostazioni globali",
+    "title": "Impostazioni Globali",
     "startMode": {
-      "label": "Punto di inizio",
+      "label": "Punto di Inizio",
       "now": "Adesso",
-      "manual": "Imposta data e ora"
+      "manual": "Imposta Data e Ora"
     },
-    "startAt": "Data e ora di inizio",
+    "startAt": "Data e Ora di Inizio",
     "startAtPastWarning": "La data di inizio è nel passato.",
     "gapMode": {
-      "label": "Pause tra gli ordini",
+      "label": "Pause tra gli Ordini",
       "continuous": "Continuo (senza pause)",
       "withGaps": "Con pause tra gli ordini"
     },
     "toggle": {
-      "manualStart": "Imposta orario",
-      "gaps": "Pause tra ordini",
-      "productName": "Nome prodotto",
-      "weekend": "Orario linea"
+      "manualStart": "Imposta Orario",
+      "gaps": "Pause tra Ordini",
+      "productName": "Nome Prodotto",
+      "weekend": "Orario Linea"
     },
-    "productName": "Nome del prodotto",
+    "productName": "Nome del Prodotto",
     "productNamePlaceholder": {
       "sheets": "es. Lastra alveolare 6 mm",
       "profiles": "es. Profilo a H 16 mm"
@@ -58,56 +58,56 @@
     }
   },
   "orders": {
-    "title": "Ordini in coda",
+    "title": "Ordini in Coda",
     "add": "+ Aggiungi",
     "remove": "Rimuovi",
     "number": "N°",
     "sheets": "Lastre (pz)",
     "profiles": "Profili (pz)",
-    "sheetLength": "Lunghezza lastra (mm)",
-    "profileLength": "Lunghezza profilo (mm)",
+    "sheetLength": "Lunghezza Lastra (mm)",
+    "profileLength": "Lunghezza Profilo (mm)",
     "speed": "Velocità (m/min)",
-    "gapAfter": "Pausa dopo (min)",
-    "profilesPerPackage": "Profili per pacco",
-    "productName": "Nome prodotto",
-    "addSize": "Aggiungi misura",
-    "removeSize": "Rimuovi misura",
+    "gapAfter": "Pausa Dopo (min)",
+    "profilesPerPackage": "Profili per Pacco",
+    "productName": "Nome Prodotto",
+    "addSize": "Aggiungi Misura",
+    "removeSize": "Rimuovi Misura",
     "scan": {
-      "label": "Leggi misure da foto",
-      "take": "Scatta foto",
+      "label": "Leggi Misure da Foto",
+      "take": "Scatta Foto",
       "upload": "Carica",
       "hint": "Ritaglia le colonne Lunghezza e Quantità, poi leggi."
     },
-    "toggleTotalLength": "Metri totali",
-    "totalLength": "Metri totali",
+    "toggleTotalLength": "Metri Totali",
+    "totalLength": "Metri Totali",
     "optionalInherit": "opz. — eredita",
     "cavity": "Cavità",
     "cavityHint": "opz. — moltiplica la velocità",
-    "advancedToggle": "Calcolo avanzato",
+    "advancedToggle": "Calcolo Avanzato",
     "advanced": {
-      "profilesProduced": "Profili prodotti",
-      "packagesProduced": "Pacchi prodotti",
-      "sheetsProduced": "Lastre prodotte",
-      "sheetsPerPallet": "Lastre per bancale",
-      "palletsProduced": "Bancali prodotti",
+      "profilesProduced": "Profili Prodotti",
+      "packagesProduced": "Pacchi Prodotti",
+      "sheetsProduced": "Lastre Prodotte",
+      "sheetsPerPallet": "Lastre per Bancale",
+      "palletsProduced": "Bancali Prodotti",
       "autoFilledNote": "Prodotti finora — compilato in base al tempo trascorso"
     },
     "minRequired": "Almeno un ordine è richiesto.",
     "expandList": "Espandi a schermo intero",
     "complete": "Completa",
-    "completeOrder": "Completa ordine",
-    "completeSize": "Completa misura"
+    "completeOrder": "Completa Ordine",
+    "completeSize": "Completa Misura"
   },
   "actions": {
     "calculate": "Calcola",
-    "reset": "Nuovo calcolo",
+    "reset": "Nuovo Calcolo",
     "print": "Stampa",
     "copy": "Copia",
-    "share": "Condividi link",
-    "sharing": "Creazione link…",
-    "linkCopied": "Link copiato!",
+    "share": "Condividi Link",
+    "sharing": "Creazione Link…",
+    "linkCopied": "Link Copiato!",
     "shareError": "Errore",
-    "saveImage": "Condividi foto",
+    "saveImage": "Condividi Foto",
     "exporting": "Salvando…",
     "saved": "Salvati",
     "recalc": "Ricalcola",
@@ -115,7 +115,7 @@
     "close": "Chiudi"
   },
   "saved": {
-    "title": "Calcoli salvati",
+    "title": "Calcoli Salvati",
     "empty": "Nessun calcolo salvato.",
     "restore": "Ripristina",
     "delete": "Elimina",
@@ -123,21 +123,21 @@
   },
   "results": {
     "title": "Risultato",
-    "totalProduction": "Tempo netto di produzione",
-    "totalGap": "Tempo totale di pause",
-    "endAt": "Fine della coda",
-    "totalDuration": "Durata totale",
-    "totalPackages": "Pacchi totali",
-    "breakdown": "Dettaglio per ordine",
+    "totalProduction": "Tempo Netto di Produzione",
+    "totalGap": "Tempo Totale di Pause",
+    "endAt": "Fine della Coda",
+    "totalDuration": "Durata Totale",
+    "totalPackages": "Pacchi Totali",
+    "breakdown": "Dettaglio per Ordine",
     "col": {
       "number": "#",
       "sheets": "Lastre",
       "profiles": "Profili",
       "sheetLength": "Lunghezza (mm)",
-      "totalLength": "Metri totali",
+      "totalLength": "Metri Totali",
       "meters": "Metri",
       "speed": "Velocità (m/min)",
-      "productionTime": "Tempo produzione",
+      "productionTime": "Tempo Produzione",
       "packages": "Pacchi",
       "start": "Inizio",
       "end": "Fine"
@@ -145,28 +145,28 @@
     "empty": "Inserisci gli ordini e premi «Calcola».",
     "produced": "Prodotti",
     "remaining": "Rimanenti",
-    "timeToFinish": "Tempo per il restante",
-    "timePerUnit": "Tempo per unità",
+    "timeToFinish": "Tempo per il Restante",
+    "timePerUnit": "Tempo per Unità",
     "shownOf": "Mostrati {{shown}} su {{total}} {{many}}",
-    "showMore": "Mostra altri {{n}}",
-    "showAll": "Mostra tutti",
+    "showMore": "Mostra Altri {{n}}",
+    "showAll": "Mostra Tutti",
     "pallet": {
       "one": "Bancale",
       "many": "bancali",
-      "timesPerUnit": "Tempi per bancale",
-      "timePerOne": "Tempo per bancale"
+      "timesPerUnit": "Tempi per Bancale",
+      "timePerOne": "Tempo per Bancale"
     },
     "package": {
       "one": "Pacco",
       "many": "pacchi",
-      "timesPerUnit": "Tempi per pacco",
-      "timePerOne": "Tempo per pacco"
+      "timesPerUnit": "Tempi per Pacco",
+      "timePerOne": "Tempo per Pacco"
     },
     "splitParts": "Diviso in {{n}} parti",
     "part": "Parte {{n}}",
     "timePerItem": {
-      "sheets": "Tempo per lastra",
-      "profiles": "Tempo per profilo"
+      "sheets": "Tempo per Lastra",
+      "profiles": "Tempo per Profilo"
     },
     "completed": "Completato",
     "advanceFailed": "Impossibile aggiornare il calcolo salvato ad «ora» — mostrato com'era salvato.",
@@ -255,7 +255,7 @@
       "title": "Distribuzione",
       "empty": "Inserisci le lastre e premi «Calcola distribuzione».",
       "schema": "Schema (piramide)",
-      "order": "Ordine di produzione",
+      "order": "Ordine di Produzione",
       "splitWarning": "⚠ La misura {{length}} mm capita in file di lunghezza molto diversa ({{rows}} mm) — meglio ricalcolare.",
       "recover": "spazio da recuperare",
       "base": "Base",
@@ -274,10 +274,10 @@
     }
   },
   "advance": {
-    "updatedToNow": "Aggiornato a ora",
-    "originalView": "Calcolo originale",
-    "viewOriginal": "Vedi originale",
-    "updateToNow": "Aggiorna a ora",
+    "updatedToNow": "Aggiornato a Ora",
+    "originalView": "Calcolo Originale",
+    "viewOriginal": "Vedi Originale",
+    "updateToNow": "Aggiorna a Ora",
     "assumption": "assumendo produzione secondo piano",
     "completedCount": "{{n}} completati",
     "restoreCompleted": "Ripristina",
