@@ -66,19 +66,31 @@ export async function createSharedCalc(payload: SharedPayload): Promise<string> 
 }
 
 /** Fetch a shared calculation by id. Returns null when missing / on error, so
- *  a bad or expired link degrades to the normal empty calculator. */
+ *  a bad or expired link degrades to the normal empty calculator.
+ *
+ *  Reads through the `get_shared_calc(p_id)` RPC, which returns a single row by
+ *  exact id — so the table can't be enumerated/dumped even though the anon key
+ *  is public. Falls back to a direct read for deployments where that function
+ *  isn't set up yet (keeps links working during the migration). */
 export async function fetchSharedCalc(
   id: string,
 ): Promise<SharedPayload | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('shared_calcs')
-    .select('payload')
-    .eq('id', id)
-    .maybeSingle();
-  if (error || !data?.payload) return null;
+  let payload: unknown = null;
+  const rpc = await supabase.rpc('get_shared_calc', { p_id: id });
+  if (!rpc.error) {
+    payload = rpc.data ?? null;
+  } else {
+    const sel = await supabase
+      .from('shared_calcs')
+      .select('payload')
+      .eq('id', id)
+      .maybeSingle();
+    if (!sel.error) payload = sel.data?.payload ?? null;
+  }
+  if (!payload) return null;
   try {
-    return revivePayload(data.payload);
+    return revivePayload(payload);
   } catch {
     return null;
   }
