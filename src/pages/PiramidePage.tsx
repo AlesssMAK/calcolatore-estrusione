@@ -5,9 +5,14 @@ import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
 import ImportFromSaved from '../components/piramide/ImportFromSaved';
+import SavedPiramideButton from '../components/piramide/SavedPiramideButton';
 import { useCatalog } from '../contexts/CatalogContext';
 import { popPiramideImport } from '../lib/piramideImport';
 import { loadPiramideDraft, savePiramideDraft } from '../lib/piramideDraft';
+import {
+  savePiramideEntry,
+  type SavedPiramide,
+} from '../lib/piramideHistory';
 import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
 import {
   computeNesting,
@@ -83,6 +88,8 @@ function PiramidePage() {
   const [lanes, setLanes] = useState('1');
   const [maxRows, setMaxRows] = useState('');
   const [result, setResult] = useState<NestingResult | null>(null);
+  // Bumped after a save so the Salvati dropdown re-reads the history.
+  const [histKey, setHistKey] = useState(0);
 
   // Photo / OCR flow.
   // Plausible-length window for OCR parsing (empty = defaults 300 / 11000).
@@ -238,6 +245,14 @@ function PiramidePage() {
   const totalPieces = parsedSheets.reduce((sum, s) => sum + Math.floor(s.qty), 0);
   const distinct = new Set(parsedSheets.map((s) => s.length)).size;
 
+  const scrollToResult = () => {
+    requestAnimationFrame(() => {
+      document
+        .getElementById('piramide-result')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   const onCompute = () => {
     const r = computeNesting(parsedSheets, {
       base: Number(base) > 0 ? Number(base) : undefined,
@@ -245,11 +260,43 @@ function PiramidePage() {
       maxRows: Number(maxRows) > 0 ? Number(maxRows) : undefined,
     });
     setResult(r);
-    requestAnimationFrame(() => {
-      document
-        .getElementById('piramide-result')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Auto-save this layout to the Salvati history (like the calculator saves
+    // on "Calcola"). Only the real (non-empty) rows are kept; deduped by inputs.
+    savePiramideEntry({
+      label: t('piramide.import.info', { sizes: distinct, pieces: totalPieces }),
+      rows: rows
+        .filter((row) => Number(row.length) > 0 && Number(row.qty) > 0)
+        .map((row) => ({ length: row.length, qty: row.qty })),
+      base,
+      lanes,
+      maxRows,
+      minLen,
+      maxLen,
     });
+    setHistKey((k) => k + 1);
+    scrollToResult();
+  };
+
+  // Restore a saved layout: refill the inputs and recompute from the entry's
+  // own values (state isn't updated synchronously) so the result shows at once.
+  const restorePiramide = (e: SavedPiramide) => {
+    setRows(e.rows.length ? e.rows.map((r) => newRow(r.length, r.qty)) : [newRow()]);
+    setBase(e.base ?? '');
+    setLanes(e.lanes ?? '1');
+    setMaxRows(e.maxRows ?? '');
+    setMinLen(e.minLen ?? '');
+    setMaxLen(e.maxLen ?? '');
+    const sheets = e.rows
+      .map((r) => ({ length: Number(r.length), qty: Number(r.qty) }))
+      .filter((s) => s.length > 0 && s.qty > 0);
+    setResult(
+      computeNesting(sheets, {
+        base: Number(e.base) > 0 ? Number(e.base) : undefined,
+        lanes: Number(e.lanes) > 0 ? Number(e.lanes) : 1,
+        maxRows: Number(e.maxRows) > 0 ? Number(e.maxRows) : undefined,
+      }),
+    );
+    scrollToResult();
   };
 
   return (
@@ -559,14 +606,17 @@ function PiramidePage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onCompute}
-            disabled={parsedSheets.length === 0}
-            className="mt-6 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0 sm:w-auto"
-          >
-            {t('piramide.calculate')}
-          </button>
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onCompute}
+              disabled={parsedSheets.length === 0}
+              className="w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {t('piramide.calculate')}
+            </button>
+            <SavedPiramideButton onRestore={restorePiramide} refreshKey={histKey} />
+          </div>
         </section>
 
         {/* Result */}

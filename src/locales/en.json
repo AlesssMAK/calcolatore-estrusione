@@ -206,6 +206,10 @@
       "empty": "No saved calc with sheet sizes.",
       "info": "{{sizes}} sizes · {{pieces}} pcs"
     },
+    "saved": {
+      "title": "Saved layouts",
+      "empty": "No saved layouts."
+    },
     "tips": {
       "title": "💡 Tips for a good scan",
       "crop": "Crop only the Length and Quantity columns: grabbing the side borders, the profile drawing or the Weight/m² columns makes the read worse; a tight crop reads everything.",
