@@ -159,8 +159,8 @@ Optional page (shown only when the company enables it — see *Per-company setti
 cut sheets onto a bancale as compactly as possible.
 
 - **Input**: rows of `Quantità + Lunghezza` (mm). No width is computed — the operator states how
-  many sheets sit side-by-side (`Lastre in larghezza` = *corsie* per strato). Values can be typed
-  or read from a photo.
+  many sheets sit side-by-side (`Lastre in larghezza` = *corsie* per strato). Values can be typed,
+  read from a photo, or **pulled from a calculator order** (see *Order import & persistence*).
 - **Photo OCR** ([`src/lib/ocr.ts`](src/lib/ocr.ts)): **Tesseract.js** (dynamically imported so
   the WASM is only fetched on scan), grayscale + upscale + **auto-deskew** preprocessing, a
   digits-only whitelist, and a parser that un-glues collapsed `qty+length` tokens. The
@@ -180,6 +180,26 @@ cut sheets onto a bancale as compactly as possible.
   raise a `⚠` warning. **🖨 Stampa** and **📷 Salva immagine** export the panel.
 - Covered by unit tests in [`nesting.test.ts`](src/lib/nesting.test.ts) and
   [`ocr.test.ts`](src/lib/ocr.test.ts).
+
+#### Order import & persistence
+
+Order data is usually entered in the calculator first, so Piramide can take its sheet sizes from
+there instead of re-typing them, and it no longer loses work on reload:
+
+- **📐 Apri in Piramide** — a button in each order's scanner row (sheets mode only, when the
+  company enables Piramide and the order has ≥1 size with length+qty). It hands that order's sizes
+  to `/piramide` via a one-shot `sessionStorage` handoff ([`src/lib/piramideImport.ts`](src/lib/piramideImport.ts),
+  preserving `?company=`); the page fills the sheet rows on mount. An order size (`sheets` × `length`)
+  maps 1:1 to a Piramide row (`qty` × `length`).
+- **Importa da un calcolo salvato** — a dropdown on Piramide ([`ImportFromSaved.tsx`](src/components/piramide/ImportFromSaved.tsx))
+  that reads the calculator's `Salvati` history and lists one row per importable order (sheets-mode,
+  per-size); picking one fills the sheet rows. The fresh-visit twin of the handoff button.
+- **Auto-draft** ([`src/lib/piramideDraft.ts`](src/lib/piramideDraft.ts)) — the current sheet list +
+  options are mirrored to `localStorage` and restored on mount, so a reload / navigation doesn't
+  lose the work. A handoff import takes precedence over the draft.
+- **Salvati** ([`src/lib/piramideHistory.ts`](src/lib/piramideHistory.ts) + [`SavedPiramideButton.tsx`](src/components/piramide/SavedPiramideButton.tsx))
+  — each **Calcola distribuzione** auto-saves the layout (deduped by inputs, 7-day retention), and a
+  dropdown next to the compute button restores (refills inputs + recomputes) or deletes saved layouts.
 
 ### Catalog (Listino)
 
