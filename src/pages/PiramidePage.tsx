@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
+import ImportFromSaved from '../components/piramide/ImportFromSaved';
 import { useCatalog } from '../contexts/CatalogContext';
 import { popPiramideImport } from '../lib/piramideImport';
 import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
@@ -70,7 +71,7 @@ function groupStrati(strati: Strato[], startNumber: number): StratoGroup[] {
 
 function PiramidePage() {
   const { t } = useTranslation();
-  const { company } = useCatalog();
+  const { company, settings } = useCatalog();
   // Keep the company link so the back button (and a reload) stays in context.
   const homeHref = company
     ? `/?company=${encodeURIComponent(company.slug)}`
@@ -450,7 +451,7 @@ function PiramidePage() {
             ))}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={clearRows}
@@ -458,6 +459,17 @@ function PiramidePage() {
             >
               {t('piramide.sheets.clear')}
             </button>
+            <ImportFromSaved
+              onImport={(imported) =>
+                setRows(
+                  imported.length
+                    ? imported.map((r) => newRow(String(r.length), String(r.qty)))
+                    : [newRow()],
+                )
+              }
+              t={t}
+              retentionDays={settings.savedRetentionDays}
+            />
           </div>
         </section>
 
