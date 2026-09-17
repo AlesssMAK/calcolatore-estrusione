@@ -206,6 +206,10 @@
       "empty": "Ningún cálculo guardado con medidas de láminas.",
       "info": "{{sizes}} medidas · {{pieces}} pz"
     },
+    "saved": {
+      "title": "Disposiciones guardadas",
+      "empty": "Ninguna disposición guardada."
+    },
     "tips": {
       "title": "💡 Consejos para un buen escaneo",
       "crop": "Recorta solo las columnas Longitud y Cantidad: si incluyes los bordes laterales, el dibujo del perfil o las columnas Peso/m² la lectura empeora; recortando ajustado sale todo.",
