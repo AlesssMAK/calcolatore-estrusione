@@ -7,6 +7,7 @@ import ImageCropper from '../components/piramide/ImageCropper';
 import ImportFromSaved from '../components/piramide/ImportFromSaved';
 import { useCatalog } from '../contexts/CatalogContext';
 import { popPiramideImport } from '../lib/piramideImport';
+import { loadPiramideDraft, savePiramideDraft } from '../lib/piramideDraft';
 import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
 import {
   computeNesting,
@@ -83,15 +84,6 @@ function PiramidePage() {
   const [maxRows, setMaxRows] = useState('');
   const [result, setResult] = useState<NestingResult | null>(null);
 
-  // Pick up an order's sizes handed off from the calculator ("📐 Piramide").
-  // One-shot: pop replaces the starter row(s) with the order's length+qty pairs.
-  useEffect(() => {
-    const imported = popPiramideImport();
-    if (imported) {
-      setRows(imported.rows.map((r) => newRow(String(r.length), String(r.qty))));
-    }
-  }, []);
-
   // Photo / OCR flow.
   // Plausible-length window for OCR parsing (empty = defaults 300 / 11000).
   // Raise maxLen (e.g. 13500) to read rare extra-long sheets intact; raise
@@ -110,6 +102,51 @@ function PiramidePage() {
   );
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+
+  // On mount: a handoff from the calculator ("📐 Piramide") wins over any draft;
+  // otherwise restore the auto-saved draft so a reload doesn't lose the work.
+  // Guarded so it runs exactly once — StrictMode double-invokes the effect, and
+  // a second pass (after the one-shot import is consumed) would otherwise load
+  // the draft over the just-imported rows.
+  const initedRef = useRef(false);
+  useEffect(() => {
+    if (initedRef.current) return;
+    initedRef.current = true;
+    const imported = popPiramideImport();
+    if (imported) {
+      setRows(imported.rows.map((r) => newRow(String(r.length), String(r.qty))));
+      return;
+    }
+    const draft = loadPiramideDraft();
+    if (draft) {
+      if (draft.rows.length > 0) {
+        setRows(draft.rows.map((r) => newRow(r.length ?? '', r.qty ?? '')));
+      }
+      setBase(draft.base ?? '');
+      setLanes(draft.lanes ?? '1');
+      setMaxRows(draft.maxRows ?? '');
+      setMinLen(draft.minLen ?? '');
+      setMaxLen(draft.maxLen ?? '');
+    }
+  }, []);
+
+  // Auto-save the current inputs as the draft. Skip the very first run so the
+  // initial (pre-restore) empty state doesn't clobber a saved draft.
+  const draftSkip = useRef(true);
+  useEffect(() => {
+    if (draftSkip.current) {
+      draftSkip.current = false;
+      return;
+    }
+    savePiramideDraft({
+      rows: rows.map((r) => ({ length: r.length, qty: r.qty })),
+      base,
+      lanes,
+      maxRows,
+      minLen,
+      maxLen,
+    });
+  }, [rows, base, lanes, maxRows, minLen, maxLen]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
