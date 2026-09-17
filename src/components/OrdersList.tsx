@@ -13,6 +13,7 @@ import {
   type FieldErrors,
 } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
@@ -22,6 +23,7 @@ import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { useCatalog } from '../contexts/CatalogContext';
+import { stashPiramideImport } from '../lib/piramideImport';
 import type { OcrRow } from '../lib/ocr';
 
 // All form inputs share a fixed height: 32px on mobile, 36px on sm+ (matching
@@ -1575,6 +1577,32 @@ function SizesFieldArray({
     replaceSize([...kept, ...scanned] as never);
   };
 
+  // "Open in Piramide": hand this order's sizes to the /piramide page. Only for
+  // sheets orders (Piramide packs lastre), when the company has Piramide
+  // enabled and at least one size has both a length and a quantity.
+  const navigate = useNavigate();
+  const { company, settings } = useCatalog();
+  const orderName = useWatch({
+    control,
+    name: `orders.${orderIdx}.productName`,
+  }) as string | undefined;
+  const piramideRows = (watchedSizes ?? [])
+    .map((s) => ({ length: Number(s?.length), qty: Number(s?.sheets) }))
+    .filter((r) => r.length > 0 && r.qty > 0);
+  const canOpenPiramide =
+    mode === 'sheets' && settings.showPiramide && piramideRows.length > 0;
+  const openInPiramide = () => {
+    stashPiramideImport({
+      label: orderName?.trim() || undefined,
+      rows: piramideRows,
+    });
+    navigate(
+      company
+        ? `/piramide?company=${encodeURIComponent(company.slug)}`
+        : '/piramide',
+    );
+  };
+
   const orderErr = errors.orders?.[orderIdx];
   const sizesRootError =
     typeof orderErr?.sizes?.message === 'string'
@@ -1737,7 +1765,22 @@ function SizesFieldArray({
 
       <div className="mt-3 border-t border-neutral-200 pt-3">
         <p className={`${labelBase} mb-1.5`}>{t('orders.scan.label')}</p>
-        <SheetScanner onRows={onScanRows} t={t} />
+        <SheetScanner
+          onRows={onScanRows}
+          t={t}
+          extraAction={
+            canOpenPiramide ? (
+              <button
+                type="button"
+                onClick={openInPiramide}
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+              >
+                <span aria-hidden>📐</span>
+                <span>{t('orders.openInPiramide')}</span>
+              </button>
+            ) : undefined
+          }
+        />
       </div>
     </div>
   );

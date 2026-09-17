@@ -78,6 +78,7 @@
       "upload": "Subir",
       "hint": "Recorta las columnas Longitud y Cantidad, luego lee."
     },
+    "openInPiramide": "Abrir en Pirámide",
     "toggleTotalLength": "Metros Totales",
     "totalLength": "Metros Totales",
     "optionalInherit": "opc. — hereda",
