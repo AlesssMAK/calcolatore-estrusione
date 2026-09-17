@@ -201,6 +201,11 @@
     "backToCalculator": "Calcolatore",
     "openLink": "📐 Piramide (distribuzione lastre)",
     "readText": "🔍 Testo letto (affidabilità {{confidence}}%)",
+    "import": {
+      "button": "Importa da un calcolo salvato",
+      "empty": "Nessun calcolo salvato con misure lastre.",
+      "info": "{{sizes}} misure · {{pieces}} pz"
+    },
     "tips": {
       "title": "💡 Consigli per una buona scansione",
       "crop": "Ritaglia solo le colonne Lunghezza e Quantità: se prendi i bordi laterali, il disegno del profilo o le colonne Peso/mq la lettura peggiora; ritagliando stretto viene tutto.",

@@ -201,6 +201,11 @@
     "backToCalculator": "Calculator",
     "openLink": "📐 Pyramid (sheet layout)",
     "readText": "🔍 Text read (reliability {{confidence}}%)",
+    "import": {
+      "button": "Import from a saved calc",
+      "empty": "No saved calc with sheet sizes.",
+      "info": "{{sizes}} sizes · {{pieces}} pcs"
+    },
     "tips": {
       "title": "💡 Tips for a good scan",
       "crop": "Crop only the Length and Quantity columns: grabbing the side borders, the profile drawing or the Weight/m² columns makes the read worse; a tight crop reads everything.",

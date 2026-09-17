@@ -201,6 +201,11 @@
     "backToCalculator": "Calculadora",
     "openLink": "📐 Pirámide (distribución de láminas)",
     "readText": "🔍 Texto leído (fiabilidad {{confidence}}%)",
+    "import": {
+      "button": "Importar de un cálculo guardado",
+      "empty": "Ningún cálculo guardado con medidas de láminas.",
+      "info": "{{sizes}} medidas · {{pieces}} pz"
+    },
     "tips": {
       "title": "💡 Consejos para un buen escaneo",
       "crop": "Recorta solo las columnas Longitud y Cantidad: si incluyes los bordes laterales, el dibujo del perfil o las columnas Peso/m² la lectura empeora; recortando ajustado sale todo.",
