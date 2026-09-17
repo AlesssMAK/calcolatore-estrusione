@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import ImageCropper from './piramide/ImageCropper';
 import { recognizeSheets, type OcrRow } from '../lib/ocr';
@@ -7,12 +7,15 @@ interface Props {
   /** Called with the parsed {length, qty} rows after a successful scan. */
   onRows: (rows: OcrRow[]) => void;
   t: TFunction;
+  /** Extra control rendered in the same button row, after the upload button
+   *  (used for the "open in Piramide" action). */
+  extraAction?: ReactNode;
 }
 
 // Photo → crop → OCR flow (shared model with /piramide) that reads a table of
 // "Lunghezza + Quantità" and hands back the parsed rows. Used to fill an
 // order's sizes from a photo of the paper order.
-function SheetScanner({ onRows, t }: Props) {
+function SheetScanner({ onRows, t, extraAction }: Props) {
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -96,6 +99,7 @@ function SheetScanner({ onRows, t }: Props) {
           <span aria-hidden>🖼</span>
           <span>{t('orders.scan.upload')}</span>
         </button>
+        {extraAction}
       </div>
 
       {status && (

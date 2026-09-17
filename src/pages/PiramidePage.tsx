@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
 import { useCatalog } from '../contexts/CatalogContext';
+import { popPiramideImport } from '../lib/piramideImport';
 import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
 import {
   computeNesting,
@@ -80,6 +81,15 @@ function PiramidePage() {
   const [lanes, setLanes] = useState('1');
   const [maxRows, setMaxRows] = useState('');
   const [result, setResult] = useState<NestingResult | null>(null);
+
+  // Pick up an order's sizes handed off from the calculator ("📐 Piramide").
+  // One-shot: pop replaces the starter row(s) with the order's length+qty pairs.
+  useEffect(() => {
+    const imported = popPiramideImport();
+    if (imported) {
+      setRows(imported.rows.map((r) => newRow(String(r.length), String(r.qty))));
+    }
+  }, []);
 
   // Photo / OCR flow.
   // Plausible-length window for OCR parsing (empty = defaults 300 / 11000).

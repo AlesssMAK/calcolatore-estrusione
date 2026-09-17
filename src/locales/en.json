@@ -78,6 +78,7 @@
       "upload": "Upload",
       "hint": "Crop the Length and Quantity columns, then read."
     },
+    "openInPiramide": "Open in Pyramid",
     "toggleTotalLength": "Total Meters",
     "totalLength": "Total Meters",
     "optionalInherit": "optional — inherits",

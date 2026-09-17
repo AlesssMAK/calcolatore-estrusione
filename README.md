@@ -9,6 +9,10 @@ a full **per-company 7-day schedule** can override that. Each order carries a li
 an optional product name, and produced-quantity counters that shrink the remaining time
 pro-rata.
 
+Every calculation **auto-saves locally** (`Salvati`) and can be re-opened later — when it is,
+the schedule is **advanced to the current time** (progress assumed on plan), orders/sizes can be
+marked **completed**, and the whole thing can be handed to a colleague as a **short share link**.
+
 Two extra tools ship alongside the calculator:
 
 - **Piramide** (`/piramide`) — a sheet-nesting / cutting-stock optimiser that lays cut sheets
@@ -95,18 +99,59 @@ working-intervals model (`workingIntervals(dow, work)` → `nextWorkingInstant` 
 ### Results
 
 - Three KPIs at the top: net production time, total duration, queue finish date/time.
-- Per-order breakdown (cards on mobile, table on desktop). When produced data is present, a strip
-  shows `produced / total ↓ remaining` plus `Tempo per il restante`.
+- Per-order breakdown (cards below `lg`, table on wide screens — the breakpoint was raised so the
+  table never clips at mid widths). When produced data is present, a strip shows
+  `produced / total ↓ remaining` plus `Tempo per il restante`.
 - Under **Σ Metri totali** an extra `Metri prodotti X / Y ↓ Z m` row — meter-based progress is
   the well-defined metric when batches have different lengths (counts/packages are still shown
-  but their remaining is `—`).
+  but their remaining is `—`). Single-size orders show the `(pezzi × lunghezza)` breakdown next to
+  the meters, mirroring the multi-size sub-rows.
 - Multi-size orders surface a per-size sub-rows breakdown (`#N.1`, `#N.2`, …).
+- **Long product names marquee** on narrow screens (`MarqueeText`) so a full name is readable
+  without breaking the layout.
+- **✓ Completato** — a fully-produced order (or size) renders as a single "done" row: it leaves
+  the queue in the form and stays only here, timed at the last working moment (never a future
+  date). See *Saved calculations & sharing* for how to complete/restore.
 - **🖨 Stampa** — `@media print` hides everything except the results panel, so the browser dialog
   can save it as a clean PDF.
 - **📷 Condividi foto** — exports the results panel as a PNG and hands it to the native share
   sheet (`navigator.share`), falling back to a new tab / download (via `html-to-image`, 2× pixel
   ratio).
-- **📋 Copia** — plain-text copy to clipboard.
+- **🔗 Condividi link** — see *Saved calculations & sharing*.
+- Per-unit **ready-times timeline** (`UnitsTimeline`) for pallet / package orders: when each unit
+  comes off the line, skipping units already produced and pinning the last (partial) unit to the
+  order's *Fine*.
+
+### Saved calculations & sharing
+
+- **Auto-save (`Salvati`)**: pressing **Calcola** stores the calculation in `localStorage`
+  ([`src/lib/calcHistory.ts`](src/lib/calcHistory.ts)) with its inputs + result + an effective
+  **schedule snapshot** (so it can be re-simulated later). Entries are kept **7 days** and listed
+  in the `Salvati` dropdown ([`SavedCalculationsButton`](src/components/SavedCalculationsButton.tsx))
+  with a relative "saved 3h ago" label, `Ripristina` and `Elimina`.
+- **Advance to now**: restoring a saved calc runs it through
+  [`src/utils/advance.ts`](src/utils/advance.ts) (`buildAdvancedCalc`), which recomputes progress
+  **as of the current time** assuming production ran on plan. Orders finished in the meantime are
+  split off as **completed rows**; the rest continue from *now* with their produced-so-far filled
+  in. An [`AdvanceBanner`](src/components/AdvanceBanner.tsx) toggles between **Aggiorna a ora** and
+  **Vedi originale** (the as-saved view).
+- **Calcola vs Ricalcola**: in a restored view **Calcola** recomputes from the current inputs,
+  while **Ricalcola** recomputes *keeping the already-completed orders* aside (they stay done).
+- **Completing work** (only when opened from `Salvati`): **Completa ordine** in the order header,
+  a per-size **✓** in the form (after the `−`/`+` buttons) and matching **✓** buttons at the end
+  (*Fine* column) of each results row / size sub-row. Completing sets produced = total and
+  re-runs; the finished order/size leaves the form queue and shows as **✓ Completato**, timed at
+  the **last working moment** (`lastWorkingInstant`) so it's never future-dated.
+- **Restore a completed order** ([`RestoreCompletedButton`](src/components/RestoreCompletedButton.tsx)):
+  brings a done order back into the queue — inserted at the **front** (click = one, hold = all).
+- **🔗 Condividi link**: **Condividi link** in the results uploads the calculation (inputs +
+  result + completed rows + snapshot) to Supabase and produces a short
+  `…/?shared=<id>` URL ([`src/lib/sharedCalc.ts`](src/lib/sharedCalc.ts)). On mobile it uses
+  `navigator.share`; on desktop it copies the link. Opening a share link **auto-saves it to the
+  recipient's `Salvati`** (id `shared-<id>`, de-duplicated) and then behaves exactly like a local
+  restore — advanced to *now*, with *Vedi originale* / *Ricalcola* where relevant. The button is
+  hidden when Supabase isn't configured. (Plain-text **📋 Copia** now lives only on the Piramide
+  page.)
 
 ### Piramide — sheet nesting (`/piramide`)
 
@@ -213,7 +258,7 @@ links, back link) so a reload keeps the company context.
 
 ## Stack
 
-- **React 19** + **TypeScript** + **Vite**
+- **React 19** + **TypeScript** + **Vite 8**
 - **Tailwind CSS 4** (`@theme` in `index.css`, `@tailwindcss/vite` plugin)
 - **react-router-dom 7** (routing: `/`, `/piramide`, `/admin`, `/admin/login`)
 - **react-i18next** (IT · EN · ES)
@@ -230,6 +275,13 @@ links, back link) so a reload keeps the company context.
   Level Security. The anonymous role can read `companies` / `products` / `company_settings`
   (anyone with the URL sees the catalog + settings); writes are restricted to authenticated admins
   of the matching company. Super-admins (`admins.is_super=true`) have full CRUD.
+- **`shared_calcs`** (share links): `id text PK`, `payload jsonb` (`< 200 KB` check),
+  `created_at`. The anon role may **INSERT** (create links) but has **no SELECT policy** — the
+  table can't be enumerated/dumped through the public anon key. Reads go through a
+  `SECURITY DEFINER` RPC **`get_shared_calc(p_id text)`** that returns a single row by exact id;
+  [`fetchSharedCalc`](src/lib/sharedCalc.ts) calls it (with a direct-select fallback for
+  deployments where the function isn't set up). No DELETE policy; a **pg_cron** job
+  (`purge-old-shared-calcs`, 03:00 UTC) deletes links older than 90 days.
 - **Auth**: email/password, sessions stored in `localStorage` for admin persistence.
 - **Edge Functions**: `create-company`, `update-company`, `delete-company` — run on Deno with the
   service-role key (never exposed to the browser). `company_settings` needs no Edge Function — it
@@ -238,8 +290,24 @@ links, back link) so a reload keeps the company context.
   policies, sidestepping a self-referential infinite-recursion issue with admins-checks-admins.
 
 > The Supabase schema (tables, RLS, Edge Functions) lives **outside** this repo — it is managed in
-> the Supabase dashboard. `company_settings` was added with a hand-run SQL migration (table +
-> `public read` and `admin write` RLS policies).
+> the Supabase dashboard. `company_settings`, `shared_calcs` (+ the `get_shared_calc` RPC and the
+> `purge-old-shared-calcs` pg_cron job) were added with hand-run SQL migrations.
+
+### Security
+
+- **Response headers** (set in [`vercel.json`](vercel.json)) on every route: `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy` (geolocation / microphone / payment / usb disabled), and a
+  **Content-Security-Policy**. The CSP is `default-src 'self'` with just the origins the app really
+  uses: `connect-src` for Supabase (REST + realtime) and the Tesseract CDN/langdata,
+  `script-src`/`worker-src` allowing `'wasm-unsafe-eval'` + jsDelivr for the OCR WASM,
+  `style-src`/`font-src` for Google Fonts, `img-src` for `data:`/`blob:`. `frame-ancestors 'none'`
+  and `object-src 'none'` round it off. Verified in-browser with **zero violations** across app
+  load, Supabase read/write, fonts and the admin panel.
+- **Share links** are read only via the `get_shared_calc` RPC (see *Backend*), so the public anon
+  key can create a link but can't dump the table.
+- The Supabase **anon/publishable key is safe to expose** — every table is gated by RLS; the
+  **service-role key** lives only inside the Edge Functions, never in the browser bundle.
 
 ---
 
@@ -328,8 +396,9 @@ The core helpers live in [`src/lib/nesting.ts`](src/lib/nesting.ts):
 - `buildProductionPlan(strati, gap?)` — production/stacking order + a "one length = one run" list,
   clustering rows that share a length within a gap and warning when they are too far apart.
 
-Coverage: **99 tests** total across
+Coverage: **117 tests** total across
 [`calculator.test.ts`](src/utils/calculator.test.ts),
+[`advance.test.ts`](src/utils/advance.test.ts),
 [`nesting.test.ts`](src/lib/nesting.test.ts) and [`ocr.test.ts`](src/lib/ocr.test.ts).
 
 ---
@@ -344,7 +413,8 @@ Coverage: **99 tests** total across
    - `VITE_SUPABASE_ANON_KEY` — Supabase `publishable` / `anon` key (safe to expose; RLS
      gatekeeps)
 4. `vercel.json` rewrites every path to `/index.html` so `/admin/login`, `/piramide` (or any
-   client-side route) survive a hard refresh.
+   client-side route) survive a hard refresh. It also sets the security **response headers +
+   CSP** for every route (see *Security*).
 
 `tsc -b` runs as part of `build` and surfaces type errors that `tsc --noEmit` may miss — a green
 local `npm run build` (plus `npm run test`) is the right pre-push check.
@@ -368,7 +438,13 @@ src/
 │   │                             # SizeAdvancedBlock(Listi|Profili) + BatchRowsArray +
 │   │                             # CollapsibleInheritField + OrderNameField (catalog combobox)
 │   ├── SheetScanner.tsx          # OCR order-sizes scanner (reuses piramide flow)
-│   ├── ResultsPanel.tsx          # cards (mobile) + table + export/share buttons
+│   ├── ResultsPanel.tsx          # cards (<lg) + table + print / share-photo / share-link / ✓
+│   ├── SavedCalculationsButton.tsx  # Salvati dropdown (localStorage, 7-day, restore/delete)
+│   ├── AdvanceBanner.tsx         # "Aggiorna a ora" ↔ "Vedi originale" toggle
+│   ├── RestoreCompletedButton.tsx   # bring a completed order back to front (click=1 / hold=all)
+│   ├── UnitsTimeline.tsx         # per-unit (pallet/package) ready-times timeline
+│   ├── MarqueeText.tsx           # scrolling long product names on narrow screens
+│   ├── ErrorBoundary.tsx         # catches render errors of a restored calc (keyed by formKey)
 │   ├── FieldError.tsx
 │   ├── piramide/
 │   │   └── ImageCropper.tsx      # crop frame for the OCR photo
