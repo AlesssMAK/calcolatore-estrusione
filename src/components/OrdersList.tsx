@@ -1644,10 +1644,29 @@ function SizesFieldArray({
     append: appendSize,
     remove: removeSize,
     replace: replaceSize,
+    move: moveSize,
   } = useFieldArray({
     control,
     name: `orders.${orderIdx}.sizes`,
   });
+
+  // Reorder the sizes within this order: drag (press-hold handle, mobile) or
+  // ↑/↓ buttons (desktop), both via useFieldArray.move.
+  const sizeSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+  const handleSizeDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = sizeFields.findIndex((f) => f.id === active.id);
+    const to = sizeFields.findIndex((f) => f.id === over.id);
+    if (from !== -1 && to !== -1) moveSize(from, to);
+  };
 
   const watchedSizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
 
@@ -1711,28 +1730,77 @@ function SizesFieldArray({
         </p>
       )}
 
-      <div className="space-y-2">
-        {sizeFields.map((sizeField, sIdx) => {
-          const sizeErr = orderErr?.sizes?.[sIdx];
-          const showPerPackage = isProfiles && sizeFields.length > 1;
-          // Mobile: always 4 cols (sheets, length, −, +); perPackage wraps to its own row.
-          // sm+ : 5 cols when perPackage shows, otherwise 4.
-          // Per-size "✓" completa button adds one more auto column (multi-size
-          // orders only). Class strings are literal so Tailwind generates them.
-          const showSizeComplete = !!onCompleteSize && sizeFields.length > 1;
-          const gridCols = showPerPackage
-            ? showSizeComplete
-              ? 'grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]'
-              : 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
-            : showSizeComplete
-              ? 'grid-cols-[1fr_1fr_auto_auto_auto]'
-              : 'grid-cols-[1fr_1fr_auto_auto]';
-          return (
-            <div
-              key={sizeField.id}
-              className={`grid ${gridCols} items-end gap-2 pb-5 sm:gap-3`}
-            >
-              <div className="min-w-0">
+      <DndContext
+        sensors={sizeSensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleSizeDragEnd}
+      >
+        <SortableContext
+          items={sizeFields.map((f) => f.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2">
+            {sizeFields.map((sizeField, sIdx) => {
+              const sizeErr = orderErr?.sizes?.[sIdx];
+              const showPerPackage = isProfiles && sizeFields.length > 1;
+              // Per-size "✓" completa button adds one more auto column (multi-
+              // size only). Class strings are literal so Tailwind emits them.
+              const showSizeComplete = !!onCompleteSize && sizeFields.length > 1;
+              const canReorder = sizeFields.length > 1;
+              const gridCols = showPerPackage
+                ? showSizeComplete
+                  ? 'grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]'
+                  : 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
+                : showSizeComplete
+                  ? 'grid-cols-[1fr_1fr_auto_auto_auto]'
+                  : 'grid-cols-[1fr_1fr_auto_auto]';
+              return (
+                <SortableItem key={sizeField.id} id={sizeField.id}>
+                  {({ setNodeRef, style, handleProps }) => (
+                    <div
+                      ref={setNodeRef}
+                      style={style}
+                      className="flex items-end gap-2"
+                    >
+                      {canReorder && (
+                        <div className="flex shrink-0 items-end gap-1 pb-5">
+                          <button
+                            type="button"
+                            {...handleProps}
+                            aria-label={t('orders.reorder')}
+                            title={t('orders.reorder')}
+                            className="flex h-8 w-4 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:hidden"
+                          >
+                            ⠿
+                          </button>
+                          <div className="hidden flex-col gap-0.5 sm:flex">
+                            <button
+                              type="button"
+                              onClick={() => moveSize(sIdx, sIdx - 1)}
+                              disabled={sIdx === 0}
+                              aria-label={t('orders.moveUp')}
+                              title={t('orders.moveUp')}
+                              className="flex h-[17px] w-6 items-center justify-center rounded border border-neutral-300 bg-white text-[10px] text-ink-soft transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveSize(sIdx, sIdx + 1)}
+                              disabled={sIdx === sizeFields.length - 1}
+                              aria-label={t('orders.moveDown')}
+                              title={t('orders.moveDown')}
+                              className="flex h-[17px] w-6 items-center justify-center rounded border border-neutral-300 bg-white text-[10px] text-ink-soft transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div
+                        className={`grid ${gridCols} min-w-0 flex-1 items-end gap-2 pb-5 sm:gap-3`}
+                      >
+                        <div className="min-w-0">
                 <label className={labelBase}>{sheetsLabel}</label>
                 <input
                   id={sIdx === 0 ? `qty-${orderIdx}` : undefined}
@@ -1844,10 +1912,15 @@ function SizesFieldArray({
                   ✓
                 </button>
               )}
-            </div>
-          );
-        })}
-      </div>
+                      </div>
+                    </div>
+                  )}
+                </SortableItem>
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {afterSizes}
 
