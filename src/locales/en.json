@@ -97,7 +97,10 @@
     "expandList": "Expand to full screen",
     "complete": "Complete",
     "completeOrder": "Complete Order",
-    "completeSize": "Complete Size"
+    "completeSize": "Complete Size",
+    "reorder": "Drag to reorder",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
   },
   "actions": {
     "calculate": "Calculate",
