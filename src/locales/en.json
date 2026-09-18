@@ -204,7 +204,8 @@
     "import": {
       "button": "Import from a saved calc",
       "empty": "No saved calc with sheet sizes.",
-      "info": "{{sizes}} sizes · {{pieces}} pcs"
+      "info": "{{sizes}} sizes · {{pieces}} pcs",
+      "orders": "{{n}} orders"
     },
     "saved": {
       "title": "Saved layouts",
