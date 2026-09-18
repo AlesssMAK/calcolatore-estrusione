@@ -21,6 +21,7 @@ interface Props {
  *  attributes are bundled into `handleProps` for a dedicated drag handle (the
  *  rest of the card stays interactive). */
 function SortableItem({ id, children }: Props) {
+  'use no memo';
   const {
     setNodeRef,
     transform,

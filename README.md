@@ -52,6 +52,10 @@ Two extra tools ship alongside the calculator:
   left empty. Removes the autofocus trap on mobile when adding a new order.
 - **Multi-size orders**: each order holds a list of `{sheets, length, profilesPerPackage?}`
   triples with `+` / `−` buttons in-row. Total order length = sum across sizes.
+- **Reordering** (orders in the queue, and sizes within an order): a press-hold **drag handle** on
+  mobile and **↑ / ↓ buttons** on desktop, both backed by `useFieldArray.move` via
+  [`@dnd-kit`](https://dndkit.com) (see [`SortableItem.tsx`](src/components/SortableItem.tsx)). The
+  drag uses a 200 ms activation delay so list scrolling still works.
 - **📷 OCR sheet scanner** (sizes mode): `Scatta foto` / `Carica` under the size list open the
   same camera/crop/recognise flow used by Piramide — it reads `Lunghezza + Quantità` pairs from
   a photo of the order sheet and fills the size rows (`length + sheets`), preserving rows you
@@ -183,17 +187,21 @@ cut sheets onto a bancale as compactly as possible.
 
 #### Order import & persistence
 
-Order data is usually entered in the calculator first, so Piramide can take its sheet sizes from
-there instead of re-typing them, and it no longer loses work on reload:
+Order data is usually entered in the calculator first, so Piramide and the calculator can pass an
+order's sheet sizes back and forth instead of re-typing them, and Piramide no longer loses work on
+reload. An order size (`sheets` × `length`) maps 1:1 to a Piramide row (`qty` × `length`).
 
 - **📐 Apri in Piramide** — a button in each order's scanner row (sheets mode only, when the
   company enables Piramide and the order has ≥1 size with length+qty). It hands that order's sizes
   to `/piramide` via a one-shot `sessionStorage` handoff ([`src/lib/piramideImport.ts`](src/lib/piramideImport.ts),
-  preserving `?company=`); the page fills the sheet rows on mount. An order size (`sheets` × `length`)
-  maps 1:1 to a Piramide row (`qty` × `length`).
-- **Importa da un calcolo salvato** — a dropdown on Piramide ([`ImportFromSaved.tsx`](src/components/piramide/ImportFromSaved.tsx))
-  that reads the calculator's `Salvati` history and lists one row per importable order (sheets-mode,
-  per-size); picking one fills the sheet rows. The fresh-visit twin of the handoff button.
+  preserving `?company=`); the page fills the sheet rows on mount.
+- **Importa da un calcolo salvato** — a two-level dropdown on Piramide ([`ImportFromSaved.tsx`](src/components/piramide/ImportFromSaved.tsx)):
+  pick a saved sheets calculation, then the order inside it (with a back link); its sizes fill the
+  sheet rows. The fresh-visit twin of the handoff button.
+- **🧮 Usa nel calcolatore** — the reverse ([`UseInCalculator.tsx`](src/components/piramide/UseInCalculator.tsx) +
+  [`src/lib/orderImport.ts`](src/lib/orderImport.ts)): turns the current sheet rows into a sheets
+  order, either in a **new calculation** or **appended to an existing saved one** (opened like a
+  restore; the order inherits the queue's speed). Handled in [`App.tsx`](src/App.tsx) on mount.
 - **Auto-draft** ([`src/lib/piramideDraft.ts`](src/lib/piramideDraft.ts)) — the current sheet list +
   options are mirrored to `localStorage` and restored on mount, so a reload / navigation doesn't
   lose the work. A handoff import takes precedence over the draft.
@@ -281,6 +289,7 @@ links, back link) so a reload keeps the company context.
 - **React 19** + **TypeScript** + **Vite 8**
 - **Tailwind CSS 4** (`@theme` in `index.css`, `@tailwindcss/vite` plugin)
 - **react-router-dom 7** (routing: `/`, `/piramide`, `/admin`, `/admin/login`)
+- **@dnd-kit** (core / sortable / utilities) — drag-and-drop reordering of orders and sizes
 - **react-i18next** (IT · EN · ES)
 - **react-hook-form** + **zod** + **@hookform/resolvers** (mode-aware schema)
 - **react-datepicker** + **date-fns** (IT/EN/ES locales registered)
