@@ -97,7 +97,10 @@
     "expandList": "Espandi a schermo intero",
     "complete": "Completa",
     "completeOrder": "Completa Ordine",
-    "completeSize": "Completa Misura"
+    "completeSize": "Completa Misura",
+    "reorder": "Trascina per spostare",
+    "moveUp": "Sposta su",
+    "moveDown": "Sposta giù"
   },
   "actions": {
     "calculate": "Calcola",

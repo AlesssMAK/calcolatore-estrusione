@@ -14,6 +14,21 @@ import {
 } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import SortableItem from './SortableItem';
 import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
@@ -57,10 +72,28 @@ function OrdersList({ mode, onComplete }: Props) {
     setValue,
   } = useFormContext<FormValues>();
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, move } = useFieldArray({
     control,
     name: 'orders',
   });
+
+  // Reorder the queue: drag (a press-hold handle, mobile) or ↑/↓ buttons
+  // (desktop). Both call useFieldArray.move so RHF state stays consistent.
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = fields.findIndex((f) => f.id === active.id);
+    const to = fields.findIndex((f) => f.id === over.id);
+    if (from !== -1 && to !== -1) move(from, to);
+  };
 
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const watchedOrders = useWatch({ control, name: 'orders' });
@@ -131,21 +164,72 @@ function OrdersList({ mode, onComplete }: Props) {
         </p>
       )}
 
-      <div className="space-y-3">
-        {fields.map((field, idx) => {
-          const rowErr = errors.orders?.[idx];
-          const isLast = idx === fields.length - 1;
-          const showGap = gapMode === 'withGaps' && !isLast;
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={fields.map((f) => f.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-3">
+            {fields.map((field, idx) => {
+              const rowErr = errors.orders?.[idx];
+              const isLast = idx === fields.length - 1;
+              const showGap = gapMode === 'withGaps' && !isLast;
 
-          return (
-            <div
-              key={field.id}
-              className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
-            >
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <OrderNameField idx={idx} mode={mode} t={t} />
-                <div className="flex items-center gap-2">
-                  {onComplete && (
+              return (
+                <SortableItem key={field.id} id={field.id}>
+                  {({ setNodeRef, style, handleProps, isDragging }) => (
+                    <div
+                      ref={setNodeRef}
+                      style={style}
+                      className={`rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4 ${
+                        isDragging ? 'shadow-lg' : ''
+                      }`}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                          {fields.length > 1 && (
+                            <button
+                              type="button"
+                              {...handleProps}
+                              aria-label={t('orders.reorder')}
+                              title={t('orders.reorder')}
+                              className="flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:hidden"
+                            >
+                              ⠿
+                            </button>
+                          )}
+                          <OrderNameField idx={idx} mode={mode} t={t} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {fields.length > 1 && (
+                            <div className="hidden items-center gap-1 sm:flex">
+                              <button
+                                type="button"
+                                onClick={() => move(idx, idx - 1)}
+                                disabled={idx === 0}
+                                aria-label={t('orders.moveUp')}
+                                title={t('orders.moveUp')}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => move(idx, idx + 1)}
+                                disabled={isLast}
+                                aria-label={t('orders.moveDown')}
+                                title={t('orders.moveDown')}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          )}
+                          {onComplete && (
                     <button
                       type="button"
                       onClick={() => {
@@ -200,25 +284,29 @@ function OrdersList({ mode, onComplete }: Props) {
                 </div>
               </div>
 
-              <OrderFields
-                idx={idx}
-                rowErr={rowErr}
-                showGap={showGap}
-                mode={mode}
-                t={t}
-                onCompleteSize={
-                  onComplete
-                    ? (sizeIdx) => {
-                        const id = watchedOrders?.[idx]?.id;
-                        if (id) onComplete(id, sizeIdx);
-                      }
-                    : undefined
-                }
-              />
-            </div>
-          );
-        })}
-      </div>
+                      <OrderFields
+                        idx={idx}
+                        rowErr={rowErr}
+                        showGap={showGap}
+                        mode={mode}
+                        t={t}
+                        onCompleteSize={
+                          onComplete
+                            ? (sizeIdx) => {
+                                const id = watchedOrders?.[idx]?.id;
+                                if (id) onComplete(id, sizeIdx);
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
+                  )}
+                </SortableItem>
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {showBottomButton && (
         <div className="mt-3 flex justify-end sm:mt-4">
