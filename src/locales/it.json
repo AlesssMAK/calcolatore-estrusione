@@ -204,7 +204,8 @@
     "import": {
       "button": "Importa da un calcolo salvato",
       "empty": "Nessun calcolo salvato con misure lastre.",
-      "info": "{{sizes}} misure · {{pieces}} pz"
+      "info": "{{sizes}} misure · {{pieces}} pz",
+      "orders": "{{n}} ordini"
     },
     "saved": {
       "title": "Disposizioni salvate",

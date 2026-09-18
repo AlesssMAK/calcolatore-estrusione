@@ -204,7 +204,8 @@
     "import": {
       "button": "Importar de un cálculo guardado",
       "empty": "Ningún cálculo guardado con medidas de láminas.",
-      "info": "{{sizes}} medidas · {{pieces}} pz"
+      "info": "{{sizes}} medidas · {{pieces}} pz",
+      "orders": "{{n}} pedidos"
     },
     "saved": {
       "title": "Disposiciones guardadas",
