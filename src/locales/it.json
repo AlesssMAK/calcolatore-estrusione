@@ -211,6 +211,12 @@
       "title": "Disposizioni salvate",
       "empty": "Nessuna disposizione salvata."
     },
+    "useInCalculator": {
+      "button": "Usa nel calcolatore",
+      "new": "Nuovo calcolo",
+      "existing": "Aggiungi a un calcolo",
+      "emptySaved": "Nessun calcolo Lastre salvato."
+    },
     "tips": {
       "title": "💡 Consigli per una buona scansione",
       "crop": "Ritaglia solo le colonne Lunghezza e Quantità: se prendi i bordi laterali, il disegno del profilo o le colonne Peso/mq la lettura peggiora; ritagliando stretto viene tutto.",

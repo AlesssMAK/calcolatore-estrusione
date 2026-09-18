@@ -211,6 +211,12 @@
       "title": "Disposiciones guardadas",
       "empty": "Ninguna disposición guardada."
     },
+    "useInCalculator": {
+      "button": "Usar en la calculadora",
+      "new": "Nuevo cálculo",
+      "existing": "Añadir a un cálculo",
+      "emptySaved": "Ningún cálculo de láminas guardado."
+    },
     "tips": {
       "title": "💡 Consejos para un buen escaneo",
       "crop": "Recorta solo las columnas Longitud y Cantidad: si incluyes los bordes laterales, el dibujo del perfil o las columnas Peso/m² la lectura empeora; recortando ajustado sale todo.",

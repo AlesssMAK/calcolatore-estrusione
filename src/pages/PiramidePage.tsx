@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toBlob } from 'html-to-image';
 import Header from '../components/Header';
 import ImageCropper from '../components/piramide/ImageCropper';
 import ImportFromSaved from '../components/piramide/ImportFromSaved';
 import SavedPiramideButton from '../components/piramide/SavedPiramideButton';
+import UseInCalculator from '../components/piramide/UseInCalculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { popPiramideImport } from '../lib/piramideImport';
+import { stashOrderImport } from '../lib/orderImport';
 import { loadPiramideDraft, savePiramideDraft } from '../lib/piramideDraft';
 import {
   savePiramideEntry,
@@ -78,6 +80,7 @@ function groupStrati(strati: Strato[], startNumber: number): StratoGroup[] {
 function PiramidePage() {
   const { t } = useTranslation();
   const { company, settings } = useCatalog();
+  const navigate = useNavigate();
   // Keep the company link so the back button (and a reload) stays in context.
   const homeHref = company
     ? `/?company=${encodeURIComponent(company.slug)}`
@@ -298,6 +301,27 @@ function PiramidePage() {
     );
     scrollToResult();
   };
+
+  // Send the current sheet rows to the calculator as an order — a new
+  // calculation, or appended to an existing saved one (targetCalcId). Handed
+  // off via sessionStorage; the calculator picks it up on mount.
+  const sheetRowsForOrder = () =>
+    parsedSheets.map((s) => ({ length: s.length, qty: s.qty }));
+  const useInNewCalc = () => {
+    stashOrderImport({ rows: sheetRowsForOrder() });
+    navigate(
+      company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
+    );
+  };
+  const useInExistingCalc = (calcId: string) => {
+    stashOrderImport({ rows: sheetRowsForOrder(), targetCalcId: calcId });
+    navigate(
+      company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
+    );
+  };
+  // Piramide packs sheets, so the handoff only makes sense when the calculator
+  // can show the Lastre tab (a profiles-only company can't take a sheets order).
+  const canUseInCalc = settings.modes !== 'profiles';
 
   return (
     <div className="min-h-full bg-surface-alt">
@@ -554,6 +578,15 @@ function PiramidePage() {
               t={t}
               retentionDays={settings.savedRetentionDays}
             />
+            {canUseInCalc && (
+              <UseInCalculator
+                onNew={useInNewCalc}
+                onExisting={useInExistingCalc}
+                disabled={parsedSheets.length === 0}
+                t={t}
+                retentionDays={settings.savedRetentionDays}
+              />
+            )}
           </div>
         </section>
 

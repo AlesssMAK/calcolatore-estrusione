@@ -22,6 +22,8 @@ import {
   type SavedCalculation,
 } from './lib/calcHistory';
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
+import { buildEmptyDefaults, makeEmptyOrder } from './utils/defaults';
+import { popOrderImport } from './lib/orderImport';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
   createSharedCalc,
@@ -332,6 +334,55 @@ function CalculatorApp() {
     return () => {
       cancelled = true;
     };
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // On first load, pick up a Piramide → calculator handoff (the "Usa nel
+  // calcolatore" button): build a sheets order from the sheet rows and either
+  // start a fresh calculation or append it to a chosen saved one (opened like a
+  // restore). One-shot via sessionStorage, so StrictMode's double effect is safe.
+  useEffect(() => {
+    const imported = popOrderImport();
+    if (!imported) return;
+    const order = makeEmptyOrder('sheets');
+    order.sizes = imported.rows.map((r) => ({
+      sheets: r.qty,
+      length: r.length,
+      profilesPerPackage: undefined,
+    })) as (typeof order)['sizes'];
+
+    if (imported.targetCalcId) {
+      const entry = loadHistory(settings.savedRetentionDays).find(
+        (e) => e.id === imported.targetCalcId,
+      );
+      if (entry) {
+        // Append the order (inherits speed from the queue) and open the calc.
+        onRestore({
+          ...entry,
+          values: {
+            ...entry.values,
+            orders: [...(entry.values?.orders ?? []), order],
+          } as FormValues,
+        });
+        return;
+      }
+      // Target vanished (deleted/expired) → fall through to a new calculation.
+    }
+
+    // New calculation with just this order.
+    const values = buildEmptyDefaults('sheets');
+    values.orders = [order];
+    setSelectedMode('sheets');
+    setResult(null);
+    setResultValues(undefined);
+    setEditingId(undefined);
+    setCompletedRows([]);
+    setFromSaved(false);
+    clearRestored();
+    setRestoredValues(values);
+    setFormKey((k) => k + 1);
+    scrollToResults();
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
