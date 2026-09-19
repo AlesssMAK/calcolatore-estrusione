@@ -403,6 +403,36 @@ function CalculatorApp() {
     return `${APP_ORIGIN}/?${params.toString()}`;
   };
 
+  // Enable/disable live-sync on a saved entry from the "Salvati" list. Enable
+  // uploads a fresh shared document and binds its edit token; disable unbinds
+  // locally (the shared row is left to expire). Skips entries without inputs.
+  const toggleEntrySync = async (entry: SavedCalculation) => {
+    if (!isSupabaseConfigured || !entry.values) return;
+    if (entry.sync) {
+      updateSyncMeta(entry.id, undefined, settings.savedRetentionDays);
+      if (editingId === entry.id) setSyncMeta(null);
+      setSavedRefreshKey((k) => k + 1);
+      return;
+    }
+    try {
+      const { id, editToken } = await createSharedCalc({
+        v: 1,
+        mode: entry.result.mode,
+        values: entry.values,
+        result: entry.result,
+        completedRows: entry.completedRows,
+        label: entry.label,
+        snapshot: entry.snapshot,
+      });
+      const sync: SyncMeta = { id, token: editToken, version: 1 };
+      updateSyncMeta(entry.id, sync, settings.savedRetentionDays);
+      if (editingId === entry.id) setSyncMeta(sync);
+      setSavedRefreshKey((k) => k + 1);
+    } catch {
+      /* upload failed (offline / quota) — leave the entry unsynced */
+    }
+  };
+
   // On first load, hydrate a shared calculation from a ?shared=<id> link:
   // save it into the recipient's local "Salvati" history (deduped by a stable
   // shared-<id> slot so re-opening the same link doesn't pile up copies) and
@@ -564,6 +594,7 @@ function CalculatorApp() {
           }}
           onRestore={onRestore}
           savedRefreshKey={savedRefreshKey}
+          onToggleSync={isSupabaseConfigured ? toggleEntrySync : undefined}
           initialValues={restoredValues}
           editingId={editingId}
           completedRows={completedRows}
