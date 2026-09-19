@@ -278,7 +278,7 @@ function CalculatorApp() {
       label: deriveLabel(result),
       snapshot,
     };
-    const id = await createSharedCalc(payload);
+    const { id } = await createSharedCalc(payload);
     const params = new URLSearchParams();
     params.set('shared', id);
     if (company) params.set('company', company.slug);
@@ -296,8 +296,9 @@ function CalculatorApp() {
     const id = params.get('shared');
     if (!id) return;
     let cancelled = false;
-    void fetchSharedCalc(id).then((payload) => {
-      if (cancelled || !payload) return;
+    void fetchSharedCalc(id).then((res) => {
+      if (cancelled || !res) return;
+      const payload = res.payload;
       const savedId = `shared-${id}`;
       const label = payload.label ?? deriveLabel(payload.result);
       let entry: SavedCalculation;
