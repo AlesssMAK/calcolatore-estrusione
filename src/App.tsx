@@ -217,6 +217,14 @@ function CalculatorApp() {
           }
         }
       });
+    } else if (meta) {
+      // A follower (view-only, no edit token) edited → detach into a local copy
+      // so their changes aren't overwritten by the next pull.
+      setSyncMeta(null);
+      if (editingId) {
+        updateSyncMeta(editingId, undefined, settings.savedRetentionDays);
+        setSavedRefreshKey((k) => k + 1);
+      }
     }
   };
 
@@ -225,7 +233,7 @@ function CalculatorApp() {
   // and the schedule is recomputed — shown with a banner + link to the
   // original. Either way the form is refilled so the user can tweak &
   // recalculate. Switch tab if the saved mode differs from the current one.
-  const onRestore = (entry: SavedCalculation) => {
+  const doRestore = (entry: SavedCalculation) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
     // Advancing a malformed saved entry must never leave its row un-openable:
     // on failure fall back to showing the saved result as-is (and note why),
@@ -260,6 +268,55 @@ function CalculatorApp() {
     }
     setFormKey((k) => k + 1);
     scrollToResults();
+  };
+
+  // Pull the latest server version of a synced entry; if newer than the local
+  // copy, persist the fresh payload into the same slot and return the updated
+  // entry. Returns null when nothing changed / not synced / offline.
+  const syncPull = async (
+    entry: SavedCalculation,
+  ): Promise<SavedCalculation | null> => {
+    const sync = entry.sync;
+    if (!sync) return null;
+    const res = await fetchSharedCalc(sync.id);
+    if (!res || res.version <= sync.version) return null;
+    const p = res.payload;
+    const nextSync: SyncMeta = { ...sync, version: res.version };
+    try {
+      saveCalculation(
+        p.result,
+        p.values,
+        p.snapshot,
+        p.label ?? deriveLabel(p.result),
+        settings.maxSavedResults,
+        settings.savedRetentionDays,
+        entry.id,
+        p.completedRows,
+      );
+      updateSyncMeta(entry.id, nextSync, settings.savedRetentionDays);
+      setSavedRefreshKey((k) => k + 1);
+    } catch {
+      /* storage unavailable — still return the fresh entry for display */
+    }
+    return {
+      ...entry,
+      result: p.result,
+      values: p.values,
+      snapshot: p.snapshot,
+      completedRows: p.completedRows,
+      sync: nextSync,
+    };
+  };
+
+  // Open a saved calc, then (if it's a synced document) pull the latest in the
+  // background and re-open if a newer version exists.
+  const onRestore = (entry: SavedCalculation) => {
+    doRestore(entry);
+    if (entry.sync) {
+      void syncPull(entry).then((updated) => {
+        if (updated) doRestore(updated);
+      });
+    }
   };
 
   const viewOriginal = () => {
@@ -348,20 +405,22 @@ function CalculatorApp() {
 
   // On first load, hydrate a shared calculation from a ?shared=<id> link:
   // save it into the recipient's local "Salvati" history (deduped by a stable
-  // shared-<id> slot so re-opening the same link doesn't pile up copies), then
-  // open it exactly like picking it from Salvati — advanced to "now", with the
-  // "Vedi originale" toggle (and Ricalcola when there are completed orders).
-  // Finally strip ?shared= (keeping ?company=) so a reload doesn't re-fetch.
+  // shared-<id> slot so re-opening the same link doesn't pile up copies) and
+  // bind it as a live synced document (following the author; also editable when
+  // the link carries &edit=<token>), then open it like picking it from Salvati.
+  // Finally strip ?shared=/&edit= (keeping ?company=) so a reload doesn't refetch.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('shared');
     if (!id) return;
+    const editToken = params.get('edit') ?? undefined;
     let cancelled = false;
     void fetchSharedCalc(id).then((res) => {
       if (cancelled || !res) return;
       const payload = res.payload;
       const savedId = `shared-${id}`;
       const label = payload.label ?? deriveLabel(payload.result);
+      const sync: SyncMeta = { id, token: editToken, version: res.version };
       let entry: SavedCalculation;
       try {
         entry = saveCalculation(
@@ -374,6 +433,8 @@ function CalculatorApp() {
           savedId,
           payload.completedRows,
         );
+        updateSyncMeta(savedId, sync, settings.savedRetentionDays);
+        entry = { ...entry, sync };
         setSavedRefreshKey((k) => k + 1);
       } catch {
         // Storage failed (quota/private mode) — restore from an in-memory entry
@@ -386,10 +447,12 @@ function CalculatorApp() {
           values: payload.values,
           snapshot: payload.snapshot,
           completedRows: payload.completedRows,
+          sync,
         };
       }
       onRestore(entry);
       params.delete('shared');
+      params.delete('edit');
       const qs = params.toString();
       window.history.replaceState(null, '', qs ? `/?${qs}` : '/');
     });
@@ -399,6 +462,30 @@ function CalculatorApp() {
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // While viewing a synced calc, pull the latest when the tab regains focus /
+  // becomes visible, so a follower sees the author's updates without reopening.
+  useEffect(() => {
+    if (!syncMeta) return;
+    const pull = () => {
+      if (document.visibilityState === 'hidden') return;
+      const entry = loadHistory(settings.savedRetentionDays).find(
+        (e) => e.id === editingId,
+      );
+      if (entry?.sync) {
+        void syncPull(entry).then((updated) => {
+          if (updated) doRestore(updated);
+        });
+      }
+    };
+    window.addEventListener('focus', pull);
+    document.addEventListener('visibilitychange', pull);
+    return () => {
+      window.removeEventListener('focus', pull);
+      document.removeEventListener('visibilitychange', pull);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncMeta, editingId]);
 
   // On first load, pick up a Piramide → calculator handoff (the "Usa nel
   // calcolatore" button): build a sheets order from the sheet rows and either
