@@ -156,6 +156,21 @@ export function removeCalculation(
   safeWrite(loadHistory(retentionDays).filter((i) => i.id !== id));
 }
 
+/** Set (or clear, with `undefined`) the live-sync binding on a saved entry, so
+ *  restoring it later re-attaches to the shared document. No-op when the entry
+ *  is gone. */
+export function updateSyncMeta(
+  id: string,
+  sync: SyncMeta | undefined,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): void {
+  const items = loadHistory(retentionDays);
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx === -1) return;
+  items[idx] = { ...items[idx], sync };
+  safeWrite(items);
+}
+
 /** Pick the most useful human label for a saved result, in this order:
  *  1. Global settings.productName (carried on result.productName by the
  *     calculator) — explicitly typed by the operator, always wins.

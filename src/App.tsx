@@ -19,7 +19,9 @@ import {
   deriveLabel,
   loadHistory,
   saveCalculation,
+  updateSyncMeta,
   type SavedCalculation,
+  type SyncMeta,
 } from './lib/calcHistory';
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
 import { buildEmptyDefaults, makeEmptyOrder } from './utils/defaults';
@@ -28,6 +30,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import {
   createSharedCalc,
   fetchSharedCalc,
+  updateSharedCalc,
   type SharedPayload,
 } from './lib/sharedCalc';
 import { APP_ORIGIN } from './lib/appUrl';
@@ -84,6 +87,10 @@ function CalculatorApp() {
   // tracking) — gates the per-order / per-size "✓ Completa" buttons. A fresh
   // calc keeps it false.
   const [fromSaved, setFromSaved] = useState(false);
+  // Live-sync binding of the currently displayed calc (null = not synced). Set
+  // when the calc is shared/synced or when a synced entry is restored; drives
+  // pushing edits to the shared document.
+  const [syncMeta, setSyncMeta] = useState<SyncMeta | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
   // panel (a sibling of the form) can trigger completion too.
   const completeRef = useRef<
@@ -121,6 +128,7 @@ function CalculatorApp() {
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
+    setSyncMeta(null);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -132,8 +140,32 @@ function CalculatorApp() {
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
+    setSyncMeta(null);
     clearRestored();
     setFormKey((k) => k + 1);
+  };
+
+  // Build the shareable payload for a set of values/result/completed rows,
+  // carrying the effective schedule snapshot (from the bound saved entry) so a
+  // recipient can advance it to "now".
+  const buildPayload = (
+    r: ScheduleResult,
+    values: FormValues,
+    completed: ScheduledOrder[],
+  ): SharedPayload => {
+    const snapshot = editingId
+      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
+          ?.snapshot
+      : undefined;
+    return {
+      v: 1,
+      mode,
+      values,
+      result: r,
+      completedRows: completed.length > 0 ? completed : undefined,
+      label: deriveLabel(r),
+      snapshot,
+    };
   };
 
   // A submit from the form. "Calcola" (keepCompleted=false) drops the prior
@@ -161,6 +193,31 @@ function CalculatorApp() {
     }
     setResult(r);
     setResultValues(values);
+    // Push edits to the live shared document if this calc is synced and we hold
+    // the edit token. Best-effort (fire-and-forget); bumps the local version.
+    const meta = syncMeta;
+    if (meta?.token) {
+      const token = meta.token;
+      const newCompleted =
+        newlyCompleted.length > 0
+          ? [...(keepCompleted ? completedRows : []), ...newlyCompleted]
+          : keepCompleted
+            ? completedRows
+            : [];
+      void updateSharedCalc(
+        meta.id,
+        token,
+        buildPayload(r, values, newCompleted),
+      ).then((v) => {
+        if (v != null) {
+          const next: SyncMeta = { ...meta, version: v };
+          setSyncMeta(next);
+          if (editingId) {
+            updateSyncMeta(editingId, next, settings.savedRetentionDays);
+          }
+        }
+      });
+    }
   };
 
   // Restore a saved calculation. If it's stale (real time has moved past its
@@ -188,6 +245,7 @@ function CalculatorApp() {
     setAdvancedCalc(adv);
     setShowOriginal(false);
     setFromSaved(true); // tracking a saved calc → enable "✓ Completa" buttons
+    setSyncMeta(entry.sync ?? null); // re-attach to the shared doc, if any
     setEditingId(entry.id); // re-Calcola updates this saved entry in place
     if (adv) {
       setRestoredValues(adv.values);
@@ -261,26 +319,29 @@ function CalculatorApp() {
   // Persist the whole displayed calculation to Supabase and return a short
   // shareable link. Preserves the active company so the recipient opens the
   // same catalog/branding. Returns null when there's nothing to share.
-  const createShareUrl = async (): Promise<string | null> => {
+  // Turn the displayed calc into a live shared document (if not already) and
+  // return its link. `mode` picks a view-only link (`?shared=id`) or an
+  // editable one (`?shared=id&edit=token`) — the sharer's choice. Enabling sync
+  // binds the token to the bound saved entry so later edits push updates.
+  const createShareUrl = async (
+    shareMode: 'view' | 'edit',
+  ): Promise<string | null> => {
     if (!result || !resultValues) return null;
-    // Carry the snapshot from the saved entry this result is bound to, so the
-    // recipient's saved copy can be advanced to "now" like any local calc.
-    const snapshot = editingId
-      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
-          ?.snapshot
-      : undefined;
-    const payload: SharedPayload = {
-      v: 1,
-      mode,
-      values: resultValues,
-      result,
-      completedRows: completedRows.length > 0 ? completedRows : undefined,
-      label: deriveLabel(result),
-      snapshot,
-    };
-    const { id } = await createSharedCalc(payload);
+    let meta = syncMeta;
+    if (!meta) {
+      const { id, editToken } = await createSharedCalc(
+        buildPayload(result, resultValues, completedRows),
+      );
+      meta = { id, token: editToken, version: 1 };
+      setSyncMeta(meta);
+      if (editingId) {
+        updateSyncMeta(editingId, meta, settings.savedRetentionDays);
+        setSavedRefreshKey((k) => k + 1);
+      }
+    }
     const params = new URLSearchParams();
-    params.set('shared', id);
+    params.set('shared', meta.id);
+    if (shareMode === 'edit' && meta.token) params.set('edit', meta.token);
     if (company) params.set('company', company.slug);
     return `${APP_ORIGIN}/?${params.toString()}`;
   };
@@ -470,6 +531,7 @@ function CalculatorApp() {
                 result={withCompleted(result, completedRows)}
                 mode={mode}
                 onShare={isSupabaseConfigured ? createShareUrl : undefined}
+                isSynced={syncMeta !== null}
                 onComplete={
                   fromSaved
                     ? (orderId, sizeIdx) =>

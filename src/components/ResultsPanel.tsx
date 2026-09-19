@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toBlob } from 'html-to-image';
 import type {
@@ -58,21 +58,45 @@ function CompleteBtn({
 interface Props {
   result: ScheduleResult;
   mode: CalculatorMode;
-  /** Persist the whole calculation and return a short shareable link. Absent
-   *  when sharing is unavailable (Supabase not configured) → button hidden. */
-  onShare?: () => Promise<string | null>;
+  /** Turn the calc into a live shared document and return its link. `mode`
+   *  picks a view-only or an editable (`&edit=token`) link. Absent when sharing
+   *  is unavailable (Supabase not configured) → button hidden. */
+  onShare?: (mode: 'view' | 'edit') => Promise<string | null>;
+  /** True once this calc is a live synced document (shows a "synced" hint). */
+  isSynced?: boolean;
   /** Mark an order (or a single size) fully produced. Present only when
    *  tracking a saved/shared calc → renders per-row "✓" buttons. */
   onComplete?: (orderId: string, sizeIdx?: number) => void;
 }
 
-function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
+function ResultsPanel({ result, mode, onShare, isSynced, onComplete }: Props) {
   const { t, i18n } = useTranslation();
   const [shareState, setShareState] = useState<
     'idle' | 'sharing' | 'copied' | 'error'
   >('idle');
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+
+  // Close the share-mode menu on outside click / Esc.
+  useEffect(() => {
+    if (!shareMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!shareMenuRef.current?.contains(e.target as Node)) {
+        setShareMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShareMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [shareMenuOpen]);
 
   // Build the PNG of the results panel and surface it to the user in the
   // most share-friendly way the platform allows:
@@ -189,11 +213,12 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
   // Share the whole calculation as a short link (persisted to Supabase by the
   // parent). Prefers the native share sheet on mobile; falls back to copying
   // the link to the clipboard with a transient "copied" confirmation.
-  const onShareClick = async () => {
+  const onShareClick = async (shareMode: 'view' | 'edit') => {
     if (!onShare) return;
+    setShareMenuOpen(false);
     setShareState('sharing');
     try {
-      const url = await onShare();
+      const url = await onShare(shareMode);
       if (!url) {
         setShareState('error');
         window.setTimeout(() => setShareState('idle'), 2200);
@@ -272,14 +297,56 @@ function ResultsPanel({ result, mode, onShare, onComplete }: Props) {
             📷 {exporting ? t('actions.exporting') : t('actions.saveImage')}
           </button>
           {onShare && (
-            <button
-              type="button"
-              onClick={() => void onShareClick()}
-              disabled={shareState === 'sharing'}
-              className="rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-500 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              🔗 {shareLabel}
-            </button>
+            <div ref={shareMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShareMenuOpen((v) => !v)}
+                disabled={shareState === 'sharing'}
+                aria-haspopup="menu"
+                aria-expanded={shareMenuOpen}
+                className="rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-500 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                🔗 {shareLabel}
+                {isSynced && shareState === 'idle' && (
+                  <span className="ml-1" aria-hidden title={t('actions.synced')}>
+                    🔄
+                  </span>
+                )}
+              </button>
+              {shareMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-30 mt-1 w-64 overflow-hidden rounded-lg border border-neutral-200 bg-white p-1 text-left shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void onShareClick('view')}
+                    className="block w-full rounded-md px-3 py-2 text-left transition hover:bg-brand-50"
+                  >
+                    <span className="block text-sm font-medium text-ink">
+                      👁 {t('actions.shareViewOnly')}
+                    </span>
+                    <span className="block text-xs text-ink-soft">
+                      {t('actions.shareViewOnlyHint')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void onShareClick('edit')}
+                    className="block w-full rounded-md px-3 py-2 text-left transition hover:bg-brand-50"
+                  >
+                    <span className="block text-sm font-medium text-ink">
+                      ✏ {t('actions.shareEditable')}
+                    </span>
+                    <span className="block text-xs text-ink-soft">
+                      {t('actions.shareEditableHint')}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
