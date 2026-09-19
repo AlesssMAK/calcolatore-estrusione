@@ -156,6 +156,15 @@ working-intervals model (`workingIntervals(dow, work)` → `nextWorkingInstant` 
   restore — advanced to *now*, with *Vedi originale* / *Ricalcola* where relevant. The button is
   hidden when Supabase isn't configured. (Plain-text **📋 Copia** now lives only on the Piramide
   page.)
+- **🔄 Live sync** — a shared calculation can be a **live document**: when the author updates it,
+  everyone who holds the link gets the update. The 🔗 button offers two link modes: **view-only**
+  (`?shared=id` — others follow, only the author edits) or **editable** (`?shared=id&edit=token` —
+  anyone with the link edits). Security is a capability model: a secret `edit_token` (uuid,
+  server-checked by the `update_shared_calc` RPC) is required to write; it lives on the author's
+  device and only travels in a link when the sharer picks the editable mode. Recipients **pull the
+  latest on open and when the tab regains focus**; a follower who edits **detaches** into a private
+  local copy. Enable/disable sync per entry from the `Salvati` dropdown (🔄 badge + toggle).
+  Conflicts resolve last-write-wins by `version`. Needs the sync DB migration (see *Backend*).
 
 ### Piramide — sheet nesting (`/piramide`)
 
@@ -304,13 +313,15 @@ links, back link) so a reload keeps the company context.
   Level Security. The anonymous role can read `companies` / `products` / `company_settings`
   (anyone with the URL sees the catalog + settings); writes are restricted to authenticated admins
   of the matching company. Super-admins (`admins.is_super=true`) have full CRUD.
-- **`shared_calcs`** (share links): `id text PK`, `payload jsonb` (`< 200 KB` check),
-  `created_at`. The anon role may **INSERT** (create links) but has **no SELECT policy** — the
-  table can't be enumerated/dumped through the public anon key. Reads go through a
-  `SECURITY DEFINER` RPC **`get_shared_calc(p_id text)`** that returns a single row by exact id;
-  [`fetchSharedCalc`](src/lib/sharedCalc.ts) calls it (with a direct-select fallback for
-  deployments where the function isn't set up). No DELETE policy; a **pg_cron** job
-  (`purge-old-shared-calcs`, 03:00 UTC) deletes links older than 90 days.
+- **`shared_calcs`** (share links + live sync): `id text PK`, `payload jsonb` (`< 200 KB` check),
+  `created_at`, `updated_at`, `version int`, `edit_token uuid`. The anon role may **INSERT** (create
+  links) but has **no SELECT policy** — the table can't be enumerated/dumped through the public anon
+  key. Reads go through a `SECURITY DEFINER` RPC **`get_shared_calc_meta(p_id)`** (payload + version
+  + updated_at) that returns a single row by exact id; writes go through **`update_shared_calc(p_id,
+  p_token, p_payload)`**, which only succeeds when `p_token` matches the row's `edit_token` (the
+  capability that gates live-sync edits). No DELETE policy; a **pg_cron** job
+  (`purge-old-shared-calcs`, 03:00 UTC) deletes rows not updated in 90 days. (The payload-only
+  `get_shared_calc` is kept for backward compatibility.)
 - **Auth**: email/password, sessions stored in `localStorage` for admin persistence.
 - **Edge Functions**: `create-company`, `update-company`, `delete-company` — run on Deno with the
   service-role key (never exposed to the browser). `company_settings` needs no Edge Function — it
@@ -319,8 +330,9 @@ links, back link) so a reload keeps the company context.
   policies, sidestepping a self-referential infinite-recursion issue with admins-checks-admins.
 
 > The Supabase schema (tables, RLS, Edge Functions) lives **outside** this repo — it is managed in
-> the Supabase dashboard. `company_settings`, `shared_calcs` (+ the `get_shared_calc` RPC and the
-> `purge-old-shared-calcs` pg_cron job) were added with hand-run SQL migrations.
+> the Supabase dashboard. `company_settings`, `shared_calcs` (+ the `get_shared_calc` /
+> `get_shared_calc_meta` / `update_shared_calc` RPCs and the `purge-old-shared-calcs` pg_cron job)
+> were added with hand-run SQL migrations.
 
 ### Security
 
