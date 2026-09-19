@@ -38,6 +38,20 @@ export interface SavedCalculation {
    *  `result.rows`/`values.orders`, so re-advance stays aligned) and shown as
    *  completed rows. Accumulates as more orders finish. */
   completedRows?: ScheduledOrder[];
+  /** Present when this saved calc is a "live" (synced) shared document. */
+  sync?: SyncMeta;
+}
+
+/** Live-sync binding for a shared calculation. When present on a saved entry,
+ *  the calc mirrors a `shared_calcs` row: this device pulls newer versions and,
+ *  if it holds the edit `token` (author or a collaborator), pushes its edits. */
+export interface SyncMeta {
+  /** The `shared_calcs` row id this entry is bound to. */
+  id: string;
+  /** Secret edit token — present only when this device may edit (else follow). */
+  token?: string;
+  /** Last server version this device has seen (for change detection). */
+  version: number;
 }
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
