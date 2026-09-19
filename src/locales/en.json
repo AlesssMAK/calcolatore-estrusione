@@ -116,6 +116,8 @@
     "shareEditable": "Editable by anyone",
     "shareEditableHint": "Anyone with the link can edit",
     "synced": "Synced",
+    "syncOn": "Enable sync",
+    "syncOff": "Disable sync",
     "saveImage": "Share Photo",
     "exporting": "Saving…",
     "saved": "Saved",
