@@ -316,7 +316,7 @@ function ResultsPanel({ result, mode, onShare, isSynced, onComplete }: Props) {
               {shareMenuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 z-30 mt-1 w-64 overflow-hidden rounded-lg border border-neutral-200 bg-white p-1 text-left shadow-lg"
+                  className="absolute left-0 z-30 mt-1 w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-neutral-200 bg-white p-1 text-left shadow-lg sm:left-auto sm:right-0"
                 >
                   <button
                     type="button"

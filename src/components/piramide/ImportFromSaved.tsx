@@ -116,7 +116,7 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
         <span>{t('piramide.import.button')}</span>
       </button>
       {open && (
-        <div className="absolute left-0 z-20 mt-1 max-h-72 w-72 overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 max-h-72 w-[min(18rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
           {groups.length === 0 ? (
             <p className="px-3 py-2 text-sm text-ink-soft">
               {t('piramide.import.empty')}
