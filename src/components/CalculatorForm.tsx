@@ -287,7 +287,7 @@ function CalculatorForm({
         noValidate
       >
         <WeekendBanner />
-        {settingsOpen && <GlobalSettingsPanel mode={mode} />}
+        {settingsOpen && <GlobalSettingsPanel />}
         <OrdersList
           mode={mode}
           onComplete={canComplete ? completeItem : undefined}

@@ -129,6 +129,7 @@
     "title": "Cálculos Guardados",
     "empty": "No hay cálculos guardados.",
     "restore": "Restaurar",
+    "inProduction": "En producción",
     "delete": "Eliminar",
     "hint": "Los cálculos se guardan automáticamente al pulsar «Calcular». Se conservan 7 días."
   },
