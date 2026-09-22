@@ -1670,6 +1670,10 @@ function SizesFieldArray({
 
   const watchedSizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
 
+  // Photo scanner + "open in Piramide" collapse behind a toggle (like Calcolo
+  // avanzato) so they don't take space until needed.
+  const [scanOpen, setScanOpen] = useState(false);
+
   // Fill sizes from a scanned photo: keep any already-filled rows, then append
   // the scanned {length, qty} pairs as {length, sheets}.
   const onScanRows = (rows: OcrRow[]) => {
@@ -1925,23 +1929,34 @@ function SizesFieldArray({
       {afterSizes}
 
       <div className="mt-3 border-t border-neutral-200 pt-3">
-        <p className={`${labelBase} mb-1.5`}>{t('orders.scan.label')}</p>
-        <SheetScanner
-          onRows={onScanRows}
-          t={t}
-          extraAction={
-            canOpenPiramide ? (
-              <button
-                type="button"
-                onClick={openInPiramide}
-                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
-              >
-                <span aria-hidden>📐</span>
-                <span>{t('orders.openInPiramide')}</span>
-              </button>
-            ) : undefined
-          }
-        />
+        <button
+          type="button"
+          onClick={() => setScanOpen((v) => !v)}
+          aria-expanded={scanOpen}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
+        >
+          {scanOpen ? '▾' : '▸'} {t('orders.scan.label')}
+        </button>
+        {scanOpen && (
+          <div className="mt-2">
+            <SheetScanner
+              onRows={onScanRows}
+              t={t}
+              extraAction={
+                canOpenPiramide ? (
+                  <button
+                    type="button"
+                    onClick={openInPiramide}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+                  >
+                    <span aria-hidden>📐</span>
+                    <span>{t('orders.openInPiramide')}</span>
+                  </button>
+                ) : undefined
+              }
+            />
+          </div>
+        )}
       </div>
     </div>
   );
