@@ -129,6 +129,7 @@
     "title": "Calcoli Salvati",
     "empty": "Nessun calcolo salvato.",
     "restore": "Ripristina",
+    "inProduction": "In produzione",
     "delete": "Elimina",
     "hint": "I calcoli vengono salvati automaticamente quando premi «Calcola». Conservati per 7 giorni."
   },

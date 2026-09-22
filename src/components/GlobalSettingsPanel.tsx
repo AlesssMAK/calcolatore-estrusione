@@ -5,7 +5,7 @@ import { it as itLocale } from 'date-fns/locale/it';
 import { es as esLocale } from 'date-fns/locale/es';
 import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
-import type { CalculatorMode, WeekendDay } from '../types';
+import type { WeekendDay } from '../types';
 import FieldError from './FieldError';
 import { saveWeekendPref } from '../utils/defaults';
 import { isContinuous } from '../utils/calculator';
@@ -167,16 +167,11 @@ function WeekendDayRow({
   );
 }
 
-interface GlobalSettingsPanelProps {
-  mode: CalculatorMode;
-}
-
-function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
+function GlobalSettingsPanel() {
   'use no memo';
   const { t, i18n } = useTranslation();
   const [now] = useState(() => Date.now());
   const {
-    register,
     setValue,
     formState: { errors },
     control,
@@ -185,17 +180,12 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
   const startMode = useWatch({ control, name: 'settings.startMode' });
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const startAt = useWatch({ control, name: 'settings.startAt' });
-  const productName = useWatch({ control, name: 'settings.productName' });
   const weekend = useWatch({ control, name: 'settings.weekend' });
   const warmupMinutes = useWatch({ control, name: 'settings.warmupMinutes' });
   const shutdownMinutes = useWatch({ control, name: 'settings.shutdownMinutes' });
   // When the line runs continuously (no stops) buffers have no effect — disable
   // the inputs. Mirrors the scheduler's own `isContinuous` so UI and math agree.
   const continuous = isContinuous({ weekend });
-  const [showProductName, setShowProductName] = useState(false);
-  const productNameHasValue =
-    typeof productName === 'string' && productName.length > 0;
-  const productNameOpen = showProductName || productNameHasValue;
 
   const isStartAtInPast =
     startMode === 'manual' &&
@@ -223,15 +213,6 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
       gapMode === 'continuous' ? 'withGaps' : 'continuous',
       { shouldValidate: true }
     );
-  };
-
-  const toggleProductName = () => {
-    if (productNameOpen) {
-      setShowProductName(false);
-      setValue('settings.productName', '', { shouldValidate: true });
-    } else {
-      setShowProductName(true);
-    }
   };
 
   const toggleWeekend = () => {
@@ -324,12 +305,6 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
           label={t('settings.toggle.gaps')}
         />
         <ToggleButton
-          active={productNameOpen}
-          onClick={toggleProductName}
-          icon="✏"
-          label={t('settings.toggle.productName')}
-        />
-        <ToggleButton
           active={!!weekend?.enabled}
           onClick={toggleWeekend}
           icon="📅"
@@ -398,22 +373,6 @@ function GlobalSettingsPanel({ mode }: GlobalSettingsPanelProps) {
               ? t('settings.buffers.continuousHint')
               : t('settings.buffers.hint')}
           </p>
-        </div>
-      )}
-
-      {productNameOpen && (
-        <div className="mt-3 pb-5 sm:mt-4">
-          <label className={labelBase} htmlFor="productName">
-            {t('settings.productName')}
-          </label>
-          <input
-            id="productName"
-            type="text"
-            autoFocus={showProductName && !productNameHasValue}
-            placeholder={t(`settings.productNamePlaceholder.${mode}`)}
-            className={`${inputBase} mt-1 sm:max-w-md`}
-            {...register('settings.productName')}
-          />
         </div>
       )}
 

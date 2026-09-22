@@ -129,6 +129,7 @@
     "title": "Saved Calculations",
     "empty": "No saved calculations.",
     "restore": "Restore",
+    "inProduction": "In production",
     "delete": "Delete",
     "hint": "Calculations are auto-saved when you press «Calculate». Kept for 7 days."
   },

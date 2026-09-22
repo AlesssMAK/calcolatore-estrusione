@@ -110,7 +110,17 @@ function SavedCalculationsButton({
             </div>
           ) : (
             <ul className="my-1 flex flex-col gap-0.5">
-              {items.map((it) => (
+              {items.map((it) => {
+                // "In production" = now falls inside the computed window, so the
+                // line is (as planned) still being manufactured — a blinking dot
+                // flags it in the list.
+                const now = Date.now();
+                const inProduction =
+                  it.result.startAt instanceof Date &&
+                  it.result.endAt instanceof Date &&
+                  it.result.startAt.getTime() <= now &&
+                  now < it.result.endAt.getTime();
+                return (
                 <li
                   key={it.id}
                   className="flex items-center gap-1 rounded-md hover:bg-neutral-50"
@@ -127,6 +137,13 @@ function SavedCalculationsButton({
                     title={t('saved.restore')}
                   >
                     <span className="flex w-full items-center gap-1.5">
+                      {inProduction && (
+                        <span
+                          className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500"
+                          title={t('saved.inProduction')}
+                          aria-label={t('saved.inProduction')}
+                        />
+                      )}
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                         {it.label}
                       </span>
@@ -183,7 +200,8 @@ function SavedCalculationsButton({
                     ×
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 
