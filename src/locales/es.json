@@ -97,7 +97,6 @@
     "expandList": "Expandir a pantalla completa",
     "order": "Pedido {{n}}",
     "expandOrder": "Expandir pedido",
-    "summaryCounts": "{{pcs}} pz · {{sizes}} medidas",
     "complete": "Completar",
     "completeOrder": "Completar Pedido",
     "completeSize": "Completar Medida",
@@ -208,6 +207,14 @@
     "size": "Medida",
     "eta": "Fin previsto",
     "tapToGo": "Toca para abrir la medida"
+  },
+  "company": {
+    "results": "Empresa",
+    "empty": "Ningún resultado compartido.",
+    "publish": "Compartir con la empresa",
+    "unpublish": "Quitar de la empresa",
+    "editable": "Editable",
+    "limitReached": "Límite alcanzado ({{max}})"
   },
   "footer": {
     "madeBy": "Calculadora de Extrusión",

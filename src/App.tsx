@@ -35,7 +35,11 @@ import {
   createSharedCalc,
   fetchSharedCalc,
   updateSharedCalc,
+  setCompanyPublish,
+  updateCompanyCalc,
+  fetchCompanyCalcs,
   type SharedPayload,
+  type CompanyCalc,
 } from './lib/sharedCalc';
 import { APP_ORIGIN } from './lib/appUrl';
 
@@ -164,6 +168,8 @@ function CalculatorApp() {
     orderIdx: number;
     sizeIdx: number;
   } | null>(null);
+  // Transient notice for company-publish feedback (e.g. limit reached).
+  const [companyNotice, setCompanyNotice] = useState<string | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
   // panel (a sibling of the form) can trigger completion too.
   const completeRef = useRef<
@@ -273,22 +279,18 @@ function CalculatorApp() {
     }
     setResult(r);
     setResultValues(values);
-    // Push edits to the live shared document if this calc is synced and we hold
-    // the edit token. Best-effort (fire-and-forget); bumps the local version.
+    // Push edits to the live shared document if this calc is synced. Best-effort
+    // (fire-and-forget); bumps the local version.
     const meta = syncMeta;
-    if (meta?.token) {
-      const token = meta.token;
+    if (meta) {
       const newCompleted =
         newlyCompleted.length > 0
           ? [...(keepCompleted ? completedRows : []), ...newlyCompleted]
           : keepCompleted
             ? completedRows
             : [];
-      void updateSharedCalc(
-        meta.id,
-        token,
-        buildPayload(r, values, newCompleted),
-      ).then((v) => {
+      const payload = buildPayload(r, values, newCompleted);
+      const applyVersion = (v: number | null) => {
         if (v != null) {
           const next: SyncMeta = { ...meta, version: v };
           setSyncMeta(next);
@@ -296,14 +298,21 @@ function CalculatorApp() {
             updateSyncMeta(editingId, next, settings.savedRetentionDays);
           }
         }
-      });
-    } else if (meta) {
-      // A follower (view-only, no edit token) edited → detach into a local copy
-      // so their changes aren't overwritten by the next pull.
-      setSyncMeta(null);
-      if (editingId) {
-        updateSyncMeta(editingId, undefined, settings.savedRetentionDays);
-        setSavedRefreshKey((k) => k + 1);
+      };
+      if (meta.token) {
+        // Author / link collaborator — edits via the secret token.
+        void updateSharedCalc(meta.id, meta.token, payload).then(applyVersion);
+      } else if (meta.companyEditable) {
+        // Company member on an "editable by anyone" published calc — no token.
+        void updateCompanyCalc(meta.id, payload).then(applyVersion);
+      } else {
+        // A view-only follower edited → detach into a local copy so their
+        // changes aren't overwritten by the next pull.
+        setSyncMeta(null);
+        if (editingId) {
+          updateSyncMeta(editingId, undefined, settings.savedRetentionDays);
+          setSavedRefreshKey((k) => k + 1);
+        }
       }
     }
   };
@@ -532,6 +541,104 @@ function CalculatorApp() {
     }
   };
 
+  // Publish / unpublish a saved entry to the company shared list. Ensures the
+  // entry is synced (creates the shared doc + token if needed), enforces the
+  // per-company cap, then flips the flags. mode: 'view' | 'edit' | 'off'.
+  const publishToCompany = async (
+    entry: SavedCalculation,
+    mode: 'view' | 'edit' | 'off',
+  ) => {
+    if (!isSupabaseConfigured || !company || !entry.values) return;
+    let sync = entry.sync ?? null;
+    if (!sync?.token) {
+      try {
+        const { id, editToken } = await createSharedCalc({
+          v: 1,
+          mode: entry.result.mode,
+          values: entry.values,
+          result: entry.result,
+          completedRows: entry.completedRows,
+          label: entry.label,
+          snapshot: entry.snapshot,
+        });
+        sync = { id, token: editToken, version: 1 };
+      } catch {
+        return;
+      }
+    }
+    const token = sync.token;
+    if (!token) return;
+    const isPublic = mode !== 'off';
+    if (isPublic && !sync.published && settings.maxCompanyShared > 0) {
+      const existing = await fetchCompanyCalcs(company.slug);
+      if (existing.length >= settings.maxCompanyShared) {
+        setCompanyNotice(
+          t('company.limitReached', { max: settings.maxCompanyShared }),
+        );
+        window.setTimeout(() => setCompanyNotice(null), 3000);
+        return;
+      }
+    }
+    const ok = await setCompanyPublish(
+      sync.id,
+      token,
+      company.slug,
+      isPublic,
+      mode === 'edit',
+    );
+    if (!ok) return;
+    const next: SyncMeta = {
+      ...sync,
+      published: isPublic,
+      publishedEditable: mode === 'edit',
+    };
+    updateSyncMeta(entry.id, next, settings.savedRetentionDays);
+    if (editingId === entry.id) setSyncMeta(next);
+    setSavedRefreshKey((k) => k + 1);
+  };
+
+  // Open a company-published result: save it locally (shared-<id> slot) bound as
+  // a synced doc (editable without a token when the company published it so),
+  // then open it like any restore (advance-to-now + modal).
+  const openCompanyCalc = (c: CompanyCalc) => {
+    const savedId = `shared-${c.id}`;
+    const p = c.payload;
+    const label = p.label ?? deriveLabel(p.result);
+    const sync: SyncMeta = {
+      id: c.id,
+      version: c.version,
+      companyEditable: c.isEditable,
+    };
+    let entry: SavedCalculation;
+    try {
+      entry = saveCalculation(
+        p.result,
+        p.values,
+        p.snapshot,
+        label,
+        settings.maxSavedResults,
+        settings.savedRetentionDays,
+        savedId,
+        p.completedRows,
+      );
+      updateSyncMeta(savedId, sync, settings.savedRetentionDays);
+      entry = { ...entry, sync };
+      setSavedRefreshKey((k) => k + 1);
+    } catch {
+      entry = {
+        id: savedId,
+        ts: Date.now(),
+        label,
+        result: p.result,
+        values: p.values,
+        snapshot: p.snapshot,
+        completedRows: p.completedRows,
+        sync,
+      };
+    }
+    onRestore(entry);
+  };
+
   // On first load, hydrate a shared calculation from a ?shared=<id> link:
   // save it into the recipient's local "Salvati" history (deduped by a stable
   // shared-<id> slot so re-opening the same link doesn't pile up copies) and
@@ -700,6 +807,12 @@ function CalculatorApp() {
           hasCompleted={completedRows.length > 0}
           canComplete={fromSaved}
           activeLoc={activeLoc}
+          onPublish={
+            isSupabaseConfigured && company ? publishToCompany : undefined
+          }
+          onOpenCompany={
+            isSupabaseConfigured && company ? openCompanyCalc : undefined
+          }
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
@@ -773,6 +886,15 @@ function CalculatorApp() {
           onGoToForm={goToActiveSize}
           t={t}
         />
+      )}
+
+      {companyNotice && (
+        <div
+          role="alert"
+          className="no-print fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg"
+        >
+          {companyNotice}
+        </div>
       )}
 
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">

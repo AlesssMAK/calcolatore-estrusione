@@ -36,6 +36,9 @@ export interface CompanySettings {
    *  are kept before being dropped. */
   maxSavedResults: number;
   savedRetentionDays: number;
+  /** Cap on how many results the company can have published to its shared list
+   *  at once (0 = disabled). */
+  maxCompanyShared: number;
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -48,6 +51,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   shutdownMinutes: 60,
   maxSavedResults: 10,
   savedRetentionDays: 5,
+  maxCompanyShared: 10,
 };
 
 function parseDay(raw: unknown): WeekendDay {
@@ -89,6 +93,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
     shutdownMinutes: num(p.shutdownMinutes, 60),
     maxSavedResults: intIn(p.maxSavedResults, 10, 1, 100),
     savedRetentionDays: intIn(p.savedRetentionDays, 5, 1, 365),
+    maxCompanyShared: intIn(p.maxCompanyShared, 10, 0, 100),
   };
 }
 

@@ -98,6 +98,84 @@ export async function updateSharedCalc(
   return typeof data === 'number' ? data : null;
 }
 
+/** Publish (or unpublish) a shared calc to a company's shared list — only with
+ *  the matching edit token. `editable` lets any company member edit it. Returns
+ *  true on success. */
+export async function setCompanyPublish(
+  id: string,
+  token: string,
+  company: string,
+  isPublic: boolean,
+  isEditable: boolean,
+): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('set_company_publish', {
+    p_id: id,
+    p_token: token,
+    p_company: company,
+    p_public: isPublic,
+    p_editable: isEditable,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/** Edit a company-published, "editable by anyone" calc — no token needed
+ *  (server gates on is_public && is_editable). Returns the new version. */
+export async function updateCompanyCalc(
+  id: string,
+  payload: SharedPayload,
+): Promise<number | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('update_company_calc', {
+    p_id: id,
+    p_payload: payload,
+  });
+  if (error) return null;
+  return typeof data === 'number' ? data : null;
+}
+
+/** One entry in a company's shared-results list. */
+export interface CompanyCalc {
+  id: string;
+  payload: SharedPayload;
+  version: number;
+  updatedAt: string | null;
+  isEditable: boolean;
+}
+
+/** List the calcs a company has published (view + follow). Empty on error. */
+export async function fetchCompanyCalcs(
+  company: string,
+): Promise<CompanyCalc[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('get_company_calcs', {
+    p_company: company,
+  });
+  if (error || !Array.isArray(data)) return [];
+  const out: CompanyCalc[] = [];
+  for (const row of data as {
+    id: string;
+    payload: unknown;
+    version: number;
+    updated_at: string;
+    is_editable: boolean;
+  }[]) {
+    try {
+      out.push({
+        id: row.id,
+        payload: revivePayload(row.payload),
+        version: typeof row.version === 'number' ? row.version : 1,
+        updatedAt: row.updated_at ?? null,
+        isEditable: row.is_editable === true,
+      });
+    } catch {
+      /* skip malformed rows */
+    }
+  }
+  return out;
+}
+
 /** Fetch a shared calculation by id + its sync metadata. Returns null when
  *  missing / on error, so a bad or expired link degrades to the normal empty
  *  calculator.

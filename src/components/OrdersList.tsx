@@ -241,10 +241,16 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
               const wo = watchedOrders?.[idx];
               const oName = wo?.productName?.trim();
               const oSizes = wo?.sizes ?? [];
-              const oPcs = oSizes.reduce(
-                (s, z) => s + (Number(z?.sheets) || 0),
-                0,
-              );
+              // Compact list of the order's sizes ("qty × length mm"), so a
+              // collapsed order shows what's inside it at a glance.
+              const sizesSummary = wo?.useTotalLength
+                ? `${Number(wo?.totalLengthM) || 0} m`
+                : oSizes
+                    .map(
+                      (z) =>
+                        `${Number(z?.sheets) || 0} × ${Number(z?.length) || 0} mm`,
+                    )
+                    .join(' · ');
               // Collapse inactive orders (not the one in production, not manually
               // expanded) to a summary while viewing a saved calc.
               const collapsed =
@@ -267,24 +273,24 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
                             setExpandedOrders((s) => new Set(s).add(field.id))
                           }
                           title={t('orders.expandOrder')}
-                          className="flex w-full items-center gap-2 text-left"
+                          className="flex w-full flex-col items-start gap-1 text-left"
                         >
-                          <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
-                            #{idx + 1}
+                          <span className="flex w-full items-center gap-2">
+                            <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
+                              #{idx + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                              {oName || t('orders.order', { n: idx + 1 })}
+                            </span>
+                            <span
+                              aria-hidden
+                              className="shrink-0 text-ink-soft"
+                            >
+                              ▸
+                            </span>
                           </span>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                            {oName || t('orders.order', { n: idx + 1 })}
-                          </span>
-                          <span className="shrink-0 text-xs text-ink-soft">
-                            {wo?.useTotalLength
-                              ? `${Number(wo?.totalLengthM) || 0} m`
-                              : t('orders.summaryCounts', {
-                                  pcs: oPcs,
-                                  sizes: oSizes.length,
-                                })}
-                          </span>
-                          <span aria-hidden className="shrink-0 text-ink-soft">
-                            ▸
+                          <span className="text-xs text-ink-soft">
+                            {sizesSummary}
                           </span>
                         </button>
                       </div>

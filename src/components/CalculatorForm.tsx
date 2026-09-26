@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import GlobalSettingsPanel from './GlobalSettingsPanel';
 import WeekendBanner from './WeekendBanner';
 import OrdersList from './OrdersList';
+import CompanyResultsButton from './CompanyResultsButton';
+import type { CompanyCalc } from '../lib/sharedCalc';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import { calculateSchedule } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
@@ -77,6 +79,13 @@ interface Props {
   /** The order+size in production while viewing a saved calc — collapses the
    *  other orders/sizes in the form. Null → no collapse. */
   activeLoc?: { orderIdx: number; sizeIdx: number } | null;
+  /** Publish / unpublish a saved entry to the company shared list. */
+  onPublish?: (
+    entry: SavedCalculation,
+    mode: 'view' | 'edit' | 'off',
+  ) => void | Promise<void>;
+  /** Open a company-published result (restored as a synced doc). */
+  onOpenCompany?: (calc: CompanyCalc) => void;
 }
 
 function CalculatorForm({
@@ -96,6 +105,8 @@ function CalculatorForm({
   canComplete,
   registerComplete,
   activeLoc,
+  onPublish,
+  onOpenCompany,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -304,6 +315,13 @@ function CalculatorForm({
               onRestore={onRestore}
               refreshKey={savedRefreshKey}
               onToggleSync={onToggleSync}
+              onPublish={onPublish}
+            />
+          )}
+          {onOpenCompany && (
+            <CompanyResultsButton
+              onOpen={onOpenCompany}
+              refreshKey={savedRefreshKey}
             />
           )}
           <button
