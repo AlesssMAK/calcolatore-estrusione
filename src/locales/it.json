@@ -200,6 +200,12 @@
     "enterProfiles": "Inserisci il numero di profili",
     "enterLength": "Inserisci la lunghezza (mm)"
   },
+  "activeModal": {
+    "title": "Ordine in lavorazione",
+    "size": "Misura",
+    "eta": "Fine prevista",
+    "tapToGo": "Tocca per aprire la misura"
+  },
   "footer": {
     "madeBy": "Calcolatore di Estrusione",
     "installApp": "📲 Installa l’app"
