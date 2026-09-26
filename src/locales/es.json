@@ -100,9 +100,7 @@
     "complete": "Completar",
     "completeOrder": "Completar Pedido",
     "completeSize": "Completar Medida",
-    "reorder": "Arrastrar para mover",
-    "moveUp": "Subir",
-    "moveDown": "Bajar"
+    "reorder": "Arrastrar para mover"
   },
   "actions": {
     "calculate": "Calcular",

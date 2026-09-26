@@ -100,9 +100,7 @@
     "complete": "Complete",
     "completeOrder": "Complete Order",
     "completeSize": "Complete Size",
-    "reorder": "Drag to reorder",
-    "moveUp": "Move up",
-    "moveDown": "Move down"
+    "reorder": "Drag to reorder"
   },
   "actions": {
     "calculate": "Calculate",

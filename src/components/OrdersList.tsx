@@ -310,7 +310,7 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
                               {...handleProps}
                               aria-label={t('orders.reorder')}
                               title={t('orders.reorder')}
-                              className="flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:hidden"
+                              className="flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing"
                             >
                               ⠿
                             </button>
@@ -318,30 +318,6 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
                           <OrderNameField idx={idx} mode={mode} t={t} />
                         </div>
                         <div className="flex items-center gap-2">
-                          {fields.length > 1 && (
-                            <div className="hidden items-center gap-1 sm:flex">
-                              <button
-                                type="button"
-                                onClick={() => move(idx, idx - 1)}
-                                disabled={idx === 0}
-                                aria-label={t('orders.moveUp')}
-                                title={t('orders.moveUp')}
-                                className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => move(idx, idx + 1)}
-                                disabled={isLast}
-                                aria-label={t('orders.moveDown')}
-                                title={t('orders.moveDown')}
-                                className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                ↓
-                              </button>
-                            </div>
-                          )}
                           {onComplete && (
                     <button
                       type="button"
@@ -1946,38 +1922,16 @@ function SizesFieldArray({
                       className="flex items-end gap-2"
                     >
                       {canReorder && (
-                        <div className="flex shrink-0 items-end gap-1 pb-5">
+                        <div className="flex shrink-0 items-end pb-5">
                           <button
                             type="button"
                             {...handleProps}
                             aria-label={t('orders.reorder')}
                             title={t('orders.reorder')}
-                            className="flex h-8 w-4 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:hidden"
+                            className="flex h-8 w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:h-9"
                           >
                             ⠿
                           </button>
-                          <div className="hidden flex-col gap-0.5 sm:flex">
-                            <button
-                              type="button"
-                              onClick={() => moveSize(sIdx, sIdx - 1)}
-                              disabled={sIdx === 0}
-                              aria-label={t('orders.moveUp')}
-                              title={t('orders.moveUp')}
-                              className="flex h-[17px] w-6 items-center justify-center rounded border border-neutral-300 bg-white text-[10px] text-ink-soft transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveSize(sIdx, sIdx + 1)}
-                              disabled={sIdx === sizeFields.length - 1}
-                              aria-label={t('orders.moveDown')}
-                              title={t('orders.moveDown')}
-                              className="flex h-[17px] w-6 items-center justify-center rounded border border-neutral-300 bg-white text-[10px] text-ink-soft transition hover:border-brand-400 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              ↓
-                            </button>
-                          </div>
                         </div>
                       )}
                       <div
