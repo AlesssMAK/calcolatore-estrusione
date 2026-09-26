@@ -74,6 +74,9 @@ interface Props {
   registerComplete?: (
     fn: ((orderId: string, sizeIdx?: number) => void) | null,
   ) => void;
+  /** The order+size in production while viewing a saved calc — collapses the
+   *  other orders/sizes in the form. Null → no collapse. */
+  activeLoc?: { orderIdx: number; sizeIdx: number } | null;
 }
 
 function CalculatorForm({
@@ -92,6 +95,7 @@ function CalculatorForm({
   hasCompleted,
   canComplete,
   registerComplete,
+  activeLoc,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -291,6 +295,7 @@ function CalculatorForm({
         <OrdersList
           mode={mode}
           onComplete={canComplete ? completeItem : undefined}
+          activeLoc={activeLoc}
         />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
