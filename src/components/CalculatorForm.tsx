@@ -60,11 +60,11 @@ interface Props {
    *  previous save). When set, submitting updates that entry in place instead
    *  of creating a duplicate. */
   editingId?: string;
-  /** Completed (done) orders carried alongside the advanced view; persisted
-   *  with the entry only when the user presses "Ricalcola". */
+  /** Completed (done) orders carried alongside the advanced view; kept on the
+   *  entry when recomputing a tracked calc (there are completed rows). */
   completedRows?: ScheduledOrder[];
-  /** Show the "Ricalcola" button (advanced view with completed orders). */
-  showRicalcola?: boolean;
+  /** True when the tracked calc has completed orders → "Calcola" keeps them. */
+  hasCompleted?: boolean;
   /** Show per-order / per-size "✓ Completa" buttons (only meaningful when
    *  tracking a saved/shared calc). */
   canComplete?: boolean;
@@ -89,7 +89,7 @@ function CalculatorForm({
   initialValues,
   editingId,
   completedRows,
-  showRicalcola,
+  hasCompleted,
   canComplete,
   registerComplete,
 }: Props) {
@@ -301,22 +301,13 @@ function CalculatorForm({
               onToggleSync={onToggleSync}
             />
           )}
-          {showRicalcola && (
-            <button
-              type="submit"
-              onClick={() => {
-                keepCompletedRef.current = true;
-              }}
-              title={t('actions.recalcHint')}
-              className="order-1 w-full rounded-md border border-amber-400 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-100 focus:ring-2 focus:ring-amber-200 focus:outline-none sm:order-2 sm:w-auto sm:py-2.5"
-            >
-              ↻ {t('actions.recalc')}
-            </button>
-          )}
           <button
             type="submit"
             onClick={() => {
-              keepCompletedRef.current = false;
+              // A single "Calcola": keeps already-completed orders whenever the
+              // tracked calc has them (recompute of a saved calc), starts clean
+              // for a fresh calc (none to keep). Replaces the old Ricalcola.
+              keepCompletedRef.current = !!hasCompleted;
             }}
             className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-3 sm:w-auto sm:py-2.5"
           >

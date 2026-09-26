@@ -121,8 +121,6 @@
     "saveImage": "Share Photo",
     "exporting": "Saving…",
     "saved": "Saved",
-    "recalc": "Recalculate",
-    "recalcHint": "Recalculate keeping completed orders",
     "close": "Close"
   },
   "saved": {

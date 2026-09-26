@@ -1696,7 +1696,7 @@ function SizesFieldArray({
 
   const {
     fields: sizeFields,
-    append: appendSize,
+    insert: insertSize,
     remove: removeSize,
     replace: replaceSize,
     move: moveSize,
@@ -1952,7 +1952,7 @@ function SizesFieldArray({
 
               <button
                 type="button"
-                onClick={() => appendSize(makeEmptySize())}
+                onClick={() => insertSize(sIdx + 1, makeEmptySize())}
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}

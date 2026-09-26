@@ -168,11 +168,12 @@ function CalculatorApp() {
     };
   };
 
-  // A submit from the form. "Calcola" (keepCompleted=false) drops the prior
-  // completed orders; "Ricalcola" (keepCompleted=true) keeps them. Orders fully
-  // produced this submit arrive in `newlyCompleted` — they leave the form (it
-  // remounts without them) and join the completed rows shown in the results.
-  // Either way it clears the advance/original banner (it's a new result now).
+  // A submit from the form ("Calcola"). keepCompleted is true when the tracked
+  // calc already has completed orders (recompute of a saved calc keeps them),
+  // false for a fresh calc. Orders fully produced this submit arrive in
+  // `newlyCompleted` — they leave the form (it remounts without them) and join
+  // the completed rows shown in the results. Either way it clears the
+  // advance/original banner (it's a new result now).
   const onFormResult = (
     r: ScheduleResult,
     values: FormValues,
@@ -598,7 +599,7 @@ function CalculatorApp() {
           initialValues={restoredValues}
           editingId={editingId}
           completedRows={completedRows}
-          showRicalcola={completedRows.length > 0}
+          hasCompleted={completedRows.length > 0}
           canComplete={fromSaved}
           registerComplete={(fn) => {
             completeRef.current = fn;
