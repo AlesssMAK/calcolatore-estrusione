@@ -405,6 +405,11 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
                               }
                             : undefined
                         }
+                        activeSizeIdx={
+                          activeLoc && idx === activeLoc.orderIdx
+                            ? activeLoc.sizeIdx
+                            : null
+                        }
                       />
                     </div>
                   )}
@@ -440,6 +445,9 @@ interface FieldsProps {
   t: TFunction;
   /** Mark a single size fully produced (bound to this order's id). */
   onCompleteSize?: (sizeIdx: number) => void;
+  /** For the active order (saved view): the size in production — the others
+   *  collapse to a summary and only this one's advanced block is shown. */
+  activeSizeIdx?: number | null;
 }
 
 function OrderFields({
@@ -449,6 +457,7 @@ function OrderFields({
   mode,
   t,
   onCompleteSize,
+  activeSizeIdx,
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -624,7 +633,15 @@ function OrderFields({
           mode={mode}
           t={t}
           onCompleteSize={onCompleteSize}
-          afterSizes={<AdvancedSection idx={idx} mode={mode} t={t} />}
+          activeSizeIdx={activeSizeIdx}
+          afterSizes={
+            <AdvancedSection
+              idx={idx}
+              mode={mode}
+              t={t}
+              activeSizeIdx={activeSizeIdx}
+            />
+          }
         />
       )}
     </div>
@@ -726,10 +743,13 @@ function AdvancedSection({
   idx,
   mode,
   t,
+  activeSizeIdx,
 }: {
   idx: number;
   mode: CalculatorMode;
   t: TFunction;
+  /** When set (active order in a saved view), only this size's block is shown. */
+  activeSizeIdx?: number | null;
 }) {
   'use no memo';
   const { control, getValues } = useFormContext<FormValues>();
@@ -881,7 +901,7 @@ function AdvancedSection({
             )
           ) : (
             (watchedSizes ?? [{}]).map((_, sIdx) =>
-              isProfiles ? (
+              activeSizeIdx != null && sIdx !== activeSizeIdx ? null : isProfiles ? (
                 <SizeAdvancedBlockProfili
                   key={sIdx}
                   orderIdx={idx}
@@ -1730,6 +1750,7 @@ function SizesFieldArray({
   t,
   afterSizes,
   onCompleteSize,
+  activeSizeIdx,
 }: {
   orderIdx: number;
   mode: CalculatorMode;
@@ -1740,8 +1761,15 @@ function SizesFieldArray({
   /** Mark a single size fully produced (bound to this order's id). Renders a
    *  per-size "✓" button after the +/− controls (multi-size orders only). */
   onCompleteSize?: (sizeIdx: number) => void;
+  /** Active order (saved view): the size in production — other sizes collapse
+   *  to a summary (click to expand). Null → all sizes shown. */
+  activeSizeIdx?: number | null;
 }) {
   'use no memo';
+  // Sizes the user manually expanded from their collapsed summary.
+  const [expandedSizes, setExpandedSizes] = useState<Set<string>>(
+    () => new Set(),
+  );
   const {
     register,
     formState: { errors },
@@ -1867,9 +1895,44 @@ function SizesFieldArray({
                 : showSizeComplete
                   ? 'grid-cols-[1fr_1fr_auto_auto_auto]'
                   : 'grid-cols-[1fr_1fr_auto_auto]';
+              // Collapse non-active sizes (saved view) to a summary line.
+              const sizeCollapsed =
+                activeSizeIdx != null &&
+                sIdx !== activeSizeIdx &&
+                !expandedSizes.has(sizeField.id);
+              const zSheets = Number(watchedSizes?.[sIdx]?.sheets) || 0;
+              const zLen = Number(watchedSizes?.[sIdx]?.length) || 0;
               return (
                 <SortableItem key={sizeField.id} id={sizeField.id}>
-                  {({ setNodeRef, style, handleProps }) => (
+                  {({ setNodeRef, style, handleProps }) =>
+                    sizeCollapsed ? (
+                      <div
+                        ref={setNodeRef}
+                        style={style}
+                        id={`size-${orderIdx}-${sIdx}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSizes((s) =>
+                              new Set(s).add(sizeField.id),
+                            )
+                          }
+                          title={t('orders.expandOrder')}
+                          className="flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
+                        >
+                          <span className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
+                            #{sIdx + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                            {zSheets} × {zLen} mm
+                          </span>
+                          <span aria-hidden className="shrink-0 text-ink-soft">
+                            ▸
+                          </span>
+                        </button>
+                      </div>
+                    ) : (
                     <div
                       ref={setNodeRef}
                       style={style}
