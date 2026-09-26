@@ -157,6 +157,13 @@ function CalculatorApp() {
     orderIdx: number;
     sizeIdx: number;
   } | null>(null);
+  // Which order+size is in production while viewing a saved calc — drives the
+  // form collapse (inactive orders shown as summaries, only the active size
+  // expanded). Null = no collapse (fresh calc, or everything finished).
+  const [activeLoc, setActiveLoc] = useState<{
+    orderIdx: number;
+    sizeIdx: number;
+  } | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
   // panel (a sibling of the form) can trigger completion too.
   const completeRef = useRef<
@@ -196,6 +203,7 @@ function CalculatorApp() {
     setFromSaved(false);
     setSyncMeta(null);
     setActiveModal(null);
+    setActiveLoc(null);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -209,6 +217,7 @@ function CalculatorApp() {
     setFromSaved(false);
     setSyncMeta(null);
     setActiveModal(null);
+    setActiveLoc(null);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -250,6 +259,7 @@ function CalculatorApp() {
   ) => {
     clearRestored();
     setActiveModal(null);
+    setActiveLoc(null);
     if (newlyCompleted.length > 0) {
       setCompletedRows((prev) => [
         ...(keepCompleted ? prev : []),
@@ -336,10 +346,12 @@ function CalculatorApp() {
       setResult(entry.result);
       setCompletedRows([]);
     }
-    if (showModal) {
-      const displayed = adv ? adv.result : entry.result;
-      setActiveModal(computeActive(displayed, i18n.resolvedLanguage ?? 'it'));
-    }
+    const displayed = adv ? adv.result : entry.result;
+    const active = computeActive(displayed, i18n.resolvedLanguage ?? 'it');
+    setActiveLoc(
+      active ? { orderIdx: active.orderIdx, sizeIdx: active.sizeIdx } : null,
+    );
+    if (showModal) setActiveModal(active);
     setFormKey((k) => k + 1);
     scrollToResults();
   };
@@ -687,6 +699,7 @@ function CalculatorApp() {
           completedRows={completedRows}
           hasCompleted={completedRows.length > 0}
           canComplete={fromSaved}
+          activeLoc={activeLoc}
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}

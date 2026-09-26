@@ -61,10 +61,17 @@ interface Props {
   /** When set (tracking a saved/shared calc), renders per-order and per-size
    *  "✓ Completa" buttons that mark that order / size fully produced. */
   onComplete?: (orderId: string, sizeIdx?: number) => void;
+  /** The order+size in production (saved calc). When set, orders other than the
+   *  active one collapse to a summary card (click to expand). Null → no collapse. */
+  activeLoc?: { orderIdx: number; sizeIdx: number } | null;
 }
 
-function OrdersList({ mode, onComplete }: Props) {
+function OrdersList({ mode, onComplete, activeLoc }: Props) {
   'use no memo';
+  // Orders the user manually expanded from their collapsed summary.
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(
+    () => new Set(),
+  );
   const { t } = useTranslation();
   const {
     formState: { errors },
@@ -231,17 +238,64 @@ function OrdersList({ mode, onComplete }: Props) {
               const rowErr = errors.orders?.[idx];
               const isLast = idx === fields.length - 1;
               const showGap = gapMode === 'withGaps' && !isLast;
+              const wo = watchedOrders?.[idx];
+              const oName = wo?.productName?.trim();
+              const oSizes = wo?.sizes ?? [];
+              const oPcs = oSizes.reduce(
+                (s, z) => s + (Number(z?.sheets) || 0),
+                0,
+              );
+              // Collapse inactive orders (not the one in production, not manually
+              // expanded) to a summary while viewing a saved calc.
+              const collapsed =
+                !!activeLoc &&
+                idx !== activeLoc.orderIdx &&
+                !expandedOrders.has(field.id);
 
               return (
                 <SortableItem key={field.id} id={field.id}>
-                  {({ setNodeRef, style, handleProps, isDragging }) => (
-                    <div
-                      ref={setNodeRef}
-                      style={style}
-                      className={`rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4 ${
-                        isDragging ? 'shadow-lg' : ''
-                      }`}
-                    >
+                  {({ setNodeRef, style, handleProps, isDragging }) =>
+                    collapsed ? (
+                      <div
+                        ref={setNodeRef}
+                        style={style}
+                        className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedOrders((s) => new Set(s).add(field.id))
+                          }
+                          title={t('orders.expandOrder')}
+                          className="flex w-full items-center gap-2 text-left"
+                        >
+                          <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
+                            #{idx + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                            {oName || t('orders.order', { n: idx + 1 })}
+                          </span>
+                          <span className="shrink-0 text-xs text-ink-soft">
+                            {wo?.useTotalLength
+                              ? `${Number(wo?.totalLengthM) || 0} m`
+                              : t('orders.summaryCounts', {
+                                  pcs: oPcs,
+                                  sizes: oSizes.length,
+                                })}
+                          </span>
+                          <span aria-hidden className="shrink-0 text-ink-soft">
+                            ▸
+                          </span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        ref={setNodeRef}
+                        style={style}
+                        className={`rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4 ${
+                          isDragging ? 'shadow-lg' : ''
+                        }`}
+                      >
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-1.5">
                           {fields.length > 1 && (
