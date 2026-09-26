@@ -17,6 +17,12 @@ interface Props {
   /** Toggle live-sync on an entry (enable = upload + bind, disable = unbind).
    *  Absent when sync is unavailable (Supabase not configured) → no control. */
   onToggleSync?: (entry: SavedCalculation) => void | Promise<void>;
+  /** Publish / unpublish an entry to the company shared list. Absent when no
+   *  company is active. */
+  onPublish?: (
+    entry: SavedCalculation,
+    mode: 'view' | 'edit' | 'off',
+  ) => void | Promise<void>;
 }
 
 /** Relative time formatter that prefers the current i18n language. Falls
@@ -40,6 +46,7 @@ function SavedCalculationsButton({
   onRestore,
   refreshKey = 0,
   onToggleSync,
+  onPublish,
 }: Props) {
   const { t, i18n } = useTranslation();
   const { settings } = useCatalog();
@@ -49,6 +56,8 @@ function SavedCalculationsButton({
     loadHistory(retentionDays),
   );
   const rootRef = useRef<HTMLDivElement>(null);
+  // Which entry's company-publish menu is open (id), or null.
+  const [publishMenuId, setPublishMenuId] = useState<string | null>(null);
 
   // Refresh whenever the dropdown opens, or the parent bumps the key after a
   // fresh save. Keeps the list in sync without prop-drilling the whole array.
@@ -186,6 +195,69 @@ function SavedCalculationsButton({
                     >
                       🔄
                     </button>
+                  )}
+                  {onPublish && it.values && (
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPublishMenuId((cur) =>
+                            cur === it.id ? null : it.id,
+                          )
+                        }
+                        aria-label={t('company.publish')}
+                        title={t('company.publish')}
+                        className={`rounded p-1.5 transition ${
+                          it.sync?.published
+                            ? 'text-brand-600 hover:bg-brand-50'
+                            : 'text-ink-soft hover:bg-neutral-100 hover:text-brand-600'
+                        }`}
+                      >
+                        🏢
+                      </button>
+                      {publishMenuId === it.id && (
+                        <div
+                          role="menu"
+                          className="absolute right-0 z-40 mt-1 w-[min(15rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-neutral-200 bg-white p-1 text-left shadow-lg"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              void onPublish(it, 'view');
+                              setPublishMenuId(null);
+                            }}
+                            className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink transition hover:bg-brand-50"
+                          >
+                            👁 {t('actions.shareViewOnly')}
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              void onPublish(it, 'edit');
+                              setPublishMenuId(null);
+                            }}
+                            className="block w-full rounded-md px-3 py-2 text-left text-sm text-ink transition hover:bg-brand-50"
+                          >
+                            ✏ {t('actions.shareEditable')}
+                          </button>
+                          {it.sync?.published && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                void onPublish(it, 'off');
+                                setPublishMenuId(null);
+                              }}
+                              className="block w-full rounded-md px-3 py-2 text-left text-sm text-danger transition hover:bg-danger/10"
+                            >
+                              ✕ {t('company.unpublish')}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                   <button
                     type="button"

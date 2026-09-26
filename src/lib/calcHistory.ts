@@ -52,6 +52,13 @@ export interface SyncMeta {
   token?: string;
   /** Last server version this device has seen (for change detection). */
   version: number;
+  /** (Author's entry) this calc is published to the company shared list. */
+  published?: boolean;
+  /** (Author's entry) published as editable-by-anyone in the company. */
+  publishedEditable?: boolean;
+  /** (Member's entry) opened from the company list as editable → this device may
+   *  edit it via `update_company_calc` even without the token. */
+  companyEditable?: boolean;
 }
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the

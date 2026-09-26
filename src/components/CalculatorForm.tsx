@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import GlobalSettingsPanel from './GlobalSettingsPanel';
 import WeekendBanner from './WeekendBanner';
 import OrdersList from './OrdersList';
+import CompanyResultsButton from './CompanyResultsButton';
+import type { CompanyCalc } from '../lib/sharedCalc';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import { calculateSchedule } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
