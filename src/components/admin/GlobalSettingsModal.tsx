@@ -229,6 +229,7 @@ export default function GlobalSettingsModal({
               [
                 ['Max risultati', 'maxSavedResults', 1, 100],
                 ['Giorni di conservazione', 'savedRetentionDays', 1, 365],
+                ['Max condivisi azienda', 'maxCompanyShared', 0, 100],
               ] as const
             ).map(([label, key, lo, hi]) => (
               <div key={key} className="flex items-center gap-2">

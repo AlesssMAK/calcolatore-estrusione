@@ -97,7 +97,6 @@
     "expandList": "Espandi a schermo intero",
     "order": "Ordine {{n}}",
     "expandOrder": "Espandi l'ordine",
-    "summaryCounts": "{{pcs}} pz · {{sizes}} misure",
     "complete": "Completa",
     "completeOrder": "Completa Ordine",
     "completeSize": "Completa Misura",
@@ -208,6 +207,14 @@
     "size": "Misura",
     "eta": "Fine prevista",
     "tapToGo": "Tocca per aprire la misura"
+  },
+  "company": {
+    "results": "Azienda",
+    "empty": "Nessun risultato condiviso.",
+    "publish": "Condividi con l'azienda",
+    "unpublish": "Rimuovi dall'azienda",
+    "editable": "Modificabile",
+    "limitReached": "Limite raggiunto ({{max}})"
   },
   "footer": {
     "madeBy": "Calcolatore di Estrusione",

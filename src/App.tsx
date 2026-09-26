@@ -807,6 +807,12 @@ function CalculatorApp() {
           hasCompleted={completedRows.length > 0}
           canComplete={fromSaved}
           activeLoc={activeLoc}
+          onPublish={
+            isSupabaseConfigured && company ? publishToCompany : undefined
+          }
+          onOpenCompany={
+            isSupabaseConfigured && company ? openCompanyCalc : undefined
+          }
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
@@ -880,6 +886,15 @@ function CalculatorApp() {
           onGoToForm={goToActiveSize}
           t={t}
         />
+      )}
+
+      {companyNotice && (
+        <div
+          role="alert"
+          className="no-print fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg"
+        >
+          {companyNotice}
+        </div>
       )}
 
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">

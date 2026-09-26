@@ -97,7 +97,6 @@
     "expandList": "Expand to full screen",
     "order": "Order {{n}}",
     "expandOrder": "Expand order",
-    "summaryCounts": "{{pcs}} pcs · {{sizes}} sizes",
     "complete": "Complete",
     "completeOrder": "Complete Order",
     "completeSize": "Complete Size",
@@ -208,6 +207,14 @@
     "size": "Size",
     "eta": "Expected finish",
     "tapToGo": "Tap to open the size"
+  },
+  "company": {
+    "results": "Company",
+    "empty": "No shared results.",
+    "publish": "Share with the company",
+    "unpublish": "Remove from company",
+    "editable": "Editable",
+    "limitReached": "Limit reached ({{max}})"
   },
   "footer": {
     "madeBy": "Extrusion Calculator",
