@@ -200,6 +200,12 @@
     "enterProfiles": "Introduce el número de perfiles",
     "enterLength": "Introduce la longitud (mm)"
   },
+  "activeModal": {
+    "title": "Pedido en producción",
+    "size": "Medida",
+    "eta": "Fin previsto",
+    "tapToGo": "Toca para abrir la medida"
+  },
   "footer": {
     "madeBy": "Calculadora de Extrusión",
     "installApp": "📲 Instalar la app"

@@ -8,6 +8,10 @@ import ResultsPanel from './components/ResultsPanel';
 import AdvanceBanner from './components/AdvanceBanner';
 import RestoreCompletedButton from './components/RestoreCompletedButton';
 import ErrorBoundary from './components/ErrorBoundary';
+import ActiveOrderModal, {
+  type ActiveModalInfo,
+} from './components/ActiveOrderModal';
+import { formatDateTime } from './utils/format';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -35,8 +39,63 @@ import {
 } from './lib/sharedCalc';
 import { APP_ORIGIN } from './lib/appUrl';
 
+// The order + size currently in production ("active"): the first not-yet-done
+// size of the first not-yet-done order (advance-to-now order). Returns null when
+// everything is finished. Drives the active-order modal (and, later, the form
+// collapse).
+function computeActive(
+  result: ScheduleResult,
+  lang: string,
+): { info: ActiveModalInfo; orderIdx: number; sizeIdx: number } | null {
+  const rows = result.rows ?? [];
+  const isProfiles = result.mode === 'profiles';
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.completed || row.remainingMinutes < 0.5) continue;
+    const orderLabel = row.order?.productName?.trim() || `#${i + 1}`;
+    const sizes = row.sizeDetails;
+    let sizeIdx = 0;
+    let length: number | undefined;
+    let produced = 0;
+    let total = 0;
+    if (sizes && sizes.length > 0) {
+      let sIdx = sizes.findIndex((sd) => sd.remainingMinutes >= 0.5);
+      if (sIdx === -1) sIdx = 0;
+      sizeIdx = sIdx;
+      const sd = sizes[sIdx];
+      length = sd.length;
+      total = sd.sheets;
+      produced = isProfiles
+        ? (sd.producedProfiles ?? 0)
+        : (sd.producedSheetsAtSize ?? 0);
+    } else {
+      // Single-size order: the count/length live on the order's sizes, and the
+      // row only carries produced counts when some are done (else 0).
+      const os = row.order?.sizes?.[0];
+      length = os?.length;
+      total =
+        os?.sheets ??
+        (isProfiles ? (row.totalProfiles ?? 0) : (row.totalSheets ?? 0));
+      produced = isProfiles
+        ? (row.producedProfiles ?? 0)
+        : (row.producedSheets ?? 0);
+    }
+    return {
+      info: {
+        orderLabel,
+        sizeLabel: length ? `${length} mm` : '—',
+        producedLabel: `${produced} / ${total}`,
+        etaLabel: formatDateTime(row.end, lang),
+      },
+      orderIdx: i,
+      sizeIdx,
+    };
+  }
+  return null;
+}
+
 function CalculatorApp() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings, company } = useCatalog();
   // Keep the active company link on the Piramide navigation, so a reload of
   // /piramide doesn't lose ?company= and bounce back to the calculator.
@@ -91,6 +150,13 @@ function CalculatorApp() {
   // when the calc is shared/synced or when a synced entry is restored; drives
   // pushing edits to the shared document.
   const [syncMeta, setSyncMeta] = useState<SyncMeta | null>(null);
+  // Active-order modal shown once when a saved calc is opened (which size is in
+  // production, how much is done, ETA). Null = hidden.
+  const [activeModal, setActiveModal] = useState<{
+    info: ActiveModalInfo;
+    orderIdx: number;
+    sizeIdx: number;
+  } | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
   // panel (a sibling of the form) can trigger completion too.
   const completeRef = useRef<
@@ -129,6 +195,7 @@ function CalculatorApp() {
     setCompletedRows([]);
     setFromSaved(false);
     setSyncMeta(null);
+    setActiveModal(null);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -141,6 +208,7 @@ function CalculatorApp() {
     setCompletedRows([]);
     setFromSaved(false);
     setSyncMeta(null);
+    setActiveModal(null);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -181,6 +249,7 @@ function CalculatorApp() {
     newlyCompleted: ScheduledOrder[] = [],
   ) => {
     clearRestored();
+    setActiveModal(null);
     if (newlyCompleted.length > 0) {
       setCompletedRows((prev) => [
         ...(keepCompleted ? prev : []),
@@ -234,7 +303,7 @@ function CalculatorApp() {
   // and the schedule is recomputed — shown with a banner + link to the
   // original. Either way the form is refilled so the user can tweak &
   // recalculate. Switch tab if the saved mode differs from the current one.
-  const doRestore = (entry: SavedCalculation) => {
+  const doRestore = (entry: SavedCalculation, showModal = false) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
     // Advancing a malformed saved entry must never leave its row un-openable:
     // on failure fall back to showing the saved result as-is (and note why),
@@ -266,6 +335,10 @@ function CalculatorApp() {
       setResultValues(entry.values);
       setResult(entry.result);
       setCompletedRows([]);
+    }
+    if (showModal) {
+      const displayed = adv ? adv.result : entry.result;
+      setActiveModal(computeActive(displayed, i18n.resolvedLanguage ?? 'it'));
     }
     setFormKey((k) => k + 1);
     scrollToResults();
@@ -312,12 +385,25 @@ function CalculatorApp() {
   // Open a saved calc, then (if it's a synced document) pull the latest in the
   // background and re-open if a newer version exists.
   const onRestore = (entry: SavedCalculation) => {
-    doRestore(entry);
+    doRestore(entry, true);
     if (entry.sync) {
       void syncPull(entry).then((updated) => {
         if (updated) doRestore(updated);
       });
     }
+  };
+
+  // Jump from the modal to the active size in the form, then close the modal.
+  const goToActiveSize = () => {
+    if (!activeModal) return;
+    const { orderIdx, sizeIdx } = activeModal;
+    setActiveModal(null);
+    window.requestAnimationFrame(() => {
+      const el =
+        document.getElementById(`size-${orderIdx}-${sizeIdx}`) ??
+        document.getElementById(`qty-${orderIdx}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   const viewOriginal = () => {
@@ -666,6 +752,15 @@ function CalculatorApp() {
           )}
         </div>
       </main>
+
+      {activeModal && (
+        <ActiveOrderModal
+          info={activeModal.info}
+          onClose={() => setActiveModal(null)}
+          onGoToForm={goToActiveSize}
+          t={t}
+        />
+      )}
 
       <footer className="no-print mx-auto max-w-6xl px-4 py-6 text-center text-xs text-ink-soft">
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">

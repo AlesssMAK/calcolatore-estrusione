@@ -1819,6 +1819,7 @@ function SizesFieldArray({
                     <div
                       ref={setNodeRef}
                       style={style}
+                      id={`size-${orderIdx}-${sIdx}`}
                       className="flex items-end gap-2"
                     >
                       {canReorder && (

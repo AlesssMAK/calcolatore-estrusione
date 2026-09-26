@@ -200,6 +200,12 @@
     "enterProfiles": "Enter the number of profiles",
     "enterLength": "Enter the length (mm)"
   },
+  "activeModal": {
+    "title": "Order in production",
+    "size": "Size",
+    "eta": "Expected finish",
+    "tapToGo": "Tap to open the size"
+  },
   "footer": {
     "madeBy": "Extrusion Calculator",
     "installApp": "📲 Install the app"
