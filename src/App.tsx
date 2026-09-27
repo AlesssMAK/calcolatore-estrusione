@@ -17,7 +17,12 @@ import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
-import type { CalculatorMode, ScheduledOrder, ScheduleResult } from './types';
+import type {
+  CalculatorMode,
+  ScheduledOrder,
+  ScheduleResult,
+  ScheduleSnapshot,
+} from './types';
 import type { FormValues } from './formSchema';
 import {
   deriveLabel,
@@ -28,7 +33,7 @@ import {
   type SyncMeta,
 } from './lib/calcHistory';
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
-import { buildEmptyDefaults, makeEmptyOrder } from './utils/defaults';
+import { buildEmptyDefaults, loadWeekendPref, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
@@ -329,7 +334,29 @@ function CalculatorApp() {
     // so the click always does something instead of silently dying.
     let adv: AdvancedCalc | null = null;
     try {
-      adv = buildAdvancedCalc(entry, new Date());
+      // Advance against the *current* effective schedule, not the one frozen at
+      // save time: current weekend shift (machine pref), plus the live company
+      // 7-day schedule + buffers when a company link is active. This is what
+      // makes a calc saved with weekends off count weekend hours once they're
+      // turned on (the reported "process doesn't move" case).
+      const currentSchedule: ScheduleSnapshot = {
+        weekend: loadWeekendPref(),
+        schedule:
+          (company ? settings.schedule : undefined) ??
+          entry.snapshot?.schedule ??
+          null,
+        warmupMinutes:
+          (company ? settings.warmupMinutes : entry.values?.settings.warmupMinutes) ??
+          entry.snapshot?.warmupMinutes ??
+          0,
+        shutdownMinutes:
+          (company
+            ? settings.shutdownMinutes
+            : entry.values?.settings.shutdownMinutes) ??
+          entry.snapshot?.shutdownMinutes ??
+          0,
+      };
+      adv = buildAdvancedCalc(entry, new Date(), currentSchedule);
       setRestoreAdvanceError(null);
     } catch (err) {
       console.error('Failed to advance saved calc', entry.id, err);

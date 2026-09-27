@@ -90,6 +90,64 @@ describe('buildAdvancedCalc', () => {
     expect(adv!.result.rows).toHaveLength(1);
   });
 
+  it('counts weekend hours when a currentSchedule turns weekends on', () => {
+    const start = localDate(2026, 4, 11, 6); // Mon 06:00
+    const values = {
+      settings: {
+        startMode: 'manual',
+        startAt: start.toISOString(),
+        gapMode: 'continuous',
+      },
+      // Huge total-meters order so it's always still active — we compare how
+      // much got produced, not whether it finished.
+      orders: [
+        { id: 'a', useTotalLength: true, totalLengthM: 1_000_000, speedMPerMin: 1 },
+      ],
+    } as unknown as FormValues;
+    const result = calculateSchedule(values.settings, values.orders, {
+      now: start,
+    });
+    // Saved with weekends OFF (no weekend shift in the snapshot).
+    const snapshot: ScheduleSnapshot = {
+      warmupMinutes: 0,
+      shutdownMinutes: 0,
+      schedule: null,
+    };
+    const entry: SavedCalculation = {
+      id: 'x',
+      ts: start.getTime(),
+      label: 't',
+      result,
+      values,
+      snapshot,
+    };
+
+    const now = localDate(2026, 4, 17, 12); // Sunday 12:00 (in the weekend)
+    const full24 = { enabled: true, full24: true, start: 0, end: 24 };
+    const weekendOn: ScheduleSnapshot = {
+      weekend: { enabled: true, sat: full24, sun: full24 },
+      warmupMinutes: 0,
+      shutdownMinutes: 0,
+      schedule: null,
+    };
+
+    // Frozen snapshot (weekends off): no production accrues across the weekend.
+    const off = buildAdvancedCalc(entry, now);
+    // Current schedule with weekends on: the weekend hours now count.
+    const on = buildAdvancedCalc(entry, now, weekendOn);
+
+    expect(off).not.toBeNull();
+    expect(on).not.toBeNull();
+    const producedOff = (off!.values.orders[0]!.producedSheets as { value: number }[])[0]!
+      .value;
+    const producedOn = (on!.values.orders[0]!.producedSheets as { value: number }[])[0]!
+      .value;
+    // Weekend-on must have produced strictly more — the extra Sat/Sun hours.
+    expect(producedOn).toBeGreaterThan(producedOff);
+    // And the re-opened form reflects the current (enabled) weekend shift.
+    expect(on!.values.settings.weekend?.enabled).toBe(true);
+  });
+
   it('materializes inherited speed when the first order is completed', () => {
     const start = localDate(2026, 4, 11, 6); // Mon 06:00
     const values = {

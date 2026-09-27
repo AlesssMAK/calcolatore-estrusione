@@ -1,7 +1,12 @@
 import { calculateSchedule, progressAsOf } from './calculator';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
-import type { ProducedEntry, ScheduledOrder, ScheduleResult } from '../types';
+import type {
+  ProducedEntry,
+  ScheduledOrder,
+  ScheduleResult,
+  ScheduleSnapshot,
+} from '../types';
 
 export interface AdvancedCalc {
   /** Active (not-yet-finished) orders only, produced-so-far filled, start=now. */
@@ -56,8 +61,13 @@ function emptyResult(now: Date, base: ScheduleResult): ScheduleResult {
 /**
  * Build the "as of now" view of a saved calculation: fill each active order's
  * produced-so-far from the time elapsed since the original start, set the start
- * to now, and recompute — using the calc's own saved schedule snapshot (so it
- * doesn't depend on possibly-changed company settings).
+ * to now, and recompute.
+ *
+ * By default this uses the calc's own saved schedule snapshot, but when a
+ * `currentSchedule` is passed it takes precedence — so re-opening a saved calc
+ * counts the hours the line *actually* works now, not those frozen at save
+ * time. This is what makes the process move again after weekends are turned on
+ * (or the company schedule / buffers change) since the calc was saved.
  *
  * Orders already fully produced by `now` are split off into `completedRows`
  * (with their historical times, marked completed) and removed from the form so
@@ -69,8 +79,12 @@ function emptyResult(now: Date, base: ScheduleResult): ScheduleResult {
 export function buildAdvancedCalc(
   entry: SavedCalculation,
   now: Date,
+  currentSchedule?: ScheduleSnapshot,
 ): AdvancedCalc | null {
-  const { values, snapshot, result } = entry;
+  const { values, result } = entry;
+  // The current effective schedule (current weekend / company schedule /
+  // buffers) wins over the frozen snapshot; fall back to it when not supplied.
+  const snapshot = currentSchedule ?? entry.snapshot;
   if (!values || !snapshot) return null;
   if (now.getTime() <= result.startAt.getTime()) return null;
 
@@ -167,6 +181,11 @@ export function buildAdvancedCalc(
 
   const settings: FormValues['settings'] = {
     ...values.settings,
+    // Reflect the effective schedule in the re-opened form so a subsequent
+    // manual "Calcola" stays consistent with the advance just computed.
+    weekend: snapshot.weekend ?? values.settings.weekend,
+    warmupMinutes: snapshot.warmupMinutes,
+    shutdownMinutes: snapshot.shutdownMinutes,
     startMode: 'now',
     startAt: '',
   };
