@@ -220,6 +220,14 @@ const DOW_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
  *  Sat 06:00 block plus any enabled weekend window. */
 function workingIntervals(dow: number, work?: Work): Array<[number, number]> {
   if (work?.schedule) {
+    // The company 7-day schedule drives the weekdays, but an enabled local
+    // weekend shift is a per-user override of its Sat/Sun windows (e.g. "we're
+    // also running this weekend"). Weekdays stay from the company schedule.
+    const weekend = work.weekend;
+    if (weekend?.enabled) {
+      if (dow === 6) return mergeIntervals(weekendDayIntervals(weekend.sat));
+      if (dow === 0) return mergeIntervals(weekendDayIntervals(weekend.sun));
+    }
     return mergeIntervals(weekendDayIntervals(work.schedule[DOW_TO_KEY[dow]]));
   }
   const weekend = work?.weekend;

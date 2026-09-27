@@ -1087,6 +1087,40 @@ describe('calculateSchedule — company 7-day schedule', () => {
       localDate(2026, 4, 18, 8, 30).getTime(),
     );
   });
+
+  it('an enabled local weekend shift overrides the company schedule Sat/Sun', () => {
+    const start = localDate(2026, 4, 10, 10); // Sun 10:00 (2026-05-10)
+    const weekend: WeekendWork = {
+      enabled: true,
+      sat: day({ enabled: false }),
+      sun: { enabled: true, full24: true, start: 0, end: 24 },
+    };
+    const r = calculateSchedule({ ...settings(start), weekend }, [order], {
+      now: start,
+      schedule: monOnly, // Sunday off in the company schedule
+    });
+    // The local Sunday override wins → the 60-min order runs Sun 10:00→11:00,
+    // instead of being pushed to the next working Monday.
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 10, 10).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 10, 11).getTime());
+  });
+
+  it('a weekend shift does not change the company weekday windows', () => {
+    const start = localDate(2026, 4, 11, 10); // Mon 10:00
+    const weekend: WeekendWork = {
+      enabled: true,
+      sat: day({ enabled: false }),
+      sun: { enabled: true, full24: true, start: 0, end: 24 },
+    };
+    const r = calculateSchedule({ ...settings(start), weekend }, [order], {
+      now: start,
+      schedule: monOnly, // Monday 08:00–12:00
+    });
+    // The Monday window stays the company's (08:00–12:00); the 60-min order runs
+    // 10:00→11:00, unaffected by the enabled weekend shift.
+    expect(r.rows[0]!.start.getTime()).toBe(localDate(2026, 4, 11, 10).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 11, 11).getTime());
+  });
 });
 
 describe('calculateSchedule — warm-up / shutdown buffers & splitting', () => {
