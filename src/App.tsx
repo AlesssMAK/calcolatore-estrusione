@@ -46,7 +46,6 @@ import {
   type SharedPayload,
   type CompanyCalc,
 } from './lib/sharedCalc';
-import { APP_ORIGIN } from './lib/appUrl';
 
 // The order + size currently in production ("active"): the first not-yet-done
 // size of the first not-yet-done order (advance-to-now order). Returns null when
@@ -121,12 +120,6 @@ function CalculatorApp() {
   // When a saved calc is restored, the form remounts pre-filled with these
   // inputs; cleared on reset / tab change so the next mount is empty.
   const [restoredValues, setRestoredValues] = useState<FormValues | undefined>(
-    undefined,
-  );
-  // The form inputs that produced the currently-displayed `result`. Kept so the
-  // "share link" button can persist a consistent {values, result} pair even for
-  // a fresh Calcola (where nothing was restored). Threaded up from the form.
-  const [resultValues, setResultValues] = useState<FormValues | undefined>(
     undefined,
   );
   // The saved entry currently on screen + its "as of now" view (null when the
@@ -208,7 +201,6 @@ function CalculatorApp() {
     setSelectedMode(next);
     setResult(null);
     setRestoredValues(undefined);
-    setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -222,7 +214,6 @@ function CalculatorApp() {
   const onReset = () => {
     setResult(null);
     setRestoredValues(undefined);
-    setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -283,7 +274,6 @@ function CalculatorApp() {
       setCompletedRows([]);
     }
     setResult(r);
-    setResultValues(values);
     // Push edits to the live shared document if this calc is synced. Best-effort
     // (fire-and-forget); bumps the local version.
     const meta = syncMeta;
@@ -373,12 +363,10 @@ function CalculatorApp() {
     setEditingId(entry.id); // re-Calcola updates this saved entry in place
     if (adv) {
       setRestoredValues(adv.values);
-      setResultValues(adv.values);
       setResult(adv.result);
       setCompletedRows(adv.completedRows);
     } else {
       setRestoredValues(entry.values);
-      setResultValues(entry.values);
       setResult(entry.result);
       setCompletedRows([]);
     }
@@ -458,7 +446,6 @@ function CalculatorApp() {
     if (!restoredEntry) return;
     setShowOriginal(true);
     setRestoredValues(restoredEntry.values);
-    setResultValues(restoredEntry.values);
     setResult(restoredEntry.result);
     setCompletedRows([]);
     setFormKey((k) => k + 1);
@@ -469,7 +456,6 @@ function CalculatorApp() {
     if (!advancedCalc) return;
     setShowOriginal(false);
     setRestoredValues(advancedCalc.values);
-    setResultValues(advancedCalc.values);
     setResult(advancedCalc.result);
     setCompletedRows(advancedCalc.completedRows);
     setFormKey((k) => k + 1);
@@ -507,66 +493,6 @@ function CalculatorApp() {
     if (last) restoreCompleted([last]);
   };
   const restoreAllCompleted = () => restoreCompleted(completedRows);
-
-  // Persist the whole displayed calculation to Supabase and return a short
-  // shareable link. Preserves the active company so the recipient opens the
-  // same catalog/branding. Returns null when there's nothing to share.
-  // Turn the displayed calc into a live shared document (if not already) and
-  // return its link. `mode` picks a view-only link (`?shared=id`) or an
-  // editable one (`?shared=id&edit=token`) — the sharer's choice. Enabling sync
-  // binds the token to the bound saved entry so later edits push updates.
-  const createShareUrl = async (
-    shareMode: 'view' | 'edit',
-  ): Promise<string | null> => {
-    if (!result || !resultValues) return null;
-    let meta = syncMeta;
-    if (!meta) {
-      const { id, editToken } = await createSharedCalc(
-        buildPayload(result, resultValues, completedRows),
-      );
-      meta = { id, token: editToken, version: 1 };
-      setSyncMeta(meta);
-      if (editingId) {
-        updateSyncMeta(editingId, meta, settings.savedRetentionDays);
-        setSavedRefreshKey((k) => k + 1);
-      }
-    }
-    const params = new URLSearchParams();
-    params.set('shared', meta.id);
-    if (shareMode === 'edit' && meta.token) params.set('edit', meta.token);
-    if (company) params.set('company', company.slug);
-    return `${APP_ORIGIN}/?${params.toString()}`;
-  };
-
-  // Enable/disable live-sync on a saved entry from the "Salvati" list. Enable
-  // uploads a fresh shared document and binds its edit token; disable unbinds
-  // locally (the shared row is left to expire). Skips entries without inputs.
-  const toggleEntrySync = async (entry: SavedCalculation) => {
-    if (!isSupabaseConfigured || !entry.values) return;
-    if (entry.sync) {
-      updateSyncMeta(entry.id, undefined, settings.savedRetentionDays);
-      if (editingId === entry.id) setSyncMeta(null);
-      setSavedRefreshKey((k) => k + 1);
-      return;
-    }
-    try {
-      const { id, editToken } = await createSharedCalc({
-        v: 1,
-        mode: entry.result.mode,
-        values: entry.values,
-        result: entry.result,
-        completedRows: entry.completedRows,
-        label: entry.label,
-        snapshot: entry.snapshot,
-      });
-      const sync: SyncMeta = { id, token: editToken, version: 1 };
-      updateSyncMeta(entry.id, sync, settings.savedRetentionDays);
-      if (editingId === entry.id) setSyncMeta(sync);
-      setSavedRefreshKey((k) => k + 1);
-    } catch {
-      /* upload failed (offline / quota) — leave the entry unsynced */
-    }
-  };
 
   // Publish / unpublish a saved entry to the company shared list. Ensures the
   // entry is synced (creates the shared doc + token if needed), enforces the
@@ -666,66 +592,6 @@ function CalculatorApp() {
     onRestore(entry);
   };
 
-  // On first load, hydrate a shared calculation from a ?shared=<id> link:
-  // save it into the recipient's local "Salvati" history (deduped by a stable
-  // shared-<id> slot so re-opening the same link doesn't pile up copies) and
-  // bind it as a live synced document (following the author; also editable when
-  // the link carries &edit=<token>), then open it like picking it from Salvati.
-  // Finally strip ?shared=/&edit= (keeping ?company=) so a reload doesn't refetch.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('shared');
-    if (!id) return;
-    const editToken = params.get('edit') ?? undefined;
-    let cancelled = false;
-    void fetchSharedCalc(id).then((res) => {
-      if (cancelled || !res) return;
-      const payload = res.payload;
-      const savedId = `shared-${id}`;
-      const label = payload.label ?? deriveLabel(payload.result);
-      const sync: SyncMeta = { id, token: editToken, version: res.version };
-      let entry: SavedCalculation;
-      try {
-        entry = saveCalculation(
-          payload.result,
-          payload.values,
-          payload.snapshot,
-          label,
-          settings.maxSavedResults,
-          settings.savedRetentionDays,
-          savedId,
-          payload.completedRows,
-        );
-        updateSyncMeta(savedId, sync, settings.savedRetentionDays);
-        entry = { ...entry, sync };
-        setSavedRefreshKey((k) => k + 1);
-      } catch {
-        // Storage failed (quota/private mode) — restore from an in-memory entry
-        // so the link still opens, just without a persisted copy.
-        entry = {
-          id: savedId,
-          ts: Date.now(),
-          label,
-          result: payload.result,
-          values: payload.values,
-          snapshot: payload.snapshot,
-          completedRows: payload.completedRows,
-          sync,
-        };
-      }
-      onRestore(entry);
-      params.delete('shared');
-      params.delete('edit');
-      const qs = params.toString();
-      window.history.replaceState(null, '', qs ? `/?${qs}` : '/');
-    });
-    return () => {
-      cancelled = true;
-    };
-    // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // While viewing a synced calc, pull the latest when the tab regains focus /
   // becomes visible, so a follower sees the author's updates without reopening.
   useEffect(() => {
@@ -787,7 +653,6 @@ function CalculatorApp() {
     values.orders = [order];
     setSelectedMode('sheets');
     setResult(null);
-    setResultValues(undefined);
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -827,7 +692,6 @@ function CalculatorApp() {
           }}
           onRestore={onRestore}
           savedRefreshKey={savedRefreshKey}
-          onToggleSync={isSupabaseConfigured ? toggleEntrySync : undefined}
           initialValues={restoredValues}
           editingId={editingId}
           completedRows={completedRows}
@@ -888,8 +752,6 @@ function CalculatorApp() {
               <ResultsPanel
                 result={withCompleted(result, completedRows)}
                 mode={mode}
-                onShare={isSupabaseConfigured ? createShareUrl : undefined}
-                isSynced={syncMeta !== null}
                 onComplete={
                   fromSaved
                     ? (orderId, sizeIdx) =>
