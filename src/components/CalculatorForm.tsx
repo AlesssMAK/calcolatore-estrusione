@@ -53,8 +53,6 @@ interface Props {
   onRestore?: (entry: SavedCalculation) => void;
   /** Bump from parent to force the saved-list to re-read history when reopened. */
   savedRefreshKey?: number;
-  /** Toggle live-sync on a saved entry (from the "Salvati" dropdown). */
-  onToggleSync?: (entry: SavedCalculation) => void | Promise<void>;
   /** When restoring a saved calculation, the form mounts pre-filled with these
    *  inputs so the user can tweak and recalculate. Undefined → empty defaults. */
   initialValues?: FormValues;
@@ -97,7 +95,6 @@ function CalculatorForm({
   onSaved,
   onRestore,
   savedRefreshKey,
-  onToggleSync,
   initialValues,
   editingId,
   completedRows,
@@ -314,7 +311,6 @@ function CalculatorForm({
             <SavedCalculationsButton
               onRestore={onRestore}
               refreshKey={savedRefreshKey}
-              onToggleSync={onToggleSync}
               onPublish={onPublish}
             />
           )}

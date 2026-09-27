@@ -14,9 +14,6 @@ interface Props {
   /** Bump from the parent to force the dropdown to re-read history after a
    *  fresh save — avoids stale lists when the dropdown is reopened. */
   refreshKey?: number;
-  /** Toggle live-sync on an entry (enable = upload + bind, disable = unbind).
-   *  Absent when sync is unavailable (Supabase not configured) → no control. */
-  onToggleSync?: (entry: SavedCalculation) => void | Promise<void>;
   /** Publish / unpublish an entry to the company shared list. Absent when no
    *  company is active. */
   onPublish?: (
@@ -45,7 +42,6 @@ function formatRelative(ts: number, lang: string): string {
 function SavedCalculationsButton({
   onRestore,
   refreshKey = 0,
-  onToggleSync,
   onPublish,
 }: Props) {
   const { t, i18n } = useTranslation();
@@ -156,15 +152,6 @@ function SavedCalculationsButton({
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                         {it.label}
                       </span>
-                      {it.sync && (
-                        <span
-                          className="shrink-0 text-[11px]"
-                          aria-hidden
-                          title={t('actions.synced')}
-                        >
-                          🔄
-                        </span>
-                      )}
                       <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-soft uppercase">
                         {t(`tabs.${it.result.mode}`)}
                       </span>
@@ -173,29 +160,6 @@ function SavedCalculationsButton({
                       {formatRelative(it.ts, lang)}
                     </span>
                   </button>
-                  {onToggleSync && it.values && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void Promise.resolve(onToggleSync(it)).then(() =>
-                          setItems(loadHistory(retentionDays)),
-                        );
-                      }}
-                      aria-label={
-                        it.sync ? t('actions.syncOff') : t('actions.syncOn')
-                      }
-                      title={
-                        it.sync ? t('actions.syncOff') : t('actions.syncOn')
-                      }
-                      className={`shrink-0 rounded p-1.5 transition ${
-                        it.sync
-                          ? 'text-brand-600 hover:bg-brand-50'
-                          : 'text-ink-soft hover:bg-neutral-100 hover:text-brand-600'
-                      }`}
-                    >
-                      🔄
-                    </button>
-                  )}
                   {onPublish && it.values && (
                     <div className="relative shrink-0">
                       <button
