@@ -5,8 +5,9 @@ import { useCatalog } from '../contexts/CatalogContext';
 interface Props {
   /** Heading text. Defaults to the app title (calculator). */
   title?: string;
-  /** When set, the logo links here in the SAME tab (subpages use this to go
-   *  back). When omitted the calculator behaviour is kept: home in a new tab. */
+  /** Where the logo links. Defaults to the calculator home. Subpages pass their
+   *  own back-target. Always opens in the SAME tab — clicking the logo on the
+   *  calculator reloads it instead of spawning a new tab. */
   homeHref?: string;
 }
 
@@ -20,14 +21,11 @@ function Header({ title, homeHref }: Props) {
   const homeUrl = company
     ? `${base}?company=${encodeURIComponent(company.slug)}`
     : base;
-  const logoProps = homeHref
-    ? { href: homeUrl }
-    : { href: homeUrl, target: '_blank' as const, rel: 'noreferrer' };
 
   return (
     <header className="no-print border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-2 px-3 py-3 sm:flex-nowrap sm:gap-4 sm:px-4 sm:py-4">
-        <a {...logoProps} className="block shrink-0" aria-label={heading}>
+        <a href={homeUrl} className="block shrink-0" aria-label={heading}>
           <img src="/logo.png" alt={heading} className="h-10 w-50 md:h-12" />
         </a>
         <h1 className="order-last w-full text-center text-base font-semibold text-ink leading-tight sm:order-none sm:w-auto sm:flex-1 sm:whitespace-nowrap sm:text-[clamp(0.7rem,2.6vw,1.25rem)]">
