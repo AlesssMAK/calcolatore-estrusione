@@ -16,6 +16,7 @@ import {
   type Company,
   type CompanySettings,
 } from '../lib/catalog';
+import { applyCompanyManifest } from '../lib/pwaManifest';
 
 interface CatalogState {
   company: Company | null;
@@ -75,6 +76,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
           return;
         }
         setCompany(c);
+        // Make the PWA install carry this company (start_url + name), so adding
+        // to home screen launches the company calculator, not the clean one.
+        void applyCompanyManifest({ slug: c.slug, name: c.name });
         const [items, s] = await Promise.all([
           fetchProductsForCompany(c.id),
           fetchCompanySettings(c.id),
