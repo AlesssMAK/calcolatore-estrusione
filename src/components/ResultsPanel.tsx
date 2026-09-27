@@ -1,6 +1,5 @@
 import { Fragment, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toBlob } from 'html-to-image';
 import type {
   CalculatorMode,
   ScheduleResult,
@@ -8,6 +7,8 @@ import type {
   ScheduledSizeDetail,
 } from '../types';
 import { calculateTotalProfiles } from '../utils/calculator';
+import { useCatalog } from '../contexts/CatalogContext';
+import { buildResultPdfBlob } from '../lib/resultPdf';
 import MarqueeText from './MarqueeText';
 import UnitsTimeline from './UnitsTimeline';
 import {
@@ -65,31 +66,33 @@ interface Props {
 
 function ResultsPanel({ result, mode, onComplete }: Props) {
   const { t, i18n } = useTranslation();
+  const { company } = useCatalog();
   const [exporting, setExporting] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Build the PNG of the results panel and surface it to the user in the
+  // Generate a crisp vector PDF of the result and hand it to the user in the
   // most share-friendly way the platform allows:
-  //   1. Mobile / share-capable browsers: navigator.share() opens the
-  //      native share sheet so the user can hand the file to WhatsApp /
-  //      Telegram / email in one tap.
-  //   2. Everywhere else: open the blob URL in a new tab. The user can
-  //      then drag-and-drop into a chat, right-click → Save as, or
-  //      screenshot it — friendlier than a silent download on desktop.
-  const exportAsImage = async () => {
-    const node = sectionRef.current;
-    if (!node) return;
+  //   1. Mobile / share-capable browsers: navigator.share() opens the native
+  //      share sheet so they can send the PDF to WhatsApp / email in one tap.
+  //   2. Everywhere else: download the .pdf.
+  // A PDF (unlike the old PNG) stays sharp at any zoom and is small even for
+  // very large results, which was the whole point of switching away from an
+  // image screenshot.
+  const exportAsPdf = async () => {
     setExporting(true);
     try {
-      const blob = await toBlob(node, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-        // Skip toolbar buttons (Print / Copy / Reset / Save image)
-        filter: (n) =>
-          !(n instanceof HTMLElement && n.classList.contains('no-print')),
+      const lang = i18n.resolvedLanguage ?? 'it';
+      const blob = await buildResultPdfBlob(result, {
+        mode,
+        lang,
+        units: {
+          day: t('units.day'),
+          hour: t('units.hour'),
+          minute: t('units.minute'),
+        },
+        t,
+        companyName: company?.name,
       });
-      if (!blob) return;
 
       const slug = (result.productName || 'risultato')
         .toLowerCase()
@@ -99,12 +102,11 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
         .toISOString()
         .slice(0, 16)
         .replace(/[:T]/g, '-');
-      const filename = `${slug}-${stamp}.png`;
-      const file = new File([blob], filename, { type: 'image/png' });
+      const filename = `${slug}-${stamp}.pdf`;
+      const file = new File([blob], filename, { type: 'application/pdf' });
 
-      // Web Share API — only available in secure contexts and (importantly)
-      // gated by canShare({ files }) since not every Share impl accepts
-      // file payloads (desktop Edge / Firefox lie about navigator.share).
+      // Web Share API — gated by canShare({ files }) since not every Share
+      // impl accepts file payloads (desktop Edge / Firefox lie about it).
       if (
         typeof navigator !== 'undefined' &&
         typeof navigator.canShare === 'function' &&
@@ -117,20 +119,24 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
           });
           return;
         } catch (err) {
-          // AbortError = user dismissed the sheet — that's fine, no
-          // fallback. Anything else (permission, transient) → fall through
-          // to the new-tab path so the image isn't lost.
+          // AbortError = user dismissed the sheet — leave silently. Anything
+          // else (permission, transient) → fall through to the download path.
           if (err instanceof DOMException && err.name === 'AbortError') return;
         }
       }
 
-      // Fallback: open the PNG in a new tab. Revoke after a delay so the
-      // tab has time to fetch it; immediately revoking would race the load.
+      // Fallback: download the PDF. Revoke after a delay so the browser has
+      // time to start the download before the URL is released.
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
-      /* ignore — capture itself failed (oversize node, etc.) */
+      /* ignore — PDF generation failed */
     } finally {
       setExporting(false);
     }
@@ -208,11 +214,11 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => void exportAsImage()}
+            onClick={() => void exportAsPdf()}
             disabled={exporting}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-500 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            📷 {exporting ? t('actions.exporting') : t('actions.saveImage')}
+            📄 {exporting ? t('actions.exporting') : t('actions.shareResult')}
           </button>
         </div>
       </div>
