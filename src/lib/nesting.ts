@@ -39,6 +39,11 @@ export interface NestingOptions {
   lanes?: number;
   /** Numero massimo di strati per bancale. Se assente o ≤ 0 → illimitato. */
   maxRows?: number;
+  /** When true, the scarto-optimal packer may scatter one length across rows of
+   *  very different length (less waste). When false (default) each length is
+   *  kept together — a scattered length is reserved into its own rows even at
+   *  extra waste, so it's produced in one continuous run. */
+  allowScatter?: boolean;
 }
 
 export interface Slot {
@@ -223,6 +228,50 @@ function deScatter(
   return free ? candidate : slots;
 }
 
+/**
+ * Strict "keep each length together" packing (checkbox OFF). Start from the
+ * optimal packing, then repeatedly reserve any length still scattered across
+ * dissimilar rows into its OWN evenly-split rows and re-pack the rest — even
+ * when it costs extra corsie (more waste). A `reserved` guard makes it converge:
+ * once a length is isolated into its own rows it's never mixed back in, so the
+ * only new scatter comes from the re-packed remainder, which the next pass
+ * reserves in turn. The result never scatters a length across mixed combos.
+ */
+function packKeepTogether(
+  pieces: number[],
+  base: number,
+  unit: number,
+  gap: number,
+): Slot[] {
+  let slots = binsToSlots(packBins(pieces, base, unit), base);
+  const reserved = new Set<number>();
+  for (let iter = 0; iter < 64; iter++) {
+    const fresh = [...scatteredSizes(slots, gap)].filter(
+      (s) => !reserved.has(s),
+    );
+    if (fresh.length === 0) break;
+    for (const s of fresh) reserved.add(s);
+
+    const count = new Map<number, number>();
+    const rest: number[] = [];
+    for (const p of pieces) {
+      if (reserved.has(p)) count.set(p, (count.get(p) ?? 0) + 1);
+      else rest.push(p);
+    }
+    const reservedBins: number[][] = [];
+    for (const [size, c] of count) {
+      const per = Math.max(1, Math.floor(base / size));
+      const nc = Math.ceil(c / per);
+      for (let i = 0; i < nc; i++) {
+        const k = Math.floor(c / nc) + (i < c % nc ? 1 : 0);
+        reservedBins.push(new Array<number>(k).fill(size));
+      }
+    }
+    slots = binsToSlots([...reservedBins, ...packBins(rest, base, unit)], base);
+  }
+  return slots;
+}
+
 const byLenDesc = (a: Slot, b: Slot) => b.length - a.length;
 
 /** Group corsie by piece signature; pair `lanes` identical ones into uniform
@@ -364,10 +413,15 @@ export function computeNesting(
 
   const unit = pieces.reduce((g, p) => gcd(g, p), 0) || 1;
 
-  // Optimal (scarto-minimal) packing, then a free de-scatter pass that keeps a
-  // size together when another same-corsia-count packing allows it.
+  // Packing. Default (allowScatter=false): keep each length together, even at
+  // extra waste. allowScatter=true: scarto-minimal packing + a free de-scatter
+  // pass (keeps a size together only when another same-corsia-count packing
+  // allows it, otherwise accepts the scatter for less waste).
+  const allowScatter = options.allowScatter === true;
   let slots = binsToSlots(packBins(pieces, base, unit), base);
-  slots = deScatter(slots, pieces, base, unit, SAME_SIZE_GAP_MM);
+  slots = allowScatter
+    ? deScatter(slots, pieces, base, unit, SAME_SIZE_GAP_MM)
+    : packKeepTogether(pieces, base, unit, SAME_SIZE_GAP_MM);
 
   const strati: Strato[] = formStrati(slots, lanes, base).map((corsie) => ({
     corsie,
@@ -455,6 +509,13 @@ export function buildProductionPlan(
   const groupSizes = groups.map(
     (g) => new Set(g.strato.corsie.flatMap((c) => c.pieces)),
   );
+  // Does length `s` sit in a MIXED corsia (with another size) of group `g`?
+  // A length that lives only in pure single-size rows is fine to group across
+  // any row-length difference (it's the same length stacked), so it never warns.
+  const mixedWith = (g: ProductionGroup, s: number) =>
+    g.strato.corsie.some(
+      (c) => c.pieces.includes(s) && new Set(c.pieces).size > 1,
+    );
 
   // Union-Find: connect groups that share a length AND whose rows are within
   // the gap. A shared length across a larger gap raises a warning instead.
@@ -468,10 +529,19 @@ export function buildProductionPlan(
     for (let j = i + 1; j < n; j++) {
       const shared = [...groupSizes[i]].filter((s) => groupSizes[j].has(s));
       if (shared.length === 0) continue;
-      if (Math.abs(rowLen(groups[i]) - rowLen(groups[j])) <= gapMm) {
+      // A shared length that's MIXED into a combo on either side is a real
+      // scatter across dissimilar rows; a shared length that's pure on both
+      // sides is just the same length stacked (group it, no warning).
+      const mixedShared = shared.filter(
+        (s) => mixedWith(groups[i], s) || mixedWith(groups[j], s),
+      );
+      if (
+        Math.abs(rowLen(groups[i]) - rowLen(groups[j])) <= gapMm ||
+        mixedShared.length === 0
+      ) {
         parent[find(i)] = find(j);
       } else {
-        for (const s of shared) {
+        for (const s of mixedShared) {
           if (warned.has(s)) continue;
           warned.add(s);
           warnings.push({

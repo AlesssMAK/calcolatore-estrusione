@@ -281,7 +281,9 @@
       "lanes": "Láminas a lo ancho",
       "lanesHint": "carriles contiguos por capa",
       "maxRows": "Filas máx. por palet",
-      "maxRowsHint": "opc. — vacío = ilimitado"
+      "maxRowsHint": "opc. — vacío = ilimitado",
+      "allowScatter": "Misma medida en filas distintas",
+      "allowScatterHint": "off = cada medida junta (corte más limpio); on = menos merma"
     },
     "calculate": "Calcular Distribución",
     "result": {
