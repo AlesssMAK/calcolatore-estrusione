@@ -11,6 +11,7 @@ export interface PiramideDraft {
   maxRows: string;
   minLen: string;
   maxLen: string;
+  allowScatter?: boolean;
 }
 
 const KEY = 'piramide.draft';

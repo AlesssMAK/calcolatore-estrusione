@@ -281,7 +281,9 @@
       "lanes": "Sheets across",
       "lanesHint": "lanes side by side per layer",
       "maxRows": "Max rows per pallet",
-      "maxRowsHint": "optional — empty = unlimited"
+      "maxRowsHint": "optional — empty = unlimited",
+      "allowScatter": "Same length in different rows",
+      "allowScatterHint": "off = keep each length together (cleaner cut); on = less waste"
     },
     "calculate": "Compute Layout",
     "result": {

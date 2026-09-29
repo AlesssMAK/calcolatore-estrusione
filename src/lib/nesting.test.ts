@@ -156,7 +156,8 @@ describe('computeNesting — de-scatter (free grouping of split sizes)', () => {
   ].map((length) => ({ length, qty: 4 }));
 
   it('groups scattered sizes without adding corsie or scarto (lanes=1)', () => {
-    const r = computeNesting(sheets, { lanes: 1 });
+    // allowScatter=true → scarto-optimal packing + the free de-scatter pass.
+    const r = computeNesting(sheets, { lanes: 1, allowScatter: true });
     expect(r.totalSlots).toBe(17);
     expect(r.totalScarto).toBe(10500);
     expect(r.slots).toContainEqual(
@@ -168,9 +169,39 @@ describe('computeNesting — de-scatter (free grouping of split sizes)', () => {
   });
 
   it('leaves no split warning at lanes=2 for the same order', () => {
-    const r = computeNesting(sheets, { lanes: 2 });
+    const r = computeNesting(sheets, { lanes: 2, allowScatter: true });
     expect(r.totalSlots).toBe(17);
     expect(buildProductionPlan(r.strati).warnings).toEqual([]);
+  });
+});
+
+describe('computeNesting — keep-together (allowScatter=false, default)', () => {
+  // base 7050. 2500 fits a combo with 4550 (7050) but also stands alone
+  // (2500+2500 = 5000) — the optimal packer would scatter it across rows of
+  // very different length (7050 vs 5000) and the plan would warn.
+  const sheets: SheetInput[] = [
+    { length: 4550, qty: 4 },
+    { length: 2500, qty: 6 },
+    { length: 7050, qty: 5 },
+  ];
+
+  it('keeps a scattered length together and drops the split warning', () => {
+    // Optimal path scatters 2500 → a production split warning.
+    const loose = computeNesting(sheets, { base: 7050, allowScatter: true });
+    expect(
+      buildProductionPlan(loose.strati).warnings.length,
+    ).toBeGreaterThan(0);
+
+    // Default (strict) reserves 2500 into its own pure rows → no warning, and
+    // 2500 lives only in single-size rows.
+    const strict = computeNesting(sheets, { base: 7050 });
+    expect(buildProductionPlan(strict.strati).warnings).toEqual([]);
+    const rowsWith2500 = strict.slots.filter((s) => s.pieces.includes(2500));
+    expect(
+      rowsWith2500.every((s) => new Set(s.pieces).size === 1),
+    ).toBe(true);
+    // Strict may cost extra corsie (waste) vs the loose optimum.
+    expect(strict.totalSlots).toBeGreaterThanOrEqual(loose.totalSlots);
   });
 });
 

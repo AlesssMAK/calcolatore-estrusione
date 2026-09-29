@@ -17,6 +17,9 @@ export interface SavedPiramide {
   maxRows: string;
   minLen: string;
   maxLen: string;
+  /** Allow one length to spread across dissimilar rows. Optional (old entries
+   *  predate it → treated as false = keep-together). */
+  allowScatter?: boolean;
 }
 
 /** What the caller passes to save (everything but id/ts). */

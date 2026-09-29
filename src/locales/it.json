@@ -281,7 +281,9 @@
       "lanes": "Lastre in larghezza",
       "lanesHint": "corsie affiancate per strato",
       "maxRows": "Righe max per bancale",
-      "maxRowsHint": "opz. — vuoto = illimitato"
+      "maxRowsHint": "opz. — vuoto = illimitato",
+      "allowScatter": "Stessa misura in file diverse",
+      "allowScatterHint": "off = ogni misura resta unita (taglio più pulito); on = meno scarto"
     },
     "calculate": "Calcola Distribuzione",
     "result": {

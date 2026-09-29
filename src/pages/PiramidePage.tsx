@@ -90,6 +90,9 @@ function PiramidePage() {
   const [base, setBase] = useState('');
   const [lanes, setLanes] = useState('1');
   const [maxRows, setMaxRows] = useState('');
+  // When true, allow one length to spread across dissimilar rows (less waste);
+  // default false = keep each length together in its own run (cleaner cutting).
+  const [allowScatter, setAllowScatter] = useState(false);
   const [result, setResult] = useState<NestingResult | null>(null);
   // Bumped after a save so the Salvati dropdown re-reads the history.
   const [histKey, setHistKey] = useState(0);
@@ -137,6 +140,7 @@ function PiramidePage() {
       setMaxRows(draft.maxRows ?? '');
       setMinLen(draft.minLen ?? '');
       setMaxLen(draft.maxLen ?? '');
+      setAllowScatter(draft.allowScatter ?? false);
     }
   }, []);
 
@@ -155,8 +159,9 @@ function PiramidePage() {
       maxRows,
       minLen,
       maxLen,
+      allowScatter,
     });
-  }, [rows, base, lanes, maxRows, minLen, maxLen]);
+  }, [rows, base, lanes, maxRows, minLen, maxLen, allowScatter]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -261,6 +266,7 @@ function PiramidePage() {
       base: Number(base) > 0 ? Number(base) : undefined,
       lanes: Number(lanes) > 0 ? Number(lanes) : 1,
       maxRows: Number(maxRows) > 0 ? Number(maxRows) : undefined,
+      allowScatter,
     });
     setResult(r);
     // Auto-save this layout to the Salvati history (like the calculator saves
@@ -275,6 +281,7 @@ function PiramidePage() {
       maxRows,
       minLen,
       maxLen,
+      allowScatter,
     });
     setHistKey((k) => k + 1);
     scrollToResult();
@@ -289,6 +296,7 @@ function PiramidePage() {
     setMaxRows(e.maxRows ?? '');
     setMinLen(e.minLen ?? '');
     setMaxLen(e.maxLen ?? '');
+    setAllowScatter(e.allowScatter ?? false);
     const sheets = e.rows
       .map((r) => ({ length: Number(r.length), qty: Number(r.qty) }))
       .filter((s) => s.length > 0 && s.qty > 0);
@@ -297,6 +305,7 @@ function PiramidePage() {
         base: Number(e.base) > 0 ? Number(e.base) : undefined,
         lanes: Number(e.lanes) > 0 ? Number(e.lanes) : 1,
         maxRows: Number(e.maxRows) > 0 ? Number(e.maxRows) : undefined,
+        allowScatter: e.allowScatter ?? false,
       }),
     );
     scrollToResult();
@@ -656,6 +665,23 @@ function PiramidePage() {
               />
             </div>
           </div>
+
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={allowScatter}
+              onChange={(e) => setAllowScatter(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink">
+                {t('piramide.options.allowScatter')}
+              </span>
+              <span className="block text-[11px] text-ink-soft">
+                {t('piramide.options.allowScatterHint')}
+              </span>
+            </span>
+          </label>
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <button
