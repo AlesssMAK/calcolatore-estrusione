@@ -35,6 +35,7 @@ import {
 import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
 import { buildEmptyDefaults, loadWeekendPref, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
+import { loadDraft, clearDraft } from './lib/formDraft';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
   createSharedCalc,
@@ -212,6 +213,7 @@ function CalculatorApp() {
   };
 
   const onReset = () => {
+    clearDraft(); // "Nuovo calcolo" → drop the crash-safety draft too
     setResult(null);
     setRestoredValues(undefined);
     setEditingId(undefined);
@@ -554,14 +556,21 @@ function CalculatorApp() {
   // a synced doc (editable without a token when the company published it so),
   // then open it like any restore (advance-to-now + modal).
   const openCompanyCalc = (c: CompanyCalc) => {
-    const savedId = `shared-${c.id}`;
     const p = c.payload;
     const label = p.label ?? deriveLabel(p.result);
-    const sync: SyncMeta = {
-      id: c.id,
-      version: c.version,
-      companyEditable: c.isEditable,
-    };
+    // If a local entry is already bound to this shared row (typically the
+    // author's own published calc), update THAT slot instead of creating a
+    // parallel `shared-<id>` copy — otherwise opening your own published result
+    // from the company list duplicates it in "Salvati". Keep the existing
+    // sync (incl. the edit token + published flags) so the owner can still edit
+    // and unpublish it; just refresh the version + editable flag from the list.
+    const existing = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.sync?.id === c.id,
+    );
+    const savedId = existing?.id ?? `shared-${c.id}`;
+    const sync: SyncMeta = existing?.sync
+      ? { ...existing.sync, version: c.version, companyEditable: c.isEditable }
+      : { id: c.id, version: c.version, companyEditable: c.isEditable };
     let entry: SavedCalculation;
     try {
       entry = saveCalculation(
@@ -592,6 +601,30 @@ function CalculatorApp() {
     onRestore(entry);
   };
 
+  // Remove a result from the company's shared list (unpublish). Only the author
+  // can — the edit token lives on their local saved entry bound to this shared
+  // row. Clears the published flags locally so the "Salvati" 🏢 state matches.
+  const deleteCompanyCalc = async (c: CompanyCalc) => {
+    if (!company) return;
+    const local = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.sync?.id === c.id && e.sync?.token,
+    );
+    const token = local?.sync?.token;
+    if (!token) return;
+    const ok = await setCompanyPublish(c.id, token, company.slug, false, false);
+    if (!ok) return;
+    if (local?.sync) {
+      const next: SyncMeta = {
+        ...local.sync,
+        published: false,
+        publishedEditable: false,
+      };
+      updateSyncMeta(local.id, next, settings.savedRetentionDays);
+      if (editingId === local.id) setSyncMeta(next);
+    }
+    setSavedRefreshKey((k) => k + 1);
+  };
+
   // While viewing a synced calc, pull the latest when the tab regains focus /
   // becomes visible, so a follower sees the author's updates without reopening.
   useEffect(() => {
@@ -615,6 +648,35 @@ function CalculatorApp() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncMeta, editingId]);
+
+  // On first load, restore the crash-safety draft — but only on a genuine
+  // relaunch. A deliberate reload (F5 / pull-to-refresh, reported as a "reload"
+  // navigation) means the operator wants a clean form, so drop the draft
+  // instead. A pending Piramide handoff takes precedence (handled below).
+  useEffect(() => {
+    const navType = (
+      performance.getEntriesByType('navigation')[0] as
+        | PerformanceNavigationTiming
+        | undefined
+    )?.type;
+    if (navType === 'reload') {
+      clearDraft();
+      return;
+    }
+    try {
+      if (sessionStorage.getItem('calc.orderImport')) return;
+    } catch {
+      /* ignore */
+    }
+    const draft = loadDraft();
+    if (!draft) return;
+    if (draft.mode !== mode) setSelectedMode(draft.mode);
+    setEditingId(draft.editingId);
+    setRestoredValues(draft.values);
+    setFormKey((k) => k + 1);
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // On first load, pick up a Piramide → calculator handoff (the "Usa nel
   // calcolatore" button): build a sheets order from the sheet rows and either
@@ -704,12 +766,21 @@ function CalculatorApp() {
           onOpenCompany={
             isSupabaseConfigured && company ? openCompanyCalc : undefined
           }
+          onDeleteCompany={
+            isSupabaseConfigured && company ? deleteCompanyCalc : undefined
+          }
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
         />
 
         <div id="results" className="mt-5 sm:mt-6">
+          {result && syncMeta?.published && (
+            <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700">
+              <span aria-hidden>🏢</span>
+              <span>{t('company.broadcasting')}</span>
+            </div>
+          )}
           {result && restoredEntry && advancedCalc && (
             <AdvanceBanner
               showOriginal={showOriginal}

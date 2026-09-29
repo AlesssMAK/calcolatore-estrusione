@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCatalog } from '../contexts/CatalogContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
+import { loadHistory } from '../lib/calcHistory';
 
 interface Props {
   /** Open a company-published result (parent restores it as a synced doc). */
   onOpen: (calc: CompanyCalc) => void;
+  /** Remove a result from the company list (unpublish). Shown only for results
+   *  this device authored (holds the edit token). */
+  onDelete?: (calc: CompanyCalc) => void | Promise<void>;
   /** Bump to re-read the list (after a publish/unpublish). */
   refreshKey?: number;
 }
@@ -26,12 +30,14 @@ function formatRelative(ts: number, lang: string): string {
 /** Dropdown of the calculations the active company has published to its shared
  *  list. Visible only when a company is active. Opening one restores it as a
  *  live (followed / editable) document. */
-function CompanyResultsButton({ onOpen, refreshKey = 0 }: Props) {
+function CompanyResultsButton({ onOpen, onDelete, refreshKey = 0 }: Props) {
   const { t, i18n } = useTranslation();
-  const { company } = useCatalog();
+  const { company, settings } = useCatalog();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<CompanyCalc[]>([]);
   const [count, setCount] = useState(0);
+  // Shared-row ids this device authored (has the edit token) → deletable here.
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(() => new Set());
   const rootRef = useRef<HTMLDivElement>(null);
   const lang = i18n.resolvedLanguage ?? 'it';
 
@@ -53,7 +59,14 @@ function CompanyResultsButton({ onOpen, refreshKey = 0 }: Props) {
       setItems(list);
       setCount(list.length);
     });
-  }, [open, company, refreshKey]);
+    // Which of these did this device publish (holds the token) → can unpublish.
+    const owned = new Set(
+      loadHistory(settings.savedRetentionDays)
+        .filter((e) => e.sync?.token && e.sync?.id)
+        .map((e) => e.sync!.id),
+    );
+    setOwnedIds(owned);
+  }, [open, company, refreshKey, settings.savedRetentionDays]);
 
   useEffect(() => {
     if (!open) return;
@@ -114,8 +127,12 @@ function CompanyResultsButton({ onOpen, refreshKey = 0 }: Props) {
                   c.payload.result.startAt.getTime() <= now &&
                   now < c.payload.result.endAt.getTime();
                 const ts = c.updatedAt ? new Date(c.updatedAt).getTime() : now;
+                const canDelete = !!onDelete && ownedIds.has(c.id);
                 return (
-                  <li key={c.id}>
+                  <li
+                    key={c.id}
+                    className="flex items-center gap-1 rounded-md hover:bg-brand-50"
+                  >
                     <button
                       type="button"
                       role="option"
@@ -124,7 +141,7 @@ function CompanyResultsButton({ onOpen, refreshKey = 0 }: Props) {
                         onOpen(c);
                         setOpen(false);
                       }}
-                      className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-2 text-left transition hover:bg-brand-50"
+                      className="flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md px-2 py-2 text-left transition"
                     >
                       <span className="flex w-full items-center gap-1.5">
                         {inProduction && (
@@ -149,6 +166,22 @@ function CompanyResultsButton({ onOpen, refreshKey = 0 }: Props) {
                         {formatRelative(ts, lang)}
                       </span>
                     </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void Promise.resolve(onDelete!(c)).then(() => {
+                            setItems((cur) => cur.filter((x) => x.id !== c.id));
+                            setCount((n) => Math.max(0, n - 1));
+                          });
+                        }}
+                        aria-label={t('company.unpublish')}
+                        title={t('company.unpublish')}
+                        className="mr-1 shrink-0 rounded p-1.5 text-ink-soft transition hover:bg-danger/10 hover:text-danger"
+                      >
+                        ×
+                      </button>
+                    )}
                   </li>
                 );
               })}

@@ -204,7 +204,8 @@
     "publish": "Condividi con l'azienda",
     "unpublish": "Rimuovi dall'azienda",
     "editable": "Modificabile",
-    "limitReached": "Limite raggiunto ({{max}})"
+    "limitReached": "Limite raggiunto ({{max}})",
+    "broadcasting": "Condiviso con l'azienda"
   },
   "footer": {
     "madeBy": "Calcolatore di Estrusione",

@@ -204,7 +204,8 @@
     "publish": "Share with the company",
     "unpublish": "Remove from company",
     "editable": "Editable",
-    "limitReached": "Limit reached ({{max}})"
+    "limitReached": "Limit reached ({{max}})",
+    "broadcasting": "Shared with the company"
   },
   "footer": {
     "madeBy": "Extrusion Calculator",

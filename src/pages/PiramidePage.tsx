@@ -305,8 +305,26 @@ function PiramidePage() {
   // Send the current sheet rows to the calculator as an order — a new
   // calculation, or appended to an existing saved one (targetCalcId). Handed
   // off via sessionStorage; the calculator picks it up on mount.
-  const sheetRowsForOrder = () =>
-    parsedSheets.map((s) => ({ length: s.length, qty: s.qty }));
+  const sheetRowsForOrder = () => {
+    // Prefer the production order the layout computed (how the sheets stack on
+    // the pallet) so the calculator queue and form come out in the same order
+    // they'll be produced. Merge lengths across bancali by first occurrence;
+    // fall back to the raw input order when no layout has been computed yet.
+    if (result && result.bancali.length > 0) {
+      const order: number[] = [];
+      const qty = new Map<number, number>();
+      for (const bancale of result.bancali) {
+        for (const it of buildProductionPlan(bancale.strati).list) {
+          if (!qty.has(it.length)) order.push(it.length);
+          qty.set(it.length, (qty.get(it.length) ?? 0) + it.qty);
+        }
+      }
+      if (order.length > 0) {
+        return order.map((length) => ({ length, qty: qty.get(length)! }));
+      }
+    }
+    return parsedSheets.map((s) => ({ length: s.length, qty: s.qty }));
+  };
   const useInNewCalc = () => {
     stashOrderImport({ rows: sheetRowsForOrder() });
     navigate(
