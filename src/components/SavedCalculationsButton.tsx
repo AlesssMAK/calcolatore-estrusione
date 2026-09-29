@@ -152,6 +152,15 @@ function SavedCalculationsButton({
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                         {it.label}
                       </span>
+                      {it.sync?.published && (
+                        <span
+                          className="shrink-0 rounded bg-brand-100 px-1 py-0.5 text-[10px] font-semibold text-brand-700"
+                          title={t('company.broadcasting')}
+                          aria-label={t('company.broadcasting')}
+                        >
+                          🏢
+                        </span>
+                      )}
                       <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-soft uppercase">
                         {t(`tabs.${it.result.mode}`)}
                       </span>

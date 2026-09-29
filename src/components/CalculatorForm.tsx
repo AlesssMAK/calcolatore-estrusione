@@ -19,6 +19,7 @@ import type {
   ScheduleSnapshot,
 } from '../types';
 import { buildEmptyDefaults } from '../utils/defaults';
+import { saveDraft } from '../lib/formDraft';
 import { toCompletedRow } from '../utils/advance';
 import {
   deriveLabel,
@@ -84,6 +85,8 @@ interface Props {
   ) => void | Promise<void>;
   /** Open a company-published result (restored as a synced doc). */
   onOpenCompany?: (calc: CompanyCalc) => void;
+  /** Remove a result from the company list (unpublish; author only). */
+  onDeleteCompany?: (calc: CompanyCalc) => void | Promise<void>;
 }
 
 function CalculatorForm({
@@ -104,6 +107,7 @@ function CalculatorForm({
   activeLoc,
   onPublish,
   onOpenCompany,
+  onDeleteCompany,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -129,6 +133,26 @@ function CalculatorForm({
       }
     };
   }, []);
+
+  // Autosave a crash-safety draft as the form changes (debounced). It's restored
+  // on a genuine relaunch and cleared on a deliberate reload / reset elsewhere.
+  const draftTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    const sub = methods.watch((values) => {
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+      }
+      draftTimerRef.current = window.setTimeout(() => {
+        saveDraft({ values: values as FormValues, mode, editingId });
+      }, 500);
+    });
+    return () => {
+      sub.unsubscribe();
+      if (draftTimerRef.current !== null) {
+        window.clearTimeout(draftTimerRef.current);
+      }
+    };
+  }, [methods, mode, editingId]);
 
   const showError = (msg: string) => {
     setSubmitError(msg);
@@ -317,6 +341,7 @@ function CalculatorForm({
           {onOpenCompany && (
             <CompanyResultsButton
               onOpen={onOpenCompany}
+              onDelete={onDeleteCompany}
               refreshKey={savedRefreshKey}
             />
           )}

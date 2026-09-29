@@ -204,7 +204,8 @@
     "publish": "Compartir con la empresa",
     "unpublish": "Quitar de la empresa",
     "editable": "Editable",
-    "limitReached": "Límite alcanzado ({{max}})"
+    "limitReached": "Límite alcanzado ({{max}})",
+    "broadcasting": "Compartido con la empresa"
   },
   "footer": {
     "madeBy": "Calculadora de Extrusión",

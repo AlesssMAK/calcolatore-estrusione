@@ -147,6 +147,10 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
     const idx = pendingFocusIdx.current;
     if (idx === null) return;
     pendingFocusIdx.current = null;
+    // A just-added order must render expanded, not collapsed to a summary (which
+    // is the default for non-active orders once a saved calc is open).
+    const id = fields[idx]?.id;
+    if (id) setExpandedOrders((s) => new Set(s).add(id));
     document.getElementById(`qty-${idx}`)?.focus();
   }, [fields.length]);
 
@@ -1752,6 +1756,8 @@ function SizesFieldArray({
   const [expandedSizes, setExpandedSizes] = useState<Set<string>>(
     () => new Set(),
   );
+  // Index of a size just inserted via "+", to auto-expand once it mounts.
+  const pendingSizeExpand = useRef<number | null>(null);
   const {
     register,
     formState: { errors },
@@ -1788,6 +1794,15 @@ function SizesFieldArray({
   };
 
   const watchedSizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
+
+  // After a "+" insert, expand the new size (so it opens ready to edit).
+  useEffect(() => {
+    const idx = pendingSizeExpand.current;
+    if (idx === null) return;
+    pendingSizeExpand.current = null;
+    const id = sizeFields[idx]?.id;
+    if (id) setExpandedSizes((s) => new Set(s).add(id));
+  }, [sizeFields.length]);
 
   // Photo scanner + "open in Piramide" collapse behind a toggle (like Calcolo
   // avanzato) so they don't take space until needed.
@@ -2030,7 +2045,12 @@ function SizesFieldArray({
 
               <button
                 type="button"
-                onClick={() => insertSize(sIdx + 1, makeEmptySize())}
+                onClick={() => {
+                  // Render the just-inserted size expanded, not collapsed to a
+                  // summary (the default for non-active sizes in a saved calc).
+                  pendingSizeExpand.current = sIdx + 1;
+                  insertSize(sIdx + 1, makeEmptySize());
+                }}
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}
