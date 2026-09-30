@@ -628,14 +628,14 @@ function OrderFields({
           onCompleteSize={onCompleteSize}
           activeSizeIdx={activeSizeIdx}
           editingId={editingId}
-          afterSizes={
+          afterSizes={(visibleSizeIdxs) => (
             <AdvancedSection
               idx={idx}
               mode={mode}
               t={t}
-              activeSizeIdx={activeSizeIdx}
+              visibleSizeIdxs={visibleSizeIdxs}
             />
-          }
+          )}
         />
       )}
     </div>
@@ -737,13 +737,14 @@ function AdvancedSection({
   idx,
   mode,
   t,
-  activeSizeIdx,
+  visibleSizeIdxs,
 }: {
   idx: number;
   mode: CalculatorMode;
   t: TFunction;
-  /** When set (active order in a saved view), only this size's block is shown. */
-  activeSizeIdx?: number | null;
+  /** When set (active order in a saved view), only these sizes' blocks are
+   *  shown — the active size plus any the user manually expanded. Null → all. */
+  visibleSizeIdxs?: Set<number> | null;
 }) {
   'use no memo';
   const { control, getValues } = useFormContext<FormValues>();
@@ -895,7 +896,7 @@ function AdvancedSection({
             )
           ) : (
             (watchedSizes ?? [{}]).map((_, sIdx) =>
-              activeSizeIdx != null && sIdx !== activeSizeIdx ? null : isProfiles ? (
+              visibleSizeIdxs && !visibleSizeIdxs.has(sIdx) ? null : isProfiles ? (
                 <SizeAdvancedBlockProfili
                   key={sIdx}
                   orderIdx={idx}
@@ -1751,8 +1752,10 @@ function SizesFieldArray({
   mode: CalculatorMode;
   t: TFunction;
   /** Rendered between the size rows and the photo-scanner block (used for the
-   *  advanced section, so its order is sizes → advanced → scanner). */
-  afterSizes?: ReactNode;
+   *  advanced section, so its order is sizes → advanced → scanner). Receives the
+   *  set of visible size indices (active + manually-expanded) so the advanced
+   *  blocks stay in sync with which size rows are open. Null → all visible. */
+  afterSizes?: (visibleSizeIdxs: Set<number> | null) => ReactNode;
   /** Mark a single size fully produced (bound to this order's id). Renders a
    *  per-size "✓" button after the +/− controls (multi-size orders only). */
   onCompleteSize?: (sizeIdx: number) => void;
@@ -1875,6 +1878,17 @@ function SizesFieldArray({
   const lengthLabel = isProfiles
     ? t('orders.profileLength')
     : t('orders.sheetLength');
+
+  // Which sizes' advanced blocks to show: the active one plus any the user
+  // manually expanded from their collapsed summary — so opening a size row also
+  // reveals its "Calcolo Avanzato". Null (no active size) → show all.
+  const visibleSizeIdxs =
+    activeSizeIdx == null
+      ? null
+      : new Set<number>([
+          activeSizeIdx,
+          ...sizeFields.flatMap((f, i) => (expandedSizes.has(f.id) ? [i] : [])),
+        ]);
 
   return (
     <div>
@@ -2095,7 +2109,7 @@ function SizesFieldArray({
         </SortableContext>
       </DndContext>
 
-      {afterSizes}
+      {afterSizes?.(visibleSizeIdxs)}
 
       <div className="mt-3 border-t border-neutral-200 pt-3">
         <button
