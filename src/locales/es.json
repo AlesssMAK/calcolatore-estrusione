@@ -284,7 +284,11 @@
       "maxRows": "Filas máx. por palet",
       "maxRowsHint": "opc. — vacío = ilimitado",
       "allowScatter": "Misma medida en filas distintas",
-      "allowScatterHint": "off = cada medida junta (corte más limpio); on = menos merma"
+      "allowScatterHint": "off = cada medida junta (corte más limpio); on = menos merma",
+      "bancali": "Número de bancales",
+      "bancaliHint": "opc. — vacío = automático",
+      "bancaliLens": "Longitud máx. por bancal",
+      "bancaliLenHint": "Banc. {{n}}"
     },
     "calculate": "Calcular Distribución",
     "result": {

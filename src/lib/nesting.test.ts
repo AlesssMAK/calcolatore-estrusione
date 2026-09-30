@@ -307,3 +307,35 @@ describe('buildProductionPlan', () => {
     expect(plan.list).toEqual([{ length: 10000, qty: 2 }]);
   });
 });
+
+describe('computeNesting — bancali count & per-pallet max length', () => {
+  const sheets: SheetInput[] = [{ length: 1000, qty: 12 }]; // 12 rows of 1×1000
+
+  it('splits rows evenly across the requested number of pallets', () => {
+    const r = computeNesting(sheets, { base: 1000, bancali: 3 });
+    expect(r.bancali.length).toBe(3);
+    expect(r.bancali.map((b) => b.strati.length)).toEqual([4, 4, 4]);
+    // Uneven case: 12 rows into 5 → [3,3,2,2,2].
+    const r2 = computeNesting(sheets, { base: 1000, bancali: 5 });
+    expect(r2.bancali.map((b) => b.strati.length)).toEqual([3, 3, 2, 2, 2]);
+  });
+
+  it('re-packs a pallet with its own shorter max-length override', () => {
+    // Global base 3000 packs 1000s three-per-row; overriding pallet 2 to 2000
+    // re-packs its pieces two-per-row (its own base), the rest keep 3000.
+    const r = computeNesting([{ length: 1000, qty: 12 }], {
+      base: 3000,
+      bancali: 2,
+      bancaliMaxLen: [undefined, 2000],
+    });
+    expect(r.bancali.length).toBe(2);
+    expect(r.bancali[0]!.base).toBe(3000);
+    expect(r.bancali[1]!.base).toBe(2000);
+    // Pallet 2's rows are 1000+1000 (length 2000), base − length = 0 scarto.
+    expect(
+      r.bancali[1]!.strati.every((s) =>
+        s.corsie.every((c) => c.length <= 2000),
+      ),
+    ).toBe(true);
+  });
+});

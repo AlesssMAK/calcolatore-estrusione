@@ -20,6 +20,10 @@ export interface SavedPiramide {
   /** Allow one length to spread across dissimilar rows. Optional (old entries
    *  predate it → treated as false = keep-together). */
   allowScatter?: boolean;
+  /** Explicit number of bancali (rows split evenly). Optional. */
+  bancaliCount?: string;
+  /** Per-bancale max-length overrides (strings; index = pallet). Optional. */
+  bancaliLens?: string[];
 }
 
 /** What the caller passes to save (everything but id/ts). */

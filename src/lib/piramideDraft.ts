@@ -12,6 +12,8 @@ export interface PiramideDraft {
   minLen: string;
   maxLen: string;
   allowScatter?: boolean;
+  bancaliCount?: string;
+  bancaliLens?: string[];
 }
 
 const KEY = 'piramide.draft';

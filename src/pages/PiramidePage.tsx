@@ -93,6 +93,10 @@ function PiramidePage() {
   // When true, allow one length to spread across dissimilar rows (less waste);
   // default false = keep each length together in its own run (cleaner cutting).
   const [allowScatter, setAllowScatter] = useState(false);
+  // Explicit number of bancali (rows split evenly), + optional per-bancale
+  // max-length overrides (index = pallet; empty = the global base).
+  const [bancaliCount, setBancaliCount] = useState('');
+  const [bancaliLens, setBancaliLens] = useState<string[]>([]);
   const [result, setResult] = useState<NestingResult | null>(null);
   // Origin order this Piramide session was opened from ("Apri in Piramide"), so
   // its result can round-trip straight back into that same order.
@@ -147,6 +151,8 @@ function PiramidePage() {
       setMinLen(draft.minLen ?? '');
       setMaxLen(draft.maxLen ?? '');
       setAllowScatter(draft.allowScatter ?? false);
+      setBancaliCount(draft.bancaliCount ?? '');
+      setBancaliLens(draft.bancaliLens ?? []);
     }
   }, []);
 
@@ -166,8 +172,10 @@ function PiramidePage() {
       minLen,
       maxLen,
       allowScatter,
+      bancaliCount,
+      bancaliLens,
     });
-  }, [rows, base, lanes, maxRows, minLen, maxLen, allowScatter]);
+  }, [rows, base, lanes, maxRows, minLen, maxLen, allowScatter, bancaliCount, bancaliLens]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -267,12 +275,21 @@ function PiramidePage() {
     });
   };
 
+  const bancaliN = Number(bancaliCount) > 0 ? Math.floor(Number(bancaliCount)) : 0;
+  const bancaliMaxLen = bancaliN
+    ? Array.from({ length: bancaliN }, (_, i) =>
+        Number(bancaliLens[i]) > 0 ? Number(bancaliLens[i]) : undefined,
+      )
+    : undefined;
+
   const onCompute = () => {
     const r = computeNesting(parsedSheets, {
       base: Number(base) > 0 ? Number(base) : undefined,
       lanes: Number(lanes) > 0 ? Number(lanes) : 1,
       maxRows: Number(maxRows) > 0 ? Number(maxRows) : undefined,
       allowScatter,
+      bancali: bancaliN || undefined,
+      bancaliMaxLen,
     });
     setResult(r);
     // Auto-save this layout to the Salvati history (like the calculator saves
@@ -288,6 +305,8 @@ function PiramidePage() {
       minLen,
       maxLen,
       allowScatter,
+      bancaliCount,
+      bancaliLens,
     });
     setHistKey((k) => k + 1);
     scrollToResult();
@@ -303,15 +322,24 @@ function PiramidePage() {
     setMinLen(e.minLen ?? '');
     setMaxLen(e.maxLen ?? '');
     setAllowScatter(e.allowScatter ?? false);
+    setBancaliCount(e.bancaliCount ?? '');
+    setBancaliLens(e.bancaliLens ?? []);
     const sheets = e.rows
       .map((r) => ({ length: Number(r.length), qty: Number(r.qty) }))
       .filter((s) => s.length > 0 && s.qty > 0);
+    const eN = Number(e.bancaliCount) > 0 ? Math.floor(Number(e.bancaliCount)) : 0;
     setResult(
       computeNesting(sheets, {
         base: Number(e.base) > 0 ? Number(e.base) : undefined,
         lanes: Number(e.lanes) > 0 ? Number(e.lanes) : 1,
         maxRows: Number(e.maxRows) > 0 ? Number(e.maxRows) : undefined,
         allowScatter: e.allowScatter ?? false,
+        bancali: eN || undefined,
+        bancaliMaxLen: eN
+          ? Array.from({ length: eN }, (_, i) =>
+              Number(e.bancaliLens?.[i]) > 0 ? Number(e.bancaliLens![i]) : undefined,
+            )
+          : undefined,
       }),
     );
     scrollToResult();
@@ -684,7 +712,51 @@ function PiramidePage() {
                 onChange={(e) => setMaxRows(e.target.value)}
               />
             </div>
+            <div>
+              <label className={labelCls}>{t('piramide.options.bancali')}</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                placeholder={t('piramide.options.bancaliHint')}
+                className={`${inputCls} mt-1`}
+                value={bancaliCount}
+                onChange={(e) => setBancaliCount(e.target.value)}
+              />
+            </div>
           </div>
+
+          {bancaliN > 1 && (
+            <div className="mt-3">
+              <label className={labelCls}>
+                {t('piramide.options.bancaliLens')}
+              </label>
+              <div className="mt-1 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                {Array.from({ length: bancaliN }, (_, i) => (
+                  <input
+                    key={i}
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    placeholder={t('piramide.options.bancaliLenHint', {
+                      n: i + 1,
+                    })}
+                    className={inputCls}
+                    value={bancaliLens[i] ?? ''}
+                    onChange={(e) =>
+                      setBancaliLens((prev) => {
+                        const next = [...prev];
+                        next[i] = e.target.value;
+                        return next;
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           <label className="mt-4 flex cursor-pointer items-start gap-2.5">
             <input
@@ -1010,7 +1082,7 @@ function ResultView({ result }: { result: NestingResult }) {
               ))}
             </div>
 
-            <BancaleSchema strati={bancale.strati} base={result.base} t={t} />
+            <BancaleSchema strati={bancale.strati} base={bancale.base} t={t} />
           </div>
         );
       })}
