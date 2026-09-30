@@ -171,6 +171,7 @@
       "profiles": "Time per Profile"
     },
     "completed": "Completed",
+    "completedGroup": "{{n}} completed",
     "advanceFailed": "Couldn't update this saved calculation to «now» — showing it as saved.",
     "renderError": "Couldn't display this saved calculation."
   },

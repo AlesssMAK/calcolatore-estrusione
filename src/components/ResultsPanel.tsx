@@ -68,6 +68,10 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
   const { t, i18n } = useTranslation();
   const { company } = useCatalog();
   const [exporting, setExporting] = useState(false);
+  // Completed orders are collapsed into one block by default, so the active
+  // part of the queue is what stands out. Toggle to reveal them.
+  const [showCompleted, setShowCompleted] = useState(false);
+  const doneCount = result.rows.filter(isRowDone).length;
   const sectionRef = useRef<HTMLElement>(null);
 
   // Generate a crisp vector PDF of the result and hand it to the user in the
@@ -265,10 +269,24 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
 
         {/* Mobile: stacked cards */}
         <ul className="space-y-2 lg:hidden">
+          {doneCount > 0 && (
+            <li>
+              <button
+                type="button"
+                onClick={() => setShowCompleted((v) => !v)}
+                aria-expanded={showCompleted}
+                className="flex w-full items-center gap-1.5 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-left text-sm font-medium text-success"
+              >
+                <span aria-hidden>{showCompleted ? '▾' : '▸'}</span>
+                <span>✓ {t('results.completedGroup', { n: doneCount })}</span>
+              </button>
+            </li>
+          )}
           {result.rows.map((row, idx) => {
             const profilesCount = profilesCountFor(row);
             const perItemMin = perItemMinFor(row);
             const done = isRowDone(row);
+            if (done && !showCompleted) return null;
             return (
               <li
                 key={row.order.id}
@@ -544,10 +562,28 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
               </tr>
             </thead>
             <tbody>
+              {doneCount > 0 && (
+                <tr>
+                  <td colSpan={isProfiles ? 9 : 7} className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompleted((v) => !v)}
+                      aria-expanded={showCompleted}
+                      className="flex items-center gap-1.5 rounded-md bg-success/5 px-2 py-1.5 text-sm font-medium text-success"
+                    >
+                      <span aria-hidden>{showCompleted ? '▾' : '▸'}</span>
+                      <span>
+                        ✓ {t('results.completedGroup', { n: doneCount })}
+                      </span>
+                    </button>
+                  </td>
+                </tr>
+              )}
               {result.rows.map((row, idx) => {
                 const profilesCount = profilesCountFor(row);
                 const perItemMin = perItemMinFor(row);
                 const done = isRowDone(row);
+                if (done && !showCompleted) return null;
                 const hasProduced =
                   row.producedProfiles !== undefined ||
                   row.producedSheets !== undefined;
