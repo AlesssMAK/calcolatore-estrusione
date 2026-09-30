@@ -1824,6 +1824,15 @@ function SizesFieldArray({
   };
 
   const watchedSizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
+  // Produced arrays — used to tell which sizes are done (to float them to top).
+  const watchedProducedSheets = useWatch({
+    control,
+    name: `orders.${orderIdx}.producedSheets`,
+  });
+  const watchedProduced = useWatch({
+    control,
+    name: `orders.${orderIdx}.producedProfiles`,
+  });
 
   // After a "+" insert, expand the new size (so it opens ready to edit).
   useEffect(() => {
@@ -1905,6 +1914,25 @@ function SizesFieldArray({
           ...sizeFields.flatMap((f, i) => (expandedSizes.has(f.id) ? [i] : [])),
         ]);
 
+  // A size is "done" once its produced total reaches its quantity. Marking a
+  // size complete (✓) fills it, so it becomes done → we float done sizes to the
+  // top of the list (display-only: the underlying array & sizeIndex-tagged
+  // produced data stay put, so nothing misaligns).
+  const isSizeDone = (i: number): boolean => {
+    const total = Number(watchedSizes?.[i]?.sheets) || 0;
+    if (total <= 0) return false;
+    const arr = (isProfiles ? watchedProduced : watchedProducedSheets) ?? [];
+    const produced = arr
+      .filter((e) => (e?.sizeIndex ?? 0) === i)
+      .reduce((s, e) => s + (e?.value ?? 0), 0);
+    return produced >= total;
+  };
+  const idxs = sizeFields.map((_, i) => i);
+  const displayOrder = [
+    ...idxs.filter((i) => isSizeDone(i)),
+    ...idxs.filter((i) => !isSizeDone(i)),
+  ];
+
   return (
     <div>
       {sizesRootError && (
@@ -1919,11 +1947,12 @@ function SizesFieldArray({
         onDragEnd={handleSizeDragEnd}
       >
         <SortableContext
-          items={sizeFields.map((f) => f.id)}
+          items={displayOrder.map((i) => sizeFields[i].id)}
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-2">
-            {sizeFields.map((sizeField, sIdx) => {
+            {displayOrder.map((sIdx) => {
+              const sizeField = sizeFields[sIdx];
               const sizeErr = orderErr?.sizes?.[sIdx];
               const showPerPackage = isProfiles && sizeFields.length > 1;
               // Per-size "✓" completa button adds one more auto column (multi-
