@@ -696,6 +696,9 @@ function CalculatorApp() {
       length: r.length,
       profilesPerPackage: undefined,
     })) as (typeof order)['sizes'];
+    // Carry the Piramide layout schema (diagram + production order) onto the
+    // order, so it shows its pallet arrangement in the form + results.
+    (order as { piramideSchema?: unknown }).piramideSchema = imported.schema;
 
     if (imported.targetCalcId) {
       const entry = loadHistory(settings.savedRetentionDays).find(
@@ -704,13 +707,19 @@ function CalculatorApp() {
       if (entry) {
         const orders = entry.values?.orders ?? [];
         // Round-trip: replace the origin order's sizes with the Piramide result
-        // (already in production order), keeping its other fields (id/speed/name).
+        // (already in production order), keeping its other fields (id/speed/name)
+        // and attaching the fresh layout schema.
         if (imported.replaceOrderId) {
           const idx = orders.findIndex((o) => o.id === imported.replaceOrderId);
           if (idx !== -1) {
             const updated = orders.map((o, i) =>
               i === idx
-                ? { ...o, sizes: order.sizes, useTotalLength: false }
+                ? {
+                    ...o,
+                    sizes: order.sizes,
+                    useTotalLength: false,
+                    piramideSchema: imported.schema,
+                  }
                 : o,
             );
             onRestore({

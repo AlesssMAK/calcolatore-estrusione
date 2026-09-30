@@ -39,6 +39,7 @@ import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
+import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
 
 // All form inputs share a fixed height: 32px on mobile, 36px on sm+ (matching
@@ -469,6 +470,11 @@ function OrderFields({
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
+  // Piramide layout schema carried on this order (from a round-trip / import).
+  const piramideSchema = useWatch({
+    control,
+    name: `orders.${idx}.piramideSchema`,
+  });
   const useTotalLength = useWatch({
     control,
     name: `orders.${idx}.useTotalLength`,
@@ -653,6 +659,7 @@ function OrderFields({
           )}
         />
       )}
+      <CollapsibleSchema schema={piramideSchema} />
     </div>
   );
 }

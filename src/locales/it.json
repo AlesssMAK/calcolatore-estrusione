@@ -216,6 +216,7 @@
     "title": "Piramide",
     "subtitle": "Distribuzione lastre sul bancale",
     "backToCalculator": "Calcolatore",
+    "schemaBlock": "Schema disposizione",
     "openLink": "📐 Piramide (distribuzione lastre)",
     "readText": "🔍 Testo letto (affidabilità {{confidence}}%)",
     "import": {

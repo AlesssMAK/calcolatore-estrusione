@@ -216,6 +216,7 @@
     "title": "Pirámide",
     "subtitle": "Distribución de láminas en el palet",
     "backToCalculator": "Calculadora",
+    "schemaBlock": "Esquema de disposición",
     "openLink": "📐 Pirámide (distribución de láminas)",
     "readText": "🔍 Texto leído (fiabilidad {{confidence}}%)",
     "import": {

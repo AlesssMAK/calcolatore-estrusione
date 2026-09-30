@@ -38,6 +38,9 @@ const orderSchema = z.object({
   producedPallets: z.array(producedEntrySchema).optional(),
   producedItemLength: z.array(producedEntrySchema).optional(),
   profilesPerPackage: z.array(producedEntrySchema).optional(),
+  // Opaque Piramide layout (NestingResult) carried with the order so it can show
+  // its pallet-arrangement schema. Not validated — passed through as-is.
+  piramideSchema: z.any().optional(),
 });
 
 const weekendDaySchema = z.object({

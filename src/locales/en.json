@@ -216,6 +216,7 @@
     "title": "Pyramid",
     "subtitle": "Sheet layout on the pallet",
     "backToCalculator": "Calculator",
+    "schemaBlock": "Layout schema",
     "openLink": "📐 Pyramid (sheet layout)",
     "readText": "🔍 Text read (reliability {{confidence}}%)",
     "import": {

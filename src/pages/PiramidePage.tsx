@@ -16,11 +16,11 @@ import {
   type SavedPiramide,
 } from '../lib/piramideHistory';
 import { recognizeSheets, DEFAULT_MIN_LEN, DEFAULT_MAX_LEN } from '../lib/ocr';
+import { BancaleSchema } from '../components/piramide/PiramideSchemaView';
 import {
   computeNesting,
   buildProductionPlan,
   type NestingResult,
-  type ProductionGroup,
   type SheetInput,
   type Strato,
 } from '../lib/nesting';
@@ -369,13 +369,17 @@ function PiramidePage() {
     return parsedSheets.map((s) => ({ length: s.length, qty: s.qty }));
   };
   const useInNewCalc = () => {
-    stashOrderImport({ rows: sheetRowsForOrder() });
+    stashOrderImport({ rows: sheetRowsForOrder(), schema: result ?? undefined });
     navigate(
       company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
     );
   };
   const useInExistingCalc = (calcId: string) => {
-    stashOrderImport({ rows: sheetRowsForOrder(), targetCalcId: calcId });
+    stashOrderImport({
+      rows: sheetRowsForOrder(),
+      targetCalcId: calcId,
+      schema: result ?? undefined,
+    });
     navigate(
       company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
     );
@@ -388,6 +392,7 @@ function PiramidePage() {
       rows: sheetRowsForOrder(),
       targetCalcId: origin.calcId,
       replaceOrderId: origin.orderId,
+      schema: result ?? undefined,
     });
     navigate(
       company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
@@ -817,144 +822,6 @@ function Chip({ label, value }: { label: string; value: string | number }) {
 // group of `lanes` bars; every bar's width ∝ its corsia length vs the base and
 // is centered (the side gaps = scarto), with each sheet's length on its segment
 // and the corsia total to the right.
-function PyramidSchema({
-  groups,
-  base,
-}: {
-  groups: ProductionGroup[];
-  base: number;
-}) {
-  const { t } = useTranslation();
-  if (groups.length === 0 || base <= 0) return null;
-
-  const VW = 1000;
-  const BAR_ZONE = 700; // bars live in 0..700; length + ×count to the right
-  const maxLanes = Math.max(...groups.map((g) => g.strato.corsie.length));
-  const corsiaH = maxLanes > 1 ? 18 : 26;
-  const corsiaGap = 3;
-  const stratoGap = 12;
-  const padY = 6;
-  const fontSize = maxLanes > 1 ? 13 : 17;
-
-  // groups are base-first (production order) → draw base at the bottom.
-  const rows = [...groups].reverse();
-
-  let y = padY;
-  const laid = rows.map((g) => {
-    // Reserve all `maxLanes` lanes so a partial strato shows its empty
-    // (recoverable) lane instead of collapsing to half height.
-    const h = maxLanes * corsiaH + (maxLanes - 1) * corsiaGap;
-    const item = { g, y0: y, h };
-    y += h + stratoGap;
-    return item;
-  });
-  const height = y - stratoGap + padY;
-
-  return (
-    <svg
-      viewBox={`0 0 ${VW} ${height}`}
-      width="100%"
-      className="block"
-      style={{ maxWidth: '660px' }}
-      role="img"
-    >
-      {laid.map(({ g, y0, h }, i) => (
-        <g key={i}>
-          {Array.from({ length: maxLanes }, (_, k) => {
-            const by = y0 + k * (corsiaH + corsiaGap);
-            const c = g.strato.corsie[k];
-            if (!c) {
-              // Empty lane of a partial strato — space to reuse.
-              return (
-                <g key={k}>
-                  <rect
-                    x={0}
-                    y={by}
-                    width={BAR_ZONE}
-                    height={corsiaH}
-                    rx={3}
-                    fill="#fafafa"
-                    stroke="#d4d4d4"
-                    strokeDasharray="5 4"
-                  />
-                  <text
-                    x={BAR_ZONE / 2}
-                    y={by + corsiaH * 0.7}
-                    textAnchor="middle"
-                    fontSize={fontSize}
-                    fill="#a3a3a3"
-                  >
-                    {t('piramide.result.recover')}
-                  </text>
-                </g>
-              );
-            }
-            const barW = (c.length / base) * BAR_ZONE;
-            const x0 = (BAR_ZONE - barW) / 2;
-            let cx = x0;
-            return (
-              <g key={k}>
-                <rect x={0} y={by} width={BAR_ZONE} height={corsiaH} rx={3} fill="#f1f1f1" />
-                {c.pieces.map((p, j) => {
-                  const w = (p / base) * BAR_ZONE;
-                  const segX = cx;
-                  cx += w;
-                  return (
-                    <g key={j}>
-                      <rect
-                        x={segX}
-                        y={by}
-                        width={w}
-                        height={corsiaH}
-                        fill="#c8102e"
-                        stroke="#ffffff"
-                        strokeWidth={2}
-                      />
-                      {/* real length of THIS sheet, centered in its segment */}
-                      <text
-                        x={segX + w / 2}
-                        y={by + corsiaH * 0.7}
-                        textAnchor="middle"
-                        fontSize={fontSize}
-                        fontWeight={600}
-                        fill="#ffffff"
-                      >
-                        {p}
-                      </text>
-                    </g>
-                  );
-                })}
-                {/* total length of the corsia, to the right of the bar */}
-                <text
-                  x={BAR_ZONE + 12}
-                  y={by + corsiaH * 0.7}
-                  fontSize={fontSize}
-                  fontWeight={600}
-                  fill="#3a3a3a"
-                >
-                  {c.length} mm
-                </text>
-              </g>
-            );
-          })}
-          {g.count > 1 && (
-            <text
-              x={VW - 8}
-              y={y0 + h / 2 + fontSize * 0.35}
-              textAnchor="end"
-              fontSize={17}
-              fontWeight={700}
-              fill="#c8102e"
-            >
-              ×{g.count}
-            </text>
-          )}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 function ResultView({ result }: { result: NestingResult }) {
   const { t } = useTranslation();
   const multiLane = result.lanes > 1;
@@ -1091,57 +958,6 @@ function ResultView({ result }: { result: NestingResult }) {
 }
 
 // Pyramid + production-order list + any split warnings for one bancale.
-function BancaleSchema({
-  strati,
-  base,
-  t,
-}: {
-  strati: NestingResult['bancali'][number]['strati'];
-  base: number;
-  t: ReturnType<typeof useTranslation>['t'];
-}) {
-  const plan = buildProductionPlan(strati);
-
-  return (
-    <div className="mt-4">
-      <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
-        {t('piramide.result.schema')}
-      </div>
-
-      {plan.warnings.length > 0 && (
-        <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          {plan.warnings.map((w) => (
-            <div key={w.length}>
-              {t('piramide.result.splitWarning', {
-                length: w.length,
-                rows: w.rowLengths.join(', '),
-              })}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1">
-          <PyramidSchema groups={plan.groups} base={base} />
-        </div>
-        <div className="shrink-0">
-          <div className="mb-1 text-xs tracking-wide text-ink-soft uppercase">
-            {t('piramide.result.order')}
-          </div>
-          <ol className="text-sm leading-relaxed text-ink tabular-nums">
-            {plan.list.map((it, i) => (
-              <li key={i}>
-                {i + 1}. {it.qty} × {it.length}
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Shared display fields for one strato group — used by both the desktop table
 // row and the mobile card so their formatting can't drift apart.
 function stratoView(group: StratoGroup) {

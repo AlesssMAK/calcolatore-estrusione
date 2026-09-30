@@ -11,6 +11,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { buildResultPdfBlob } from '../lib/resultPdf';
 import MarqueeText from './MarqueeText';
 import UnitsTimeline from './UnitsTimeline';
+import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import {
   formatDateTime,
   formatShortDateTime,
@@ -871,6 +872,23 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
           </table>
         </div>
       </div>
+
+      {result.rows.some((r) => r.order.piramideSchema) && (
+        <div className="mt-4 space-y-2">
+          {result.rows
+            .filter((r) => r.order.piramideSchema)
+            .map((r) => (
+              <div key={r.order.id}>
+                {r.order.productName && (
+                  <div className="text-xs font-semibold text-brand-700">
+                    {r.order.productName}
+                  </div>
+                )}
+                <CollapsibleSchema schema={r.order.piramideSchema} />
+              </div>
+            ))}
+        </div>
+      )}
     </section>
   );
 }
