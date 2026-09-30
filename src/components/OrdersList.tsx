@@ -258,6 +258,16 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
                         `${Number(z?.sheets) || 0} × ${Number(z?.length) || 0} mm`,
                     )
                     .join(' · ');
+              // Key params on the collapsed card too, so an edit (e.g. speed) is
+              // visible without expanding — live from the watched form values.
+              const oSpeed = Number(wo?.speedMPerMin) || 0;
+              const oCavity = Number(wo?.cavity) || 0;
+              const paramsSummary = [
+                oSpeed > 0 ? `⚡ ${oSpeed} m/min` : null,
+                oCavity > 1 ? `× ${oCavity}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ');
               // Collapse inactive orders (not the one in production, not manually
               // expanded) to a summary while viewing a saved calc.
               const collapsed =
@@ -299,6 +309,11 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
                           <span className="text-xs text-ink-soft">
                             {sizesSummary}
                           </span>
+                          {paramsSummary && (
+                            <span className="text-xs text-ink-soft">
+                              {paramsSummary}
+                            </span>
+                          )}
                         </button>
                       </div>
                     ) : (
