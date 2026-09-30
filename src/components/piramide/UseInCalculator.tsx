@@ -14,6 +14,9 @@ interface Props {
   onNew: () => void;
   /** Append the Piramide order to an existing saved calculation. */
   onExisting: (calcId: string) => void;
+  /** Replace the sizes of the order this Piramide was opened from (round-trip).
+   *  Present only when opened from a saved order. */
+  onSameOrder?: () => void;
   /** No non-empty sheet rows yet → nothing to hand off. */
   disabled: boolean;
   t: TFunction;
@@ -45,7 +48,14 @@ function loadSheetsCalcs(retentionDays?: number): CalcOption[] {
 /** Dropdown that sends the Piramide sheet list into the calculator as an order:
  *  either a brand-new calculation or appended to an existing saved one. Mirror
  *  of the "Apri in Piramide" / import direction. */
-function UseInCalculator({ onNew, onExisting, disabled, t, retentionDays }: Props) {
+function UseInCalculator({
+  onNew,
+  onExisting,
+  onSameOrder,
+  disabled,
+  t,
+  retentionDays,
+}: Props) {
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [calcs, setCalcs] = useState<CalcOption[]>([]);
@@ -78,6 +88,19 @@ function UseInCalculator({ onNew, onExisting, disabled, t, retentionDays }: Prop
       </button>
       {open && (
         <div className="absolute left-0 z-20 mt-1 max-h-72 w-[min(18rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
+          {onSameOrder && (
+            <button
+              type="button"
+              onClick={() => {
+                onSameOrder();
+                setOpen(false);
+              }}
+              className="mb-1 flex w-full items-center gap-2 rounded-md border-b border-neutral-100 px-3 py-2 text-left text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+            >
+              <span aria-hidden>↩</span>
+              <span>{t('piramide.useInCalculator.sameOrder')}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {

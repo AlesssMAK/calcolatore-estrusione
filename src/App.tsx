@@ -697,12 +697,31 @@ function CalculatorApp() {
         (e) => e.id === imported.targetCalcId,
       );
       if (entry) {
+        const orders = entry.values?.orders ?? [];
+        // Round-trip: replace the origin order's sizes with the Piramide result
+        // (already in production order), keeping its other fields (id/speed/name).
+        if (imported.replaceOrderId) {
+          const idx = orders.findIndex((o) => o.id === imported.replaceOrderId);
+          if (idx !== -1) {
+            const updated = orders.map((o, i) =>
+              i === idx
+                ? { ...o, sizes: order.sizes, useTotalLength: false }
+                : o,
+            );
+            onRestore({
+              ...entry,
+              values: { ...entry.values, orders: updated } as FormValues,
+            });
+            return;
+          }
+          // Order gone → fall through to appending it instead.
+        }
         // Append the order (inherits speed from the queue) and open the calc.
         onRestore({
           ...entry,
           values: {
             ...entry.values,
-            orders: [...(entry.values?.orders ?? []), order],
+            orders: [...orders, order],
           } as FormValues,
         });
         return;

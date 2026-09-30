@@ -231,7 +231,8 @@
       "button": "Use in calculator",
       "new": "New calculation",
       "existing": "Add to a calculation",
-      "emptySaved": "No saved sheets calc."
+      "emptySaved": "No saved sheets calc.",
+      "sameOrder": "Back into the same order"
     },
     "tips": {
       "title": "💡 Tips for a good scan",

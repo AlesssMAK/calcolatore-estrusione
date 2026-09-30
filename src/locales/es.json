@@ -231,7 +231,8 @@
       "button": "Usar en la calculadora",
       "new": "Nuevo cálculo",
       "existing": "Añadir a un cálculo",
-      "emptySaved": "Ningún cálculo de láminas guardado."
+      "emptySaved": "Ningún cálculo de láminas guardado.",
+      "sameOrder": "En el mismo pedido"
     },
     "tips": {
       "title": "💡 Consejos para un buen escaneo",

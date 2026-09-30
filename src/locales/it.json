@@ -231,7 +231,8 @@
       "button": "Usa nel calcolatore",
       "new": "Nuovo calcolo",
       "existing": "Aggiungi a un calcolo",
-      "emptySaved": "Nessun calcolo Lastre salvato."
+      "emptySaved": "Nessun calcolo Lastre salvato.",
+      "sameOrder": "Nello stesso ordine"
     },
     "tips": {
       "title": "💡 Consigli per una buona scansione",

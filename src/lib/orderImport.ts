@@ -9,6 +9,10 @@ export interface OrderImport {
   /** When set, append the order to this saved calculation (opened like a
    *  restore); when absent, start a fresh calculation with just this order. */
   targetCalcId?: string;
+  /** Round-trip: with `targetCalcId`, replace the sizes of THIS order (matched
+   *  by id) instead of appending a new order — so Piramide sends its re-ordered
+   *  result back into the same order it was opened from. */
+  replaceOrderId?: string;
 }
 
 const KEY = 'calc.orderImport';

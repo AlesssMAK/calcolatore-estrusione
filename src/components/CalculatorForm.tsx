@@ -328,6 +328,7 @@ function CalculatorForm({
           mode={mode}
           onComplete={canComplete ? completeItem : undefined}
           activeLoc={activeLoc}
+          editingId={editingId}
         />
 
         <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">

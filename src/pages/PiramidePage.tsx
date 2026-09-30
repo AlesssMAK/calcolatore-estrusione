@@ -94,6 +94,11 @@ function PiramidePage() {
   // default false = keep each length together in its own run (cleaner cutting).
   const [allowScatter, setAllowScatter] = useState(false);
   const [result, setResult] = useState<NestingResult | null>(null);
+  // Origin order this Piramide session was opened from ("Apri in Piramide"), so
+  // its result can round-trip straight back into that same order.
+  const [origin, setOrigin] = useState<
+    { calcId: string; orderId: string } | undefined
+  >(undefined);
   // Bumped after a save so the Salvati dropdown re-reads the history.
   const [histKey, setHistKey] = useState(0);
 
@@ -128,6 +133,7 @@ function PiramidePage() {
     const imported = popPiramideImport();
     if (imported) {
       setRows(imported.rows.map((r) => newRow(String(r.length), String(r.qty))));
+      setOrigin(imported.origin);
       return;
     }
     const draft = loadPiramideDraft();
@@ -342,6 +348,19 @@ function PiramidePage() {
   };
   const useInExistingCalc = (calcId: string) => {
     stashOrderImport({ rows: sheetRowsForOrder(), targetCalcId: calcId });
+    navigate(
+      company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
+    );
+  };
+  // Round-trip: replace the sizes of the very order this Piramide was opened
+  // from, in production order (only offered when opened from a saved order).
+  const useInSameOrder = () => {
+    if (!origin) return;
+    stashOrderImport({
+      rows: sheetRowsForOrder(),
+      targetCalcId: origin.calcId,
+      replaceOrderId: origin.orderId,
+    });
     navigate(
       company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
     );
@@ -609,6 +628,7 @@ function PiramidePage() {
               <UseInCalculator
                 onNew={useInNewCalc}
                 onExisting={useInExistingCalc}
+                onSameOrder={origin ? useInSameOrder : undefined}
                 disabled={parsedSheets.length === 0}
                 t={t}
                 retentionDays={settings.savedRetentionDays}
