@@ -171,6 +171,7 @@
       "profiles": "Tempo per Profilo"
     },
     "completed": "Completato",
+    "completedGroup": "{{n}} completati",
     "advanceFailed": "Impossibile aggiornare il calcolo salvato ad «ora» — mostrato com'era salvato.",
     "renderError": "Impossibile mostrare questo calcolo salvato."
   },

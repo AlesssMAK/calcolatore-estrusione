@@ -171,6 +171,7 @@
       "profiles": "Tiempo por Perfil"
     },
     "completed": "Completado",
+    "completedGroup": "{{n}} completados",
     "advanceFailed": "No se pudo actualizar el cálculo guardado a «ahora» — se muestra como se guardó.",
     "renderError": "No se pudo mostrar este cálculo guardado."
   },
