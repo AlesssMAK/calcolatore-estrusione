@@ -44,6 +44,13 @@ export interface NestingOptions {
    *  kept together — a scattered length is reserved into its own rows even at
    *  extra waste, so it's produced in one continuous run. */
   allowScatter?: boolean;
+  /** Explicit number of bancali: the rows are split evenly (by count) across
+   *  this many pallets. Overrides `maxRows` when > 0. */
+  bancali?: number;
+  /** Optional per-bancale max-length overrides (index = pallet). When set for a
+   *  pallet, its pieces are re-packed with that shorter base (its own pyramid).
+   *  Empty/0 → the global base. */
+  bancaliMaxLen?: (number | undefined)[];
 }
 
 export interface Slot {
@@ -64,6 +71,9 @@ export interface Strato {
 
 export interface Bancale {
   strati: Strato[];
+  /** Base (max row length) used for THIS bancale — equals the global base unless
+   *  a per-bancale max-length override re-packed it shorter. */
+  base: number;
 }
 
 export interface NestingResult {
@@ -89,6 +99,22 @@ export interface NestingResult {
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/** Split an array into `parts` contiguous groups as evenly as possible (the
+ *  first `len % parts` groups take one extra). Empty groups are dropped. */
+function splitEven<T>(arr: T[], parts: number): T[][] {
+  const n = Math.max(1, Math.floor(parts));
+  const base = Math.floor(arr.length / n);
+  const rem = arr.length % n;
+  const out: T[][] = [];
+  let i = 0;
+  for (let p = 0; p < n; p++) {
+    const size = base + (p < rem ? 1 : 0);
+    if (size > 0) out.push(arr.slice(i, i + size));
+    i += size;
+  }
   return out;
 }
 
@@ -366,9 +392,36 @@ function formStrati(slots: Slot[], lanes: number, base: number): Slot[][] {
   return [...uniformSorted, ...tail];
 }
 
+/** Re-pack one bancale's pieces with its own (shorter) base — its own pyramid.
+ *  Used for a per-bancale max-length override. */
+function repackBancale(
+  groupStrati: Strato[],
+  overrideBase: number,
+  lanes: number,
+  allowScatter: boolean,
+  gap: number,
+): Bancale {
+  const pieces = groupStrati.flatMap((s) => s.corsie.flatMap((c) => c.pieces));
+  if (pieces.length === 0) return { strati: groupStrati, base: overrideBase };
+  // A piece can't sit in a row shorter than itself → base ≥ longest piece.
+  const b = Math.max(overrideBase, ...pieces);
+  const u = pieces.reduce((g, p) => gcd(g, p), 0) || 1;
+  let slots = binsToSlots(packBins(pieces, b, u), b);
+  slots = allowScatter
+    ? deScatter(slots, pieces, b, u, gap)
+    : packKeepTogether(pieces, b, u, gap);
+  const strati: Strato[] = formStrati(slots, lanes, b).map((corsie) => ({
+    corsie,
+    fogli: corsie.reduce((sum, c) => sum + c.pieces.length, 0),
+  }));
+  return { strati, base: b };
+}
+
 /**
  * Distribute the given sheets into corsie (1D bins of capacity = base),
- * then group them into strati (by `lanes`) and bancali (by `maxRows`).
+ * then group them into strati (by `lanes`) and bancali (an explicit even split
+ * by `bancali`, else by `maxRows`). A per-bancale max-length override re-packs
+ * that pallet with its own base.
  *
  * Returns an empty result (all totals 0) when there is nothing valid to pack.
  */
@@ -428,19 +481,36 @@ export function computeNesting(
     fogli: corsie.reduce((sum, c) => sum + c.pieces.length, 0),
   }));
 
-  // formStrati may re-pack leftover corsie (lanes>1), so derive the final
-  // corsie/totals from the strati to keep everything consistent.
-  const finalSlots = strati.flatMap((s) => s.corsie).sort(byLenDesc);
+  // Split into bancali: by an explicit even count (rows spread equally), else by
+  // maxRows. A per-bancale max-length override re-packs that pallet on its own
+  // (shorter) base; otherwise the pallet keeps the global base.
+  const bancaliCount =
+    options.bancali && options.bancali > 0 ? Math.floor(options.bancali) : 0;
+  let bancali: Bancale[];
+  if (bancaliCount > 0) {
+    bancali = splitEven(strati, bancaliCount).map((groupStrati, i) => {
+      const override = options.bancaliMaxLen?.[i];
+      return override && override > 0
+        ? repackBancale(groupStrati, override, lanes, allowScatter, SAME_SIZE_GAP_MM)
+        : { strati: groupStrati, base };
+    });
+  } else {
+    bancali = (maxRows > 0 ? chunk(strati, maxRows) : [strati]).map((s) => ({
+      strati: s,
+      base,
+    }));
+  }
 
-  const bancali: Bancale[] = (
-    maxRows > 0 ? chunk(strati, maxRows) : [strati]
-  ).map((s) => ({ strati: s }));
+  // Per-bancale re-packing can change corsie, so derive the final corsie/totals
+  // from the (possibly re-packed) bancali to keep everything consistent.
+  const finalStrati = bancali.flatMap((b) => b.strati);
+  const finalSlots = finalStrati.flatMap((s) => s.corsie).sort(byLenDesc);
 
   return {
     base,
     lanes,
     slots: finalSlots,
-    strati,
+    strati: finalStrati,
     bancali,
     totalFogli: pieces.length,
     totalSlots: finalSlots.length,

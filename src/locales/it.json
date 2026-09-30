@@ -284,7 +284,11 @@
       "maxRows": "Righe max per bancale",
       "maxRowsHint": "opz. — vuoto = illimitato",
       "allowScatter": "Stessa misura in file diverse",
-      "allowScatterHint": "off = ogni misura resta unita (taglio più pulito); on = meno scarto"
+      "allowScatterHint": "off = ogni misura resta unita (taglio più pulito); on = meno scarto",
+      "bancali": "Numero bancali",
+      "bancaliHint": "opz. — vuoto = automatico",
+      "bancaliLens": "Lunghezza max per bancale",
+      "bancaliLenHint": "Banc. {{n}}"
     },
     "calculate": "Calcola Distribuzione",
     "result": {

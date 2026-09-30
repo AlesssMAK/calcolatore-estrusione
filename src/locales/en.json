@@ -284,7 +284,11 @@
       "maxRows": "Max rows per pallet",
       "maxRowsHint": "optional — empty = unlimited",
       "allowScatter": "Same length in different rows",
-      "allowScatterHint": "off = keep each length together (cleaner cut); on = less waste"
+      "allowScatterHint": "off = keep each length together (cleaner cut); on = less waste",
+      "bancali": "Number of pallets",
+      "bancaliHint": "optional — empty = automatic",
+      "bancaliLens": "Max length per pallet",
+      "bancaliLenHint": "Pallet {{n}}"
     },
     "calculate": "Compute Layout",
     "result": {
