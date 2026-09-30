@@ -64,9 +64,12 @@ interface Props {
   /** The order+size in production (saved calc). When set, orders other than the
    *  active one collapse to a summary card (click to expand). Null → no collapse. */
   activeLoc?: { orderIdx: number; sizeIdx: number } | null;
+  /** Id of the saved calc being edited, if any — passed to Piramide so its
+   *  result can round-trip back into the same order. */
+  editingId?: string;
 }
 
-function OrdersList({ mode, onComplete, activeLoc }: Props) {
+function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
   'use no memo';
   // Orders the user manually expanded from their collapsed summary.
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(
@@ -396,6 +399,7 @@ function OrdersList({ mode, onComplete, activeLoc }: Props) {
                             ? activeLoc.sizeIdx
                             : null
                         }
+                        editingId={editingId}
                       />
                     </div>
                   )}
@@ -434,6 +438,8 @@ interface FieldsProps {
   /** For the active order (saved view): the size in production — the others
    *  collapse to a summary and only this one's advanced block is shown. */
   activeSizeIdx?: number | null;
+  /** Saved-calc id (for Piramide round-trip back into this order). */
+  editingId?: string;
 }
 
 function OrderFields({
@@ -444,6 +450,7 @@ function OrderFields({
   t,
   onCompleteSize,
   activeSizeIdx,
+  editingId,
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -620,6 +627,7 @@ function OrderFields({
           t={t}
           onCompleteSize={onCompleteSize}
           activeSizeIdx={activeSizeIdx}
+          editingId={editingId}
           afterSizes={
             <AdvancedSection
               idx={idx}
@@ -1737,6 +1745,7 @@ function SizesFieldArray({
   afterSizes,
   onCompleteSize,
   activeSizeIdx,
+  editingId,
 }: {
   orderIdx: number;
   mode: CalculatorMode;
@@ -1750,6 +1759,8 @@ function SizesFieldArray({
   /** Active order (saved view): the size in production — other sizes collapse
    *  to a summary (click to expand). Null → all sizes shown. */
   activeSizeIdx?: number | null;
+  /** Saved-calc id (for the Piramide round-trip back into this order). */
+  editingId?: string;
 }) {
   'use no memo';
   // Sizes the user manually expanded from their collapsed summary.
@@ -1762,6 +1773,7 @@ function SizesFieldArray({
     register,
     formState: { errors },
     control,
+    getValues,
   } = useFormContext<FormValues>();
 
   const {
@@ -1837,9 +1849,13 @@ function SizesFieldArray({
   const canOpenPiramide =
     mode === 'sheets' && settings.showPiramide && piramideRows.length > 0;
   const openInPiramide = () => {
+    // Carry the origin (saved calc + this order's id) so Piramide can send its
+    // re-ordered result back into the same order. Only when editing a saved calc.
+    const orderId = getValues(`orders.${orderIdx}.id`);
     stashPiramideImport({
       label: orderName?.trim() || undefined,
       rows: piramideRows,
+      origin: editingId && orderId ? { calcId: editingId, orderId } : undefined,
     });
     navigate(
       company

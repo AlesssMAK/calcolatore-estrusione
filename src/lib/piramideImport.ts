@@ -9,6 +9,10 @@ export interface PiramideImport {
   label?: string;
   /** Sheet rows to load into Piramide: length (mm) + quantity (pieces). */
   rows: { length: number; qty: number }[];
+  /** Where these sizes came from — a saved calc + the order inside it — so
+   *  Piramide can offer to send the re-ordered result back into that same order.
+   *  Only set when opened from a saved calc (has a stable calc + order id). */
+  origin?: { calcId: string; orderId: string };
 }
 
 const KEY = 'piramide.import';
