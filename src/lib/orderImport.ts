@@ -3,9 +3,14 @@
 // two live on different routes, so the rows are stashed in sessionStorage and
 // popped once when the calculator mounts.
 
+import type { NestingResult } from './nesting';
+
 export interface OrderImport {
   /** Sheet rows to turn into an order's sizes: qty (pieces) + length (mm). */
   rows: { length: number; qty: number }[];
+  /** The Piramide layout (pallet arrangement) these rows came from, so the
+   *  order can carry its schema (diagram + production order). */
+  schema?: NestingResult;
   /** When set, append the order to this saved calculation (opened like a
    *  restore); when absent, start a fresh calculation with just this order. */
   targetCalcId?: string;

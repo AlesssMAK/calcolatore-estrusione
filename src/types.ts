@@ -44,6 +44,9 @@ export interface Order {
   // to producedProfiles / producedItemLength). Inherits within and across
   // orders. In sizes-mode the per-size value on OrderSize is used instead.
   profilesPerPackage?: ProducedEntry[];
+  /** Opaque Piramide layout (NestingResult) carried with the order to show its
+   *  pallet-arrangement schema. Passed through the calculator untouched. */
+  piramideSchema?: unknown;
 }
 
 export interface ProducedSummary {
