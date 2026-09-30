@@ -120,6 +120,18 @@ export async function setCompanyPublish(
   return data === true;
 }
 
+/** Remove a result from a company's shared list as an ADMIN — no edit token
+ *  needed. The server RPC gates on the caller (auth.uid()) being a super-admin
+ *  or an admin of the company that owns the calc. Returns true on success. */
+export async function adminDeleteCompanyCalc(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('admin_delete_company_calc', {
+    p_id: id,
+  });
+  if (error) return false;
+  return data === true;
+}
+
 /** Edit a company-published, "editable by anyone" calc — no token needed
  *  (server gates on is_public && is_editable). Returns the new version. */
 export async function updateCompanyCalc(

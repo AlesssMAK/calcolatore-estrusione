@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCatalog } from '../contexts/CatalogContext';
+import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
 
@@ -33,6 +34,9 @@ function formatRelative(ts: number, lang: string): string {
 function CompanyResultsButton({ onOpen, onDelete, refreshKey = 0 }: Props) {
   const { t, i18n } = useTranslation();
   const { company, settings } = useCatalog();
+  const { companyId, isSuper } = useAuth();
+  // A logged-in admin of THIS company (or a super-admin) may remove any result.
+  const isAdmin = isSuper || (!!company && companyId === company.id);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<CompanyCalc[]>([]);
   const [count, setCount] = useState(0);
@@ -127,7 +131,7 @@ function CompanyResultsButton({ onOpen, onDelete, refreshKey = 0 }: Props) {
                   c.payload.result.startAt.getTime() <= now &&
                   now < c.payload.result.endAt.getTime();
                 const ts = c.updatedAt ? new Date(c.updatedAt).getTime() : now;
-                const canDelete = !!onDelete && ownedIds.has(c.id);
+                const canDelete = !!onDelete && (ownedIds.has(c.id) || isAdmin);
                 return (
                   <li
                     key={c.id}

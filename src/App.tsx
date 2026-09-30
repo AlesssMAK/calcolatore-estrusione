@@ -42,6 +42,7 @@ import {
   fetchSharedCalc,
   updateSharedCalc,
   setCompanyPublish,
+  adminDeleteCompanyCalc,
   updateCompanyCalc,
   fetchCompanyCalcs,
   type SharedPayload,
@@ -610,8 +611,12 @@ function CalculatorApp() {
       (e) => e.sync?.id === c.id && e.sync?.token,
     );
     const token = local?.sync?.token;
-    if (!token) return;
-    const ok = await setCompanyPublish(c.id, token, company.slug, false, false);
+    // Author path (has the edit token) unpublishes via set_company_publish;
+    // otherwise try the admin RPC (server gates on the caller being an admin of
+    // this company / a super-admin). Either way it leaves the company list.
+    const ok = token
+      ? await setCompanyPublish(c.id, token, company.slug, false, false)
+      : await adminDeleteCompanyCalc(c.id);
     if (!ok) return;
     if (local?.sync) {
       const next: SyncMeta = {
