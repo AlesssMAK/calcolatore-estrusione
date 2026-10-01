@@ -324,7 +324,10 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                       {formatDuration(row.remainingMinutes, units)}
                     </span>
                     {onComplete && !done && (
-                      <span className="flex w-6 justify-center">
+                      // Inset by a size card's padding+border (8+1px) so it
+                      // lines up with the per-size ✓ below, which keep their
+                      // breathing room from the card border.
+                      <span className="mr-[9px] flex w-6 justify-center">
                         <CompleteBtn
                           big
                           onClick={() => onComplete(row.order.id)}
@@ -450,10 +453,10 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                                 {formatDuration(sd.remainingMinutes, units)}
                               </span>
                               {onComplete && !isSizeDone(sd) && (
-                                // Same w-6 slot as the order button, pulled out
-                                // by this card's padding+border (8+1px) so all
+                                // Same w-6 slot as the order button (which is
+                                // inset by this card's padding+border) so all
                                 // ✓ line up in one column.
-                                <span className="-mr-[9px] flex w-6 justify-center">
+                                <span className="flex w-6 justify-center">
                                   <CompleteBtn
                                     onClick={() =>
                                       onComplete(row.order.id, sIdx)
