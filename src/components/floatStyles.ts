@@ -20,8 +20,8 @@ export const floatBadgeCls =
 
 /** Dropdown of a compact button: opens upward across the phone bar (positioned
  *  against the fixed bar — the button wrapper is `display: contents`), or to
- *  the left of the rail, vertically centered on the button. */
+ *  the left of the bottom-pinned rail, growing upward from the button. */
 export const floatMenuCls = (p: FloatPlacement) =>
   p === 'bar'
     ? 'absolute right-3 bottom-full left-3 z-30 mb-2 max-h-[60vh] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg'
-    : 'absolute top-1/2 right-full z-30 mr-2 max-h-[60vh] w-[min(22rem,calc(100vw-5rem))] -translate-y-1/2 overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg';
+    : 'absolute right-full bottom-0 z-30 mr-2 max-h-[60vh] w-[min(22rem,calc(100vw-5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg';
