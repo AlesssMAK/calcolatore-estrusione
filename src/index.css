@@ -222,3 +222,34 @@ button:disabled,
     animation: none;
   }
 }
+
+/* Blink for what's in production right now (the active size / its produced
+   block), so it catches the eye in the results and in the form. Pulses the
+   background + border toward brand red; content stays fully readable. */
+@keyframes active-blink {
+  0%,
+  100% {
+    background-color: var(--color-brand-50);
+    border-color: var(--color-brand-200);
+    box-shadow: 0 0 0 0 rgb(200 16 46 / 0);
+  }
+  50% {
+    background-color: var(--color-brand-100);
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 3px rgb(200 16 46 / 0.15);
+  }
+}
+.active-blink {
+  animation: active-blink 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .active-blink {
+    animation: none;
+    border-color: var(--color-brand-500);
+  }
+}
+@media print {
+  .active-blink {
+    animation: none;
+  }
+}
