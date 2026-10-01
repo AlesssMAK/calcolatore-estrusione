@@ -53,8 +53,12 @@ function CompleteBtn({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`no-print inline-flex shrink-0 items-center justify-center rounded border border-success/40 bg-success/10 align-middle font-bold text-success transition hover:bg-success/20 ${
-        big ? 'h-6 w-6 text-[13px]' : 'h-5 w-5 text-[11px]'
+      // Whole-order ✓ is bigger and a stronger green than the per-size ones,
+      // so the two read as different actions at a glance.
+      className={`no-print inline-flex shrink-0 items-center justify-center rounded border align-middle font-bold text-success transition ${
+        big
+          ? 'h-6 w-6 border-success bg-success/30 text-[13px] hover:bg-success/40'
+          : 'h-5 w-5 border-success/40 bg-success/10 text-[11px] hover:bg-success/20'
       }`}
     >
       ✓
