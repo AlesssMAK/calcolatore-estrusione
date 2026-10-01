@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 
 export interface ActiveModalInfo {
@@ -6,8 +6,10 @@ export interface ActiveModalInfo {
   orderLabel: string;
   /** The active size, e.g. "6000 mm". */
   sizeLabel: string;
-  /** Produced / total at the active size, e.g. "40 / 120 pz". */
-  producedLabel: string;
+  /** Produced count at the active size (blinks in the modal). */
+  produced: number;
+  /** Total count at the active size ("produced / total"). */
+  total: number;
   /** Expected finish of the active order (formatted date-time). */
   etaLabel: string;
 }
@@ -87,7 +89,15 @@ function ActiveOrderModal({ info, onClose, onGoToForm, t }: Props) {
         <dl className="space-y-2 text-sm">
           <Row label={t('orders.productName')} value={info.orderLabel} />
           <Row label={t('activeModal.size')} value={info.sizeLabel} />
-          <Row label={t('results.produced')} value={info.producedLabel} />
+          <Row
+            label={t('results.produced')}
+            value={
+              <>
+                <span className="num-blink">{info.produced}</span> /{' '}
+                {info.total}
+              </>
+            }
+          />
           <Row label={t('activeModal.eta')} value={info.etaLabel} accent />
         </dl>
 
@@ -105,7 +115,7 @@ function Row({
   accent,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   accent?: boolean;
 }) {
   return (

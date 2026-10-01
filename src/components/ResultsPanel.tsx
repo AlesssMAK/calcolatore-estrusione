@@ -939,7 +939,7 @@ function SizeProducedBlock({
             {t('orders.advanced.profilesProduced')}
           </dt>
           <dd className="font-medium text-ink">
-            {sd.producedProfiles}
+            <span className="num-blink">{sd.producedProfiles}</span>
             <span className="text-ink-soft"> / {sd.sheets}</span>
           </dd>
           <dd className="text-right font-semibold text-brand-700">
@@ -971,7 +971,7 @@ function SizeProducedBlock({
             {t('orders.advanced.sheetsProduced')}
           </dt>
           <dd className="font-medium text-ink">
-            {sd.producedSheetsAtSize}
+            <span className="num-blink">{sd.producedSheetsAtSize}</span>
             <span className="text-ink-soft"> / {sd.sheets}</span>
           </dd>
           <dd className="text-right font-semibold text-brand-700">
@@ -1050,6 +1050,8 @@ function ProducedRemainingBlock({
   mode: CalculatorMode;
 }) {
   const isProfiles = mode === 'profiles';
+  // Still producing → the block and its produced count blink.
+  const inProgress = row.remainingMinutes >= 0.5;
   const units = {
     day: t('units.day'),
     hour: t('units.hour'),
@@ -1058,14 +1060,16 @@ function ProducedRemainingBlock({
   return (
     <div
       className={`mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs ${
-        row.remainingMinutes >= 0.5 ? 'active-blink' : ''
+        inProgress ? 'active-blink' : ''
       }`}
     >
       {isProfiles && row.producedProfiles !== undefined && (
         <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
           <dt className="text-ink-soft">{t('orders.advanced.profilesProduced')}</dt>
           <dd className="font-medium text-ink">
-            {row.producedProfiles}
+            <span className={inProgress ? 'num-blink' : undefined}>
+              {row.producedProfiles}
+            </span>
             {row.totalProfiles !== undefined && (
               <span className="text-ink-soft"> / {row.totalProfiles}</span>
             )}
@@ -1103,7 +1107,9 @@ function ProducedRemainingBlock({
             {t('orders.advanced.sheetsProduced')}
           </dt>
           <dd className="font-medium text-ink">
-            {row.producedSheets}
+            <span className={inProgress ? 'num-blink' : undefined}>
+              {row.producedSheets}
+            </span>
             {row.totalSheets !== undefined && (
               <span className="text-ink-soft"> / {row.totalSheets}</span>
             )}
