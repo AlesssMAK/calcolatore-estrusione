@@ -49,10 +49,16 @@ export function BuildingIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
-export function ArrowUpIcon({ className = 'h-5 w-5' }: IconProps) {
+/** Filled chevron (Syllert sprite `arrow_back_ios_new`, rotated to point up). */
+export function ChevronUpIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
-    <svg {...base} className={className}>
-      <path d="M12 19V5M5 12l7-7 7 7" />
+    <svg
+      viewBox="0 0 32 32"
+      fill="currentColor"
+      aria-hidden
+      className={`${className} rotate-90`}
+    >
+      <path d="M12.474 16l10.404 10.404c0.266 0.271 0.4 0.61 0.402 1.016s-0.131 0.756-0.402 1.050c-0.293 0.288-0.643 0.432-1.050 0.432s-0.754-0.144-1.042-0.432l-10.879-10.879c-0.227-0.227-0.391-0.478-0.493-0.754s-0.153-0.555-0.153-0.837 0.051-0.561 0.153-0.837c0.102-0.276 0.266-0.528 0.493-0.754l10.912-10.904c0.288-0.293 0.628-0.436 1.021-0.427s0.738 0.159 1.037 0.452c0.266 0.293 0.404 0.638 0.415 1.033s-0.127 0.74-0.415 1.033l-10.404 10.404z" />
     </svg>
   );
 }
