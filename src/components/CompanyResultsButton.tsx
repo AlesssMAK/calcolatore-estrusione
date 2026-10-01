@@ -123,7 +123,7 @@ function CompanyResultsButton({
           aria-expanded={open}
           title={t('company.results')}
           aria-label={t('company.results')}
-          className={floatBtnCls(placement)}
+          className={floatBtnCls()}
         >
           <BuildingIcon />
           {count > 0 && <span className={floatBadgeCls}>{count}</span>}

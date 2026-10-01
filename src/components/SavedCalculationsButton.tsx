@@ -110,7 +110,7 @@ function SavedCalculationsButton({
           aria-expanded={open}
           title={t('actions.saved')}
           aria-label={t('actions.saved')}
-          className={floatBtnCls(placement)}
+          className={floatBtnCls()}
         >
           <SaveIcon />
           {count > 0 && <span className={floatBadgeCls}>{count}</span>}

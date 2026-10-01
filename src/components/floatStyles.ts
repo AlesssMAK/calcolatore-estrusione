@@ -5,14 +5,14 @@
  *  pinned vertical rail on the right (sm+). */
 export type FloatPlacement = 'bar' | 'rail';
 
-/** Compact icon button: a flexible cell in the phone bar, a 40px square on the
- *  rail. `relative` anchors the count badge. */
-export const floatBtnCls = (p: FloatPlacement, primary = false) =>
+/** Compact icon button: a 40px square, same on the phone bar and the rail.
+ *  `relative` anchors the count badge. */
+export const floatBtnCls = (primary = false) =>
   `relative flex items-center justify-center rounded-md border shadow-sm transition ${
     primary
       ? 'border-brand-600 bg-brand-600 text-white hover:bg-brand-700'
       : 'border-neutral-300 bg-white text-ink-soft hover:border-brand-500 hover:text-brand-600'
-  } ${p === 'bar' ? 'h-10 flex-1' : 'h-10 w-10'}`;
+  } h-10 w-10`;
 
 /** Count badge pinned to the compact button's top-right corner. */
 export const floatBadgeCls =

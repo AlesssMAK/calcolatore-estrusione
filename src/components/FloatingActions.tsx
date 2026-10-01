@@ -5,9 +5,9 @@ import SavedCalculationsButton from './SavedCalculationsButton';
 import CompanyResultsButton from './CompanyResultsButton';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type { CompanyCalc } from '../lib/sharedCalc';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 import { CalcIcon, ChevronUpIcon, ResetIcon } from './ActionIcons';
 import { floatBtnCls, type FloatPlacement } from './floatStyles';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 interface Props {
   /** Shown while the form's own action buttons are out of view. Kept mounted
@@ -82,18 +82,18 @@ function FloatingActions({
     // while the form's own buttons are off-screen, while scroll-to-top shows
     // whenever the page is scrolled (even with the form buttons in view).
     <div
-      className={`no-print pointer-events-none fixed z-40 flex justify-end gap-2 transition duration-200 ${
+      className={`no-print pointer-events-none fixed z-40 flex gap-2 transition duration-200 ${
         p === 'bar'
-          ? // Transparent row — just the buttons, no backing strip.
-            'inset-x-0 bottom-0 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'
-          : 'right-3 bottom-4 flex-col'
+          ? // Transparent row — just the buttons, centered; no backing strip.
+            'inset-x-0 bottom-0 justify-center px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+          : 'right-3 bottom-4 flex-col justify-end'
       }`}
     >
       <div
         aria-hidden={!visible}
         inert={!visible}
         className={`flex gap-2 transition-opacity duration-200 ${
-          p === 'bar' ? 'flex-1' : 'flex-col'
+          p === 'bar' ? '' : 'flex-col'
         } ${
           visible
             ? 'pointer-events-auto opacity-100'
@@ -108,7 +108,7 @@ function FloatingActions({
           onClick={onCalculate}
           title={t('actions.calculate')}
           aria-label={t('actions.calculate')}
-          className={floatBtnCls(p, true)}
+          className={floatBtnCls(true)}
         >
           <CalcIcon />
         </button>
@@ -117,7 +117,7 @@ function FloatingActions({
           onClick={onReset}
           title={t('actions.reset')}
           aria-label={t('actions.reset')}
-          className={floatBtnCls(p)}
+          className={floatBtnCls()}
         >
           <ResetIcon />
         </button>
@@ -138,11 +138,11 @@ function FloatingActions({
           />
         )}
       </div>
-      {/* Set a bit apart from the actions; only when there's something above
-          to scroll back to. Rail: `invisible` keeps the slot so the buttons
-          above don't jump; phone bar: removed so the others widen. */}
-      {/* Style ported from Syllert's ScrollToTopButton (brand red here): a
-          framed square whose inner fill grows with scroll progress. */}
+      {/* Only when there's something above to scroll back to. Rail: set a bit
+          apart below the actions, `invisible` keeps its slot so they don't
+          jump. Phone bar: pinned to the right edge, apart from the centered
+          actions. Style ported from Syllert's ScrollToTopButton (brand red
+          here): a framed square whose inner fill grows with scroll progress. */}
       <button
         type="button"
         onClick={(e) => {
@@ -153,8 +153,10 @@ function FloatingActions({
         aria-label={t('actions.scrollTop')}
         tabIndex={scrolled ? undefined : -1}
         style={{ ['--fill' as string]: String(fillScale * 0.9) }}
-        className={`group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border-2 border-brand-600 bg-white/20 backdrop-blur-sm transition duration-200 focus-visible:shadow-[0_0_0_3px_rgba(200,16,46,0.25)] focus-visible:outline-none active:bg-brand-600 ${
-          p === 'rail' ? 'mt-4' : visible ? 'ml-3' : ''
+        className={`group flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border-2 border-brand-600 bg-white/20 backdrop-blur-sm transition duration-200 focus-visible:shadow-[0_0_0_3px_rgba(200,16,46,0.25)] focus-visible:outline-none active:bg-brand-600 ${
+          p === 'rail'
+            ? 'relative mt-4'
+            : 'absolute right-3 bottom-[max(0.5rem,env(safe-area-inset-bottom))]'
         } ${
           scrolled
             ? 'pointer-events-auto translate-y-0 opacity-100'
