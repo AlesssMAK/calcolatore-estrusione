@@ -248,8 +248,31 @@ button:disabled,
     border-color: var(--color-brand-500);
   }
 }
+/* The produced count itself (e.g. "781" of 781 / 1000) — text pulses in brand
+   red wherever it's shown (results, active-order modal, Calcolo avanzato
+   inputs). An empty input has no text, so nothing visibly blinks there. */
+@keyframes num-blink {
+  0%,
+  100% {
+    color: var(--color-brand-700);
+  }
+  50% {
+    color: var(--color-brand-300);
+  }
+}
+.num-blink {
+  font-weight: 700;
+  animation: num-blink 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .num-blink {
+    animation: none;
+    color: var(--color-brand-700);
+  }
+}
 @media print {
-  .active-blink {
+  .active-blink,
+  .num-blink {
     animation: none;
   }
 }

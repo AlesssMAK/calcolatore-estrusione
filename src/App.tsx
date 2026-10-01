@@ -94,7 +94,8 @@ function computeActive(
       info: {
         orderLabel,
         sizeLabel: length ? `${length} mm` : '—',
-        producedLabel: `${produced} / ${total}`,
+        produced,
+        total,
         etaLabel: formatDateTime(row.end, lang),
       },
       orderIdx: i,

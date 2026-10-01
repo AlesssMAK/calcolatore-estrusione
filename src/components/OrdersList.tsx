@@ -1503,7 +1503,8 @@ function SizeAdvancedBlockListi({
                   step="1"
                   inputMode="numeric"
                   disabled={countDisabled}
-                  className={`${sizeBlockInputCls} ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  // Produced count blinks (empty field has no text → still).
+                  className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   {...register(
                     `orders.${orderIdx}.producedSheets.${arrayPos}.value`,
                     { setValueAs: numericSetValueAs },
@@ -1665,7 +1666,7 @@ function SizeAdvancedBlockProfili({
                   step="1"
                   inputMode="numeric"
                   disabled={countDisabled}
-                  className={`${sizeBlockInputCls} ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                  className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   {...register(
                     `orders.${orderIdx}.producedProfiles.${arrayPos}.value`,
                     { setValueAs: numericSetValueAs },
@@ -1760,7 +1761,12 @@ function BatchInput({
       step="1"
       inputMode="numeric"
       disabled={disabled}
-      className="h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-2.5 sm:text-sm"
+      // The produced count (count field) blinks like everywhere else.
+      className={`h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-2.5 sm:text-sm ${
+        fieldName === 'producedSheets' || fieldName === 'producedProfiles'
+          ? 'num-blink'
+          : ''
+      }`}
       {...register(
         `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
         { setValueAs: numericSetValueAs },
