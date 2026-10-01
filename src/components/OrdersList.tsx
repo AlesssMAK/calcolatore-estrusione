@@ -2177,7 +2177,13 @@ function SizesFieldArray({
                       ref={setNodeRef}
                       style={style}
                       id={`size-${orderIdx}-${sIdx}`}
-                      className="flex items-end gap-2"
+                      // The size in production blinks (saved view), framed
+                      // without shifting the inputs (-mx-2 + px-2).
+                      className={`flex items-end gap-2 ${
+                        sIdx === activeSizeIdx
+                          ? 'active-blink -mx-2 rounded-md border px-2 pt-2'
+                          : ''
+                      }`}
                     >
                       {canReorder && (
                         <div className="flex shrink-0 items-end pb-5">

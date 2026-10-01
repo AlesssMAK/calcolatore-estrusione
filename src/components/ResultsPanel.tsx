@@ -931,7 +931,8 @@ function SizeProducedBlock({
 }) {
   const isProfiles = mode === 'profiles';
   return (
-    <div className="mt-1.5 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
+    // Shown only for a size that's partly produced (in production) → blinks.
+    <div className="active-blink mt-1.5 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
       {isProfiles && sd.producedProfiles !== undefined && (
         <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-0.5">
           <dt className="text-ink-soft">
@@ -1055,7 +1056,11 @@ function ProducedRemainingBlock({
     minute: t('units.minute'),
   };
   return (
-    <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
+    <div
+      className={`mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs ${
+        row.remainingMinutes >= 0.5 ? 'active-blink' : ''
+      }`}
+    >
       {isProfiles && row.producedProfiles !== undefined && (
         <dl className="grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-1">
           <dt className="text-ink-soft">{t('orders.advanced.profilesProduced')}</dt>
