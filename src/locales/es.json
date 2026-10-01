@@ -23,18 +23,12 @@
     },
     "startAt": "Fecha y Hora de Inicio",
     "startAtPastWarning": "La fecha de inicio está en el pasado.",
-    "gapMode": {
-      "label": "Pausas Entre Pedidos",
-      "continuous": "Continuo (sin pausas)",
-      "withGaps": "Con pausas entre pedidos"
-    },
     "toggle": {
       "manualStart": "Fijar Hora",
-      "gaps": "Pausas Entre Pedidos",
-      "productName": "Nombre del Producto",
+      "productName": "Nombre del Cálculo",
       "weekend": "Horario Línea"
     },
-    "productName": "Nombre del Producto",
+    "productName": "Nombre del Cálculo",
     "productNamePlaceholder": {
       "sheets": "p. ej. Placa alveolar 6 mm",
       "profiles": "p. ej. Perfil H 16 mm"
@@ -80,6 +74,7 @@
     },
     "openInPiramide": "Abrir en Pirámide",
     "toggleTotalLength": "Metros Totales",
+    "togglePause": "Pausa Después",
     "totalLength": "Metros Totales",
     "optionalInherit": "opc. — hereda",
     "cavity": "Cavidades",
@@ -105,11 +100,12 @@
   "actions": {
     "calculate": "Calcular",
     "reset": "Nuevo Cálculo",
+    "scrollTop": "Volver Arriba",
     "print": "Imprimir",
     "copy": "Copiar",
     "shareViewOnly": "Solo visualización",
     "shareEditable": "Editable por todos",
-    "shareResult": "Compartir resultado",
+    "shareResult": "Compartir Resultado",
     "saveImage": "Compartir Foto",
     "exporting": "Guardando…",
     "saved": "Guardados",
@@ -202,8 +198,8 @@
   "company": {
     "results": "Empresa",
     "empty": "Ningún resultado compartido.",
-    "publish": "Compartir con la empresa",
-    "unpublish": "Quitar de la empresa",
+    "publish": "Compartir con la Empresa",
+    "unpublish": "Quitar de la Empresa",
     "editable": "Editable",
     "limitReached": "Límite alcanzado ({{max}})",
     "broadcasting": "Compartido con la empresa"

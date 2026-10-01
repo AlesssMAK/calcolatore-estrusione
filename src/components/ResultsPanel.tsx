@@ -37,12 +37,15 @@ function isSizeDone(sd: ScheduledSizeDetail): boolean {
 
 // Small "mark fully produced" button shown per order / per size while tracking
 // a saved calc. no-print so it's excluded from the exported image / print.
+// The whole-order button is a bit larger than the per-size ones.
 function CompleteBtn({
   onClick,
   label,
+  big = false,
 }: {
   onClick: () => void;
   label: string;
+  big?: boolean;
 }) {
   return (
     <button
@@ -50,7 +53,9 @@ function CompleteBtn({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="no-print inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-success/40 bg-success/10 align-middle text-[11px] font-bold text-success transition hover:bg-success/20"
+      className={`no-print inline-flex shrink-0 items-center justify-center rounded border border-success/40 bg-success/10 align-middle font-bold text-success transition hover:bg-success/20 ${
+        big ? 'h-6 w-6 text-[13px]' : 'h-5 w-5 text-[11px]'
+      }`}
     >
       ✓
     </button>
@@ -319,10 +324,13 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                       {formatDuration(row.remainingMinutes, units)}
                     </span>
                     {onComplete && !done && (
-                      <CompleteBtn
-                        onClick={() => onComplete(row.order.id)}
-                        label={t('orders.complete')}
-                      />
+                      <span className="flex w-6 justify-center">
+                        <CompleteBtn
+                          big
+                          onClick={() => onComplete(row.order.id)}
+                          label={t('orders.complete')}
+                        />
+                      </span>
                     )}
                   </div>
                 </div>
@@ -442,12 +450,17 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                                 {formatDuration(sd.remainingMinutes, units)}
                               </span>
                               {onComplete && !isSizeDone(sd) && (
-                                <CompleteBtn
-                                  onClick={() =>
-                                    onComplete(row.order.id, sIdx)
-                                  }
-                                  label={t('orders.complete')}
-                                />
+                                // Same w-6 slot as the order button, pulled out
+                                // by this card's padding+border (8+1px) so all
+                                // ✓ line up in one column.
+                                <span className="-mr-[9px] flex w-6 justify-center">
+                                  <CompleteBtn
+                                    onClick={() =>
+                                      onComplete(row.order.id, sIdx)
+                                    }
+                                    label={t('orders.complete')}
+                                  />
+                                </span>
                               )}
                             </div>
                           </div>
@@ -653,13 +666,18 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                         {formatShortDateTime(row.start, lang)}
                       </td>
                       <td className="py-2 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-2">
+                        {/* ✓ pinned to the column's right edge in a fixed slot so
+                            order and size buttons line up vertically. */}
+                        <span className="flex items-center justify-between gap-2">
                           {formatShortDateTime(row.end, lang)}
                           {onComplete && !done && (
-                            <CompleteBtn
-                              onClick={() => onComplete(row.order.id)}
-                              label={t('orders.complete')}
-                            />
+                            <span className="flex w-6 justify-center">
+                              <CompleteBtn
+                                big
+                                onClick={() => onComplete(row.order.id)}
+                                label={t('orders.complete')}
+                              />
+                            </span>
                           )}
                         </span>
                       </td>
@@ -769,15 +787,17 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                                 {formatShortDateTime(sd.start, lang)}
                               </td>
                               <td className="py-1.5 whitespace-nowrap">
-                                <span className="inline-flex items-center gap-2">
+                                <span className="flex items-center justify-between gap-2">
                                   {formatShortDateTime(sd.end, lang)}
                                   {onComplete && !isSizeDone(sd) && (
-                                    <CompleteBtn
-                                      onClick={() =>
-                                        onComplete(row.order.id, sIdx)
-                                      }
-                                      label={t('orders.complete')}
-                                    />
+                                    <span className="flex w-6 justify-center">
+                                      <CompleteBtn
+                                        onClick={() =>
+                                          onComplete(row.order.id, sIdx)
+                                        }
+                                        label={t('orders.complete')}
+                                      />
+                                    </span>
                                   )}
                                 </span>
                               </td>

@@ -516,6 +516,15 @@ function resolveStartDate(settings: GlobalSettings, now: Date): Date {
   return parsed;
 }
 
+/** Is a pause scheduled after this order? Per-order toggle; orders saved before
+ *  the toggle existed fall back to the old global "with gaps" setting. */
+export function isGapEnabled(
+  order: Pick<Order, 'gapEnabled'> | undefined,
+  settings: Pick<GlobalSettings, 'gapMode'> | undefined,
+): boolean {
+  return order?.gapEnabled ?? settings?.gapMode === 'withGaps';
+}
+
 function resolveSpeed(
   order: Order,
   fallback: number | undefined,
@@ -979,7 +988,7 @@ export function calculateSchedule(
 
     const isLast = idx === orders.length - 1;
     const gapAfterMin =
-      !isLast && settings.gapMode === 'withGaps'
+      !isLast && isGapEnabled(order, settings)
         ? Math.max(0, order.gapAfterMin ?? 0)
         : 0;
 

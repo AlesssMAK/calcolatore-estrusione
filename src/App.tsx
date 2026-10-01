@@ -264,7 +264,17 @@ function CalculatorApp() {
   ) => {
     clearRestored();
     setActiveModal(null);
-    setActiveLoc(null);
+    // While tracking a saved calc, move the collapse to the new active order /
+    // size (e.g. after "✓ Completa" the done size folds and the next one opens).
+    // `r` holds only the still-active orders → indices match the form.
+    const nextActive = fromSaved
+      ? computeActive(r, i18n.resolvedLanguage ?? 'it')
+      : null;
+    setActiveLoc(
+      nextActive
+        ? { orderIdx: nextActive.orderIdx, sizeIdx: nextActive.sizeIdx }
+        : null,
+    );
     if (newlyCompleted.length > 0) {
       setCompletedRows((prev) => [
         ...(keepCompleted ? prev : []),

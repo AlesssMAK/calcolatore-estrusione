@@ -33,6 +33,9 @@ export interface Order {
    * is treated as 1 (no multiplier). Inherits across orders via lastCavity.
    */
   cavity?: number;
+  /** Pause after this order (toggled per order). Undefined → legacy global
+   *  `settings.gapMode === 'withGaps'` decides (old saved calcs). */
+  gapEnabled?: boolean;
   gapAfterMin?: number;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];

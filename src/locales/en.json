@@ -23,18 +23,12 @@
     },
     "startAt": "Start Date and Time",
     "startAtPastWarning": "The start date is in the past.",
-    "gapMode": {
-      "label": "Gaps Between Orders",
-      "continuous": "Continuous (no breaks)",
-      "withGaps": "With gaps between orders"
-    },
     "toggle": {
       "manualStart": "Set Time",
-      "gaps": "Gaps Between Orders",
-      "productName": "Product Name",
+      "productName": "Calculation Name",
       "weekend": "Line Schedule"
     },
-    "productName": "Product Name",
+    "productName": "Calculation Name",
     "productNamePlaceholder": {
       "sheets": "e.g. Multiwall sheet 6 mm",
       "profiles": "e.g. H-profile 16 mm"
@@ -80,6 +74,7 @@
     },
     "openInPiramide": "Open in Pyramid",
     "toggleTotalLength": "Total Meters",
+    "togglePause": "Pause After",
     "totalLength": "Total Meters",
     "optionalInherit": "optional — inherits",
     "cavity": "Cavities",
@@ -105,11 +100,12 @@
   "actions": {
     "calculate": "Calculate",
     "reset": "New Calculation",
+    "scrollTop": "Back to Top",
     "print": "Print",
     "copy": "Copy",
     "shareViewOnly": "View only",
     "shareEditable": "Editable by anyone",
-    "shareResult": "Share result",
+    "shareResult": "Share Result",
     "saveImage": "Share Photo",
     "exporting": "Saving…",
     "saved": "Saved",
@@ -202,8 +198,8 @@
   "company": {
     "results": "Company",
     "empty": "No shared results.",
-    "publish": "Share with the company",
-    "unpublish": "Remove from company",
+    "publish": "Share with the Company",
+    "unpublish": "Remove from Company",
     "editable": "Editable",
     "limitReached": "Limit reached ({{max}})",
     "broadcasting": "Shared with the company"

@@ -23,18 +23,12 @@
     },
     "startAt": "Data e Ora di Inizio",
     "startAtPastWarning": "La data di inizio è nel passato.",
-    "gapMode": {
-      "label": "Pause tra gli Ordini",
-      "continuous": "Continuo (senza pause)",
-      "withGaps": "Con pause tra gli ordini"
-    },
     "toggle": {
       "manualStart": "Imposta Orario",
-      "gaps": "Pause tra Ordini",
-      "productName": "Nome Prodotto",
+      "productName": "Nome Calcolo",
       "weekend": "Orario Linea"
     },
-    "productName": "Nome del Prodotto",
+    "productName": "Nome del Calcolo",
     "productNamePlaceholder": {
       "sheets": "es. Lastra alveolare 6 mm",
       "profiles": "es. Profilo a H 16 mm"
@@ -80,6 +74,7 @@
     },
     "openInPiramide": "Apri in Piramide",
     "toggleTotalLength": "Metri Totali",
+    "togglePause": "Pausa Dopo",
     "totalLength": "Metri Totali",
     "optionalInherit": "opz. — eredita",
     "cavity": "Cavità",
@@ -105,11 +100,12 @@
   "actions": {
     "calculate": "Calcola",
     "reset": "Nuovo Calcolo",
+    "scrollTop": "Torna Su",
     "print": "Stampa",
     "copy": "Copia",
     "shareViewOnly": "Solo visualizzazione",
     "shareEditable": "Modificabile da tutti",
-    "shareResult": "Condividi risultato",
+    "shareResult": "Condividi Risultato",
     "saveImage": "Condividi Foto",
     "exporting": "Salvando…",
     "saved": "Salvati",
@@ -202,8 +198,8 @@
   "company": {
     "results": "Azienda",
     "empty": "Nessun risultato condiviso.",
-    "publish": "Condividi con l'azienda",
-    "unpublish": "Rimuovi dall'azienda",
+    "publish": "Condividi con l'Azienda",
+    "unpublish": "Rimuovi dall'Azienda",
     "editable": "Modificabile",
     "limitReached": "Limite raggiunto ({{max}})",
     "broadcasting": "Condiviso con l'azienda"

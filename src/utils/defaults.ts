@@ -82,6 +82,7 @@ export function makeEmptyOrder(
     totalLengthM: undefined,
     sizes: [makeEmptySize()],
     speedMPerMin: undefined,
+    gapEnabled: false,
     gapAfterMin: undefined,
   };
   if (mode === 'profiles') {

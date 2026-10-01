@@ -815,6 +815,35 @@ describe('calculateSchedule — with gaps', () => {
     expect(result.totalDurationMinutes).toBe(180);
     expect(result.endAt.toISOString()).toBe('2026-04-23T13:00:00.000Z');
   });
+
+  it('per-order toggle: pauses only after the orders that enable it', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      { startMode: 'manual', startAt: start.toISOString(), gapMode: 'continuous' },
+      [
+        { id: 'a', sheets: 10, sheetLengthMm: 3000, speedMPerMin: 5, gapEnabled: true, gapAfterMin: 20 },
+        { id: 'b', sheets: 10, sheetLengthMm: 3000, gapEnabled: false, gapAfterMin: 40 },
+        { id: 'c', sheets: 10, sheetLengthMm: 3000 },
+      ],
+      { now: start },
+    );
+    expect(result.rows.map((r) => r.gapAfterMin)).toEqual([20, 0, 0]);
+    expect(result.totalGapMinutes).toBe(20);
+  });
+
+  it('per-order toggle overrides the legacy global "with gaps" mode', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      { startMode: 'manual', startAt: start.toISOString(), gapMode: 'withGaps' },
+      [
+        { id: 'a', sheets: 10, sheetLengthMm: 3000, speedMPerMin: 5, gapEnabled: false, gapAfterMin: 20 },
+        { id: 'b', sheets: 10, sheetLengthMm: 3000, gapAfterMin: 40 }, // legacy → on
+        { id: 'c', sheets: 10, sheetLengthMm: 3000 },
+      ],
+      { now: start },
+    );
+    expect(result.rows.map((r) => r.gapAfterMin)).toEqual([0, 40, 0]);
+  });
 });
 
 describe('calculateSchedule — 24/7 rollover', () => {

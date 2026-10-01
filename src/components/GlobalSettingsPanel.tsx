@@ -10,6 +10,7 @@ import FieldError from './FieldError';
 import { saveWeekendPref } from '../utils/defaults';
 import { isContinuous } from '../utils/calculator';
 import { useEffect, useState } from 'react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const WORKDAY_START_HOUR = 6;
 
@@ -37,19 +38,6 @@ const selectCls =
 registerLocale('it', itLocale);
 registerLocale('es', esLocale);
 registerLocale('en', enLocale);
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia(query).matches : false,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const listener = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mq.addEventListener('change', listener);
-    return () => mq.removeEventListener('change', listener);
-  }, [query]);
-  return matches;
-}
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
@@ -178,7 +166,6 @@ function GlobalSettingsPanel() {
   } = useFormContext<FormValues>();
 
   const startMode = useWatch({ control, name: 'settings.startMode' });
-  const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const startAt = useWatch({ control, name: 'settings.startAt' });
   const weekend = useWatch({ control, name: 'settings.weekend' });
   const warmupMinutes = useWatch({ control, name: 'settings.warmupMinutes' });
@@ -205,14 +192,6 @@ function GlobalSettingsPanel() {
       setValue('settings.startMode', 'now', { shouldValidate: true });
       setValue('settings.startAt', '', { shouldValidate: true });
     }
-  };
-
-  const toggleGaps = () => {
-    setValue(
-      'settings.gapMode',
-      gapMode === 'continuous' ? 'withGaps' : 'continuous',
-      { shouldValidate: true }
-    );
   };
 
   const toggleWeekend = () => {
@@ -297,12 +276,6 @@ function GlobalSettingsPanel() {
           onClick={toggleManualStart}
           icon="🗓"
           label={t('settings.toggle.manualStart')}
-        />
-        <ToggleButton
-          active={gapMode === 'withGaps'}
-          onClick={toggleGaps}
-          icon="⏸"
-          label={t('settings.toggle.gaps')}
         />
         <ToggleButton
           active={!!weekend?.enabled}
