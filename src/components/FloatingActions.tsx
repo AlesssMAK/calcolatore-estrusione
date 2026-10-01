@@ -55,50 +55,69 @@ function FloatingActions({
   }, []);
 
   return createPortal(
+    // The container itself never blocks clicks; the action group shows only
+    // while the form's own buttons are off-screen, while scroll-to-top shows
+    // whenever the page is scrolled (even with the form buttons in view).
     <div
-      aria-hidden={!visible}
-      inert={!visible}
-      className={`no-print fixed z-40 flex gap-2 transition duration-200 ${
+      className={`no-print pointer-events-none fixed z-40 flex justify-end gap-2 transition duration-200 ${
         p === 'bar'
-          ? 'inset-x-0 bottom-0 border-t border-neutral-200 bg-white/95 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur'
+          ? `inset-x-0 bottom-0 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
+              visible
+                ? 'border-t border-neutral-200 bg-white/95 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur'
+                : ''
+            }`
           : 'right-3 bottom-4 flex-col'
-      } ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      }`}
     >
-      <button
-        type="submit"
-        form={formId}
-        onClick={onCalculate}
-        title={t('actions.calculate')}
-        aria-label={t('actions.calculate')}
-        className={floatBtnCls(p, true)}
+      <div
+        aria-hidden={!visible}
+        inert={!visible}
+        className={`flex gap-2 transition-opacity duration-200 ${
+          p === 'bar' ? 'flex-1' : 'flex-col'
+        } ${
+          visible
+            ? 'pointer-events-auto opacity-100'
+            : p === 'bar'
+              ? 'hidden'
+              : 'opacity-0'
+        }`}
       >
-        <CalcIcon />
-      </button>
-      <button
-        type="button"
-        onClick={onReset}
-        title={t('actions.reset')}
-        aria-label={t('actions.reset')}
-        className={floatBtnCls(p)}
-      >
-        <ResetIcon />
-      </button>
-      {onRestore && (
-        <SavedCalculationsButton
-          placement={p}
-          onRestore={onRestore}
-          refreshKey={savedRefreshKey}
-          onPublish={onPublish}
-        />
-      )}
-      {onOpenCompany && (
-        <CompanyResultsButton
-          placement={p}
-          onOpen={onOpenCompany}
-          onDelete={onDeleteCompany}
-          refreshKey={savedRefreshKey}
-        />
-      )}
+        <button
+          type="submit"
+          form={formId}
+          onClick={onCalculate}
+          title={t('actions.calculate')}
+          aria-label={t('actions.calculate')}
+          className={floatBtnCls(p, true)}
+        >
+          <CalcIcon />
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
+          title={t('actions.reset')}
+          aria-label={t('actions.reset')}
+          className={floatBtnCls(p)}
+        >
+          <ResetIcon />
+        </button>
+        {onRestore && (
+          <SavedCalculationsButton
+            placement={p}
+            onRestore={onRestore}
+            refreshKey={savedRefreshKey}
+            onPublish={onPublish}
+          />
+        )}
+        {onOpenCompany && (
+          <CompanyResultsButton
+            placement={p}
+            onOpen={onOpenCompany}
+            onDelete={onDeleteCompany}
+            refreshKey={savedRefreshKey}
+          />
+        )}
+      </div>
       {/* Set a bit apart from the actions; only when there's something above
           to scroll back to. Rail: `invisible` keeps the slot so the buttons
           above don't jump; phone bar: removed so the others widen. */}
@@ -108,9 +127,11 @@ function FloatingActions({
         title={t('actions.scrollTop')}
         aria-label={t('actions.scrollTop')}
         tabIndex={scrolled ? undefined : -1}
-        className={`${floatBtnCls('rail')} ${p === 'rail' ? 'mt-4' : 'ml-3'} transition-opacity ${
+        className={`${floatBtnCls('rail')} ${
+          p === 'rail' ? 'mt-4' : visible ? 'ml-3' : ''
+        } transition-opacity ${
           scrolled
-            ? 'opacity-100'
+            ? 'pointer-events-auto opacity-100'
             : p === 'bar'
               ? 'hidden'
               : 'invisible opacity-0'
