@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import SavedCalculationsButton from './SavedCalculationsButton';
@@ -45,6 +46,13 @@ function FloatingActions({
   const p: FloatPlacement = isPhone ? 'bar' : 'rail';
 
   const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Scroll-to-top only once the page has actually been scrolled down.
+  const [scrolled, setScrolled] = useState(() => window.scrollY > 200);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 200);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return createPortal(
     <div
@@ -53,7 +61,7 @@ function FloatingActions({
       className={`no-print fixed z-40 flex gap-2 transition duration-200 ${
         p === 'bar'
           ? 'inset-x-0 bottom-0 border-t border-neutral-200 bg-white/95 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur'
-          : 'top-1/2 right-3 -translate-y-1/2 flex-col'
+          : 'right-3 bottom-4 flex-col'
       } ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
     >
       <button
@@ -91,12 +99,22 @@ function FloatingActions({
           refreshKey={savedRefreshKey}
         />
       )}
+      {/* Set a bit apart from the actions; only when there's something above
+          to scroll back to. Rail: `invisible` keeps the slot so the buttons
+          above don't jump; phone bar: removed so the others widen. */}
       <button
         type="button"
         onClick={toTop}
         title={t('actions.scrollTop')}
         aria-label={t('actions.scrollTop')}
-        className={`${floatBtnCls('rail')} ${p === 'rail' ? 'mt-2' : ''}`}
+        tabIndex={scrolled ? undefined : -1}
+        className={`${floatBtnCls('rail')} ${p === 'rail' ? 'mt-4' : 'ml-3'} transition-opacity ${
+          scrolled
+            ? 'opacity-100'
+            : p === 'bar'
+              ? 'hidden'
+              : 'invisible opacity-0'
+        }`}
       >
         <ArrowUpIcon />
       </button>
