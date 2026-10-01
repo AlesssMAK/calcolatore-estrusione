@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,8 @@ import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
+import { isGapEnabled } from '../utils/calculator';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import FieldError from './FieldError';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
@@ -76,6 +79,13 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(
     () => new Set(),
   );
+  // The active order moved → fold the manually-expanded ones again.
+  const activeOrderIdx = activeLoc?.orderIdx ?? null;
+  const [prevActiveOrderIdx, setPrevActiveOrderIdx] = useState(activeOrderIdx);
+  if (prevActiveOrderIdx !== activeOrderIdx) {
+    setPrevActiveOrderIdx(activeOrderIdx);
+    setExpandedOrders(new Set());
+  }
   const { t } = useTranslation();
   const {
     formState: { errors },
@@ -186,11 +196,13 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
             onClick={toggleProductName}
             aria-pressed={productNameOpen}
             title={t('settings.toggle.productName')}
-            className={
+            // 32px square on mobile (icon only), 36px tall on sm+ — same as the
+            // "+" button next to it.
+            className={`flex h-8 min-w-8 items-center justify-center rounded-md border text-xs font-medium shadow-sm transition sm:h-9 sm:px-2.5 sm:text-sm ${
               productNameOpen
-                ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-2 text-xs font-medium text-white shadow-sm transition sm:text-sm'
-                : 'rounded-md border border-neutral-300 bg-white px-2.5 py-2 text-xs font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink sm:text-sm'
-            }
+                ? 'border-brand-600 bg-brand-600 text-white'
+                : 'border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink'
+            }`}
           >
             <span aria-hidden>✏</span>
             <span className="hidden sm:ml-1 sm:inline">
@@ -202,7 +214,7 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
             type="button"
             onClick={appendOrder}
             title={t('orders.add')}
-            className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:text-sm"
+            className="flex h-8 min-w-8 items-center justify-center rounded-md border border-brand-600 bg-brand-600 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:h-9 sm:px-3 sm:text-sm"
           >
             <span className="sm:hidden">+</span>
             <span className="hidden sm:inline">{t('orders.add')}</span>
@@ -245,8 +257,11 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
             {fields.map((field, idx) => {
               const rowErr = errors.orders?.[idx];
               const isLast = idx === fields.length - 1;
-              const showGap = gapMode === 'withGaps' && !isLast;
               const wo = watchedOrders?.[idx];
+              // Pause after this order only (never after the last one — there
+              // is nothing to wait for).
+              const gapOn = isGapEnabled(wo, { gapMode });
+              const showGap = gapOn && !isLast;
               const oName = wo?.productName?.trim();
               const oSizes = wo?.sizes ?? [];
               // Compact list of the order's sizes ("qty × length mm"), so a
@@ -263,9 +278,11 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
               // visible without expanding — live from the watched form values.
               const oSpeed = Number(wo?.speedMPerMin) || 0;
               const oCavity = Number(wo?.cavity) || 0;
+              const oGap = Number(wo?.gapAfterMin) || 0;
               const paramsSummary = [
                 oSpeed > 0 ? `⚡ ${oSpeed} m/min` : null,
                 oCavity > 1 ? `× ${oCavity}` : null,
+                showGap && oGap > 0 ? `⏸ ${oGap} min` : null,
               ]
                 .filter(Boolean)
                 .join(' · ');
@@ -381,6 +398,29 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
                       {t('orders.toggleTotalLength')}
                     </span>
                   </button>
+                  {!isLast && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setValue(`orders.${idx}.gapEnabled`, !gapOn, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                      aria-pressed={gapOn}
+                      title={t('orders.togglePause')}
+                      className={
+                        gapOn
+                          ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+                          : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+                      }
+                    >
+                      ⏸{' '}
+                      <span className="hidden sm:inline">
+                        {t('orders.togglePause')}
+                      </span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => remove(idx)}
@@ -1004,6 +1044,25 @@ function OrderNameField({
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, [dropdownOpen]);
 
+  // Phone: the dropdown is fixed to the viewport at full width, so track the
+  // input's bottom edge while it's open (scroll / resize / keyboard).
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  const [dropTop, setDropTop] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!dropdownOpen || !isPhone) return;
+    const place = () => {
+      const r = wrapperRef.current?.getBoundingClientRect();
+      if (r) setDropTop(r.bottom + 4);
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [dropdownOpen, isPhone]);
+
   // Filter visible suggestions by what's currently in the input.
   const query = (typeof value === 'string' ? value : '').toLowerCase().trim();
   const suggestions = useMemo(
@@ -1068,7 +1127,17 @@ function OrderNameField({
             }}
           />
           {dropdownOpen && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-30 mt-1 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
+            <div
+              // Phone: span the whole screen width (fixed, pinned under the
+              // input) so long product names fit; sm+: as wide as the input.
+              style={isPhone && dropTop !== null ? { top: dropTop } : undefined}
+              // z-50 on phone: above the pinned floating action bar (z-40).
+              className={`overflow-hidden border border-neutral-200 bg-white shadow-lg ${
+                isPhone
+                  ? 'fixed inset-x-0 z-50 rounded-none border-x-0'
+                  : 'absolute top-full right-0 left-0 z-30 mt-1 rounded-md'
+              }`}
+            >
               <ul
                 role="listbox"
                 className="max-h-60 overflow-y-auto py-1"
@@ -1792,6 +1861,13 @@ function SizesFieldArray({
   const [expandedSizes, setExpandedSizes] = useState<Set<string>>(
     () => new Set(),
   );
+  // The active size moved (a size was completed) → drop manual expansions so
+  // the finished size folds and only the new active one stays open.
+  const [prevActiveSizeIdx, setPrevActiveSizeIdx] = useState(activeSizeIdx);
+  if (prevActiveSizeIdx !== activeSizeIdx) {
+    setPrevActiveSizeIdx(activeSizeIdx);
+    setExpandedSizes(new Set());
+  }
   // Index of a size just inserted via "+", to auto-expand once it mounts.
   const pendingSizeExpand = useRef<number | null>(null);
   const {

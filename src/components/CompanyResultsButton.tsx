@@ -4,6 +4,13 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
+import { BuildingIcon } from './ActionIcons';
+import {
+  floatBadgeCls,
+  floatBtnCls,
+  floatMenuCls,
+  type FloatPlacement,
+} from './floatStyles';
 
 interface Props {
   /** Open a company-published result (parent restores it as a synced doc). */
@@ -13,6 +20,8 @@ interface Props {
   onDelete?: (calc: CompanyCalc) => void | Promise<void>;
   /** Bump to re-read the list (after a publish/unpublish). */
   refreshKey?: number;
+  /** Compact icon variant for the pinned floating actions. Omit → full button. */
+  placement?: FloatPlacement;
 }
 
 function formatRelative(ts: number, lang: string): string {
@@ -31,7 +40,12 @@ function formatRelative(ts: number, lang: string): string {
 /** Dropdown of the calculations the active company has published to its shared
  *  list. Visible only when a company is active. Opening one restores it as a
  *  live (followed / editable) document. */
-function CompanyResultsButton({ onOpen, onDelete, refreshKey = 0 }: Props) {
+function CompanyResultsButton({
+  onOpen,
+  onDelete,
+  refreshKey = 0,
+  placement,
+}: Props) {
   const { t, i18n } = useTranslation();
   const { company, settings } = useCatalog();
   const { companyId, isSuper } = useAuth();
@@ -91,28 +105,56 @@ function CompanyResultsButton({ onOpen, onDelete, refreshKey = 0 }: Props) {
   if (!company) return null;
 
   return (
-    <div ref={rootRef} className="relative order-3 w-full sm:order-0 sm:w-auto">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
-      >
-        <span aria-hidden>🏢</span>
-        <span>{t('company.results')}</span>
-        {count > 0 && (
-          <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
-            {count}
-          </span>
-        )}
-      </button>
+    <div
+      ref={rootRef}
+      className={
+        placement === 'bar'
+          ? 'contents'
+          : placement === 'rail'
+            ? 'relative'
+            : 'relative order-3 w-full sm:order-0 sm:w-auto'
+      }
+    >
+      {placement ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          title={t('company.results')}
+          aria-label={t('company.results')}
+          className={floatBtnCls(placement)}
+        >
+          <BuildingIcon />
+          {count > 0 && <span className={floatBadgeCls}>{count}</span>}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
+        >
+          <span aria-hidden>🏢</span>
+          <span>{t('company.results')}</span>
+          {count > 0 && (
+            <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
+              {count}
+            </span>
+          )}
+        </button>
+      )}
 
       {open && (
         <div
           role="listbox"
           aria-label={t('company.results')}
-          className="absolute right-0 z-30 mt-2 max-h-[60vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
+          className={
+            placement
+              ? floatMenuCls(placement)
+              : 'absolute right-0 z-30 mt-2 max-h-[60vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg'
+          }
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
             {t('company.results')}

@@ -30,6 +30,7 @@ const orderSchema = z.object({
   sheetLengthMm: z.number().positive('positive').optional(),
   speedMPerMin: z.number().positive('positive').optional(),
   cavity: z.number().int('integer').positive('positive').optional(),
+  gapEnabled: z.boolean().optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
   producedProfiles: z.array(producedEntrySchema).optional(),
   producedPackages: z.array(producedEntrySchema).optional(),

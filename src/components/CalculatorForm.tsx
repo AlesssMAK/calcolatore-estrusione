@@ -8,6 +8,9 @@ import OrdersList from './OrdersList';
 import CompanyResultsButton from './CompanyResultsButton';
 import type { CompanyCalc } from '../lib/sharedCalc';
 import SavedCalculationsButton from './SavedCalculationsButton';
+import FloatingActions from './FloatingActions';
+
+const FORM_ID = 'calc-form';
 import { calculateSchedule } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { buildFormSchema } from '../formSchema';
@@ -125,6 +128,8 @@ function CalculatorForm({
   // Which submit button was pressed: "Ricalcola" keeps completed orders in the
   // saved result, plain "Calcola" drops them. Read in onSubmit, reset after.
   const keepCompletedRef = useRef(false);
+  // Set by "✓ Completa": skip the scroll-to-results after the recompute.
+  const stayInPlaceRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -132,6 +137,27 @@ function CalculatorForm({
         window.clearTimeout(hideTimerRef.current);
       }
     };
+  }, []);
+
+  // A single "Calcola": keeps already-completed orders whenever the tracked calc
+  // has them (recompute of a saved calc), starts clean for a fresh calc (none
+  // to keep). Shared by the inline and the pinned floating button.
+  const armCalculate = () => {
+    keepCompletedRef.current = !!hasCompleted;
+  };
+
+  // Pin an icon-only copy of the action buttons while the real ones are out of
+  // view (above or below the viewport).
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const [showFloating, setShowFloating] = useState(false);
+  useEffect(() => {
+    const node = actionsRef.current;
+    if (!node) return;
+    const obs = new IntersectionObserver(([entry]) =>
+      setShowFloating(!entry.isIntersecting),
+    );
+    obs.observe(node);
+    return () => obs.disconnect();
   }, []);
 
   // Autosave a crash-safety draft as the form changes (debounced). It's restored
@@ -169,6 +195,8 @@ function CalculatorForm({
     setSubmitError(null);
     const keepCompleted = keepCompletedRef.current;
     keepCompletedRef.current = false;
+    const stayInPlace = stayInPlaceRef.current;
+    stayInPlaceRef.current = false;
     // A company's settings (schedule + buffers) are the source of truth when a
     // company link is active; otherwise fall back to the local settings.
     const schedule = calculateSchedule(values.settings, values.orders, {
@@ -233,6 +261,8 @@ function CalculatorForm({
     } catch {
       /* never block submit on storage failure */
     }
+    // "✓ Completa" recomputes in place — the user stays where they tapped.
+    if (stayInPlace) return;
     window.requestAnimationFrame(() => {
       document
         .getElementById('results')
@@ -298,7 +328,11 @@ function CalculatorForm({
       methods.setValue(field, next, { shouldDirty: true });
     }
     keepCompletedRef.current = true;
-    void methods.handleSubmit(onSubmit, onInvalid)();
+    stayInPlaceRef.current = true;
+    void methods.handleSubmit(onSubmit, (errs) => {
+      stayInPlaceRef.current = false;
+      onInvalid(errs);
+    })();
   };
 
   // Keep the registered handler pointing at the latest closure (so it uses the
@@ -316,6 +350,7 @@ function CalculatorForm({
   return (
     <FormProvider {...methods}>
       <form
+        id={FORM_ID}
         onSubmit={(e) => {
           void methods.handleSubmit(onSubmit, onInvalid)(e);
         }}
@@ -331,7 +366,10 @@ function CalculatorForm({
           editingId={editingId}
         />
 
-        <div className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+        <div
+          ref={actionsRef}
+          className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3"
+        >
           {onRestore && (
             <SavedCalculationsButton
               onRestore={onRestore}
@@ -348,12 +386,7 @@ function CalculatorForm({
           )}
           <button
             type="submit"
-            onClick={() => {
-              // A single "Calcola": keeps already-completed orders whenever the
-              // tracked calc has them (recompute of a saved calc), starts clean
-              // for a fresh calc (none to keep). Replaces the old Ricalcola.
-              keepCompletedRef.current = !!hasCompleted;
-            }}
+            onClick={armCalculate}
             className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-3 sm:w-auto sm:py-2.5"
           >
             {t('actions.calculate')} →
@@ -368,10 +401,26 @@ function CalculatorForm({
         </div>
       </form>
 
+      <FloatingActions
+        visible={showFloating}
+        formId={FORM_ID}
+        onCalculate={armCalculate}
+        onReset={onRequestReset}
+        onRestore={onRestore}
+        savedRefreshKey={savedRefreshKey}
+        onPublish={onPublish}
+        onOpenCompany={onOpenCompany}
+        onDeleteCompany={onDeleteCompany}
+      />
+      {/* Room under the page so the pinned phone bar never covers the end. */}
+      {showFloating && <div aria-hidden className="h-16 sm:hidden" />}
+
       {submitError && (
         <div
           role="alert"
-          className="no-print fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-danger px-4 py-2.5 text-sm font-medium text-white shadow-lg"
+          className={`no-print fixed left-1/2 z-50 -translate-x-1/2 rounded-md bg-danger px-4 py-2.5 text-sm font-medium text-white shadow-lg ${
+            showFloating ? 'bottom-20 sm:bottom-4' : 'bottom-4'
+          }`}
         >
           ⚠ {submitError}
         </div>
