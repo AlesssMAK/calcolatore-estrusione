@@ -996,9 +996,9 @@ function AdvancedSection({
           className={`mt-2 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
             useTotalLength ? '' : 'space-y-3'
           } ${
-            hadProducedAtMount
-              ? 'border-amber-300 ring-2 ring-amber-300'
-              : 'border-brand-100'
+            // Auto-filled "produced so far" (saved calc in production) →
+            // the amber frame pulses to catch the eye.
+            hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
           }`}
         >
           {hadProducedAtMount && (

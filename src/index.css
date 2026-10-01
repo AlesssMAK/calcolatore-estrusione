@@ -248,6 +248,30 @@ button:disabled,
     border-color: var(--color-brand-500);
   }
 }
+/* Same pulse in amber for the auto-filled ("produced so far") Calcolo
+   avanzato block of a saved calc — keeps its amber "auto-filled" meaning. */
+@keyframes amber-blink {
+  0%,
+  100% {
+    border-color: #fcd34d;
+    box-shadow: 0 0 0 2px #fcd34d;
+  }
+  50% {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 4px rgb(245 158 11 / 0.35);
+  }
+}
+.amber-blink {
+  animation: amber-blink 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .amber-blink {
+    animation: none;
+    border-color: #fcd34d;
+    box-shadow: 0 0 0 2px #fcd34d;
+  }
+}
+
 /* The produced count itself (e.g. "781" of 781 / 1000) — text pulses in brand
    red wherever it's shown (results, active-order modal, Calcolo avanzato
    inputs). An empty input has no text, so nothing visibly blinks there. */
@@ -272,6 +296,7 @@ button:disabled,
 }
 @media print {
   .active-blink,
+  .amber-blink,
   .num-blink {
     animation: none;
   }
