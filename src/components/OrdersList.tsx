@@ -256,12 +256,11 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
           <div className="space-y-3">
             {fields.map((field, idx) => {
               const rowErr = errors.orders?.[idx];
-              const isLast = idx === fields.length - 1;
               const wo = watchedOrders?.[idx];
-              // Pause after this order only (never after the last one — there
-              // is nothing to wait for).
+              // Pause after this order only. Always editable — on the last
+              // order it's simply ignored by the scheduler (nothing follows).
               const gapOn = isGapEnabled(wo, { gapMode });
-              const showGap = gapOn && !isLast;
+              const showGap = gapOn;
               const oName = wo?.productName?.trim();
               const oSizes = wo?.sizes ?? [];
               // Compact list of the order's sizes ("qty × length mm"), so a
@@ -398,29 +397,27 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
                       {t('orders.toggleTotalLength')}
                     </span>
                   </button>
-                  {!isLast && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setValue(`orders.${idx}.gapEnabled`, !gapOn, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        })
-                      }
-                      aria-pressed={gapOn}
-                      title={t('orders.togglePause')}
-                      className={
-                        gapOn
-                          ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-                          : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
-                      }
-                    >
-                      ⏸{' '}
-                      <span className="hidden sm:inline">
-                        {t('orders.togglePause')}
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setValue(`orders.${idx}.gapEnabled`, !gapOn, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                    aria-pressed={gapOn}
+                    title={t('orders.togglePause')}
+                    className={
+                      gapOn
+                        ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+                        : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+                    }
+                  >
+                    ⏸{' '}
+                    <span className="hidden sm:inline">
+                      {t('orders.togglePause')}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => remove(idx)}
@@ -629,16 +626,7 @@ function OrderFields({
         {showGap && (
           <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
             <label className={labelBase}>{t('orders.gapAfter')}</label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              className={`${inputBase} mt-1`}
-              {...register(`orders.${idx}.gapAfterMin`, {
-                setValueAs: numericSetValueAs,
-              })}
-            />
+            <PauseField idx={idx} t={t} />
             <FieldError
               message={
                 rowErr?.gapAfterMin?.message
@@ -700,6 +688,104 @@ function OrderFields({
         />
       )}
       <CollapsibleSchema schema={piramideSchema} />
+    </div>
+  );
+}
+
+// Pause slots (minutes): 30-min steps up to 12 h.
+const PAUSE_SLOTS: number[] = [];
+for (let m = 30; m <= 720; m += 30) PAUSE_SLOTS.push(m);
+const fmtPause = (min: number) => {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+};
+
+// "Pausa dopo (min)": free numeric input + a ▾ list of 30-min slots to pick.
+function PauseField({ idx, t }: { idx: number; t: TFunction }) {
+  'use no memo';
+  const { register, setValue, control } = useFormContext<FormValues>();
+  const value = useWatch({ control, name: `orders.${idx}.gapAfterMin` });
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const pick = (m: number) => {
+    setValue(`orders.${idx}.gapAfterMin`, m, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    setOpen(false);
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative mt-1 flex gap-1.5">
+      <input
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        className={inputBase}
+        {...register(`orders.${idx}.gapAfterMin`, {
+          setValueAs: numericSetValueAs,
+        })}
+      />
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={t('orders.pauseSlots')}
+        aria-label={t('orders.pauseSlots')}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-300 bg-white text-xs text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink sm:h-9 sm:w-9"
+      >
+        ▾
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute top-full right-0 left-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+        >
+          {PAUSE_SLOTS.map((m) => (
+            <li key={m}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={Number(value) === m}
+                onClick={() => pick(m)}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm ${
+                  Number(value) === m
+                    ? 'bg-brand-50 font-semibold text-brand-700'
+                    : 'text-ink'
+                }`}
+              >
+                <span>{fmtPause(m)}</span>
+                {m >= 60 && (
+                  <span className="text-[10px] text-ink-soft sm:text-xs">
+                    {m} min
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
