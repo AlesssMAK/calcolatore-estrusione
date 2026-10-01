@@ -84,11 +84,8 @@ function FloatingActions({
     <div
       className={`no-print pointer-events-none fixed z-40 flex justify-end gap-2 transition duration-200 ${
         p === 'bar'
-          ? `inset-x-0 bottom-0 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
-              visible
-                ? 'border-t border-neutral-200 bg-white/95 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] backdrop-blur'
-                : ''
-            }`
+          ? // Transparent row — just the buttons, no backing strip.
+            'inset-x-0 bottom-0 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'
           : 'right-3 bottom-4 flex-col'
       }`}
     >
