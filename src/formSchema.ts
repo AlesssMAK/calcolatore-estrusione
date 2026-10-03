@@ -28,6 +28,9 @@ const producedEntrySchema = z.object({
 // missing entry as empty (`e?.value ?? 0`), so normalise holes to empty entries
 // before validating instead of rejecting them. `Array.from` also materialises
 // sparse holes (not just explicit undefined).
+// Typed as the plain optional array: `z.preprocess` widens the *input* type to
+// `unknown`, which breaks the RHF resolver ↔ FormValues match under `tsc -b`.
+// The runtime still preprocesses; the declared types are unchanged.
 const producedArray = z
   .preprocess(
     (v) =>
@@ -36,7 +39,9 @@ const producedArray = z
         : v,
     z.array(producedEntrySchema),
   )
-  .optional();
+  .optional() as unknown as z.ZodOptional<
+  z.ZodArray<typeof producedEntrySchema>
+>;
 
 const orderSchema = z.object({
   id: z.string(),
