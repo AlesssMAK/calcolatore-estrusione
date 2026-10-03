@@ -301,3 +301,18 @@ button:disabled,
     animation: none;
   }
 }
+/* "Calcolo fisso": a static result, not tracked as in production → nothing
+   pulses (same resting look as reduced motion). */
+.calc-frozen .active-blink {
+  animation: none;
+  border-color: var(--color-brand-200);
+}
+.calc-frozen .amber-blink {
+  animation: none;
+  border-color: #fcd34d;
+  box-shadow: none;
+}
+.calc-frozen .num-blink {
+  animation: none;
+  color: var(--color-brand-700);
+}

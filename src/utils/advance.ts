@@ -74,7 +74,8 @@ function emptyResult(now: Date, base: ScheduleResult): ScheduleResult {
  * only the remaining work stays editable.
  *
  * Returns null when it can't / shouldn't advance: missing inputs or snapshot,
- * or nothing elapsed yet (calc at/in the future).
+ * nothing elapsed yet (calc at/in the future), or a "Calcolo fisso" (frozen)
+ * calc, which always reopens exactly as it was computed.
  */
 export function buildAdvancedCalc(
   entry: SavedCalculation,
@@ -82,6 +83,7 @@ export function buildAdvancedCalc(
   currentSchedule?: ScheduleSnapshot,
 ): AdvancedCalc | null {
   const { values, result } = entry;
+  if (values?.settings.frozen) return null;
   // The current effective schedule (current weekend / company schedule /
   // buffers) wins over the frozen snapshot; fall back to it when not supplied.
   const snapshot = currentSchedule ?? entry.snapshot;

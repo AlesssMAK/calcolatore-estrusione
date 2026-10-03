@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import GlobalSettingsPanel from './GlobalSettingsPanel';
@@ -123,6 +123,11 @@ function CalculatorForm({
     reValidateMode: 'onChange',
   });
 
+  // No orders left (e.g. a reopened calc whose orders are all completed) →
+  // nothing to compute: "Calcola" stays visible but inactive until one is added.
+  const orders = useWatch({ control: methods.control, name: 'orders' });
+  const noOrders = (orders?.length ?? 0) === 0;
+
   const [submitError, setSubmitError] = useState<string | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   // Which submit button was pressed: "Ricalcola" keeps completed orders in the
@@ -236,6 +241,7 @@ function CalculatorForm({
         (company
           ? catalogSettings.shutdownMinutes
           : values.settings.shutdownMinutes) ?? 0,
+      noLimits: !!values.settings.noLimits,
     };
     // Persist the computed result so the user can re-open it from the
     // "Salvati" dropdown without recalculating. Best-effort: storage errors
@@ -387,7 +393,8 @@ function CalculatorForm({
           <button
             type="submit"
             onClick={armCalculate}
-            className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-3 sm:w-auto sm:py-2.5"
+            disabled={noOrders}
+            className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-white sm:order-3 sm:w-auto sm:py-2.5"
           >
             {t('actions.calculate')} →
           </button>
@@ -405,6 +412,7 @@ function CalculatorForm({
         visible={showFloating}
         formId={FORM_ID}
         onCalculate={armCalculate}
+        calcDisabled={noOrders}
         onReset={onRequestReset}
         onRestore={onRestore}
         savedRefreshKey={savedRefreshKey}

@@ -50,6 +50,13 @@ describe('buildAdvancedCalc', () => {
     expect(buildAdvancedCalc(entry, localDate(2026, 4, 11, 6))).toBeNull();
   });
 
+  it('never advances a "Calcolo fisso" (frozen) calc', () => {
+    const entry = makeEntry();
+    entry.values!.settings.frozen = true;
+    // Hours later it still reopens exactly as computed.
+    expect(buildAdvancedCalc(entry, localDate(2026, 4, 11, 11))).toBeNull();
+  });
+
   it('splits finished orders into completedRows, keeps only active in the form', () => {
     const start = localDate(2026, 4, 11, 6); // Mon 06:00
     const values = {

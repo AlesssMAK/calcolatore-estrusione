@@ -156,9 +156,11 @@ function SavedCalculationsButton({
               {items.map((it) => {
                 // "In production" = now falls inside the computed window, so the
                 // line is (as planned) still being manufactured — a blinking dot
-                // flags it in the list.
+                // flags it in the list. A "Calcolo fisso" is a static result,
+                // never flagged.
                 const now = Date.now();
                 const inProduction =
+                  !it.values?.settings.frozen &&
                   it.result.startAt instanceof Date &&
                   it.result.endAt instanceof Date &&
                   it.result.startAt.getTime() <= now &&

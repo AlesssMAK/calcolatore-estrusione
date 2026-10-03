@@ -211,6 +211,9 @@ function weekendDayIntervals(day: WeekendDay | undefined): Array<[number, number
 interface Work {
   weekend?: WeekendWork;
   schedule?: WeekSchedule | null;
+  /** "Senza limiti orari": every day is 00:00–24:00, overriding both the
+   *  company schedule and the local weekend → continuous, no buffers/splits. */
+  allDay?: boolean;
 }
 // getDay() (0=Sun … 6=Sat) → schedule key.
 const DOW_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -219,6 +222,7 @@ const DOW_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
  *  7-day schedule (when present) drives every day; otherwise the Mon 06:00 →
  *  Sat 06:00 block plus any enabled weekend window. */
 function workingIntervals(dow: number, work?: Work): Array<[number, number]> {
+  if (work?.allDay) return [[0, MIN_PER_DAY]];
   if (work?.schedule) {
     // The company 7-day schedule drives the weekdays, but an enabled local
     // weekend shift is a per-user override of its Sat/Sun windows (e.g. "we're
@@ -920,6 +924,7 @@ export function calculateSchedule(
   const work: Work = {
     weekend: settings.weekend,
     schedule: options.schedule ?? null,
+    allDay: !!settings.noLimits,
   };
   const buf: Buffers = {
     warmup: Math.max(0, options.warmupMinutes ?? settings.warmupMinutes ?? 0),
@@ -928,7 +933,8 @@ export function calculateSchedule(
       options.shutdownMinutes ?? settings.shutdownMinutes ?? 0,
     ),
   };
-  const rawStart = resolveStartDate(settings, now);
+  // "Senza limiti orari" always counts from now (a manual start is ignored).
+  const rawStart = settings.noLimits ? now : resolveStartDate(settings, now);
 
   // A fully continuous line never stops → no warm-up/shutdown and no splitting.
   // Otherwise production runs on "productive windows" (blocks trimmed by the
@@ -1378,7 +1384,11 @@ export function progressAsOf(
   now: Date,
   snapshot: ScheduleSnapshot,
 ): ScheduleProgress {
-  const work: Work = { weekend: snapshot.weekend, schedule: snapshot.schedule };
+  const work: Work = {
+    weekend: snapshot.weekend,
+    schedule: snapshot.schedule,
+    allDay: !!snapshot.noLimits,
+  };
   const buf: Buffers = {
     warmup: Math.max(0, snapshot.warmupMinutes),
     shutdown: Math.max(0, snapshot.shutdownMinutes),
