@@ -20,6 +20,24 @@ const producedEntrySchema = z.object({
   sizeIndex: z.number().int().min(0).optional(),
 });
 
+// The produced/rate arrays are PARALLEL (indexed by position). Rendering only
+// the visible sizes' advanced blocks can leave undefined holes in the shorter
+// arrays (e.g. producedSheets filled by an advance, sheetsPerPallet not), which
+// would fail validation ("expected object, received undefined") and block a
+// recompute until every size is expanded. The calculator already treats a
+// missing entry as empty (`e?.value ?? 0`), so normalise holes to empty entries
+// before validating instead of rejecting them. `Array.from` also materialises
+// sparse holes (not just explicit undefined).
+const producedArray = z
+  .preprocess(
+    (v) =>
+      Array.isArray(v)
+        ? Array.from(v, (e) => (e == null ? { value: undefined } : e))
+        : v,
+    z.array(producedEntrySchema),
+  )
+  .optional();
+
 const orderSchema = z.object({
   id: z.string(),
   productName: z.string().optional(),
@@ -32,13 +50,13 @@ const orderSchema = z.object({
   cavity: z.number().int('integer').positive('positive').optional(),
   gapEnabled: z.boolean().optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
-  producedProfiles: z.array(producedEntrySchema).optional(),
-  producedPackages: z.array(producedEntrySchema).optional(),
-  producedSheets: z.array(producedEntrySchema).optional(),
-  sheetsPerPallet: z.array(producedEntrySchema).optional(),
-  producedPallets: z.array(producedEntrySchema).optional(),
-  producedItemLength: z.array(producedEntrySchema).optional(),
-  profilesPerPackage: z.array(producedEntrySchema).optional(),
+  producedProfiles: producedArray,
+  producedPackages: producedArray,
+  producedSheets: producedArray,
+  sheetsPerPallet: producedArray,
+  producedPallets: producedArray,
+  producedItemLength: producedArray,
+  profilesPerPackage: producedArray,
   // Opaque Piramide layout (NestingResult) carried with the order so it can show
   // its pallet-arrangement schema. Not validated — passed through as-is.
   piramideSchema: z.any().optional(),
