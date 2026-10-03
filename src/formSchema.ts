@@ -88,6 +88,8 @@ const settingsSchema = z.object({
     .optional(),
   warmupMinutes: z.number().min(0).max(1440).optional(),
   shutdownMinutes: z.number().min(0).max(1440).optional(),
+  noLimits: z.boolean().optional(),
+  frozen: z.boolean().optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

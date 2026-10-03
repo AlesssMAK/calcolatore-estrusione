@@ -53,24 +53,27 @@ function ToggleButton({
   onClick,
   icon,
   label,
+  disabled,
 }: {
   active: boolean;
   onClick: () => void;
   icon: string;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       aria-label={label}
       title={label}
-      className={
+      className={`${
         active
           ? 'flex flex-1 items-center justify-center gap-1.5 rounded-md border border-brand-600 bg-brand-600 px-2 py-2 text-base font-semibold text-white shadow-sm transition md:px-3 md:text-sm'
           : 'flex flex-1 items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2 py-2 text-base font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink md:px-3 md:text-sm'
-      }
+      } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
     >
       <span aria-hidden>{icon}</span>
       <span className="hidden whitespace-nowrap md:inline">{label}</span>
@@ -170,6 +173,8 @@ function GlobalSettingsPanel() {
   const weekend = useWatch({ control, name: 'settings.weekend' });
   const warmupMinutes = useWatch({ control, name: 'settings.warmupMinutes' });
   const shutdownMinutes = useWatch({ control, name: 'settings.shutdownMinutes' });
+  const noLimits = !!useWatch({ control, name: 'settings.noLimits' });
+  const frozen = !!useWatch({ control, name: 'settings.frozen' });
   // When the line runs continuously (no stops) buffers have no effect — disable
   // the inputs. Mirrors the scheduler's own `isContinuous` so UI and math agree.
   const continuous = isContinuous({ weekend });
@@ -198,6 +203,21 @@ function GlobalSettingsPanel() {
     setValue('settings.weekend.enabled', !weekend?.enabled, {
       shouldValidate: true,
     });
+  };
+
+  // "Senza limiti orari" always starts now → drop any manual start. The weekend
+  // pref itself is left untouched (it's a machine setting) and simply ignored.
+  const toggleNoLimits = () => {
+    const next = !noLimits;
+    setValue('settings.noLimits', next, { shouldValidate: true });
+    if (next) {
+      setValue('settings.startMode', 'now', { shouldValidate: true });
+      setValue('settings.startAt', '', { shouldValidate: true });
+    }
+  };
+
+  const toggleFrozen = () => {
+    setValue('settings.frozen', !frozen, { shouldValidate: true });
   };
 
   // Persist the weekend shift (machine setting) so it survives reloads/resets.
@@ -276,16 +296,37 @@ function GlobalSettingsPanel() {
           onClick={toggleManualStart}
           icon="🗓"
           label={t('settings.toggle.manualStart')}
+          disabled={noLimits}
         />
         <ToggleButton
-          active={!!weekend?.enabled}
+          active={!!weekend?.enabled && !noLimits}
           onClick={toggleWeekend}
           icon="📅"
           label={t('settings.toggle.weekend')}
+          disabled={noLimits}
+        />
+        <ToggleButton
+          active={noLimits}
+          onClick={toggleNoLimits}
+          icon="⏱"
+          label={t('settings.toggle.noLimits')}
+        />
+        <ToggleButton
+          active={frozen}
+          onClick={toggleFrozen}
+          icon="📌"
+          label={t('settings.toggle.frozen')}
         />
       </div>
 
-      {weekend?.enabled && (
+      {(noLimits || frozen) && (
+        <div className="mt-3 space-y-1 rounded-md border border-brand-200 bg-brand-50/50 p-3 text-xs text-ink-soft sm:mt-4">
+          {noLimits && <p>⏱ {t('settings.noLimits.hint')}</p>}
+          {frozen && <p>📌 {t('settings.frozen.hint')}</p>}
+        </div>
+      )}
+
+      {weekend?.enabled && !noLimits && (
         <div className="mt-3 rounded-md border border-brand-200 bg-brand-50/50 p-3 sm:mt-4">
           <div className="space-y-2">
             <WeekendDayRow

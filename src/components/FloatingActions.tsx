@@ -16,6 +16,8 @@ interface Props {
   /** id of the <form> the pinned "Calcola" submits (it's portalled out of it). */
   formId: string;
   onCalculate: () => void;
+  /** Mirrors the form's "Calcola": inactive when there's nothing to compute. */
+  calcDisabled?: boolean;
   onReset: () => void;
   onRestore?: (entry: SavedCalculation) => void;
   savedRefreshKey?: number;
@@ -34,6 +36,7 @@ function FloatingActions({
   visible,
   formId,
   onCalculate,
+  calcDisabled,
   onReset,
   onRestore,
   savedRefreshKey,
@@ -106,9 +109,10 @@ function FloatingActions({
           type="submit"
           form={formId}
           onClick={onCalculate}
+          disabled={calcDisabled}
           title={t('actions.calculate')}
           aria-label={t('actions.calculate')}
-          className={floatBtnCls(true)}
+          className={`${floatBtnCls(true)} disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-300`}
         >
           <CalcIcon />
         </button>

@@ -167,7 +167,9 @@ function CompanyResultsButton({
             <ul className="my-1 flex flex-col gap-0.5">
               {items.map((c) => {
                 const now = Date.now();
+                // A "Calcolo fisso" is a static result → never flagged.
                 const inProduction =
+                  !c.payload.values?.settings.frozen &&
                   c.payload.result?.startAt instanceof Date &&
                   c.payload.result?.endAt instanceof Date &&
                   c.payload.result.startAt.getTime() <= now &&

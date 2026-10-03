@@ -26,7 +26,17 @@
     "toggle": {
       "manualStart": "Set Time",
       "productName": "Calculation Name",
-      "weekend": "Line Schedule"
+      "weekend": "Line Schedule",
+      "noLimits": "No Time Limits",
+      "frozen": "Fixed Calculation"
+    },
+    "noLimits": {
+      "active": "No time limits — continuous 24/7 calculation from now",
+      "hint": "Continuous 24/7 calculation from now to the end: company hours, weekends and buffers are ignored."
+    },
+    "frozen": {
+      "active": "Fixed calculation — elapsed time is not subtracted",
+      "hint": "The result stays as it is: reopening it later doesn't subtract the elapsed time."
     },
     "productName": "Calculation Name",
     "productNamePlaceholder": {

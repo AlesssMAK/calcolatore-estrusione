@@ -1450,3 +1450,68 @@ describe('productionMinutesBetween & progressAsOf (advance to now)', () => {
     expect(prog.orders[0]!.done).toBe(false);
   });
 });
+
+describe('calculateSchedule — "Senza limiti orari" (noLimits)', () => {
+  const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m, d, h, min, 0, 0);
+  const friEvening = localDate(2026, 4, 15, 20); // Fri 20:00 (2026-05-11 = Mon)
+  const order: Order = { id: 'a', sheets: 1440, sheetLengthMm: 1000, speedMPerMin: 1 }; // 24 h
+  const off: WeekendDay = { enabled: false, full24: false, start: 6, end: 14 };
+  const monOnly: WeekSchedule = {
+    mon: { enabled: true, full24: false, start: 8, end: 12 },
+    tue: off,
+    wed: off,
+    thu: off,
+    fri: off,
+    sat: off,
+    sun: off,
+  };
+
+  it('runs 24/7 from now: no weekend stop, buffers, splits or company hours', () => {
+    const settings: GlobalSettings = {
+      startMode: 'now',
+      gapMode: 'continuous',
+      noLimits: true,
+      warmupMinutes: 240,
+      shutdownMinutes: 60,
+    };
+    const r = calculateSchedule(settings, [order], {
+      now: friEvening,
+      schedule: monOnly,
+      warmupMinutes: 240,
+      shutdownMinutes: 60,
+    });
+    expect(r.startAt.getTime()).toBe(friEvening.getTime());
+    // Straight through the weekend: Fri 20:00 + 24 h = Sat 20:00, in one piece.
+    expect(r.rows[0]!.end.getTime()).toBe(localDate(2026, 4, 16, 20).getTime());
+    expect(r.rows[0]!.segments?.length ?? 1).toBe(1);
+  });
+
+  it('ignores a manual start and counts from now', () => {
+    const settings: GlobalSettings = {
+      startMode: 'manual',
+      startAt: localDate(2026, 4, 20, 9).toISOString(),
+      gapMode: 'continuous',
+      noLimits: true,
+    };
+    const r = calculateSchedule(settings, [order], { now: friEvening });
+    expect(r.startAt.getTime()).toBe(friEvening.getTime());
+  });
+
+  it('progressAsOf advances wall-clock time when the snapshot is noLimits', () => {
+    const total: Order = { id: 't', useTotalLength: true, totalLengthM: 4000, speedMPerMin: 1 };
+    const settings: GlobalSettings = { startMode: 'now', gapMode: 'continuous', noLimits: true };
+    const result = calculateSchedule(settings, [total], { now: friEvening });
+    const sunEvening = localDate(2026, 4, 17, 20); // +48 h
+    const base: ScheduleSnapshot = { warmupMinutes: 0, shutdownMinutes: 0, schedule: null };
+    // 24/7: all 48 h count.
+    expect(
+      progressAsOf(result, sunEvening, { ...base, noLimits: true }).orders[0]!
+        .producedLengthM,
+    ).toBeCloseTo(2880, 5);
+    // Default line (Mon 06:00 → Sat 06:00): only Fri 20:00 → Sat 06:00 counts.
+    expect(
+      progressAsOf(result, sunEvening, base).orders[0]!.producedLengthM,
+    ).toBeCloseTo(600, 5);
+  });
+});

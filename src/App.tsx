@@ -169,6 +169,9 @@ function CalculatorApp() {
     orderIdx: number;
     sizeIdx: number;
   } | null>(null);
+  // The displayed result is a "Calcolo fisso": a static result, not tracked as
+  // in production → no active modal / collapse, and the blinking is off.
+  const [viewFrozen, setViewFrozen] = useState(false);
   // Transient notice for company-publish feedback (e.g. limit reached).
   const [companyNotice, setCompanyNotice] = useState<string | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
@@ -210,6 +213,7 @@ function CalculatorApp() {
     setSyncMeta(null);
     setActiveModal(null);
     setActiveLoc(null);
+    setViewFrozen(false);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -224,6 +228,7 @@ function CalculatorApp() {
     setSyncMeta(null);
     setActiveModal(null);
     setActiveLoc(null);
+    setViewFrozen(false);
     clearRestored();
     setFormKey((k) => k + 1);
   };
@@ -265,12 +270,16 @@ function CalculatorApp() {
   ) => {
     clearRestored();
     setActiveModal(null);
+    const frozen = !!values.settings.frozen;
+    setViewFrozen(frozen);
     // While tracking a saved calc, move the collapse to the new active order /
     // size (e.g. after "✓ Completa" the done size folds and the next one opens).
-    // `r` holds only the still-active orders → indices match the form.
-    const nextActive = fromSaved
-      ? computeActive(r, i18n.resolvedLanguage ?? 'it')
-      : null;
+    // `r` holds only the still-active orders → indices match the form. A fixed
+    // calc isn't tracked → no collapse.
+    const nextActive =
+      fromSaved && !frozen
+        ? computeActive(r, i18n.resolvedLanguage ?? 'it')
+        : null;
     setActiveLoc(
       nextActive
         ? { orderIdx: nextActive.orderIdx, sizeIdx: nextActive.sizeIdx }
@@ -359,6 +368,8 @@ function CalculatorApp() {
             : entry.values?.settings.shutdownMinutes) ??
           entry.snapshot?.shutdownMinutes ??
           0,
+        // Computed 24/7 ("Senza limiti orari") → keep advancing it 24/7.
+        noLimits: !!entry.values?.settings.noLimits,
       };
       adv = buildAdvancedCalc(entry, new Date(), currentSchedule);
       setRestoreAdvanceError(null);
@@ -385,7 +396,14 @@ function CalculatorApp() {
       setCompletedRows([]);
     }
     const displayed = adv ? adv.result : entry.result;
-    const active = computeActive(displayed, i18n.resolvedLanguage ?? 'it');
+    // A fixed calc ("Calcolo fisso") reopens as a plain static result: never
+    // advanced (buildAdvancedCalc returns null), no active order → no modal,
+    // no collapse, no blinking.
+    const frozen = !!entry.values?.settings.frozen;
+    setViewFrozen(frozen);
+    const active = frozen
+      ? null
+      : computeActive(displayed, i18n.resolvedLanguage ?? 'it');
     setActiveLoc(
       active ? { orderIdx: active.orderIdx, sizeIdx: active.sizeIdx } : null,
     );
@@ -774,7 +792,11 @@ function CalculatorApp() {
     <div className="min-h-full bg-surface-alt">
       <Header />
 
-      <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-8">
+      <main
+        className={`mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-8 ${
+          viewFrozen ? 'calc-frozen' : ''
+        }`}
+      >
         <Tabs
           value={mode}
           onChange={onModeChange}

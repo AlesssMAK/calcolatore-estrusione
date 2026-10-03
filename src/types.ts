@@ -95,6 +95,12 @@ export interface GlobalSettings {
   /** Minutes reserved before the end of each working block for shutdown.
    *  Undefined → 0. */
   shutdownMinutes?: number;
+  /** "Senza limiti orari": ignore every time restriction (company schedule,
+   *  local weekend, buffers) — the line runs 24/7 starting now. Per calc. */
+  noLimits?: boolean;
+  /** "Calcolo fisso": a plain static result — reopening it never subtracts the
+   *  elapsed time (no advance) and it isn't tracked as in production. Per calc. */
+  frozen?: boolean;
 }
 
 /** A single continuous production window (used when an order is split across
@@ -119,6 +125,8 @@ export interface ScheduleSnapshot {
   schedule?: WeekSchedule | null;
   warmupMinutes: number;
   shutdownMinutes: number;
+  /** Computed with "Senza limiti orari" → advance it on a 24/7 line too. */
+  noLimits?: boolean;
 }
 
 /** Per-order production progress as of a given instant — used to auto-advance

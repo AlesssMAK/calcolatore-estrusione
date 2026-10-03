@@ -26,7 +26,17 @@
     "toggle": {
       "manualStart": "Imposta Orario",
       "productName": "Nome Calcolo",
-      "weekend": "Orario Linea"
+      "weekend": "Orario Linea",
+      "noLimits": "Senza Limiti Orari",
+      "frozen": "Calcolo Fisso"
+    },
+    "noLimits": {
+      "active": "Senza limiti orari — calcolo continuo 24/7 da adesso",
+      "hint": "Calcolo continuo 24/7 da adesso fino alla fine: orari dell'azienda, weekend e buffer vengono ignorati."
+    },
+    "frozen": {
+      "active": "Calcolo fisso — il tempo trascorso non viene sottratto",
+      "hint": "Il risultato resta com'è: riaprendolo più tardi non sottrae il tempo trascorso."
     },
     "productName": "Nome del Calcolo",
     "productNamePlaceholder": {
