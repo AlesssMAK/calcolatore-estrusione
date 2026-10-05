@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { addWorkingMinutes } from '../utils/calculator';
+import { advanceAlongWindows } from '../utils/calculator';
 import { formatDuration, formatShortDateTime } from '../utils/format';
 
 interface Props {
@@ -18,6 +18,10 @@ interface Props {
   producedMinutes: number;
   /** 'bancale' | 'pacco' — picks the i18n key prefix. */
   kind: 'pallet' | 'package';
+  /** The order's productive windows (result `segments`, present when it was
+   *  split by stops). Ready-times walk them, so weekends / company hours /
+   *  buffers / 24-7 match the schedule. Absent → one uninterrupted window. */
+  windows?: ReadonlyArray<{ start: Date; end: Date }>;
 }
 
 const INITIAL_PAGE_SIZE = 20;
@@ -26,8 +30,8 @@ const PAGE_STEP = 20;
 /**
  * Compact "time per unit" pill + a collapsible timeline:
  *   - small input "Bancale №" to jump to any unit instantly
- *   - first N units listed with start times (computed via addWorkingMinutes,
- *     so weekend gaps are accounted for)
+ *   - first N units listed with ready times (walked along the order's real
+ *     productive windows, so every stop the schedule made is accounted for)
  *   - "Mostra altri X" to extend in steps; "Mostra tutti" if 100+ left
  *
  * Used both at the row level (single-size order) and inside per-size
@@ -40,6 +44,7 @@ function UnitsTimeline({
   totalUnits,
   producedMinutes,
   kind,
+  windows,
 }: Props) {
   'use no memo';
   const { t, i18n } = useTranslation();
@@ -64,14 +69,15 @@ function UnitsTimeline({
   const visibleCount = Math.min(pageSize, remainingUnits);
 
   // Ready-time of unit N (when it's finished). Already-produced pieces shift
-  // it earlier; the last unit is partial, so it's pinned to the order's end
-  // (exact even across weekend gaps / buffers).
+  // it earlier; the last unit is partial, so it's pinned to the order's end.
+  // Production minutes are walked along the real windows → exact across stops.
   const readyTimeFor = (unitNumber: number): Date =>
     unitNumber >= totalUnits
       ? end
-      : addWorkingMinutes(
+      : advanceAlongWindows(
           start,
           Math.max(0, unitNumber - producedUnits) * timePerUnitMin,
+          windows,
         );
 
   const visible = useMemo(
@@ -81,7 +87,7 @@ function UnitsTimeline({
         return { n, at: readyTimeFor(n) };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [start, end, timePerUnitMin, producedUnits, firstUnit, visibleCount],
+    [start, end, timePerUnitMin, producedUnits, firstUnit, visibleCount, windows],
   );
 
   // Numeric input handler: clamp to [1, totalUnits], live preview.

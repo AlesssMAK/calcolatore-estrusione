@@ -528,6 +528,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                                   sd.productionMinutes - sd.remainingMinutes
                                 }
                                 mode={mode}
+                                windows={row.segments}
                                 t={t}
                               />
                             )}
@@ -554,6 +555,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                         row.productionMinutes - row.remainingMinutes
                       }
                       mode={mode}
+                      windows={row.segments}
                       t={t}
                     />
                   )}
@@ -848,6 +850,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                                         sd.remainingMinutes
                                       }
                                       mode={mode}
+                                      windows={row.segments}
                                       t={t}
                                     />
                                   </td>
@@ -887,6 +890,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                                 row.productionMinutes - row.remainingMinutes
                               }
                               mode={mode}
+                              windows={row.segments}
                               t={t}
                             />
                           </td>
@@ -1153,6 +1157,7 @@ function PerUnitBlock({
   totalUnits,
   producedMinutes,
   mode,
+  windows,
   t,
 }: {
   start: Date;
@@ -1161,6 +1166,8 @@ function PerUnitBlock({
   totalUnits: number;
   producedMinutes: number;
   mode: CalculatorMode;
+  /** The order's productive windows (row.segments) — see UnitsTimeline. */
+  windows?: ReadonlyArray<{ start: Date; end: Date }>;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
   const kind: 'pallet' | 'package' = mode === 'profiles' ? 'package' : 'pallet';
@@ -1186,6 +1193,7 @@ function PerUnitBlock({
         totalUnits={totalUnits}
         producedMinutes={producedMinutes}
         kind={kind}
+        windows={windows}
       />
     </div>
   );
