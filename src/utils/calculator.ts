@@ -290,7 +290,33 @@ function lastWorkingInstant(d: Date, work?: Work): Date {
   return cursor;
 }
 
-export function addWorkingMinutes(
+/** The instant reached after `minutes` of production from `from`, walking an
+ *  order's real productive windows (its result `segments`) — so stops (weekends,
+ *  company hours, buffers) are skipped exactly as the schedule did, whatever it
+ *  was (incl. 24/7). No windows → the run was one uninterrupted window → plain
+ *  wall-clock. Past the last window it clamps to that window's end. */
+export function advanceAlongWindows(
+  from: Date,
+  minutes: number,
+  windows?: ReadonlyArray<{ start: Date; end: Date }>,
+): Date {
+  if (!windows || windows.length === 0) {
+    return new Date(from.getTime() + Math.max(0, minutes) * 60_000);
+  }
+  let remaining = Math.max(0, minutes);
+  let last = from;
+  for (const w of windows) {
+    if (w.end.getTime() <= from.getTime()) continue;
+    const s = Math.max(w.start.getTime(), from.getTime());
+    const avail = (w.end.getTime() - s) / 60_000;
+    if (remaining <= avail) return new Date(s + remaining * 60_000);
+    remaining -= avail;
+    last = w.end;
+  }
+  return new Date(last);
+}
+
+function addWorkingMinutes(
   start: Date,
   minutes: number,
   work?: Work,

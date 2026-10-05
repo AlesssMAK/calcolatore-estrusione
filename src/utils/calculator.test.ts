@@ -8,6 +8,7 @@ import {
   productionMinutesBetween,
   progressAsOf,
   splitDuration,
+  advanceAlongWindows,
 } from './calculator';
 import type {
   GlobalSettings,
@@ -1513,5 +1514,49 @@ describe('calculateSchedule — "Senza limiti orari" (noLimits)', () => {
     expect(
       progressAsOf(result, sunEvening, base).orders[0]!.producedLengthM,
     ).toBeCloseTo(600, 5);
+  });
+});
+
+describe('advanceAlongWindows — unit ready-times on the real windows', () => {
+  const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
+    new Date(y, m, d, h, min, 0, 0);
+  const friEvening = localDate(2026, 4, 15, 20); // Fri 20:00 (2026-05-11 = Mon)
+  const order: Order = { id: 'a', sheets: 1440, sheetLengthMm: 1000, speedMPerMin: 1 }; // 24 h
+
+  it('no windows → plain wall-clock (one uninterrupted run)', () => {
+    expect(advanceAlongWindows(friEvening, 90).getTime()).toBe(
+      localDate(2026, 4, 15, 21, 30).getTime(),
+    );
+  });
+
+  it('skips the weekend stop exactly like the schedule did', () => {
+    // Default line (Mon 06:00 → Sat 06:00), no buffers: Fri 20:00 → Sat 06:00
+    // (600 min), then Mon 06:00 → Mon 20:00 (840 min) → 2 windows.
+    const settings: GlobalSettings = {
+      startMode: 'manual',
+      startAt: friEvening.toISOString(),
+      gapMode: 'continuous',
+      warmupMinutes: 0,
+      shutdownMinutes: 0,
+    };
+    const row = calculateSchedule(settings, [order], { now: friEvening }).rows[0]!;
+    expect(row.segments?.length).toBe(2);
+    // 700 production minutes = 600 before the stop + 100 after Mon 06:00.
+    expect(advanceAlongWindows(row.start, 700, row.segments).getTime()).toBe(
+      localDate(2026, 4, 18, 7, 40).getTime(),
+    );
+    // Overshoot clamps to the end of the last window (= the order's Fine).
+    expect(advanceAlongWindows(row.start, 99_999, row.segments).getTime()).toBe(
+      row.end.getTime(),
+    );
+  });
+
+  it('runs straight through the weekend with "Senza limiti orari"', () => {
+    const settings: GlobalSettings = { startMode: 'now', gapMode: 'continuous', noLimits: true };
+    const row = calculateSchedule(settings, [order], { now: friEvening }).rows[0]!;
+    expect(row.segments).toBeUndefined(); // one window
+    expect(advanceAlongWindows(row.start, 700, row.segments).getTime()).toBe(
+      localDate(2026, 4, 16, 7, 40).getTime(),
+    );
   });
 });
