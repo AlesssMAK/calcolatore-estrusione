@@ -301,6 +301,19 @@ button:disabled,
     animation: none;
   }
 }
+/* Read-only view (a company calc published "view only", opened on a device
+   that can't edit it): every modification control is removed — only buttons
+   marked `data-view` (expand order / size, Calcolo Avanzato) stay — and the
+   inputs can't be changed. */
+.calc-readonly button:not([data-view]) {
+  display: none !important;
+}
+.calc-readonly input,
+.calc-readonly select,
+.calc-readonly textarea {
+  pointer-events: none;
+}
+
 /* "Calcolo fisso": a static result, not tracked as in production → nothing
    pulses (same resting look as reduced motion). */
 .calc-frozen .active-blink {

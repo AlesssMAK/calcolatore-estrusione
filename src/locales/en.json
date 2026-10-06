@@ -237,7 +237,9 @@
     "editable": "Editable",
     "limitReached": "Limit reached ({{max}})",
     "broadcasting": "Shared with the company",
-    "readOnlyBanner": "Company calculation, view only: changes stay on this device only.",
+    "readOnlyBanner": "Company calculation, view only. To edit it, add it to Saved.",
+    "addToSaved": "Add to Saved",
+    "addedToSaved": "Added to Saved: «{{label}}» — you can edit it now.",
     "readOnlySaved": "View only: changes saved on this device only.",
     "localCopySuffix": "(local copy)",
     "localCopyKept": "Your changes are in Saved: «{{label}}»."

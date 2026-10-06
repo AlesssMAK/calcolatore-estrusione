@@ -237,7 +237,9 @@
     "editable": "Modificabile",
     "limitReached": "Limite raggiunto ({{max}})",
     "broadcasting": "Condiviso con l'azienda",
-    "readOnlyBanner": "Calcolo dell'azienda in sola lettura: le modifiche restano solo su questo dispositivo.",
+    "readOnlyBanner": "Calcolo dell'azienda in sola lettura. Per modificarlo, aggiungilo ai Salvati.",
+    "addToSaved": "Aggiungi ai Salvati",
+    "addedToSaved": "Aggiunto ai Salvati: «{{label}}» — ora puoi modificarlo.",
     "readOnlySaved": "Sola lettura: modifiche salvate solo su questo dispositivo.",
     "localCopySuffix": "(copia locale)",
     "localCopyKept": "Le tue modifiche sono in Salvati: «{{label}}»."

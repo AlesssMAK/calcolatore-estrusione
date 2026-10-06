@@ -318,6 +318,8 @@ function OrdersList({
                           onClick={() =>
                             setExpandedOrders((s) => new Set(s).add(field.id))
                           }
+                          // Viewing control — kept in the read-only view.
+                          data-view
                           title={t('orders.expandOrder')}
                           className="flex w-full flex-col items-start gap-1 text-left"
                         >
@@ -595,13 +597,12 @@ function OrderFields({
         )}
 
         {showInlinePerPackage && (
-          // Collapsed to a 📦 button on every order (the first one too); the
-          // first has nothing to inherit from, so no "(eredita)" hint there.
+          // Collapsed to a 📦 button on every order. Per-pacco is per order —
+          // it never inherits from the previous order, so no "(eredita)" hint.
           <CollapsibleInheritField
             fieldPath={`orders.${idx}.sizes.0.profilesPerPackage`}
             icon="📦"
             label={t('orders.profilesPerPackage')}
-            inheritLabel={isFirst ? undefined : t('orders.optionalInherit')}
             inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
             errorMessage={
               rowErr?.sizes?.[0]?.profilesPerPackage?.message
@@ -810,7 +811,7 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
 // Speed uses it only for idx > 0 (the first order's speed is required) so that
 // creating a new order doesn't auto-focus it — mobile users were getting
 // trapped editing speed on each new order. Per-pacco / cavity use it on every
-// order.
+// order, and per-pacco also in multi-size rows (`compact`).
 function CollapsibleInheritField({
   fieldPath,
   icon,
@@ -818,10 +819,13 @@ function CollapsibleInheritField({
   inheritLabel,
   inputProps,
   errorMessage,
+  placeholder,
+  compact,
+  expandedClassName = 'min-w-0 flex-1 basis-0 sm:min-w-[140px]',
 }: {
   fieldPath:
     | `orders.${number}.speedMPerMin`
-    | `orders.${number}.sizes.0.profilesPerPackage`
+    | `orders.${number}.sizes.${number}.profilesPerPackage`
     | `orders.${number}.cavity`;
   icon: string;
   label: string;
@@ -835,6 +839,13 @@ function CollapsibleInheritField({
     inputMode: 'decimal' | 'numeric';
   };
   errorMessage?: string;
+  /** Greyed value shown in the empty input — the one it would inherit, so it
+   *  can be seen and overridden. */
+  placeholder?: string;
+  /** Size-row variant: the row's button/input sizes (h-8 phone / h-9 sm+). */
+  compact?: boolean;
+  /** Wrapper classes of the expanded field (grid/flex placement). */
+  expandedClassName?: string;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -843,7 +854,9 @@ function CollapsibleInheritField({
   const [open, setOpen] = useState(false);
   const showInput = open || hasValue;
 
-  const titleText = inheritLabel ? `${label} (${inheritLabel})` : label;
+  const titleText = inheritLabel
+    ? `${label} (${inheritLabel}${placeholder ? `: ${placeholder}` : ''})`
+    : label;
 
   if (!showInput) {
     return (
@@ -852,7 +865,9 @@ function CollapsibleInheritField({
         onClick={() => setOpen(true)}
         title={titleText}
         aria-label={titleText}
-        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+        className={`flex shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 ${
+          compact ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-9 w-9'
+        }`}
       >
         {/* leading-none + block strip the emoji line-height so it sits dead
             centre instead of riding the text baseline. */}
@@ -865,7 +880,7 @@ function CollapsibleInheritField({
 
   const reg = register(fieldPath, { setValueAs: numericSetValueAs });
   return (
-    <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+    <div className={expandedClassName}>
       <label className={labelBase}>
         {label}
         {inheritLabel && (
@@ -880,7 +895,8 @@ function CollapsibleInheritField({
         step={inputProps.step}
         inputMode={inputProps.inputMode}
         autoFocus={open && !hasValue}
-        className={`${inputBase} mt-1`}
+        placeholder={placeholder}
+        className={`${compact ? sizeInputBase : inputBase} mt-1`}
         {...reg}
         onBlur={(e) => {
           // RHF blur first (validation, dirty/touched flags), then collapse
@@ -1031,12 +1047,24 @@ function AdvancedSection({
   // Total-meters orders are a single production step (no size blocks).
   const orderActions = useTotalLength ? sizeActions(0, 1) : undefined;
 
+  // Lastre per bancale per size: own (first filled entry of the size), else
+  // the previous size's of this order (never across orders) — shown greyed in
+  // an empty rate field so the inherited value can be seen and overridden.
+  const ratePerSize: (number | undefined)[] = [];
+  (watchedSizes ?? []).forEach((_, i) => {
+    const own = (watchedPerPallet ?? []).find(
+      (e, p) => (e?.sizeIndex ?? p) === i && (e?.value ?? 0) > 0,
+    )?.value;
+    ratePerSize[i] = own ?? ratePerSize[i - 1];
+  });
+
   return (
     <div className="pt-2">
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
         aria-expanded={expanded}
+        data-view
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
       >
         {expanded ? '▾' : '▸'} {t('orders.advancedToggle')}
@@ -1121,6 +1149,7 @@ function AdvancedSection({
                   sizeIdx={sIdx}
                   totalSizes={watchedSizes?.length ?? 1}
                   actions={sizeActions(sIdx, watchedSizes?.length ?? 1)}
+                  inheritedRate={ratePerSize[sIdx]}
                   countDisabled={sheetsBlockedByPalletPath}
                   rateDisabled={false}
                   totalDisabled={
@@ -1245,6 +1274,9 @@ function OrderNameField({
         type="button"
         onClick={() => setOpen(o => !o)}
         title={t('orders.productName')}
+        // The "#N" badge stays in the read-only view (the name input itself
+        // can't be edited there).
+        data-view
         className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm"
       >
         #{idx + 1}
@@ -1457,10 +1489,14 @@ function SizeAdvancedBlockListi({
   totalLabel,
   t,
   actions,
+  inheritedRate,
 }: {
   orderIdx: number;
   sizeIdx: number;
   totalSizes: number;
+  /** The lastre-per-bancale in force for this size (its own, else inherited
+   *  from the previous size of the order) — shown greyed in empty rate fields. */
+  inheritedRate?: number;
   countDisabled: boolean;
   rateDisabled: boolean;
   totalDisabled: boolean;
@@ -1585,6 +1621,9 @@ function SizeAdvancedBlockListi({
                   step="1"
                   inputMode="numeric"
                   disabled={rateDisabled}
+                  placeholder={
+                    inheritedRate ? String(inheritedRate) : undefined
+                  }
                   className={`${sizeBlockInputCls} ${rateDisabled ? 'opacity-40 pointer-events-none' : ''}`}
                   {...register(
                     `orders.${orderIdx}.sheetsPerPallet.${arrayPos}.value`,
@@ -2224,6 +2263,15 @@ function SizesFieldArray({
           ...sizeFields.flatMap((f, i) => (expandedSizes.has(f.id) ? [i] : [])),
         ]);
 
+  // Profili per pacco per size: its own value, else the previous size's of this
+  // order (never across orders) — what an empty size inherits; shown greyed in
+  // its field so it can be seen and overridden.
+  const effPerPacco: (number | undefined)[] = [];
+  (watchedSizes ?? []).forEach((s, i) => {
+    const own = Number(s?.profilesPerPackage);
+    effPerPacco[i] = own > 0 ? own : effPerPacco[i - 1];
+  });
+
   // A size is "done" once its produced total reaches its quantity. Marking a
   // size complete (✓) fills it, so it becomes done → we float done sizes to the
   // top of the list (display-only: the underlying array & sizeIndex-tagged
@@ -2267,11 +2315,12 @@ function SizesFieldArray({
               const showPerPackage = isProfiles && sizeFields.length > 1;
               const canReorder = sizeFields.length > 1;
               // Per-size actions (✓ / ⏭ / ⏹) live in the size's Calcolo
-              // Avanzato block — the row keeps just − / +. Profiles on phones:
-              // qty | length | − | + on one row, the per-pacco field below
-              // (order-last); on sm+ everything sits on one row.
+              // Avanzato block — the row keeps just − / +. Profiles: the
+              // per-pacco field is a 📦 button in a fixed narrow column (rows
+              // stay aligned); expanded, it drops to its own line below the row
+              // (order-last), and − / + keep their columns (col-start-4).
               const gridCols = showPerPackage
-                ? 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
+                ? 'grid-cols-[1fr_1fr_2rem_auto_auto] sm:grid-cols-[1fr_1fr_2.25rem_auto_auto]'
                 : 'grid-cols-[1fr_1fr_auto_auto]';
               // Collapse non-active sizes (saved view) to a summary line.
               const sizeCollapsed =
@@ -2296,6 +2345,7 @@ function SizesFieldArray({
                               new Set(s).add(sizeField.id),
                             )
                           }
+                          data-view
                           title={t('orders.expandOrder')}
                           className="flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
                         >
@@ -2383,43 +2433,36 @@ function SizesFieldArray({
               </div>
 
               {showPerPackage && (
-                <div className="order-last col-span-4 min-w-0 sm:order-none sm:col-span-1">
-                  <label className={labelBase}>
-                    {t('orders.profilesPerPackage')}
-                    {sIdx > 0 && (
-                      <span className="ml-1 normal-case text-ink-soft">
-                        ({t('orders.optionalInherit')})
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputMode="numeric"
-                    className={`${sizeInputBase} mt-1`}
-                    {...register(
-                      `orders.${orderIdx}.sizes.${sIdx}.profilesPerPackage`,
-                      { setValueAs: numericSetValueAs },
-                    )}
-                  />
-                  <FieldError
-                    message={
-                      sizeErr?.profilesPerPackage?.message
-                        ? t(
-                            `validation.${sizeErr.profilesPerPackage.message}`,
-                          )
-                        : undefined
-                    }
-                  />
-                </div>
+                <CollapsibleInheritField
+                  fieldPath={`orders.${orderIdx}.sizes.${sIdx}.profilesPerPackage`}
+                  icon="📦"
+                  label={t('orders.profilesPerPackage')}
+                  inheritLabel={
+                    sIdx > 0 ? t('orders.optionalInherit') : undefined
+                  }
+                  placeholder={
+                    sIdx > 0 && effPerPacco[sIdx - 1]
+                      ? String(effPerPacco[sIdx - 1])
+                      : undefined
+                  }
+                  compact
+                  expandedClassName="order-last col-span-5 min-w-0 sm:max-w-xs"
+                  inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
+                  errorMessage={
+                    sizeErr?.profilesPerPackage?.message
+                      ? t(`validation.${sizeErr.profilesPerPackage.message}`)
+                      : undefined
+                  }
+                />
               )}
 
               <button
                 type="button"
                 onClick={() => removeSize(sIdx)}
                 disabled={sizeFields.length <= 1}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9"
+                className={`flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9 ${
+                  showPerPackage ? 'col-start-4' : ''
+                }`}
                 aria-label={t('orders.removeSize')}
                 title={t('orders.removeSize')}
               >
