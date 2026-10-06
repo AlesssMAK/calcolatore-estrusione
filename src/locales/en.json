@@ -108,6 +108,7 @@
     "completeOrder": "Complete Order",
     "completeSize": "Complete Size",
     "prioritize": "Skip the Queue: produce right after the size in progress",
+    "stopActive": "Stop Production",
     "reorder": "Drag to reorder"
   },
   "actions": {
@@ -133,6 +134,11 @@
     "trackingOff": "Fixed calculation — tap to sync the production from now",
     "delete": "Delete",
     "hint": "Calculations are auto-saved when you press «Calculate». Kept for 7 days."
+  },
+  "stop": {
+    "title": "What's in production now?",
+    "hint": "{{size}} stops and resumes right after the size you pick. What's produced so far stays as it is — correct it in Advanced if needed.",
+    "empty": "No other size to produce."
   },
   "queue": {
     "title": "Production order",

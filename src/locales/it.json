@@ -108,6 +108,7 @@
     "completeOrder": "Completa Ordine",
     "completeSize": "Completa Misura",
     "prioritize": "Senza Coda: produci dopo la misura in corso",
+    "stopActive": "Ferma Produzione",
     "reorder": "Trascina per spostare"
   },
   "actions": {
@@ -133,6 +134,11 @@
     "trackingOff": "Calcolo fisso — tocca per sincronizzare la produzione da adesso",
     "delete": "Elimina",
     "hint": "I calcoli vengono salvati automaticamente quando premi «Calcola». Conservati per 7 giorni."
+  },
+  "stop": {
+    "title": "Cosa è in produzione adesso?",
+    "hint": "{{size}} si ferma e riprende subito dopo la misura scelta. Il prodotto finora resta com'è: correggilo in Calcolo Avanzato se serve.",
+    "empty": "Nessun'altra misura da produrre."
   },
   "queue": {
     "title": "Ordine di produzione",

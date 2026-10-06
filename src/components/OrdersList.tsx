@@ -67,6 +67,8 @@ interface Props {
   onComplete?: (orderId: string, sizeIdx?: number) => void;
   /** ⏭ per size: produce it next, out of the queue (custom production order). */
   onPrioritize?: (orderIdx: number, sizeIdx: number) => void;
+  /** ⏹ in the active size's Calcolo Avanzato: stop it, pick what really runs. */
+  onStopActive?: () => void;
   /** The order+size in production (saved calc). When set, orders other than the
    *  active one collapse to a summary card (click to expand). Null → no collapse. */
   activeLoc?: { orderIdx: number; sizeIdx: number } | null;
@@ -79,6 +81,7 @@ function OrdersList({
   mode,
   onComplete,
   onPrioritize,
+  onStopActive,
   activeLoc,
   editingId,
 }: Props) {
@@ -460,6 +463,11 @@ function OrdersList({
                             ? (sizeIdx) => onPrioritize(idx, sizeIdx)
                             : undefined
                         }
+                        onStopActive={
+                          activeLoc && idx === activeLoc.orderIdx
+                            ? onStopActive
+                            : undefined
+                        }
                         activeSizeIdx={
                           activeLoc && idx === activeLoc.orderIdx
                             ? activeLoc.sizeIdx
@@ -503,6 +511,8 @@ interface FieldsProps {
   onCompleteSize?: (sizeIdx: number) => void;
   /** ⏭ produce this size next, out of the queue (bound to this order). */
   onPrioritizeSize?: (sizeIdx: number) => void;
+  /** ⏹ stop the size in production (set only on the active order). */
+  onStopActive?: () => void;
   /** For the active order (saved view): the size in production — the others
    *  collapse to a summary and only this one's advanced block is shown. */
   activeSizeIdx?: number | null;
@@ -518,6 +528,7 @@ function OrderFields({
   t,
   onCompleteSize,
   onPrioritizeSize,
+  onStopActive,
   activeSizeIdx,
   editingId,
 }: FieldsProps) {
@@ -679,7 +690,12 @@ function OrderFields({
           </div>
           {/* Advanced section sits above the (nonexistent) scanner here too,
               matching the sizes layout order. */}
-          <AdvancedSection idx={idx} mode={mode} t={t} />
+          <AdvancedSection
+            idx={idx}
+            mode={mode}
+            t={t}
+            onStop={onStopActive}
+          />
         </>
       ) : (
         // Order matters: sizes → advanced → scanner. AdvancedSection is passed
@@ -700,6 +716,7 @@ function OrderFields({
               mode={mode}
               t={t}
               visibleSizeIdxs={visibleSizeIdxs}
+              onStop={onStopActive}
             />
           )}
         />
@@ -903,6 +920,7 @@ function AdvancedSection({
   mode,
   t,
   visibleSizeIdxs,
+  onStop,
 }: {
   idx: number;
   mode: CalculatorMode;
@@ -910,6 +928,9 @@ function AdvancedSection({
   /** When set (active order in a saved view), only these sizes' blocks are
    *  shown — the active size plus any the user manually expanded. Null → all. */
   visibleSizeIdxs?: Set<number> | null;
+  /** ⏹ "Ferma produzione" — set on the order holding the size in production
+   *  (saved view): stop it and pick what's really running now. */
+  onStop?: () => void;
 }) {
   'use no memo';
   const { control, getValues } = useFormContext<FormValues>();
@@ -1018,10 +1039,22 @@ function AdvancedSection({
             hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
           }`}
         >
-          {hadProducedAtMount && (
-            <p className="mb-2 text-[11px] font-medium text-amber-700">
-              ↳ {t('orders.advanced.autoFilledNote')}
-            </p>
+          {(hadProducedAtMount || onStop) && (
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <p className="text-[11px] font-medium text-amber-700">
+                {hadProducedAtMount && <>↳ {t('orders.advanced.autoFilledNote')}</>}
+              </p>
+              {onStop && (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  title={t('orders.stopActive')}
+                  className="shrink-0 rounded-md border border-danger/40 bg-white px-2.5 py-1 text-xs font-semibold text-danger shadow-sm transition hover:bg-danger/10"
+                >
+                  ⏹ {t('orders.stopActive')}
+                </button>
+              )}
+            </div>
           )}
           {useTotalLength ? (
             isProfiles ? (

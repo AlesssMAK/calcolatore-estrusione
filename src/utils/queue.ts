@@ -154,6 +154,9 @@ export function queueStatus(
   queue: QueueItem[] | undefined,
   orders: Order[],
   result: ScheduleResult,
+  /** When given, a step whose start time has come counts as in production
+   *  too (not only a partly produced one) → `next` is the step after it. */
+  now?: Date,
 ): QueueStatus {
   if (!queue?.length) return { active: false };
   const left = (s: SeqStep) => stepRemaining(result, s) >= 0.5;
@@ -162,8 +165,39 @@ export function queueStatus(
   const active = custom.some((s, i) => !sameStep(s, natural[i]));
   if (!active) return { active: false };
   const first = custom[0];
-  const next = first && stepStarted(result, first) ? (custom[1] ?? first) : first;
+  const running =
+    !!first &&
+    (stepStarted(result, first) ||
+      (!!now && stepStartTime(result, first) <= now.getTime()));
+  const next = running ? (custom[1] ?? first) : first;
   return { active, next };
+}
+
+/** Scheduled start of a step in a computed result (epoch ms). */
+function stepStartTime(result: ScheduleResult, s: SeqStep): number {
+  const row = result.rows[s.orderIdx];
+  const sd = s.sizeIdx === null ? row : row?.sizeDetails?.[s.sizeIdx];
+  return sd ? sd.start.getTime() : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * ⏹ "Ferma produzione" + pick: the step in production (`stopped`) is
+ * interrupted by `target`, which runs now; the stopped one resumes right after
+ * it. Produced amounts are untouched. Returns the new sequence.
+ */
+export function interruptWith(
+  queue: QueueItem[] | undefined,
+  orders: Order[],
+  result: ScheduleResult,
+  stopped: SeqStep,
+  target: SeqStep,
+): SeqStep[] {
+  const seq = resolveSequence(queue, orders).filter(
+    (s) => !sameStep(s, stopped) && !sameStep(s, target),
+  );
+  const firstLeft = seq.findIndex((s) => stepRemaining(result, s) >= 0.5);
+  seq.splice(firstLeft < 0 ? seq.length : firstLeft, 0, target, stopped);
+  return seq;
 }
 
 /**
