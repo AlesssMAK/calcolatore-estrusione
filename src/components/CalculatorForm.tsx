@@ -144,7 +144,7 @@ function CalculatorForm({
   // nothing to compute: "Calcola" stays visible but inactive until one is added.
   const orders = useWatch({ control: methods.control, name: 'orders' });
   const noOrders = (orders?.length ?? 0) === 0;
-  // ⏭ only makes sense with 2+ production steps (sizes / orders) in the queue.
+  // ⏭ / ⏹ only make sense with 2+ production steps (sizes / orders).
   const canPrioritize = naturalSequence(orders ?? []).length > 1;
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -480,7 +480,11 @@ function CalculatorForm({
         <OrdersList
           mode={mode}
           onComplete={canComplete ? completeItem : undefined}
-          onPrioritize={canPrioritize ? prioritizeSize : undefined}
+          // ⏭ belongs to production tracking — only on a calc reopened from
+          // Salvati / Azienda, not while filling a fresh form.
+          onPrioritize={
+            canComplete && canPrioritize ? prioritizeSize : undefined
+          }
           onStopActive={
             activeStep && canPrioritize ? () => setStopOpen(true) : undefined
           }

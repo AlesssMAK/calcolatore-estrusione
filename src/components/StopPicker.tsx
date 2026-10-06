@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { StopIcon } from './ActionIcons';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { liveSchedule } from '../utils/liveSchedule';
@@ -71,8 +72,9 @@ function StopPicker({ mode, stopped, onClose, onPick }: Props) {
           >
             ✕
           </button>
-          <h2 className="pr-8 text-base font-semibold text-ink">
-            ⏹ {t('stop.title')}
+          <h2 className="flex items-center gap-2 pr-8 text-base font-semibold text-ink">
+            <StopIcon className="h-4 w-4 shrink-0 text-danger" />
+            {t('stop.title')}
           </h2>
           <p className="mt-1 text-xs text-ink-soft">
             {t('stop.hint', {
