@@ -236,7 +236,11 @@
     "unpublish": "Rimuovi dall'Azienda",
     "editable": "Modificabile",
     "limitReached": "Limite raggiunto ({{max}})",
-    "broadcasting": "Condiviso con l'azienda"
+    "broadcasting": "Condiviso con l'azienda",
+    "readOnlyBanner": "Calcolo dell'azienda in sola lettura: le modifiche restano solo su questo dispositivo.",
+    "readOnlySaved": "Sola lettura: modifiche salvate solo su questo dispositivo.",
+    "localCopySuffix": "(copia locale)",
+    "localCopyKept": "Le tue modifiche sono in Salvati: «{{label}}»."
   },
   "footer": {
     "madeBy": "Calcolatore di Estrusione",

@@ -236,7 +236,11 @@
     "unpublish": "Quitar de la Empresa",
     "editable": "Editable",
     "limitReached": "Límite alcanzado ({{max}})",
-    "broadcasting": "Compartido con la empresa"
+    "broadcasting": "Compartido con la empresa",
+    "readOnlyBanner": "Cálculo de la empresa de solo lectura: los cambios se quedan solo en este dispositivo.",
+    "readOnlySaved": "Solo lectura: cambios guardados solo en este dispositivo.",
+    "localCopySuffix": "(copia local)",
+    "localCopyKept": "Tus cambios están en Guardados: «{{label}}»."
   },
   "footer": {
     "madeBy": "Calculadora de Extrusión",
