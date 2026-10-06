@@ -330,6 +330,12 @@ function CalculatorApp() {
     }
   };
 
+  // Transient bottom notice (company publish / read-only feedback).
+  const flashNotice = (msg: string, ms = 4000) => {
+    setCompanyNotice(msg);
+    window.setTimeout(() => setCompanyNotice(null), ms);
+  };
+
   // Push a saved calc's new content to the live shared document it's bound to.
   // Best-effort (fire-and-forget); bumps the local version. `isCurrent` = the
   // calc is the one on screen (its live syncMeta state follows along).
@@ -356,8 +362,13 @@ function CalculatorApp() {
       void updateCompanyCalc(meta.id, payload).then(applyVersion);
     } else {
       // A view-only follower edited → detach into a local copy so their
-      // changes aren't overwritten by the next pull.
-      if (isCurrent) setSyncMeta(null);
+      // changes aren't overwritten by the next pull. Say so: the company's
+      // shared version is NOT updated (reopening it from Azienda keeps these
+      // edits as a separate "(copia locale)" entry — see openCompanyCalc).
+      if (isCurrent) {
+        setSyncMeta(null);
+        flashNotice(t('company.readOnlySaved'));
+      }
       if (entryId) {
         updateSyncMeta(entryId, undefined, settings.savedRetentionDays);
         setSavedRefreshKey((k) => k + 1);
@@ -665,10 +676,33 @@ function CalculatorApp() {
     // from the company list duplicates it in "Salvati". Keep the existing
     // sync (incl. the edit token + published flags) so the owner can still edit
     // and unpublish it; just refresh the version + editable flag from the list.
-    const existing = loadHistory(settings.savedRetentionDays).find(
-      (e) => e.sync?.id === c.id,
-    );
+    const history = loadHistory(settings.savedRetentionDays);
+    const existing = history.find((e) => e.sync?.id === c.id);
     const savedId = existing?.id ?? `shared-${c.id}`;
+    // A view-only calc edited on this device was detached (its `shared-<id>`
+    // slot lost the sync binding) — those edits live only here. Keep them as
+    // their own "(copia locale)" entry instead of overwriting them with the
+    // company version below.
+    const detached = existing
+      ? undefined
+      : history.find((e) => e.id === savedId && !e.sync && e.values);
+    if (detached?.values) {
+      try {
+        const copy = saveCalculation(
+          detached.result,
+          detached.values,
+          detached.snapshot,
+          `${detached.label} ${t('company.localCopySuffix')}`,
+          settings.maxSavedResults,
+          settings.savedRetentionDays,
+          undefined,
+          detached.completedRows,
+        );
+        flashNotice(t('company.localCopyKept', { label: copy.label }), 5000);
+      } catch {
+        /* storage unavailable — nothing to preserve into */
+      }
+    }
     const sync: SyncMeta = existing?.sync
       ? { ...existing.sync, version: c.version, companyEditable: c.isEditable }
       : { id: c.id, version: c.version, companyEditable: c.isEditable };
@@ -917,6 +951,14 @@ function CalculatorApp() {
             <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700">
               <span aria-hidden>🏢</span>
               <span>{t('company.broadcasting')}</span>
+            </div>
+          )}
+          {/* Opened from Azienda, published view-only, and this device can't
+              edit it → edits stay local (the company version isn't updated). */}
+          {result && syncMeta && !syncMeta.token && !syncMeta.companyEditable && (
+            <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
+              <span aria-hidden>👁</span>
+              <span>{t('company.readOnlyBanner')}</span>
             </div>
           )}
           {result && restoredEntry && advancedCalc && (

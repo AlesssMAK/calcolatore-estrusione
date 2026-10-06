@@ -236,7 +236,11 @@
     "unpublish": "Remove from Company",
     "editable": "Editable",
     "limitReached": "Limit reached ({{max}})",
-    "broadcasting": "Shared with the company"
+    "broadcasting": "Shared with the company",
+    "readOnlyBanner": "Company calculation, view only: changes stay on this device only.",
+    "readOnlySaved": "View only: changes saved on this device only.",
+    "localCopySuffix": "(local copy)",
+    "localCopyKept": "Your changes are in Saved: «{{label}}»."
   },
   "footer": {
     "madeBy": "Extrusion Calculator",
