@@ -21,7 +21,19 @@ import type {
   ScheduleResult,
   ScheduleSnapshot,
 } from '../types';
-import { buildEmptyDefaults } from '../utils/defaults';
+import { buildEmptyDefaults, genId } from '../utils/defaults';
+import QueueBanner from './QueueBanner';
+import { liveSchedule } from '../utils/liveSchedule';
+import {
+  differsFromNatural,
+  isPerSize,
+  naturalSequence,
+  prioritizeStep,
+  queueStatus,
+  resolveSequence,
+  toQueue,
+  type SeqStep,
+} from '../utils/queue';
 import { saveDraft } from '../lib/formDraft';
 import { toCompletedRow } from '../utils/advance';
 import {
@@ -130,6 +142,8 @@ function CalculatorForm({
   // nothing to compute: "Calcola" stays visible but inactive until one is added.
   const orders = useWatch({ control: methods.control, name: 'orders' });
   const noOrders = (orders?.length ?? 0) === 0;
+  // ⏭ only makes sense with 2+ production steps (sizes / orders) in the queue.
+  const canPrioritize = naturalSequence(orders ?? []).length > 1;
 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const hideTimerRef = useRef<number | null>(null);
@@ -199,7 +213,7 @@ function CalculatorForm({
     }, 4000);
   };
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = (submitted: FormValues) => {
     setSubmitError(null);
     const keepCompleted = keepCompletedRef.current;
     keepCompletedRef.current = false;
@@ -207,12 +221,23 @@ function CalculatorForm({
     stayInPlaceRef.current = false;
     // A company's settings (schedule + buffers) are the source of truth when a
     // company link is active; otherwise fall back to the local settings.
-    const schedule = calculateSchedule(values.settings, values.orders, {
+    const schedule = calculateSchedule(submitted.settings, submitted.orders, {
       mode,
       schedule: company ? catalogSettings.schedule : undefined,
       warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
       shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
     });
+    // A custom queue whose re-arranged sizes are all produced no longer changes
+    // anything (what's left runs in form order) → it switches itself off.
+    let values = submitted;
+    const queue = submitted.settings.queue;
+    if (queue && !queueStatus(queue, submitted.orders, schedule).active) {
+      values = {
+        ...submitted,
+        settings: { ...submitted.settings, queue: undefined },
+      };
+      methods.setValue('settings.queue', undefined);
+    }
     // Split fully-produced orders out of the editable queue: they become
     // completed rows (shown done in the results, at their last-working-moment
     // time) and leave the form. Rows map 1:1 to orders, so filter by index.
@@ -344,6 +369,63 @@ function CalculatorForm({
     })();
   };
 
+  // Recompute in place (no scroll) — after a queue change from the editor / ⏭.
+  const recomputeInPlace = () => {
+    keepCompletedRef.current = !!hasCompleted;
+    stayInPlaceRef.current = true;
+    void methods.handleSubmit(onSubmit, (errs) => {
+      stayInPlaceRef.current = false;
+      onInvalid(errs);
+    })();
+  };
+
+  // A custom queue points at sizes by a stable uid — give one to any size that
+  // came without (older calcs, scanner / Piramide imports).
+  const ensureSizeUids = () => {
+    methods.getValues('orders').forEach((o, oi) =>
+      o?.sizes?.forEach((s, si) => {
+        if (!s?.uid) methods.setValue(`orders.${oi}.sizes.${si}.uid`, genId());
+      }),
+    );
+  };
+
+  // Store a production sequence as the custom queue (or drop it when it's just
+  // the form order), then recompute when the form can be computed.
+  const applyQueue = (seq: SeqStep[]) => {
+    ensureSizeUids();
+    const values = methods.getValues();
+    methods.setValue(
+      'settings.queue',
+      differsFromNatural(seq, values.orders)
+        ? toQueue(seq, values.orders)
+        : undefined,
+      { shouldDirty: true },
+    );
+    if (liveSchedule(methods.getValues(), mode)) recomputeInPlace();
+  };
+
+  // ⏭ "Senza coda": produce this size next — right after the one in production
+  // (that one finishes first), or first when nothing has started yet.
+  const prioritizeSize = (orderIdx: number, sizeIdx: number) => {
+    const values = methods.getValues();
+    const order = values.orders[orderIdx];
+    if (!order) return;
+    const step: SeqStep = {
+      orderIdx,
+      sizeIdx: isPerSize(order) ? sizeIdx : null,
+    };
+    const live = liveSchedule(values, mode);
+    const seq = live
+      ? prioritizeStep(values.settings.queue, values.orders, live, step)
+      : [
+          step,
+          ...resolveSequence(values.settings.queue, values.orders).filter(
+            (s) => s.orderIdx !== step.orderIdx || s.sizeIdx !== step.sizeIdx,
+          ),
+        ];
+    applyQueue(seq);
+  };
+
   // Keep the registered handler pointing at the latest closure (so it uses the
   // current editingId / settings) while exposing a stable function reference.
   const completeRef = useRef(completeItem);
@@ -367,10 +449,14 @@ function CalculatorForm({
         noValidate
       >
         <WeekendBanner />
-        {settingsOpen && <GlobalSettingsPanel />}
+        <QueueBanner mode={mode} />
+        {settingsOpen && (
+          <GlobalSettingsPanel mode={mode} onApplyQueue={applyQueue} />
+        )}
         <OrdersList
           mode={mode}
           onComplete={canComplete ? completeItem : undefined}
+          onPrioritize={canPrioritize ? prioritizeSize : undefined}
           activeLoc={activeLoc}
           editingId={editingId}
         />

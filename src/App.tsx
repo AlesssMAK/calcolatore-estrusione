@@ -55,19 +55,36 @@ import {
   type CompanyCalc,
 } from './lib/sharedCalc';
 
-// The order + size currently in production ("active"): the first not-yet-done
-// size of the first not-yet-done order (advance-to-now order). Returns null when
-// everything is finished. Drives the active-order modal (and, later, the form
-// collapse).
+// The order + size currently in production ("active"): the not-yet-done step
+// (a size, or a whole single-size order) that runs first in time — the form
+// order normally, the custom queue's when one is set. Returns null when
+// everything is finished. Drives the active-order modal and the form collapse.
 function computeActive(
   result: ScheduleResult,
   lang: string,
 ): { info: ActiveModalInfo; orderIdx: number; sizeIdx: number } | null {
   const rows = result.rows ?? [];
   const isProfiles = result.mode === 'profiles';
-  for (let i = 0; i < rows.length; i++) {
+  let best: { i: number; sIdx: number; start: number } | null = null;
+  rows.forEach((row, i) => {
+    if (row.completed || row.remainingMinutes < 0.5) return;
+    const sizes = row.sizeDetails;
+    if (sizes && sizes.length > 0) {
+      sizes.forEach((sd, sIdx) => {
+        if (sd.remainingMinutes < 0.5) return;
+        const start = sd.start.getTime();
+        if (!best || start < best.start) best = { i, sIdx, start };
+      });
+    } else {
+      const start = row.start.getTime();
+      if (!best || start < best.start) best = { i, sIdx: 0, start };
+    }
+  });
+  // (TS can't see the forEach assignments.)
+  const pick = best as { i: number; sIdx: number; start: number } | null;
+  if (pick) {
+    const i = pick.i;
     const row = rows[i];
-    if (row.completed || row.remainingMinutes < 0.5) continue;
     const orderLabel = row.order?.productName?.trim() || `#${i + 1}`;
     const sizes = row.sizeDetails;
     let sizeIdx = 0;
@@ -75,10 +92,8 @@ function computeActive(
     let produced = 0;
     let total = 0;
     if (sizes && sizes.length > 0) {
-      let sIdx = sizes.findIndex((sd) => sd.remainingMinutes >= 0.5);
-      if (sIdx === -1) sIdx = 0;
-      sizeIdx = sIdx;
-      const sd = sizes[sIdx];
+      sizeIdx = pick.sIdx;
+      const sd = sizes[sizeIdx];
       length = sd.length;
       total = sd.sheets;
       produced = isProfiles

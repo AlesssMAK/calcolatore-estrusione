@@ -1,4 +1,5 @@
 import { calculateSchedule, progressAsOf } from './calculator';
+import { queueStatus } from './queue';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type {
@@ -202,6 +203,17 @@ export function buildAdvancedCalc(
           now,
         })
       : emptyResult(now, result);
+
+  // A custom queue whose re-arranged sizes are produced by now no longer
+  // changes anything (the rest runs in form order) → it switches itself off.
+  // Same timing either way, so the result stays valid.
+  if (
+    settings.queue &&
+    (activeOrders.length === 0 ||
+      !queueStatus(settings.queue, activeOrders, advResult).active)
+  ) {
+    settings.queue = undefined;
+  }
 
   return { values: { settings, orders: activeOrders }, result: advResult, completedRows };
 }

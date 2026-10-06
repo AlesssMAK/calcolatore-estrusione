@@ -65,6 +65,8 @@ interface Props {
   /** When set (tracking a saved/shared calc), renders per-order and per-size
    *  "✓ Completa" buttons that mark that order / size fully produced. */
   onComplete?: (orderId: string, sizeIdx?: number) => void;
+  /** ⏭ per size: produce it next, out of the queue (custom production order). */
+  onPrioritize?: (orderIdx: number, sizeIdx: number) => void;
   /** The order+size in production (saved calc). When set, orders other than the
    *  active one collapse to a summary card (click to expand). Null → no collapse. */
   activeLoc?: { orderIdx: number; sizeIdx: number } | null;
@@ -73,7 +75,13 @@ interface Props {
   editingId?: string;
 }
 
-function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
+function OrdersList({
+  mode,
+  onComplete,
+  onPrioritize,
+  activeLoc,
+  editingId,
+}: Props) {
   'use no memo';
   // Orders the user manually expanded from their collapsed summary.
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(
@@ -447,6 +455,11 @@ function OrdersList({ mode, onComplete, activeLoc, editingId }: Props) {
                               }
                             : undefined
                         }
+                        onPrioritizeSize={
+                          onPrioritize
+                            ? (sizeIdx) => onPrioritize(idx, sizeIdx)
+                            : undefined
+                        }
                         activeSizeIdx={
                           activeLoc && idx === activeLoc.orderIdx
                             ? activeLoc.sizeIdx
@@ -488,6 +501,8 @@ interface FieldsProps {
   t: TFunction;
   /** Mark a single size fully produced (bound to this order's id). */
   onCompleteSize?: (sizeIdx: number) => void;
+  /** ⏭ produce this size next, out of the queue (bound to this order). */
+  onPrioritizeSize?: (sizeIdx: number) => void;
   /** For the active order (saved view): the size in production — the others
    *  collapse to a summary and only this one's advanced block is shown. */
   activeSizeIdx?: number | null;
@@ -502,6 +517,7 @@ function OrderFields({
   mode,
   t,
   onCompleteSize,
+  onPrioritizeSize,
   activeSizeIdx,
   editingId,
 }: FieldsProps) {
@@ -675,6 +691,7 @@ function OrderFields({
           mode={mode}
           t={t}
           onCompleteSize={onCompleteSize}
+          onPrioritizeSize={onPrioritizeSize}
           activeSizeIdx={activeSizeIdx}
           editingId={editingId}
           afterSizes={(visibleSizeIdxs) => (
@@ -1922,12 +1939,34 @@ function BatchRowsArray({
   );
 }
 
+// ⏭ "Senza coda" — produce this size next (custom production queue).
+function PrioritizeButton({
+  onClick,
+  label,
+}: {
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-sm shadow-sm transition hover:border-amber-500 hover:bg-amber-100"
+    >
+      ⏭
+    </button>
+  );
+}
+
 function SizesFieldArray({
   orderIdx,
   mode,
   t,
   afterSizes,
   onCompleteSize,
+  onPrioritizeSize,
   activeSizeIdx,
   editingId,
 }: {
@@ -1942,6 +1981,9 @@ function SizesFieldArray({
   /** Mark a single size fully produced (bound to this order's id). Renders a
    *  per-size "✓" button after the +/− controls (multi-size orders only). */
   onCompleteSize?: (sizeIdx: number) => void;
+  /** ⏭ produce this size next, out of the queue. Rendered in the left column
+   *  (above the drag handle) so the row's inputs keep their width on phones. */
+  onPrioritizeSize?: (sizeIdx: number) => void;
   /** Active order (saved view): the size in production — other sizes collapse
    *  to a summary (click to expand). Null → all sizes shown. */
   activeSizeIdx?: number | null;
@@ -2157,26 +2199,34 @@ function SizesFieldArray({
                         style={style}
                         id={`size-${orderIdx}-${sIdx}`}
                       >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedSizes((s) =>
-                              new Set(s).add(sizeField.id),
-                            )
-                          }
-                          title={t('orders.expandOrder')}
-                          className="flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
-                        >
-                          <span className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
-                            #{sIdx + 1}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                            {zSheets} × {zLen} mm
-                          </span>
-                          <span aria-hidden className="shrink-0 text-ink-soft">
-                            ▸
-                          </span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedSizes((s) =>
+                                new Set(s).add(sizeField.id),
+                              )
+                            }
+                            title={t('orders.expandOrder')}
+                            className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
+                          >
+                            <span className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
+                              #{sIdx + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                              {zSheets} × {zLen} mm
+                            </span>
+                            <span aria-hidden className="shrink-0 text-ink-soft">
+                              ▸
+                            </span>
+                          </button>
+                          {onPrioritizeSize && (
+                            <PrioritizeButton
+                              onClick={() => onPrioritizeSize(sIdx)}
+                              label={t('orders.prioritize')}
+                            />
+                          )}
+                        </div>
                       </div>
                     ) : (
                     <div
@@ -2191,17 +2241,27 @@ function SizesFieldArray({
                           : ''
                       }`}
                     >
-                      {canReorder && (
-                        <div className="flex shrink-0 items-end pb-5">
-                          <button
-                            type="button"
-                            {...handleProps}
-                            aria-label={t('orders.reorder')}
-                            title={t('orders.reorder')}
-                            className="flex h-8 w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:h-9"
-                          >
-                            ⠿
-                          </button>
+                      {(canReorder || onPrioritizeSize) && (
+                        <div className="flex shrink-0 flex-col items-center justify-end gap-0.5 pb-5">
+                          {onPrioritizeSize && (
+                            <PrioritizeButton
+                              onClick={() => onPrioritizeSize(sIdx)}
+                              label={t('orders.prioritize')}
+                            />
+                          )}
+                          {canReorder && (
+                            <button
+                              type="button"
+                              {...handleProps}
+                              aria-label={t('orders.reorder')}
+                              title={t('orders.reorder')}
+                              className={`flex w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing ${
+                                onPrioritizeSize ? 'h-7' : 'h-8 sm:h-9'
+                              }`}
+                            >
+                              ⠿
+                            </button>
+                          )}
                         </div>
                       )}
                       <div

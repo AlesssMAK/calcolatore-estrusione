@@ -6,6 +6,18 @@ export interface OrderSize {
   sheets?: number;
   length?: number;
   profilesPerPackage?: number;
+  /** Stable id of the size (survives reorder / insert / remove within the
+   *  order) — what a custom production queue points at. Assigned on creation,
+   *  or lazily when a queue is built for sizes that came without one. */
+  uid?: string;
+}
+
+/** One step of a custom production queue: a size of an order (by stable ids),
+ *  or a whole order when it has no per-size structure (`sizeUid` absent —
+ *  total-meters / single-size orders). */
+export interface QueueItem {
+  orderId: string;
+  sizeUid?: string;
 }
 
 export interface ProducedEntry {
@@ -101,6 +113,10 @@ export interface GlobalSettings {
   /** "Calcolo fisso": a plain static result — reopening it never subtracts the
    *  elapsed time (no advance) and it isn't tracked as in production. Per calc. */
   frozen?: boolean;
+  /** Custom production order of the sizes across orders (the rest follows the
+   *  form). Sizes stay grouped under their order in form + results; only the
+   *  timing follows this sequence. Dropped once it no longer changes anything. */
+  queue?: QueueItem[];
 }
 
 /** A single continuous production window (used when an order is split across

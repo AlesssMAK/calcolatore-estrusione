@@ -28,7 +28,8 @@
       "productName": "Nombre del Cálculo",
       "weekend": "Horario Línea",
       "noLimits": "Sin Límites Horarios",
-      "frozen": "Cálculo Fijo"
+      "frozen": "Cálculo Fijo",
+      "queue": "Orden de Cola"
     },
     "noLimits": {
       "active": "Sin límites horarios — cálculo continuo 24/7 desde ahora",
@@ -106,6 +107,7 @@
     "complete": "Completar",
     "completeOrder": "Completar Pedido",
     "completeSize": "Completar Medida",
+    "prioritize": "Sin Cola: producir tras la medida en curso",
     "reorder": "Arrastrar para mover"
   },
   "actions": {
@@ -131,6 +133,19 @@
     "trackingOff": "Cálculo fijo — toca para sincronizar la producción desde ahora",
     "delete": "Eliminar",
     "hint": "Los cálculos se guardan automáticamente al pulsar «Calcular». Se conservan 7 días."
+  },
+  "queue": {
+    "title": "Orden de producción",
+    "hint": "Arrastra las medidas (⠿) o usa ↑↓ para ponerlas en el orden en que se producirán. En el formulario y los resultados siguen en su pedido.",
+    "natural": "Orden del Formulario",
+    "cancel": "Cancelar",
+    "apply": "Aplicar",
+    "done": "Completada",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "active": "Orden personalizado activo",
+    "next": "próxima medida",
+    "orderNo": "pedido #{{n}}"
   },
   "results": {
     "title": "Resultado",
