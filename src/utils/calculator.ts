@@ -1012,11 +1012,15 @@ export function calculateSchedule(
   const drafts: OrderDraft[] = [];
   const totalPackages: number | undefined = undefined;
   let lastSpeed: number | undefined;
-  let lastPerPackage: number | undefined;
-  let lastSheetsPerPallet: number | undefined;
   let lastCavity: number | undefined;
 
   orders.forEach((order, idx) => {
+    // Packaging rates (profili per pacco / lastre per bancale) are per order:
+    // they inherit from the previous size / batch row of the SAME order only —
+    // a new order never picks up the previous order's rate (a wrong value used
+    // to spread across the whole queue).
+    let lastPerPackage: number | undefined;
+    let lastSheetsPerPallet: number | undefined;
     const speedMPerMin = resolveSpeed(order, lastSpeed);
     lastSpeed = speedMPerMin;
     // Cavity multiplier (profiles only — multi-cavity dies emit several
@@ -1053,8 +1057,8 @@ export function calculateSchedule(
     const perPackagesForOrder: (number | undefined)[] = [];
 
     if (mode === 'profiles') {
-      // Resolve per-size or per-batch profilesPerPackage with inheritance.
-      // lastPerPackage carries over from earlier orders.
+      // Resolve per-size or per-batch profilesPerPackage with inheritance
+      // within this order (lastPerPackage is per order).
       const sizes = order.sizes ?? [];
       if (order.useTotalLength) {
         const batchLen = Math.max(
@@ -1204,8 +1208,8 @@ export function calculateSchedule(
           const sheetsEnt = sumEntriesForSize(order.producedSheets, i);
           const perPalletEnt = firstNonZeroForSize(order.sheetsPerPallet, i);
           const palletsEnt = sumEntriesForSize(order.producedPallets, i);
-          // Inherit sheetsPerPallet from the previous size in this order,
-          // or from the last filled value across earlier orders.
+          // Inherit sheetsPerPallet from the previous size in this order
+          // (never from earlier orders).
           perPalletI =
             perPalletEnt > 0 ? perPalletEnt : lastSheetsPerPallet;
           if (perPalletI && perPalletI > 0) lastSheetsPerPallet = perPalletI;

@@ -427,12 +427,12 @@ describe('calculateSchedule — produced under useTotalLength', () => {
     expect(row.sizeDetails?.[1]?.producedSheetsAtSize).toBe(20);
   });
 
-  it('profiles: per-batch perPackage inherits across orders (lastPerPackage carry-over)', () => {
+  it('profiles: per-batch perPackage does NOT inherit across orders', () => {
     const start = new Date('2026-04-23T10:00:00Z');
     // Order 1 sets perPackage=20 in batch[0].
-    // Order 2 leaves profilesPerPackage blank — must inherit 20 from order 1.
-    // Order 2: packages=5 → effectiveProfiles = 5*20 = 100 × 6000mm = 600m
-    // totalLengthM=1200 → fraction 0.5; productionMinutes 1200/5=240; remaining 120.
+    // Order 2 leaves profilesPerPackage blank — it must NOT pick up 20 from
+    // order 1, so its "5 packages" can't be converted to profiles: nothing
+    // counts as produced and the full 240 min (1200 m / 5) remain.
     const result = calculateSchedule(
       {
         startMode: 'manual',
@@ -454,17 +454,16 @@ describe('calculateSchedule — produced under useTotalLength', () => {
           useTotalLength: true,
           totalLengthM: 1200,
           producedPackages: [{ value: 5 }],
-          // profilesPerPackage omitted — inherits 20 from order 'a'
+          // profilesPerPackage omitted — no rate of its own, none inherited
           producedItemLength: [{ value: 6000 }],
         },
       ],
       { now: start, mode: 'profiles' },
     );
     const row2 = result.rows[1]!;
-    expect(row2.producedProfiles).toBe(100);
-    expect(row2.producedPackages).toBe(5);
+    expect(row2.producedProfiles ?? 0).toBe(0);
     expect(row2.productionMinutes).toBe(240);
-    expect(row2.remainingMinutes).toBe(120);
+    expect(row2.remainingMinutes).toBe(240);
   });
 });
 
@@ -551,7 +550,7 @@ describe('calculateSchedule — profiles mode', () => {
     expect(result.totalPackages).toBeUndefined();
   });
 
-  it('profilesPerPackage falls back to last filled when omitted', () => {
+  it('profilesPerPackage never inherits from a previous order', () => {
     const result = calculateSchedule(
       {
         startMode: 'manual',
@@ -574,10 +573,36 @@ describe('calculateSchedule — profiles mode', () => {
       { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
     );
 
+    // Orders without their own per-pacco get no package count — a value
+    // entered on one order must not spread to the following ones.
     expect(result.rows[0]!.packages).toBe(4);
-    expect(result.rows[1]!.packages).toBe(3);
+    expect(result.rows[1]!.packages).toBeUndefined();
     expect(result.rows[2]!.packages).toBe(4);
-    expect(result.rows[3]!.packages).toBe(3);
+    expect(result.rows[3]!.packages).toBeUndefined();
+  });
+
+  it('profilesPerPackage inherits from the previous size of the same order', () => {
+    const result = calculateSchedule(
+      {
+        startMode: 'manual',
+        startAt: '2026-04-23T10:00:00Z',
+        gapMode: 'continuous',
+      },
+      [
+        {
+          id: 'a',
+          speedMPerMin: 5,
+          sizes: [
+            { sheets: 100, length: 6000, profilesPerPackage: 25 },
+            { sheets: 60, length: 6000 }, // inherits 25 → 3 packages
+            { sheets: 40, length: 6000, profilesPerPackage: 10 }, // own → 4
+          ],
+        },
+      ],
+      { now: new Date('2026-04-23T10:00:00Z'), mode: 'profiles' },
+    );
+    expect(result.rows[0]!.packages).toBe(4 + 3 + 4);
+    expect(result.rows[0]!.sizeDetails!.map((s) => s.perPackage)).toEqual([25, 25, 10]);
   });
 
   it('packages undefined when useTotalLength is on (count unknown)', () => {
@@ -1558,5 +1583,26 @@ describe('advanceAlongWindows — unit ready-times on the real windows', () => {
     expect(advanceAlongWindows(row.start, 700, row.segments).getTime()).toBe(
       localDate(2026, 4, 16, 7, 40).getTime(),
     );
+  });
+});
+
+describe('calculateSchedule — lastre per bancale is per order', () => {
+  it('a new order never picks up the previous order\'s sheetsPerPallet', () => {
+    const start = new Date('2026-04-23T10:00:00Z');
+    const result = calculateSchedule(
+      { startMode: 'manual', startAt: start.toISOString(), gapMode: 'continuous' },
+      [
+        {
+          id: 'a',
+          speedMPerMin: 1,
+          sizes: [{ sheets: 100, length: 1000 }],
+          sheetsPerPallet: [{ value: 50 }],
+        },
+        { id: 'b', sizes: [{ sheets: 100, length: 1000 }] },
+      ],
+      { now: start, mode: 'sheets' },
+    );
+    expect(result.rows[0]!.totalUnits).toBe(2); // 100 / 50
+    expect(result.rows[1]!.totalUnits).toBeUndefined(); // no own rate → none
   });
 });
