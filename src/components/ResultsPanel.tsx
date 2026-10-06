@@ -1177,12 +1177,13 @@ function PerUnitBlock({
     minute: t('units.minute'),
   };
   return (
-    <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs">
+    // Neutral (not the brand-pink "in production" look of the produced block).
+    <div className="mt-2 rounded-md border border-neutral-200 bg-neutral-50 p-2 text-xs">
       <div className="flex items-center justify-between">
         <span className="text-ink-soft">
           {t(`results.${kind}.timePerOne`)}
         </span>
-        <span className="font-semibold text-brand-700">
+        <span className="font-semibold text-ink">
           {formatDuration(timePerUnitMin, units)}
         </span>
       </div>
