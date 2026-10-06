@@ -401,6 +401,38 @@ function CalculatorApp() {
     noLimits: !!entry.values?.settings.noLimits,
   });
 
+  // A company calc published "view only", opened on a device that can't edit
+  // it (no edit token, not editable by the company): read-only view.
+  const readOnly =
+    !!syncMeta && !syncMeta.token && !syncMeta.companyEditable;
+
+  // "Aggiungi ai Salvati" (read-only company calc): copy it into Salvati as an
+  // unbound, editable "(copia locale)" entry and open that copy.
+  const addToSaved = () => {
+    const src = editingId
+      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
+      : undefined;
+    if (!src?.values) return;
+    let copy: SavedCalculation;
+    try {
+      copy = saveCalculation(
+        src.result,
+        src.values,
+        src.snapshot,
+        `${src.label} ${t('company.localCopySuffix')}`,
+        settings.maxSavedResults,
+        settings.savedRetentionDays,
+        undefined,
+        src.completedRows,
+      );
+    } catch {
+      return;
+    }
+    setSavedRefreshKey((k) => k + 1);
+    flashNotice(t('company.addedToSaved', { label: copy.label }), 5000);
+    doRestore(copy, false, false);
+  };
+
   // 🔄 in the Salvati list: flip a saved calc between fixed and tracking, in
   // place (the list doesn't reorder). Synced calcs push the change; the calc on
   // screen is reopened so the form/result reflect it.
@@ -941,6 +973,8 @@ function CalculatorApp() {
           onDeleteCompany={
             isSupabaseConfigured && company ? deleteCompanyCalc : undefined
           }
+          readOnly={readOnly}
+          onAddToSaved={addToSaved}
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
@@ -954,8 +988,8 @@ function CalculatorApp() {
             </div>
           )}
           {/* Opened from Azienda, published view-only, and this device can't
-              edit it → edits stay local (the company version isn't updated). */}
-          {result && syncMeta && !syncMeta.token && !syncMeta.companyEditable && (
+              edit it → read-only; editing happens on a copy in Salvati. */}
+          {result && readOnly && (
             <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
               <span aria-hidden>👁</span>
               <span>{t('company.readOnlyBanner')}</span>
@@ -969,7 +1003,7 @@ function CalculatorApp() {
               onViewAdvanced={viewAdvanced}
             />
           )}
-          {result && completedRows.length > 0 && (
+          {result && completedRows.length > 0 && !readOnly && (
             <RestoreCompletedButton
               count={completedRows.length}
               onRestoreOne={restoreOneCompleted}
@@ -1004,7 +1038,7 @@ function CalculatorApp() {
                 result={withCompleted(result, completedRows)}
                 mode={mode}
                 onComplete={
-                  fromSaved
+                  fromSaved && !readOnly
                     ? (orderId, sizeIdx) =>
                         completeRef.current?.(orderId, sizeIdx)
                     : undefined

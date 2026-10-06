@@ -5,7 +5,7 @@ import SavedCalculationsButton from './SavedCalculationsButton';
 import CompanyResultsButton from './CompanyResultsButton';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type { CompanyCalc } from '../lib/sharedCalc';
-import { CalcIcon, ChevronUpIcon, ResetIcon } from './ActionIcons';
+import { CalcIcon, ChevronUpIcon, ResetIcon, SaveIcon } from './ActionIcons';
 import { floatBtnCls, type FloatPlacement } from './floatStyles';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
@@ -18,6 +18,9 @@ interface Props {
   onCalculate: () => void;
   /** Mirrors the form's "Calcola": inactive when there's nothing to compute. */
   calcDisabled?: boolean;
+  /** Read-only company calc: the primary button copies it into Salvati
+   *  ("Aggiungi ai Salvati") instead of calculating. */
+  onAddToSaved?: () => void;
   onReset: () => void;
   onRestore?: (entry: SavedCalculation) => void;
   onToggleTracking?: (entry: SavedCalculation) => void;
@@ -38,6 +41,7 @@ function FloatingActions({
   formId,
   onCalculate,
   calcDisabled,
+  onAddToSaved,
   onReset,
   onRestore,
   onToggleTracking,
@@ -107,17 +111,29 @@ function FloatingActions({
               : 'opacity-0'
         }`}
       >
-        <button
-          type="submit"
-          form={formId}
-          onClick={onCalculate}
-          disabled={calcDisabled}
-          title={t('actions.calculate')}
-          aria-label={t('actions.calculate')}
-          className={`${floatBtnCls(true)} disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-300`}
-        >
-          <CalcIcon />
-        </button>
+        {onAddToSaved ? (
+          <button
+            type="button"
+            onClick={onAddToSaved}
+            title={t('company.addToSaved')}
+            aria-label={t('company.addToSaved')}
+            className={floatBtnCls(true)}
+          >
+            <SaveIcon />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            form={formId}
+            onClick={onCalculate}
+            disabled={calcDisabled}
+            title={t('actions.calculate')}
+            aria-label={t('actions.calculate')}
+            className={`${floatBtnCls(true)} disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-300`}
+          >
+            <CalcIcon />
+          </button>
+        )}
         <button
           type="button"
           onClick={onReset}

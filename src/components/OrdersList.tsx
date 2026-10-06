@@ -318,6 +318,8 @@ function OrdersList({
                           onClick={() =>
                             setExpandedOrders((s) => new Set(s).add(field.id))
                           }
+                          // Viewing control — kept in the read-only view.
+                          data-view
                           title={t('orders.expandOrder')}
                           className="flex w-full flex-col items-start gap-1 text-left"
                         >
@@ -1062,6 +1064,7 @@ function AdvancedSection({
         type="button"
         onClick={() => setExpanded(e => !e)}
         aria-expanded={expanded}
+        data-view
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
       >
         {expanded ? '▾' : '▸'} {t('orders.advancedToggle')}
@@ -1271,6 +1274,9 @@ function OrderNameField({
         type="button"
         onClick={() => setOpen(o => !o)}
         title={t('orders.productName')}
+        // The "#N" badge stays in the read-only view (the name input itself
+        // can't be edited there).
+        data-view
         className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm"
       >
         #{idx + 1}
@@ -2339,6 +2345,7 @@ function SizesFieldArray({
                               new Set(s).add(sizeField.id),
                             )
                           }
+                          data-view
                           title={t('orders.expandOrder')}
                           className="flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
                         >

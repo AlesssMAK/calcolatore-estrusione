@@ -9,6 +9,7 @@ import CompanyResultsButton from './CompanyResultsButton';
 import type { CompanyCalc } from '../lib/sharedCalc';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import FloatingActions from './FloatingActions';
+import { SaveIcon } from './ActionIcons';
 
 const FORM_ID = 'calc-form';
 import { calculateSchedule } from '../utils/calculator';
@@ -106,6 +107,12 @@ interface Props {
   onOpenCompany?: (calc: CompanyCalc) => void;
   /** Remove a result from the company list (unpublish; author only). */
   onDeleteCompany?: (calc: CompanyCalc) => void | Promise<void>;
+  /** A company calc published "view only" that this device can't edit: no
+   *  modification controls, inputs locked, and "Calcola" becomes "Aggiungi ai
+   *  Salvati" (an editable copy). */
+  readOnly?: boolean;
+  /** Copy the read-only calc into Salvati as an editable entry and open it. */
+  onAddToSaved?: () => void;
 }
 
 function CalculatorForm({
@@ -128,6 +135,8 @@ function CalculatorForm({
   onPublish,
   onOpenCompany,
   onDeleteCompany,
+  readOnly = false,
+  onAddToSaved,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -474,23 +483,49 @@ function CalculatorForm({
       >
         <WeekendBanner />
         <QueueBanner mode={mode} />
-        {settingsOpen && (
+        {settingsOpen && !readOnly && (
           <GlobalSettingsPanel mode={mode} onApplyQueue={applyQueue} />
         )}
-        <OrdersList
-          mode={mode}
-          onComplete={canComplete ? completeItem : undefined}
-          // ⏭ belongs to production tracking — only on a calc reopened from
-          // Salvati / Azienda, not while filling a fresh form.
-          onPrioritize={
-            canComplete && canPrioritize ? prioritizeSize : undefined
+        {/* Read-only (view-only company calc): modification controls hidden
+            via .calc-readonly (index.css); typing / pasting / dropping into
+            the inputs is blocked too (Tab still moves focus). */}
+        <div
+          className={readOnly ? 'calc-readonly' : undefined}
+          onKeyDownCapture={
+            readOnly
+              ? (e) => {
+                  const tag = (e.target as HTMLElement).tagName;
+                  if (
+                    (tag === 'INPUT' || tag === 'TEXTAREA') &&
+                    e.key !== 'Tab'
+                  ) {
+                    e.preventDefault();
+                  }
+                }
+              : undefined
           }
-          onStopActive={
-            activeStep && canPrioritize ? () => setStopOpen(true) : undefined
-          }
-          activeLoc={activeLoc}
-          editingId={editingId}
-        />
+          onPasteCapture={readOnly ? (e) => e.preventDefault() : undefined}
+          onDropCapture={readOnly ? (e) => e.preventDefault() : undefined}
+        >
+          <OrdersList
+            mode={mode}
+            onComplete={canComplete && !readOnly ? completeItem : undefined}
+            // ⏭ belongs to production tracking — only on a calc reopened from
+            // Salvati / Azienda, not while filling a fresh form.
+            onPrioritize={
+              canComplete && canPrioritize && !readOnly
+                ? prioritizeSize
+                : undefined
+            }
+            onStopActive={
+              activeStep && canPrioritize && !readOnly
+                ? () => setStopOpen(true)
+                : undefined
+            }
+            activeLoc={activeLoc}
+            editingId={editingId}
+          />
+        </div>
 
         <div
           ref={actionsRef}
@@ -511,14 +546,27 @@ function CalculatorForm({
               refreshKey={savedRefreshKey}
             />
           )}
-          <button
-            type="submit"
-            onClick={armCalculate}
-            disabled={noOrders}
-            className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-white sm:order-3 sm:w-auto sm:py-2.5"
-          >
-            {t('actions.calculate')} →
-          </button>
+          {readOnly ? (
+            // Nothing to recompute on a read-only company calc — instead copy
+            // it into Salvati, where it can be edited.
+            <button
+              type="button"
+              onClick={onAddToSaved}
+              className="order-1 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-3 sm:w-auto sm:py-2.5"
+            >
+              <SaveIcon className="h-4 w-4" />
+              {t('company.addToSaved')}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              onClick={armCalculate}
+              disabled={noOrders}
+              className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-white sm:order-3 sm:w-auto sm:py-2.5"
+            >
+              {t('actions.calculate')} →
+            </button>
+          )}
           <button
             type="button"
             onClick={onRequestReset}
@@ -543,6 +591,7 @@ function CalculatorForm({
         formId={FORM_ID}
         onCalculate={armCalculate}
         calcDisabled={noOrders}
+        onAddToSaved={readOnly ? onAddToSaved : undefined}
         onReset={onRequestReset}
         onRestore={onRestore}
         onToggleTracking={onToggleTracking}
