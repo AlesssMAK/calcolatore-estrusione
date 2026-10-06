@@ -18,6 +18,9 @@ interface Props {
   /** Called when the user picks a saved calculation; parent refills the form
    *  with its inputs and shows the result below. */
   onRestore: (entry: SavedCalculation) => void;
+  /** 🔄 per row: flip the entry between "Calcolo fisso" (static) and tracking
+   *  (subtracts the elapsed production). Absent → no toggle. */
+  onToggleTracking?: (entry: SavedCalculation) => void;
   /** Bump from the parent to force the dropdown to re-read history after a
    *  fresh save — avoids stale lists when the dropdown is reopened. */
   refreshKey?: number;
@@ -50,6 +53,7 @@ function formatRelative(ts: number, lang: string): string {
 
 function SavedCalculationsButton({
   onRestore,
+  onToggleTracking,
   refreshKey = 0,
   onPublish,
   placement,
@@ -209,6 +213,30 @@ function SavedCalculationsButton({
                       {formatRelative(it.ts, lang)}
                     </span>
                   </button>
+                  {onToggleTracking && it.values && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleTracking(it)}
+                      aria-pressed={!it.values.settings.frozen}
+                      aria-label={
+                        it.values.settings.frozen
+                          ? t('saved.trackingOff')
+                          : t('saved.trackingOn')
+                      }
+                      title={
+                        it.values.settings.frozen
+                          ? t('saved.trackingOff')
+                          : t('saved.trackingOn')
+                      }
+                      className={`shrink-0 rounded p-1.5 transition ${
+                        it.values.settings.frozen
+                          ? 'opacity-40 grayscale hover:bg-neutral-100 hover:opacity-70'
+                          : 'bg-brand-50 hover:bg-brand-100'
+                      }`}
+                    >
+                      🔄
+                    </button>
+                  )}
                   {onPublish && it.values && (
                     <div className="relative shrink-0">
                       <button

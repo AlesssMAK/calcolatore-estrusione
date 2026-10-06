@@ -127,6 +127,8 @@
     "empty": "Nessun calcolo salvato.",
     "restore": "Ripristina",
     "inProduction": "In produzione",
+    "trackingOn": "Sincronizzato: sottrae la produzione — tocca per fissarlo",
+    "trackingOff": "Calcolo fisso — tocca per sincronizzare la produzione da adesso",
     "delete": "Elimina",
     "hint": "I calcoli vengono salvati automaticamente quando premi «Calcola». Conservati per 7 giorni."
   },

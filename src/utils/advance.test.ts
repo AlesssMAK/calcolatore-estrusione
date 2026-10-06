@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAdvancedCalc } from './advance';
+import { buildAdvancedCalc, toggleTracking } from './advance';
 import { calculateSchedule } from './calculator';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
@@ -196,5 +196,39 @@ describe('buildAdvancedCalc', () => {
     expect(adv!.values.orders[0]!.id).toBe('b');
     expect(adv!.values.orders[0]!.speedMPerMin).toBe(1);
     expect(adv!.result.rows).toHaveLength(1);
+  });
+});
+
+describe('toggleTracking (🔄 in Salvati)', () => {
+  const sched: ScheduleSnapshot = { warmupMinutes: 0, shutdownMinutes: 0, schedule: null };
+
+  it('fixed → tracking restarts the production from the moment it is pressed', () => {
+    const entry = makeEntry();
+    entry.values!.settings.frozen = true;
+    const now = localDate(2026, 4, 12, 9); // Tue 09:00, a day after the plan
+    const patch = toggleTracking(entry, now, sched)!;
+    expect(patch.values!.settings.frozen).toBe(false);
+    expect(patch.values!.settings.startMode).toBe('now');
+    expect(patch.result.startAt.getTime()).toBe(now.getTime());
+    // Nothing subtracted yet: the full 600 min still remain.
+    expect(patch.result.rows[0]!.remainingMinutes).toBeCloseTo(600, 0);
+  });
+
+  it('tracking → fixed freezes the state reached so far', () => {
+    const entry = makeEntry();
+    const patch = toggleTracking(entry, localDate(2026, 4, 11, 11), sched)!; // +300 min
+    expect(patch.values!.settings.frozen).toBe(true);
+    expect(patch.values!.orders[0]!.producedSheets).toEqual([{ value: 300 }]);
+    expect(patch.result.rows[0]!.remainingMinutes).toBeCloseTo(300, 0);
+    // Frozen now → reopening hours later no longer advances it.
+    const frozenEntry = { ...entry, ...patch };
+    expect(buildAdvancedCalc(frozenEntry, localDate(2026, 4, 11, 14))).toBeNull();
+  });
+
+  it('tracking → fixed before the start keeps the calc exactly as it is', () => {
+    const entry = makeEntry();
+    const patch = toggleTracking(entry, localDate(2026, 4, 11, 5), sched)!;
+    expect(patch.values!.settings.frozen).toBe(true);
+    expect(patch.result).toBe(entry.result);
   });
 });

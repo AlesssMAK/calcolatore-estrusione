@@ -127,6 +127,8 @@
     "empty": "No saved calculations.",
     "restore": "Restore",
     "inProduction": "In production",
+    "trackingOn": "Synced: subtracts the production — tap to fix it",
+    "trackingOff": "Fixed calculation — tap to sync the production from now",
     "delete": "Delete",
     "hint": "Calculations are auto-saved when you press «Calculate». Kept for 7 days."
   },

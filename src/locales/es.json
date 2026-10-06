@@ -127,6 +127,8 @@
     "empty": "No hay cálculos guardados.",
     "restore": "Restaurar",
     "inProduction": "En producción",
+    "trackingOn": "Sincronizado: resta la producción — toca para fijarlo",
+    "trackingOff": "Cálculo fijo — toca para sincronizar la producción desde ahora",
     "delete": "Eliminar",
     "hint": "Los cálculos se guardan automáticamente al pulsar «Calcular». Se conservan 7 días."
   },
