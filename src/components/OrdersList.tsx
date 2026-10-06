@@ -594,48 +594,24 @@ function OrderFields({
           />
         )}
 
-        {showInlinePerPackage &&
-          (isFirst ? (
-            <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
-              <label className={labelBase}>
-                {t('orders.profilesPerPackage')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                inputMode="numeric"
-                className={`${inputBase} mt-1`}
-                {...register(`orders.${idx}.sizes.0.profilesPerPackage`, {
-                  setValueAs: numericSetValueAs,
-                })}
-              />
-              <FieldError
-                message={
-                  rowErr?.sizes?.[0]?.profilesPerPackage?.message
-                    ? t(
-                        `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
-                      )
-                    : undefined
-                }
-              />
-            </div>
-          ) : (
-            <CollapsibleInheritField
-              fieldPath={`orders.${idx}.sizes.0.profilesPerPackage`}
-              icon="📦"
-              label={t('orders.profilesPerPackage')}
-              inheritLabel={t('orders.optionalInherit')}
-              inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
-              errorMessage={
-                rowErr?.sizes?.[0]?.profilesPerPackage?.message
-                  ? t(
-                      `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
-                    )
-                  : undefined
-              }
-            />
-          ))}
+        {showInlinePerPackage && (
+          // Collapsed to a 📦 button on every order (the first one too); the
+          // first has nothing to inherit from, so no "(eredita)" hint there.
+          <CollapsibleInheritField
+            fieldPath={`orders.${idx}.sizes.0.profilesPerPackage`}
+            icon="📦"
+            label={t('orders.profilesPerPackage')}
+            inheritLabel={isFirst ? undefined : t('orders.optionalInherit')}
+            inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
+            errorMessage={
+              rowErr?.sizes?.[0]?.profilesPerPackage?.message
+                ? t(
+                    `validation.${rowErr.sizes[0].profilesPerPackage.message}`,
+                  )
+                : undefined
+            }
+          />
+        )}
 
         {isProfiles && (
           <CollapsibleInheritField
@@ -695,6 +671,8 @@ function OrderFields({
             idx={idx}
             mode={mode}
             t={t}
+            activeSizeIdx={activeSizeIdx}
+            onPrioritizeSize={onPrioritizeSize}
             onStop={onStopActive}
           />
         </>
@@ -707,8 +685,6 @@ function OrderFields({
           orderIdx={idx}
           mode={mode}
           t={t}
-          onCompleteSize={onCompleteSize}
-          onPrioritizeSize={onPrioritizeSize}
           activeSizeIdx={activeSizeIdx}
           editingId={editingId}
           afterSizes={(visibleSizeIdxs) => (
@@ -717,6 +693,9 @@ function OrderFields({
               mode={mode}
               t={t}
               visibleSizeIdxs={visibleSizeIdxs}
+              activeSizeIdx={activeSizeIdx}
+              onCompleteSize={onCompleteSize}
+              onPrioritizeSize={onPrioritizeSize}
               onStop={onStopActive}
             />
           )}
@@ -826,11 +805,12 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
 }
 
 // Collapsible field for optional, inheritance-backed numbers (speed,
-// profilesPerPackage). Shows a square icon button when value is empty;
+// profilesPerPackage, cavity). Shows a square icon button when value is empty;
 // clicking it expands an input. On blur, if still empty, collapses back.
-// Used only for idx > 0 so that creating a new order doesn't auto-focus
-// these fields — mobile users were getting trapped editing speed on each
-// new order (a known friction point on touch screens).
+// Speed uses it only for idx > 0 (the first order's speed is required) so that
+// creating a new order doesn't auto-focus it — mobile users were getting
+// trapped editing speed on each new order. Per-pacco / cavity use it on every
+// order.
 function CollapsibleInheritField({
   fieldPath,
   icon,
@@ -921,6 +901,9 @@ function AdvancedSection({
   mode,
   t,
   visibleSizeIdxs,
+  activeSizeIdx,
+  onCompleteSize,
+  onPrioritizeSize,
   onStop,
 }: {
   idx: number;
@@ -929,6 +912,12 @@ function AdvancedSection({
   /** When set (active order in a saved view), only these sizes' blocks are
    *  shown — the active size plus any the user manually expanded. Null → all. */
   visibleSizeIdxs?: Set<number> | null;
+  /** The size in production on this (active) order — gets the ⏹ button. */
+  activeSizeIdx?: number | null;
+  /** ✓ mark one size fully produced (multi-size orders). */
+  onCompleteSize?: (sizeIdx: number) => void;
+  /** ⏭ produce this size next, out of the queue. */
+  onPrioritizeSize?: (sizeIdx: number) => void;
   /** ⏹ "Ferma produzione" — set on the order holding the size in production
    *  (saved view): stop it and pick what's really running now. */
   onStop?: () => void;
@@ -1019,6 +1008,29 @@ function AdvancedSection({
     perPackageEntered && packagesEntered;
   const packagePathBlockedByProfiles = profilesEntered;
 
+  // Per-size actions (✓ / ⏭ / ⏹) in each size block's header. ✓ only for
+  // multi-size orders (single-size: "Completa Ordine" in the order header), ⏹
+  // only on the size in production. Undefined when there's nothing to show.
+  const sizeActions = (sIdx: number, totalSizes: number): ReactNode => {
+    const complete =
+      onCompleteSize && totalSizes > 1 ? () => onCompleteSize(sIdx) : undefined;
+    const prioritize = onPrioritizeSize
+      ? () => onPrioritizeSize(sIdx)
+      : undefined;
+    const stop = onStop && sIdx === activeSizeIdx ? onStop : undefined;
+    if (!complete && !prioritize && !stop) return undefined;
+    return (
+      <SizeActions
+        onComplete={complete}
+        onPrioritize={prioritize}
+        onStop={stop}
+        t={t}
+      />
+    );
+  };
+  // Total-meters orders are a single production step (no size blocks).
+  const orderActions = useTotalLength ? sizeActions(0, 1) : undefined;
+
   return (
     <div className="pt-2">
       <button
@@ -1040,25 +1052,13 @@ function AdvancedSection({
             hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
           }`}
         >
-          {(hadProducedAtMount || onStop) && (
+          {(hadProducedAtMount || (useTotalLength && orderActions)) && (
             <div className="mb-2 flex items-start justify-between gap-2">
               <p className="text-[11px] font-medium text-amber-700">
                 {hadProducedAtMount && <>↳ {t('orders.advanced.autoFilledNote')}</>}
               </p>
-              {onStop && (
-                <button
-                  type="button"
-                  onClick={onStop}
-                  title={t('orders.stopActive')}
-                  aria-label={t('orders.stopActive')}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-danger/40 bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger shadow-sm transition hover:bg-danger/20 sm:px-3 sm:py-1.5 sm:text-sm"
-                >
-                  <StopIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {t('orders.stopActive')}
-                  </span>
-                </button>
-              )}
+              {/* Total-meters orders have no size blocks → actions up here. */}
+              {useTotalLength && orderActions}
             </div>
           )}
           {useTotalLength ? (
@@ -1105,6 +1105,7 @@ function AdvancedSection({
                   orderIdx={idx}
                   sizeIdx={sIdx}
                   totalSizes={watchedSizes?.length ?? 1}
+                  actions={sizeActions(sIdx, watchedSizes?.length ?? 1)}
                   countDisabled={profilesBlockedByPackagePath}
                   totalDisabled={
                     packagePathBlockedByProfiles || !perPackageEntered
@@ -1119,6 +1120,7 @@ function AdvancedSection({
                   orderIdx={idx}
                   sizeIdx={sIdx}
                   totalSizes={watchedSizes?.length ?? 1}
+                  actions={sizeActions(sIdx, watchedSizes?.length ?? 1)}
                   countDisabled={sheetsBlockedByPalletPath}
                   rateDisabled={false}
                   totalDisabled={
@@ -1404,19 +1406,27 @@ function SizeBlockHeader({
   totalSizes,
   cols,
   labels,
+  actions,
 }: {
   sizeIdx: number;
   totalSizes: number;
   cols: string;
   labels: { label: string; disabled?: boolean }[];
+  /** Per-size action buttons (✓ / ⏭ / ⏹), right of the "#N" badge. */
+  actions?: ReactNode;
 }) {
   return (
     <>
-      {totalSizes > 1 && (
-        <div className="mb-1 flex items-center">
-          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700">
-            #{sizeIdx + 1}
-          </span>
+      {(totalSizes > 1 || actions) && (
+        <div className="mb-1 flex items-center justify-between gap-2">
+          {totalSizes > 1 ? (
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700">
+              #{sizeIdx + 1}
+            </span>
+          ) : (
+            <span />
+          )}
+          {actions}
         </div>
       )}
       <div className={`grid ${cols} items-end gap-1.5 sm:gap-2`}>
@@ -1446,6 +1456,7 @@ function SizeAdvancedBlockListi({
   rateLabel,
   totalLabel,
   t,
+  actions,
 }: {
   orderIdx: number;
   sizeIdx: number;
@@ -1457,6 +1468,8 @@ function SizeAdvancedBlockListi({
   rateLabel: string;
   totalLabel: string;
   t: TFunction;
+  /** Per-size action buttons shown in the block header. */
+  actions?: ReactNode;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -1515,6 +1528,7 @@ function SizeAdvancedBlockListi({
         sizeIdx={sizeIdx}
         totalSizes={totalSizes}
         cols={cols}
+        actions={actions}
         labels={[
           { label: countLabel, disabled: countDisabled },
           { label: rateLabel, disabled: rateDisabled },
@@ -1626,6 +1640,7 @@ function SizeAdvancedBlockProfili({
   countLabel,
   totalLabel,
   t,
+  actions,
 }: {
   orderIdx: number;
   sizeIdx: number;
@@ -1635,6 +1650,8 @@ function SizeAdvancedBlockProfili({
   countLabel: string;
   totalLabel: string;
   t: TFunction;
+  /** Per-size action buttons shown in the block header. */
+  actions?: ReactNode;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -1685,6 +1702,7 @@ function SizeAdvancedBlockProfili({
         sizeIdx={sizeIdx}
         totalSizes={totalSizes}
         cols={cols}
+        actions={actions}
         labels={[
           { label: countLabel, disabled: countDisabled },
           { label: totalLabel, disabled: totalDisabled },
@@ -1977,6 +1995,51 @@ function BatchRowsArray({
   );
 }
 
+// Per-size actions in its Calcolo Avanzato block — square icon buttons of one
+// size: ✓ completa misura, ⏭ senza coda, ⏹ ferma produzione (active size).
+function SizeActions({
+  onComplete,
+  onPrioritize,
+  onStop,
+  t,
+}: {
+  onComplete?: () => void;
+  onPrioritize?: () => void;
+  onStop?: () => void;
+  t: TFunction;
+}) {
+  if (!onComplete && !onPrioritize && !onStop) return null;
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      {onComplete && (
+        <button
+          type="button"
+          onClick={onComplete}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9"
+          aria-label={t('orders.completeSize')}
+          title={t('orders.completeSize')}
+        >
+          ✓
+        </button>
+      )}
+      {onPrioritize && (
+        <PrioritizeButton onClick={onPrioritize} label={t('orders.prioritize')} />
+      )}
+      {onStop && (
+        <button
+          type="button"
+          onClick={onStop}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-danger/40 bg-danger/10 text-danger shadow-sm transition hover:bg-danger/20 sm:h-9 sm:w-9"
+          aria-label={t('orders.stopActive')}
+          title={t('orders.stopActive')}
+        >
+          <StopIcon className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ⏭ "Senza coda" — produce this size next (custom production queue).
 function PrioritizeButton({
   onClick,
@@ -2003,8 +2066,6 @@ function SizesFieldArray({
   mode,
   t,
   afterSizes,
-  onCompleteSize,
-  onPrioritizeSize,
   activeSizeIdx,
   editingId,
 }: {
@@ -2016,12 +2077,6 @@ function SizesFieldArray({
    *  set of visible size indices (active + manually-expanded) so the advanced
    *  blocks stay in sync with which size rows are open. Null → all visible. */
   afterSizes?: (visibleSizeIdxs: Set<number> | null) => ReactNode;
-  /** Mark a single size fully produced (bound to this order's id). Renders a
-   *  per-size "✓" button after the +/− controls (multi-size orders only). */
-  onCompleteSize?: (sizeIdx: number) => void;
-  /** ⏭ produce this size next, out of the queue. Rendered after the − / + / ✓
-   *  buttons (same size); set only on a calc reopened from Salvati / Azienda. */
-  onPrioritizeSize?: (sizeIdx: number) => void;
   /** Active order (saved view): the size in production — other sizes collapse
    *  to a summary (click to expand). Null → all sizes shown. */
   activeSizeIdx?: number | null;
@@ -2210,29 +2265,14 @@ function SizesFieldArray({
               const sizeField = sizeFields[sIdx];
               const sizeErr = orderErr?.sizes?.[sIdx];
               const showPerPackage = isProfiles && sizeFields.length > 1;
-              // Per-size "✓" completa button adds one more auto column (multi-
-              // size only). Class strings are literal so Tailwind emits them.
-              const showSizeComplete = !!onCompleteSize && sizeFields.length > 1;
               const canReorder = sizeFields.length > 1;
-              // ✓ and ⏭ each add an auto column after − / +.
-              const extraCols =
-                (showSizeComplete ? 1 : 0) + (onPrioritizeSize ? 1 : 0);
-              // On phones the buttons get their own right-aligned row when the
-              // inputs would get too narrow — the per-pacco field (profiles) or
-              // 4 buttons (− + ✓ ⏭). Their wrapper is `sm:contents`, so on sm+
-              // they're plain grid cells on one row again.
-              const stackButtons = showPerPackage || extraCols >= 2;
+              // Per-size actions (✓ / ⏭ / ⏹) live in the size's Calcolo
+              // Avanzato block — the row keeps just − / +. Profiles on phones:
+              // qty | length | − | + on one row, the per-pacco field below
+              // (order-last); on sm+ everything sits on one row.
               const gridCols = showPerPackage
-                ? [
-                    'grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]',
-                    'grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]',
-                    'grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto_auto]',
-                  ][extraCols]
-                : [
-                    'grid-cols-[1fr_1fr_auto_auto]',
-                    'grid-cols-[1fr_1fr_auto_auto_auto]',
-                    'grid-cols-2 sm:grid-cols-[1fr_1fr_auto_auto_auto_auto]',
-                  ][extraCols];
+                ? 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
+                : 'grid-cols-[1fr_1fr_auto_auto]';
               // Collapse non-active sizes (saved view) to a summary line.
               const sizeCollapsed =
                 activeSizeIdx != null &&
@@ -2249,34 +2289,26 @@ function SizesFieldArray({
                         style={style}
                         id={`size-${orderIdx}-${sIdx}`}
                       >
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedSizes((s) =>
-                                new Set(s).add(sizeField.id),
-                              )
-                            }
-                            title={t('orders.expandOrder')}
-                            className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
-                          >
-                            <span className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
-                              #{sIdx + 1}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                              {zSheets} × {zLen} mm
-                            </span>
-                            <span aria-hidden className="shrink-0 text-ink-soft">
-                              ▸
-                            </span>
-                          </button>
-                          {onPrioritizeSize && (
-                            <PrioritizeButton
-                              onClick={() => onPrioritizeSize(sIdx)}
-                              label={t('orders.prioritize')}
-                            />
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSizes((s) =>
+                              new Set(s).add(sizeField.id),
+                            )
+                          }
+                          title={t('orders.expandOrder')}
+                          className="flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-left"
+                        >
+                          <span className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
+                            #{sIdx + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                            {zSheets} × {zLen} mm
+                          </span>
+                          <span aria-hidden className="shrink-0 text-ink-soft">
+                            ▸
+                          </span>
+                        </button>
                       </div>
                     ) : (
                     <div
@@ -2351,9 +2383,7 @@ function SizesFieldArray({
               </div>
 
               {showPerPackage && (
-                <div
-                  className="col-span-2 min-w-0 sm:col-span-1"
-                >
+                <div className="order-last col-span-4 min-w-0 sm:order-none sm:col-span-1">
                   <label className={labelBase}>
                     {t('orders.profilesPerPackage')}
                     {sIdx > 0 && (
@@ -2385,13 +2415,6 @@ function SizesFieldArray({
                 </div>
               )}
 
-              <div
-                className={
-                  stackButtons
-                    ? 'col-span-2 flex items-center justify-end gap-2 sm:contents'
-                    : 'contents'
-                }
-              >
               <button
                 type="button"
                 onClick={() => removeSize(sIdx)}
@@ -2417,26 +2440,6 @@ function SizesFieldArray({
               >
                 +
               </button>
-
-              {showSizeComplete && (
-                <button
-                  type="button"
-                  onClick={() => onCompleteSize?.(sIdx)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9"
-                  aria-label={t('orders.completeSize')}
-                  title={t('orders.completeSize')}
-                >
-                  ✓
-                </button>
-              )}
-
-              {onPrioritizeSize && (
-                <PrioritizeButton
-                  onClick={() => onPrioritizeSize(sIdx)}
-                  label={t('orders.prioritize')}
-                />
-              )}
-              </div>
                       </div>
                     </div>
                   )}
