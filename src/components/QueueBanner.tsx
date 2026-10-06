@@ -17,7 +17,9 @@ function QueueBanner({ mode }: { mode: CalculatorMode }) {
   if (!settings?.queue?.length || !orders?.length) return null;
 
   const live = liveSchedule({ settings, orders } as FormValues, mode);
-  const status = live ? queueStatus(settings.queue, orders, live) : null;
+  const status = live
+    ? queueStatus(settings.queue, orders, live, new Date())
+    : null;
   if (!status?.active) return null;
 
   let nextLabel: string | null = null;

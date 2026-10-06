@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateSchedule, progressAsOf } from './calculator';
 import {
+  interruptWith,
   prioritizeStep,
   queueStatus,
   resolveSequence,
@@ -150,5 +151,29 @@ describe('resolveSequence / prioritizeStep', () => {
     const r = calculateSchedule(settings(), orders, { now: at(8) });
     const seq = prioritizeStep(undefined, orders, r, { orderIdx: 1, sizeIdx: 1 });
     expect(toQueue(seq, orders).map((q) => q.sizeUid)).toEqual(['a1', 'b2', 'a2', 'b1']);
+  });
+});
+
+describe('interruptWith (⏹ + "what is in production now?")', () => {
+  it('runs the picked size now; the stopped one resumes right after it', () => {
+    const orders = makeOrders({ A: [30] }); // A1 wrongly "in production"
+    const r = calculateSchedule(settings(), orders, { now: at(8) });
+    const seq = interruptWith(undefined, orders, r, { orderIdx: 0, sizeIdx: 0 }, { orderIdx: 1, sizeIdx: 1 });
+    expect(toQueue(seq, orders).map((q) => q.sizeUid)).toEqual(['b2', 'a1', 'a2', 'b1']);
+    // Rescheduled with that queue: B2 is the one running first.
+    const r2 = calculateSchedule(settings(toQueue(seq, orders)), orders, { now: at(8) });
+    expect(t(r2.rows[1]!.sizeDetails![1]!.start)).toBe('8:00');
+    expect(t(r2.rows[0]!.sizeDetails![0]!.start)).toBe('9:00'); // A1 resumes after B2
+  });
+});
+
+describe('queueStatus with "now"', () => {
+  it('a step whose start has come is in production → next is the one after', () => {
+    const orders = makeOrders();
+    const r = calculateSchedule(settings(Q), orders, { now: at(8) });
+    // B1 runs 08–09 (nothing produced yet, but its time has come at 08:30).
+    expect(queueStatus(Q, orders, r, at(8, 30)).next).toEqual({ orderIdx: 0, sizeIdx: 0 });
+    // Before the start it's still the next one.
+    expect(queueStatus(Q, orders, r, at(7)).next).toEqual({ orderIdx: 1, sizeIdx: 0 });
   });
 });

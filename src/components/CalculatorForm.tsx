@@ -23,9 +23,11 @@ import type {
 } from '../types';
 import { buildEmptyDefaults, genId } from '../utils/defaults';
 import QueueBanner from './QueueBanner';
+import StopPicker from './StopPicker';
 import { liveSchedule } from '../utils/liveSchedule';
 import {
   differsFromNatural,
+  interruptWith,
   isPerSize,
   naturalSequence,
   prioritizeStep,
@@ -426,6 +428,28 @@ function CalculatorForm({
     applyQueue(seq);
   };
 
+  // ⏹ "Ferma produzione" on the size in production: pick what's really running
+  // now — it becomes the active size, the stopped one resumes right after it.
+  const [stopOpen, setStopOpen] = useState(false);
+  const activeStep: SeqStep | null =
+    activeLoc && orders?.[activeLoc.orderIdx]
+      ? {
+          orderIdx: activeLoc.orderIdx,
+          sizeIdx: isPerSize(orders[activeLoc.orderIdx])
+            ? activeLoc.sizeIdx
+            : null,
+        }
+      : null;
+  const switchActiveTo = (target: SeqStep) => {
+    if (!activeStep) return;
+    const values = methods.getValues();
+    const live = liveSchedule(values, mode);
+    if (!live) return;
+    applyQueue(
+      interruptWith(values.settings.queue, values.orders, live, activeStep, target),
+    );
+  };
+
   // Keep the registered handler pointing at the latest closure (so it uses the
   // current editingId / settings) while exposing a stable function reference.
   const completeRef = useRef(completeItem);
@@ -457,6 +481,9 @@ function CalculatorForm({
           mode={mode}
           onComplete={canComplete ? completeItem : undefined}
           onPrioritize={canPrioritize ? prioritizeSize : undefined}
+          onStopActive={
+            activeStep && canPrioritize ? () => setStopOpen(true) : undefined
+          }
           activeLoc={activeLoc}
           editingId={editingId}
         />
@@ -497,6 +524,15 @@ function CalculatorForm({
           </button>
         </div>
       </form>
+
+      {stopOpen && activeStep && (
+        <StopPicker
+          mode={mode}
+          stopped={activeStep}
+          onClose={() => setStopOpen(false)}
+          onPick={switchActiveTo}
+        />
+      )}
 
       <FloatingActions
         visible={showFloating}
