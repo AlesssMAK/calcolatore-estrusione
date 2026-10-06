@@ -36,6 +36,7 @@ import type { CalculatorMode } from '../types';
 import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
 import { isGapEnabled } from '../utils/calculator';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { StopIcon } from './ActionIcons';
 import FieldError from './FieldError';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
@@ -1049,9 +1050,13 @@ function AdvancedSection({
                   type="button"
                   onClick={onStop}
                   title={t('orders.stopActive')}
-                  className="shrink-0 rounded-md border border-danger/40 bg-white px-2.5 py-1 text-xs font-semibold text-danger shadow-sm transition hover:bg-danger/10"
+                  aria-label={t('orders.stopActive')}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-danger/40 bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger shadow-sm transition hover:bg-danger/20 sm:px-3 sm:py-1.5 sm:text-sm"
                 >
-                  ⏹ {t('orders.stopActive')}
+                  <StopIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {t('orders.stopActive')}
+                  </span>
                 </button>
               )}
             </div>
@@ -1986,7 +1991,7 @@ function PrioritizeButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-sm shadow-sm transition hover:border-amber-500 hover:bg-amber-100"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-base shadow-sm transition hover:border-amber-500 hover:bg-amber-100 sm:h-9 sm:w-9"
     >
       ⏭
     </button>
@@ -2014,8 +2019,8 @@ function SizesFieldArray({
   /** Mark a single size fully produced (bound to this order's id). Renders a
    *  per-size "✓" button after the +/− controls (multi-size orders only). */
   onCompleteSize?: (sizeIdx: number) => void;
-  /** ⏭ produce this size next, out of the queue. Rendered in the left column
-   *  (above the drag handle) so the row's inputs keep their width on phones. */
+  /** ⏭ produce this size next, out of the queue. Rendered after the − / + / ✓
+   *  buttons (same size); set only on a calc reopened from Salvati / Azienda. */
   onPrioritizeSize?: (sizeIdx: number) => void;
   /** Active order (saved view): the size in production — other sizes collapse
    *  to a summary (click to expand). Null → all sizes shown. */
@@ -2209,13 +2214,25 @@ function SizesFieldArray({
               // size only). Class strings are literal so Tailwind emits them.
               const showSizeComplete = !!onCompleteSize && sizeFields.length > 1;
               const canReorder = sizeFields.length > 1;
+              // ✓ and ⏭ each add an auto column after − / +.
+              const extraCols =
+                (showSizeComplete ? 1 : 0) + (onPrioritizeSize ? 1 : 0);
+              // On phones the buttons get their own right-aligned row when the
+              // inputs would get too narrow — the per-pacco field (profiles) or
+              // 4 buttons (− + ✓ ⏭). Their wrapper is `sm:contents`, so on sm+
+              // they're plain grid cells on one row again.
+              const stackButtons = showPerPackage || extraCols >= 2;
               const gridCols = showPerPackage
-                ? showSizeComplete
-                  ? 'grid-cols-[1fr_1fr_auto_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]'
-                  : 'grid-cols-[1fr_1fr_auto_auto] sm:grid-cols-[1fr_1fr_1fr_auto_auto]'
-                : showSizeComplete
-                  ? 'grid-cols-[1fr_1fr_auto_auto_auto]'
-                  : 'grid-cols-[1fr_1fr_auto_auto]';
+                ? [
+                    'grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]',
+                    'grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]',
+                    'grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto_auto]',
+                  ][extraCols]
+                : [
+                    'grid-cols-[1fr_1fr_auto_auto]',
+                    'grid-cols-[1fr_1fr_auto_auto_auto]',
+                    'grid-cols-2 sm:grid-cols-[1fr_1fr_auto_auto_auto_auto]',
+                  ][extraCols];
               // Collapse non-active sizes (saved view) to a summary line.
               const sizeCollapsed =
                 activeSizeIdx != null &&
@@ -2274,27 +2291,17 @@ function SizesFieldArray({
                           : ''
                       }`}
                     >
-                      {(canReorder || onPrioritizeSize) && (
-                        <div className="flex shrink-0 flex-col items-center justify-end gap-0.5 pb-5">
-                          {onPrioritizeSize && (
-                            <PrioritizeButton
-                              onClick={() => onPrioritizeSize(sIdx)}
-                              label={t('orders.prioritize')}
-                            />
-                          )}
-                          {canReorder && (
-                            <button
-                              type="button"
-                              {...handleProps}
-                              aria-label={t('orders.reorder')}
-                              title={t('orders.reorder')}
-                              className={`flex w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing ${
-                                onPrioritizeSize ? 'h-7' : 'h-8 sm:h-9'
-                              }`}
-                            >
-                              ⠿
-                            </button>
-                          )}
+                      {canReorder && (
+                        <div className="flex shrink-0 items-end pb-5">
+                          <button
+                            type="button"
+                            {...handleProps}
+                            aria-label={t('orders.reorder')}
+                            title={t('orders.reorder')}
+                            className="flex h-8 w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:h-9"
+                          >
+                            ⠿
+                          </button>
                         </div>
                       )}
                       <div
@@ -2345,9 +2352,7 @@ function SizesFieldArray({
 
               {showPerPackage && (
                 <div
-                  className={`min-w-0 sm:col-span-1 ${
-                    showSizeComplete ? 'col-span-5' : 'col-span-4'
-                  }`}
+                  className="col-span-2 min-w-0 sm:col-span-1"
                 >
                   <label className={labelBase}>
                     {t('orders.profilesPerPackage')}
@@ -2380,6 +2385,13 @@ function SizesFieldArray({
                 </div>
               )}
 
+              <div
+                className={
+                  stackButtons
+                    ? 'col-span-2 flex items-center justify-end gap-2 sm:contents'
+                    : 'contents'
+                }
+              >
               <button
                 type="button"
                 onClick={() => removeSize(sIdx)}
@@ -2417,6 +2429,14 @@ function SizesFieldArray({
                   ✓
                 </button>
               )}
+
+              {onPrioritizeSize && (
+                <PrioritizeButton
+                  onClick={() => onPrioritizeSize(sIdx)}
+                  label={t('orders.prioritize')}
+                />
+              )}
+              </div>
                       </div>
                     </div>
                   )}

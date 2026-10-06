@@ -49,6 +49,15 @@ export function BuildingIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Stop (rounded square) — "Ferma produzione". */
+export function StopIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 /** Filled chevron (Syllert sprite `arrow_back_ios_new`, rotated to point up). */
 export function ChevronUpIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
