@@ -28,11 +28,17 @@ import {
   deriveLabel,
   loadHistory,
   saveCalculation,
+  updateCalculation,
   updateSyncMeta,
   type SavedCalculation,
   type SyncMeta,
 } from './lib/calcHistory';
-import { buildAdvancedCalc, type AdvancedCalc } from './utils/advance';
+import {
+  buildAdvancedCalc,
+  toggleTracking,
+  type AdvancedCalc,
+  type TrackingPatch,
+} from './utils/advance';
 import { buildEmptyDefaults, loadWeekendPref, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
 import { loadDraft, clearDraft } from './lib/formDraft';
@@ -297,42 +303,110 @@ function CalculatorApp() {
       setCompletedRows([]);
     }
     setResult(r);
-    // Push edits to the live shared document if this calc is synced. Best-effort
-    // (fire-and-forget); bumps the local version.
-    const meta = syncMeta;
-    if (meta) {
+    // Push edits to the live shared document if this calc is synced.
+    if (syncMeta) {
       const newCompleted =
         newlyCompleted.length > 0
           ? [...(keepCompleted ? completedRows : []), ...newlyCompleted]
           : keepCompleted
             ? completedRows
             : [];
-      const payload = buildPayload(r, values, newCompleted);
-      const applyVersion = (v: number | null) => {
-        if (v != null) {
-          const next: SyncMeta = { ...meta, version: v };
-          setSyncMeta(next);
-          if (editingId) {
-            updateSyncMeta(editingId, next, settings.savedRetentionDays);
-          }
-        }
-      };
-      if (meta.token) {
-        // Author / link collaborator — edits via the secret token.
-        void updateSharedCalc(meta.id, meta.token, payload).then(applyVersion);
-      } else if (meta.companyEditable) {
-        // Company member on an "editable by anyone" published calc — no token.
-        void updateCompanyCalc(meta.id, payload).then(applyVersion);
-      } else {
-        // A view-only follower edited → detach into a local copy so their
-        // changes aren't overwritten by the next pull.
-        setSyncMeta(null);
-        if (editingId) {
-          updateSyncMeta(editingId, undefined, settings.savedRetentionDays);
-          setSavedRefreshKey((k) => k + 1);
+      pushToShared(syncMeta, buildPayload(r, values, newCompleted), editingId, true);
+    }
+  };
+
+  // Push a saved calc's new content to the live shared document it's bound to.
+  // Best-effort (fire-and-forget); bumps the local version. `isCurrent` = the
+  // calc is the one on screen (its live syncMeta state follows along).
+  const pushToShared = (
+    meta: SyncMeta,
+    payload: SharedPayload,
+    entryId: string | undefined,
+    isCurrent: boolean,
+  ) => {
+    const applyVersion = (v: number | null) => {
+      if (v != null) {
+        const next: SyncMeta = { ...meta, version: v };
+        if (isCurrent) setSyncMeta(next);
+        if (entryId) {
+          updateSyncMeta(entryId, next, settings.savedRetentionDays);
         }
       }
+    };
+    if (meta.token) {
+      // Author / link collaborator — edits via the secret token.
+      void updateSharedCalc(meta.id, meta.token, payload).then(applyVersion);
+    } else if (meta.companyEditable) {
+      // Company member on an "editable by anyone" published calc — no token.
+      void updateCompanyCalc(meta.id, payload).then(applyVersion);
+    } else {
+      // A view-only follower edited → detach into a local copy so their
+      // changes aren't overwritten by the next pull.
+      if (isCurrent) setSyncMeta(null);
+      if (entryId) {
+        updateSyncMeta(entryId, undefined, settings.savedRetentionDays);
+        setSavedRefreshKey((k) => k + 1);
+      }
     }
+  };
+
+  // The *current* effective schedule to advance / recompute a saved calc on:
+  // current weekend shift (machine pref), plus the live company 7-day schedule +
+  // buffers when a company link is active (else the calc's own). This is what
+  // makes a calc saved with weekends off count weekend hours once they're
+  // turned on (the reported "process doesn't move" case).
+  const currentScheduleFor = (entry: SavedCalculation): ScheduleSnapshot => ({
+    weekend: loadWeekendPref(),
+    schedule:
+      (company ? settings.schedule : undefined) ??
+      entry.snapshot?.schedule ??
+      null,
+    warmupMinutes:
+      (company ? settings.warmupMinutes : entry.values?.settings.warmupMinutes) ??
+      entry.snapshot?.warmupMinutes ??
+      0,
+    shutdownMinutes:
+      (company
+        ? settings.shutdownMinutes
+        : entry.values?.settings.shutdownMinutes) ??
+      entry.snapshot?.shutdownMinutes ??
+      0,
+    // Computed 24/7 ("Senza limiti orari") → keep advancing it 24/7.
+    noLimits: !!entry.values?.settings.noLimits,
+  });
+
+  // 🔄 in the Salvati list: flip a saved calc between fixed and tracking, in
+  // place (the list doesn't reorder). Synced calcs push the change; the calc on
+  // screen is reopened so the form/result reflect it.
+  const onToggleTracking = (entry: SavedCalculation) => {
+    let patch: TrackingPatch | null = null;
+    try {
+      patch = toggleTracking(entry, new Date(), currentScheduleFor(entry));
+    } catch (err) {
+      console.error('Failed to toggle tracking', entry.id, err);
+    }
+    if (!patch) return;
+    const updated = updateCalculation(entry.id, patch, settings.savedRetentionDays);
+    if (!updated) return;
+    setSavedRefreshKey((k) => k + 1);
+    const isCurrent = editingId === entry.id;
+    if (updated.sync && updated.values) {
+      pushToShared(
+        updated.sync,
+        {
+          v: 1,
+          mode: updated.result.mode,
+          values: updated.values,
+          result: updated.result,
+          completedRows: updated.completedRows,
+          label: updated.label,
+          snapshot: updated.snapshot,
+        },
+        updated.id,
+        isCurrent,
+      );
+    }
+    if (isCurrent) doRestore(updated, false, false);
   };
 
   // Restore a saved calculation. If it's stale (real time has moved past its
@@ -340,7 +414,11 @@ function CalculatorApp() {
   // and the schedule is recomputed — shown with a banner + link to the
   // original. Either way the form is refilled so the user can tweak &
   // recalculate. Switch tab if the saved mode differs from the current one.
-  const doRestore = (entry: SavedCalculation, showModal = false) => {
+  const doRestore = (
+    entry: SavedCalculation,
+    showModal = false,
+    scroll = true,
+  ) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
     // Advancing a malformed saved entry must never leave its row un-openable:
     // on failure fall back to showing the saved result as-is (and note why),
@@ -348,30 +426,8 @@ function CalculatorApp() {
     let adv: AdvancedCalc | null = null;
     try {
       // Advance against the *current* effective schedule, not the one frozen at
-      // save time: current weekend shift (machine pref), plus the live company
-      // 7-day schedule + buffers when a company link is active. This is what
-      // makes a calc saved with weekends off count weekend hours once they're
-      // turned on (the reported "process doesn't move" case).
-      const currentSchedule: ScheduleSnapshot = {
-        weekend: loadWeekendPref(),
-        schedule:
-          (company ? settings.schedule : undefined) ??
-          entry.snapshot?.schedule ??
-          null,
-        warmupMinutes:
-          (company ? settings.warmupMinutes : entry.values?.settings.warmupMinutes) ??
-          entry.snapshot?.warmupMinutes ??
-          0,
-        shutdownMinutes:
-          (company
-            ? settings.shutdownMinutes
-            : entry.values?.settings.shutdownMinutes) ??
-          entry.snapshot?.shutdownMinutes ??
-          0,
-        // Computed 24/7 ("Senza limiti orari") → keep advancing it 24/7.
-        noLimits: !!entry.values?.settings.noLimits,
-      };
-      adv = buildAdvancedCalc(entry, new Date(), currentSchedule);
+      // save time (see currentScheduleFor).
+      adv = buildAdvancedCalc(entry, new Date(), currentScheduleFor(entry));
       setRestoreAdvanceError(null);
     } catch (err) {
       console.error('Failed to advance saved calc', entry.id, err);
@@ -409,7 +465,7 @@ function CalculatorApp() {
     );
     if (showModal) setActiveModal(active);
     setFormKey((k) => k + 1);
-    scrollToResults();
+    if (scroll) scrollToResults();
   };
 
   // Pull the latest server version of a synced entry; if newer than the local
@@ -819,6 +875,7 @@ function CalculatorApp() {
             setSavedRefreshKey((k) => k + 1);
           }}
           onRestore={onRestore}
+          onToggleTracking={onToggleTracking}
           savedRefreshKey={savedRefreshKey}
           initialValues={restoredValues}
           editingId={editingId}

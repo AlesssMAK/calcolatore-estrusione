@@ -156,6 +156,27 @@ export function saveCalculation(
   return entry;
 }
 
+/** Replace an entry's content in place — same id, slot, position, ts, label and
+ *  sync binding — for list actions that must not reorder the dropdown (e.g. the
+ *  🔄 tracking toggle). Returns the updated entry, or null when it's gone. */
+export function updateCalculation(
+  id: string,
+  patch: Pick<SavedCalculation, 'result' | 'values' | 'snapshot' | 'completedRows'>,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): SavedCalculation | null {
+  const items = loadHistory(retentionDays);
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx === -1) return null;
+  const next: SavedCalculation = {
+    ...items[idx],
+    ...patch,
+    completedRows: patch.completedRows?.length ? patch.completedRows : undefined,
+  };
+  items[idx] = next;
+  safeWrite(items);
+  return next;
+}
+
 export function removeCalculation(
   id: string,
   retentionDays: number = DEFAULT_RETENTION_DAYS,

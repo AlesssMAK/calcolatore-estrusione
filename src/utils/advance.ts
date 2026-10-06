@@ -205,3 +205,72 @@ export function buildAdvancedCalc(
 
   return { values: { settings, orders: activeOrders }, result: advResult, completedRows };
 }
+
+/** The new content of a saved calc after its 🔄 tracking toggle. */
+export type TrackingPatch = Pick<
+  SavedCalculation,
+  'result' | 'values' | 'snapshot' | 'completedRows'
+>;
+
+/**
+ * The 🔄 toggle in the Salvati list: flip a saved calc between "Calcolo fisso"
+ * (static) and tracking (it subtracts the elapsed production when reopened).
+ *  - fixed → tracking: production starts *now* — the queue is recomputed from
+ *    this moment on the current schedule, then counts down from here.
+ *  - tracking → fixed: advance to now and freeze that state (what was produced
+ *    so far is kept; nothing more is subtracted afterwards).
+ * Returns null when the entry carries no inputs to work with.
+ */
+export function toggleTracking(
+  entry: SavedCalculation,
+  now: Date,
+  currentSchedule: ScheduleSnapshot,
+): TrackingPatch | null {
+  const { values } = entry;
+  if (!values) return null;
+
+  if (values.settings.frozen) {
+    const settings: FormValues['settings'] = {
+      ...values.settings,
+      frozen: false,
+      weekend: currentSchedule.weekend ?? values.settings.weekend,
+      startMode: 'now',
+      startAt: '',
+    };
+    const nextValues: FormValues = { ...values, settings };
+    // Nothing left to run (every order already completed) → just flip the flag.
+    const result =
+      nextValues.orders.length > 0
+        ? calculateSchedule(settings, nextValues.orders, {
+            mode: entry.result.mode,
+            schedule: currentSchedule.schedule ?? undefined,
+            warmupMinutes: currentSchedule.warmupMinutes,
+            shutdownMinutes: currentSchedule.shutdownMinutes,
+            now,
+          })
+        : entry.result;
+    return {
+      result,
+      values: nextValues,
+      snapshot: currentSchedule,
+      completedRows: entry.completedRows,
+    };
+  }
+
+  // Not started yet / can't advance → freeze it exactly as it is.
+  const adv = buildAdvancedCalc(entry, now, currentSchedule);
+  const base = adv ?? {
+    values,
+    result: entry.result,
+    completedRows: entry.completedRows ?? [],
+  };
+  return {
+    result: base.result,
+    values: {
+      ...base.values,
+      settings: { ...base.values.settings, frozen: true },
+    },
+    snapshot: adv ? currentSchedule : entry.snapshot,
+    completedRows: base.completedRows,
+  };
+}

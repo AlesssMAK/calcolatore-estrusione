@@ -55,6 +55,8 @@ interface Props {
    *  parent refills the form with the saved inputs and shows the result below.
    *  Switches tab if the saved mode differs from the current one. */
   onRestore?: (entry: SavedCalculation) => void;
+  /** 🔄 in the saved list: flip an entry between fixed and tracking. */
+  onToggleTracking?: (entry: SavedCalculation) => void;
   /** Bump from parent to force the saved-list to re-read history when reopened. */
   savedRefreshKey?: number;
   /** When restoring a saved calculation, the form mounts pre-filled with these
@@ -100,6 +102,7 @@ function CalculatorForm({
   onRequestReset,
   onSaved,
   onRestore,
+  onToggleTracking,
   savedRefreshKey,
   initialValues,
   editingId,
@@ -379,6 +382,7 @@ function CalculatorForm({
           {onRestore && (
             <SavedCalculationsButton
               onRestore={onRestore}
+              onToggleTracking={onToggleTracking}
               refreshKey={savedRefreshKey}
               onPublish={onPublish}
             />
@@ -415,6 +419,7 @@ function CalculatorForm({
         calcDisabled={noOrders}
         onReset={onRequestReset}
         onRestore={onRestore}
+        onToggleTracking={onToggleTracking}
         savedRefreshKey={savedRefreshKey}
         onPublish={onPublish}
         onOpenCompany={onOpenCompany}

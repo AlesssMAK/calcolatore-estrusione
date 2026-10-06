@@ -20,6 +20,7 @@ interface Props {
   calcDisabled?: boolean;
   onReset: () => void;
   onRestore?: (entry: SavedCalculation) => void;
+  onToggleTracking?: (entry: SavedCalculation) => void;
   savedRefreshKey?: number;
   onPublish?: (
     entry: SavedCalculation,
@@ -39,6 +40,7 @@ function FloatingActions({
   calcDisabled,
   onReset,
   onRestore,
+  onToggleTracking,
   savedRefreshKey,
   onPublish,
   onOpenCompany,
@@ -129,6 +131,7 @@ function FloatingActions({
           <SavedCalculationsButton
             placement={p}
             onRestore={onRestore}
+            onToggleTracking={onToggleTracking}
             refreshKey={savedRefreshKey}
             onPublish={onPublish}
           />
