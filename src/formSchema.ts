@@ -9,6 +9,7 @@ const sizeSchema = z.object({
     .int('integer')
     .positive('positive')
     .optional(),
+  uid: z.string().optional(),
 });
 
 const producedEntrySchema = z.object({
@@ -90,6 +91,9 @@ const settingsSchema = z.object({
   shutdownMinutes: z.number().min(0).max(1440).optional(),
   noLimits: z.boolean().optional(),
   frozen: z.boolean().optional(),
+  queue: z
+    .array(z.object({ orderId: z.string(), sizeUid: z.string().optional() }))
+    .optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

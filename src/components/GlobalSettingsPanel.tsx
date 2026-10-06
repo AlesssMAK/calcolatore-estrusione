@@ -11,6 +11,13 @@ import { saveWeekendPref } from '../utils/defaults';
 import { isContinuous } from '../utils/calculator';
 import { useEffect, useState } from 'react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import QueueEditor from './QueueEditor';
+import type { CalculatorMode } from '../types';
+import {
+  differsFromNatural,
+  resolveSequence,
+  type SeqStep,
+} from '../utils/queue';
 
 const WORKDAY_START_HOUR = 6;
 
@@ -158,7 +165,14 @@ function WeekendDayRow({
   );
 }
 
-function GlobalSettingsPanel() {
+function GlobalSettingsPanel({
+  mode,
+  onApplyQueue,
+}: {
+  mode: CalculatorMode;
+  /** Save a custom production order of the sizes (and recompute). */
+  onApplyQueue: (seq: SeqStep[]) => void;
+}) {
   'use no memo';
   const { t, i18n } = useTranslation();
   const [now] = useState(() => Date.now());
@@ -175,6 +189,13 @@ function GlobalSettingsPanel() {
   const shutdownMinutes = useWatch({ control, name: 'settings.shutdownMinutes' });
   const noLimits = !!useWatch({ control, name: 'settings.noLimits' });
   const frozen = !!useWatch({ control, name: 'settings.frozen' });
+  const queue = useWatch({ control, name: 'settings.queue' });
+  const orders = useWatch({ control, name: 'orders' });
+  const queueSet =
+    !!queue?.length &&
+    !!orders?.length &&
+    differsFromNatural(resolveSequence(queue, orders), orders);
+  const [queueOpen, setQueueOpen] = useState(false);
   // When the line runs continuously (no stops) buffers have no effect — disable
   // the inputs. Mirrors the scheduler's own `isContinuous` so UI and math agree.
   const continuous = isContinuous({ weekend });
@@ -317,7 +338,22 @@ function GlobalSettingsPanel() {
           icon="📌"
           label={t('settings.toggle.frozen')}
         />
+        <ToggleButton
+          active={queueSet}
+          onClick={() => setQueueOpen(true)}
+          icon="🔀"
+          label={t('settings.toggle.queue')}
+          disabled={!orders?.length}
+        />
       </div>
+
+      {queueOpen && (
+        <QueueEditor
+          mode={mode}
+          onClose={() => setQueueOpen(false)}
+          onApply={onApplyQueue}
+        />
+      )}
 
       {(noLimits || frozen) && (
         <div className="mt-3 space-y-1 rounded-md border border-brand-200 bg-brand-50/50 p-3 text-xs text-ink-soft sm:mt-4">

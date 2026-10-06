@@ -28,7 +28,8 @@
       "productName": "Calculation Name",
       "weekend": "Line Schedule",
       "noLimits": "No Time Limits",
-      "frozen": "Fixed Calculation"
+      "frozen": "Fixed Calculation",
+      "queue": "Queue Order"
     },
     "noLimits": {
       "active": "No time limits — continuous 24/7 calculation from now",
@@ -106,6 +107,7 @@
     "complete": "Complete",
     "completeOrder": "Complete Order",
     "completeSize": "Complete Size",
+    "prioritize": "Skip the Queue: produce right after the size in progress",
     "reorder": "Drag to reorder"
   },
   "actions": {
@@ -131,6 +133,19 @@
     "trackingOff": "Fixed calculation — tap to sync the production from now",
     "delete": "Delete",
     "hint": "Calculations are auto-saved when you press «Calculate». Kept for 7 days."
+  },
+  "queue": {
+    "title": "Production order",
+    "hint": "Drag the sizes (⠿) or use ↑↓ to put them in the order they'll be produced. In the form and results they stay under their order.",
+    "natural": "Form Order",
+    "cancel": "Cancel",
+    "apply": "Apply",
+    "done": "Done",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "active": "Custom order active",
+    "next": "next size",
+    "orderNo": "order #{{n}}"
   },
   "results": {
     "title": "Result",

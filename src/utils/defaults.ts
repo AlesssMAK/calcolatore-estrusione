@@ -65,6 +65,7 @@ export function makeEmptySize(): NonNullable<
     sheets: undefined,
     length: undefined,
     profilesPerPackage: undefined,
+    uid: genId(),
   } as unknown as NonNullable<FormValues['orders'][number]['sizes']>[number];
 }
 

@@ -15,6 +15,8 @@ import type {
   WeekSchedule,
 } from '../types';
 
+import { differsFromNatural, resolveSequence, type SeqStep } from './queue';
+
 export function sumEntries(entries: ProducedEntry[] | undefined): number {
   if (!entries) return 0;
   return entries.reduce((sum, e) => sum + (e?.value ?? 0), 0);
@@ -935,6 +937,23 @@ interface ScheduleOptions {
   shutdownMinutes?: number;
 }
 
+/** Everything about an order except its timing — pass 1 of calculateSchedule. */
+interface OrderDraft {
+  base: Omit<
+    ScheduledOrder,
+    'start' | 'end' | 'segments' | 'sizeDetails' | 'gapAfterMin'
+  >;
+  /** Per-size breakdown (2+ sizes) without times. */
+  sizes?: Omit<ScheduledSizeDetail, 'start' | 'end'>[];
+  effectiveSpeed: number;
+  /** Pieces still to make (to spread over the production windows). */
+  remPieces?: number;
+  /** Pause after the order in form order (0 for the last one). */
+  gapNatural: number;
+  /** Pause after the order wherever a custom queue puts its end. */
+  gapRaw: number;
+}
+
 export function calculateSchedule(
   settings: GlobalSettings,
   orders: Order[],
@@ -990,13 +1009,7 @@ export function calculateSchedule(
   };
 
   const startAt = startOf(rawStart);
-  // Cursor tracks the raw schedule position (not the forward-snapped start): a
-  // finished order sits at the last working moment, while an order with work
-  // left snaps forward to the next productive window (see `start` below).
-  let cursor = rawStart;
-  const rows: ScheduledOrder[] = [];
-  let totalProductionMinutes = 0;
-  let totalGapMinutes = 0;
+  const drafts: OrderDraft[] = [];
   const totalPackages: number | undefined = undefined;
   let lastSpeed: number | undefined;
   let lastPerPackage: number | undefined;
@@ -1019,10 +1032,10 @@ export function calculateSchedule(
     const productionMinutes = totalLengthM / effectiveSpeed;
 
     const isLast = idx === orders.length - 1;
-    const gapAfterMin =
-      !isLast && isGapEnabled(order, settings)
-        ? Math.max(0, order.gapAfterMin ?? 0)
-        : 0;
+    const gapRaw = isGapEnabled(order, settings)
+      ? Math.max(0, order.gapAfterMin ?? 0)
+      : 0;
+    const gapNatural = isLast ? 0 : gapRaw;
 
     let packages: number | undefined;
     let totalProfiles: number | undefined;
@@ -1126,42 +1139,18 @@ export function calculateSchedule(
     }
 
     const remainingMinutes = productionMinutes * Math.max(0, 1 - fraction);
-    // A finished order (nothing left to run) was produced in the past, so it's
-    // timed at the last working moment before the schedule start — e.g. the
-    // previous Saturday's close — regardless of its position in the queue (the
-    // cursor may already be in the future behind active orders). Orders with
-    // work left snap forward from the cursor to the next productive window.
-    const start =
-      remainingMinutes > 0
-        ? startOf(cursor)
-        : lastWorkingInstant(rawStart, work);
-    const { end, segments: rawSegments } = run(start, remainingMinutes);
-    // Enrich each production window with what it produces (time / meters / pcs),
-    // distributed in proportion to its duration.
+    // Pieces still to make — spread over the production windows (timing pass).
     const remPieces =
       mode === 'profiles'
         ? remainingProfiles ?? totalProfiles
         : remainingSheets ?? totalSheets;
-    const orderSegments: Segment[] = rawSegments.map((s) => {
-      const minutes = (s.end.getTime() - s.start.getTime()) / 60_000;
-      return {
-        start: s.start,
-        end: s.end,
-        minutes,
-        metersM: minutes * effectiveSpeed,
-        pieces:
-          remPieces !== undefined && remainingMinutes > 0
-            ? Math.round((remPieces * minutes) / remainingMinutes)
-            : undefined,
-      };
-    });
 
     // Per-size breakdown when an order has 2+ sizes (sizes-mode only —
-    // useTotalLength has no per-size structure to break out).
-    let sizeDetails: ScheduledSizeDetail[] | undefined;
+    // useTotalLength has no per-size structure to break out). Times are set in
+    // the timing pass.
+    let sizeDetails: Omit<ScheduledSizeDetail, 'start' | 'end'>[] | undefined;
     if (!order.useTotalLength && order.sizes && order.sizes.length > 1) {
       sizeDetails = [];
-      let sizeCursor = start;
       for (let i = 0; i < order.sizes.length; i++) {
         const sz = order.sizes[i];
         const sheetsI = sz?.sheets ?? 0;
@@ -1245,8 +1234,6 @@ export function calculateSchedule(
         }
 
         const remainingMinsI = minsI * Math.max(0, 1 - sizeFraction);
-        const startI = startOf(sizeCursor);
-        const endI = run(startI, remainingMinsI).end;
 
         // Per-unit (pallet/package) metrics for this size — set only if the
         // rate is known. Used by the UI's "Tempo per bancale/pacco" row and
@@ -1286,10 +1273,7 @@ export function calculateSchedule(
           remainingPalletsAtSize: remainingPalletsI,
           timePerUnitMin: timePerUnitMinI,
           totalUnits: totalUnitsI,
-          start: startI,
-          end: endI,
         });
-        sizeCursor = endI;
       }
     }
 
@@ -1331,56 +1315,186 @@ export function calculateSchedule(
       }
     }
 
-    rows.push({
-      order,
-      speedMPerMin,
-      totalLengthM,
-      productionMinutes,
-      remainingMinutes,
-      start,
-      end,
-      segments: orderSegments.length > 1 ? orderSegments : undefined,
-      sizeDetails,
-      gapAfterMin,
-      packages,
-      totalProfiles,
-      producedProfiles,
-      producedPackages,
-      remainingProfiles,
-      remainingPackages,
-      totalSheets,
-      producedSheets: producedSheetsCount,
-      producedPallets,
-      sheetsPerPallet: sheetsPerPalletVal,
-      remainingSheets,
-      remainingPallets,
-      producedLengthM,
-      remainingLengthM,
-      timePerUnitMin: timePerUnitMinRow,
-      totalUnits: totalUnitsRow,
+    drafts.push({
+      effectiveSpeed,
+      remPieces,
+      gapNatural,
+      gapRaw,
+      sizes: sizeDetails,
+      base: {
+        order,
+        speedMPerMin,
+        totalLengthM,
+        productionMinutes,
+        remainingMinutes,
+        packages,
+        totalProfiles,
+        producedProfiles,
+        producedPackages,
+        remainingProfiles,
+        remainingPackages,
+        totalSheets,
+        producedSheets: producedSheetsCount,
+        producedPallets,
+        sheetsPerPallet: sheetsPerPalletVal,
+        remainingSheets,
+        remainingPallets,
+        producedLengthM,
+        remainingLengthM,
+        timePerUnitMin: timePerUnitMinRow,
+        totalUnits: totalUnitsRow,
+      },
     });
-
-    totalProductionMinutes += remainingMinutes;
-    // A finished order adds no real gap and must not push the cursor forward —
-    // keep it (and any following finished orders) at the last working moment
-    // instead of dragging them past the weekend into the next window.
-    if (remainingMinutes > 0) {
-      totalGapMinutes += gapAfterMin;
-      cursor = run(end, gapAfterMin).end;
-    } else {
-      cursor = end;
-    }
   });
 
+  // ── Timing pass ──────────────────────────────────────────────────────────
+  // A finished order / size (nothing left to run) was produced in the past, so
+  // it's timed at the last working moment before the schedule start — e.g. the
+  // previous Saturday's close — regardless of its position in the queue.
+  const pastInstant = (): Date => lastWorkingInstant(rawStart, work);
+  // Each production window enriched with what it produces (time / meters /
+  // pcs), distributed in proportion to its duration.
+  const enrich = (d: OrderDraft, raw: RawSegment[]): Segment[] =>
+    raw.map((s) => {
+      const minutes = (s.end.getTime() - s.start.getTime()) / 60_000;
+      return {
+        start: s.start,
+        end: s.end,
+        minutes,
+        metersM: minutes * d.effectiveSpeed,
+        pieces:
+          d.remPieces !== undefined && d.base.remainingMinutes > 0
+            ? Math.round((d.remPieces * minutes) / d.base.remainingMinutes)
+            : undefined,
+      };
+    });
+
+  const rows: ScheduledOrder[] = [];
+  let totalProductionMinutes = 0;
+  let totalGapMinutes = 0;
+  const sequence = resolveSequence(settings.queue, orders);
+
+  if (!differsFromNatural(sequence, orders)) {
+    // Form order: orders one after another, sizes in sequence within each.
+    // Cursor tracks the raw schedule position (not the forward-snapped start):
+    // an order with work left snaps forward to the next productive window.
+    let cursor = rawStart;
+    for (const d of drafts) {
+      const rem = d.base.remainingMinutes;
+      const start = rem > 0 ? startOf(cursor) : pastInstant();
+      const { end, segments: raw } = run(start, rem);
+      let sizeCursor = start;
+      const sizeDetails = d.sizes?.map((sd) => {
+        const startI = startOf(sizeCursor);
+        const endI = run(startI, sd.remainingMinutes).end;
+        sizeCursor = endI;
+        return { ...sd, start: startI, end: endI };
+      });
+      const segments = enrich(d, raw);
+      rows.push({
+        ...d.base,
+        start,
+        end,
+        segments: segments.length > 1 ? segments : undefined,
+        sizeDetails,
+        gapAfterMin: d.gapNatural,
+      });
+      totalProductionMinutes += rem;
+      // A finished order adds no real gap and must not push the cursor forward —
+      // keep it (and any following finished orders) at the last working moment
+      // instead of dragging them past the weekend into the next window.
+      if (rem > 0) {
+        totalGapMinutes += d.gapNatural;
+        cursor = run(end, d.gapNatural).end;
+      } else {
+        cursor = end;
+      }
+    }
+  } else {
+    // Custom queue: run the steps (a size, or a whole single-size / total-
+    // meters order) in the queue's sequence, possibly interleaving orders. Rows
+    // stay in form order; each order spans its first to last step, its windows
+    // are the union of its steps' (→ "split into parts" when interleaved).
+    const stepRem = (s: SeqStep): number => {
+      const d = drafts[s.orderIdx];
+      return s.sizeIdx === null
+        ? d.base.remainingMinutes
+        : (d.sizes?.[s.sizeIdx]?.remainingMinutes ?? 0);
+    };
+    const working = sequence.filter((s) => stepRem(s) > 0);
+    const lastStepOf = new Map<number, SeqStep>();
+    for (const s of working) lastStepOf.set(s.orderIdx, s);
+    const timed = new Map<string, { start: Date; end: Date; raw: RawSegment[] }>();
+    const gapOf = new Map<number, number>();
+    const key = (s: SeqStep) => `${s.orderIdx}:${s.sizeIdx ?? '*'}`;
+    let cursor = rawStart;
+    working.forEach((s, i) => {
+      const start = startOf(cursor);
+      const { end, segments: raw } = run(start, stepRem(s));
+      timed.set(key(s), { start, end, raw });
+      cursor = end;
+      // "Pausa dopo" once the order is done (its last step), unless nothing
+      // follows it.
+      const d = drafts[s.orderIdx];
+      if (lastStepOf.get(s.orderIdx) === s && i < working.length - 1 && d.gapRaw > 0) {
+        gapOf.set(s.orderIdx, d.gapRaw);
+        totalGapMinutes += d.gapRaw;
+        cursor = run(end, d.gapRaw).end;
+      }
+    });
+
+    drafts.forEach((d, orderIdx) => {
+      const own = d.sizes
+        ? d.sizes.map((_, sizeIdx) => timed.get(key({ orderIdx, sizeIdx })))
+        : [timed.get(key({ orderIdx, sizeIdx: null }))];
+      const live = own.filter((t): t is NonNullable<typeof t> => !!t);
+      const past = pastInstant();
+      const start = live.length
+        ? new Date(Math.min(...live.map((t) => t.start.getTime())))
+        : past;
+      const end = live.length
+        ? new Date(Math.max(...live.map((t) => t.end.getTime())))
+        : past;
+      // Union of the steps' windows, in time order, merging back-to-back ones.
+      const raw: RawSegment[] = [];
+      for (const seg of live
+        .flatMap((t) => t.raw)
+        .sort((a, b) => a.start.getTime() - b.start.getTime())) {
+        const prev = raw[raw.length - 1];
+        if (prev && prev.end.getTime() === seg.start.getTime()) {
+          raw[raw.length - 1] = { start: prev.start, end: seg.end };
+        } else {
+          raw.push({ ...seg });
+        }
+      }
+      const segments = enrich(d, raw);
+      const sizeDetails = d.sizes?.map((sd, sizeIdx) => {
+        const t = own[sizeIdx];
+        return { ...sd, start: t?.start ?? past, end: t?.end ?? past };
+      });
+      rows.push({
+        ...d.base,
+        start,
+        end,
+        segments: segments.length > 1 ? segments : undefined,
+        sizeDetails,
+        gapAfterMin: gapOf.get(orderIdx) ?? 0,
+      });
+      totalProductionMinutes += d.base.remainingMinutes;
+    });
+  }
+
   // endAt is the latest end across all rows (a finished order may be timed in
-  // the past, so it isn't necessarily the last row). startAt tracks the first
-  // order that still has work — so the total duration reflects the remaining
+  // the past, so it isn't necessarily the last row). startAt is the earliest
+  // start of the work left — so the total duration reflects the remaining
   // span, not the weekend gap behind already-finished rows.
   const endAt = new Date(
     Math.max(...rows.map((r) => r.end.getTime())),
   );
-  const resultStartAt =
-    rows.find((r) => r.remainingMinutes > 0)?.start ?? rows[0]?.start ?? startAt;
+  const liveRows = rows.filter((r) => r.remainingMinutes > 0);
+  const resultStartAt = liveRows.length
+    ? new Date(Math.min(...liveRows.map((r) => r.start.getTime())))
+    : (rows[0]?.start ?? startAt);
 
   const productName = settings.productName?.trim();
   return {
