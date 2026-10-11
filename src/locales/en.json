@@ -254,11 +254,11 @@
     "title": "Pyramid",
     "subtitle": "Sheet layout on the pallet",
     "backToCalculator": "Calculator",
-    "schemaBlock": "Layout schema",
+    "schemaBlock": "Layout Schema",
     "openLink": "📐 Pyramid (sheet layout)",
     "readText": "🔍 Text read (reliability {{confidence}}%)",
     "import": {
-      "button": "Import from a saved calc",
+      "button": "Import from a Saved Calc",
       "empty": "No saved calc with sheet sizes.",
       "info": "{{sizes}} sizes · {{pieces}} pcs",
       "orders": "{{n}} orders"
@@ -268,11 +268,11 @@
       "empty": "No saved layouts."
     },
     "useInCalculator": {
-      "button": "Use in calculator",
-      "new": "New calculation",
+      "button": "Use in Calculator",
+      "new": "New Calculation",
       "existing": "Add to a calculation",
       "emptySaved": "No saved sheets calc.",
-      "sameOrder": "Back into the same order"
+      "sameOrder": "Back into the Same Order"
     },
     "tips": {
       "title": "💡 Tips for a good scan",
@@ -288,8 +288,8 @@
       "take": "Take Photo",
       "upload": "Upload Image",
       "crop": "Zoom and pan to frame, select the area with Length and Quantity, then read.",
-      "confirmCrop": "✓ Read selection",
-      "wholeImage": "Read whole image",
+      "confirmCrop": "✓ Read Selection",
+      "wholeImage": "Read Whole Image",
       "select": "✏️ Select",
       "move": "✋ Move",
       "zoomReset": "Fit",
@@ -308,7 +308,7 @@
       "title": "Sheets",
       "length": "Length (mm)",
       "qty": "Quantity (pcs)",
-      "add": "+ Add row",
+      "add": "Add Row",
       "remove": "Remove",
       "clear": "Clear",
       "empty": "No sheets. Add rows or read from a photo.",

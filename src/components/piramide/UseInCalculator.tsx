@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { isViewOnly, loadHistory } from '../../lib/calcHistory';
+import { CalcIcon } from '../ActionIcons';
+import { toolBtnCls, toolIconCls } from './toolButton';
 
 interface CalcOption {
   id: string;
@@ -82,10 +84,14 @@ function UseInCalculator({
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={t('piramide.useInCalculator.button')}
+        title={t('piramide.useInCalculator.button')}
+        className={toolBtnCls()}
       >
-        <span aria-hidden>🧮</span>
-        <span>{t('piramide.useInCalculator.button')}</span>
+        <CalcIcon className={toolIconCls} />
+        <span className="hidden sm:inline">
+          {t('piramide.useInCalculator.button')}
+        </span>
       </button>
       {open && (
         <div className="absolute left-0 z-20 mt-1 max-h-72 w-[min(18rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">

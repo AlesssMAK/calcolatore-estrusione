@@ -254,11 +254,11 @@
     "title": "Piramide",
     "subtitle": "Distribuzione lastre sul bancale",
     "backToCalculator": "Calcolatore",
-    "schemaBlock": "Schema disposizione",
+    "schemaBlock": "Schema Disposizione",
     "openLink": "📐 Piramide (distribuzione lastre)",
     "readText": "🔍 Testo letto (affidabilità {{confidence}}%)",
     "import": {
-      "button": "Importa da un calcolo salvato",
+      "button": "Importa da un Calcolo Salvato",
       "empty": "Nessun calcolo salvato con misure lastre.",
       "info": "{{sizes}} misure · {{pieces}} pz",
       "orders": "{{n}} ordini"
@@ -268,11 +268,11 @@
       "empty": "Nessuna disposizione salvata."
     },
     "useInCalculator": {
-      "button": "Usa nel calcolatore",
-      "new": "Nuovo calcolo",
+      "button": "Usa nel Calcolatore",
+      "new": "Nuovo Calcolo",
       "existing": "Aggiungi a un calcolo",
       "emptySaved": "Nessun calcolo Lastre salvato.",
-      "sameOrder": "Nello stesso ordine"
+      "sameOrder": "Nello Stesso Ordine"
     },
     "tips": {
       "title": "💡 Consigli per una buona scansione",
@@ -288,8 +288,8 @@
       "take": "Scatta Foto",
       "upload": "Carica Immagine",
       "crop": "Zooma e sposta per inquadrare, seleziona l'area con Lunghezza e Quantità, poi leggi.",
-      "confirmCrop": "✓ Leggi selezione",
-      "wholeImage": "Leggi tutta l'immagine",
+      "confirmCrop": "✓ Leggi Selezione",
+      "wholeImage": "Leggi Tutta l'Immagine",
       "select": "✏️ Seleziona",
       "move": "✋ Sposta",
       "zoomReset": "Adatta",
@@ -308,7 +308,7 @@
       "title": "Lastre",
       "length": "Lunghezza (mm)",
       "qty": "Quantità (pz)",
-      "add": "+ Aggiungi riga",
+      "add": "Aggiungi Riga",
       "remove": "Rimuovi",
       "clear": "Svuota",
       "empty": "Nessuna lastra. Aggiungi righe o leggi da una foto.",

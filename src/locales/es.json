@@ -254,11 +254,11 @@
     "title": "Pirámide",
     "subtitle": "Distribución de láminas en el palet",
     "backToCalculator": "Calculadora",
-    "schemaBlock": "Esquema de disposición",
+    "schemaBlock": "Esquema de Disposición",
     "openLink": "📐 Pirámide (distribución de láminas)",
     "readText": "🔍 Texto leído (fiabilidad {{confidence}}%)",
     "import": {
-      "button": "Importar de un cálculo guardado",
+      "button": "Importar de un Cálculo Guardado",
       "empty": "Ningún cálculo guardado con medidas de láminas.",
       "info": "{{sizes}} medidas · {{pieces}} pz",
       "orders": "{{n}} pedidos"
@@ -268,11 +268,11 @@
       "empty": "Ninguna disposición guardada."
     },
     "useInCalculator": {
-      "button": "Usar en la calculadora",
-      "new": "Nuevo cálculo",
+      "button": "Usar en la Calculadora",
+      "new": "Nuevo Cálculo",
       "existing": "Añadir a un cálculo",
       "emptySaved": "Ningún cálculo de láminas guardado.",
-      "sameOrder": "En el mismo pedido"
+      "sameOrder": "En el Mismo Pedido"
     },
     "tips": {
       "title": "💡 Consejos para un buen escaneo",
@@ -288,8 +288,8 @@
       "take": "Hacer Foto",
       "upload": "Subir Imagen",
       "crop": "Amplía y desplaza para encuadrar, selecciona el área con Longitud y Cantidad, luego lee.",
-      "confirmCrop": "✓ Leer selección",
-      "wholeImage": "Leer imagen completa",
+      "confirmCrop": "✓ Leer Selección",
+      "wholeImage": "Leer Imagen Completa",
       "select": "✏️ Seleccionar",
       "move": "✋ Mover",
       "zoomReset": "Ajustar",
@@ -308,7 +308,7 @@
       "title": "Láminas",
       "length": "Longitud (mm)",
       "qty": "Cantidad (uds)",
-      "add": "+ Añadir fila",
+      "add": "Añadir Fila",
       "remove": "Eliminar",
       "clear": "Vaciar",
       "empty": "Sin láminas. Añade filas o lee desde una foto.",
