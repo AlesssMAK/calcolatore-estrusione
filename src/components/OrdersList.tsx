@@ -117,7 +117,7 @@ function OrdersList({
     register,
   } = useFormContext<FormValues>();
 
-  const { fields, append, insert, remove, move } = useFieldArray({
+  const { fields, append, remove, move } = useFieldArray({
     control,
     name: 'orders',
   });
@@ -177,17 +177,6 @@ function OrdersList({
         Boolean(last?.useTotalLength),
         last?.productName ?? '',
       ),
-    );
-  };
-
-  // The order's own "+": a new order right after it (like a size's "+").
-  // Orders keep their data in their own arrays, so nothing shifts between them.
-  const insertOrderAfter = (idx: number) => {
-    const src = watchedOrders?.[idx];
-    pendingFocusIdx.current = idx + 1;
-    insert(
-      idx + 1,
-      makeEmptyOrder(mode, Boolean(src?.useTotalLength), src?.productName ?? ''),
     );
   };
 
@@ -465,16 +454,6 @@ function OrdersList({
                     <span className="hidden sm:inline">
                       {t('orders.remove')}
                     </span>
-                  </button>
-                  {/* Like a size's "+": a new order right after this one. */}
-                  <button
-                    type="button"
-                    onClick={() => insertOrderAfter(idx)}
-                    className="rounded-md border border-brand-300 bg-white px-2.5 py-1 text-xs font-bold text-brand-700 transition hover:border-brand-600 hover:bg-brand-50 sm:px-3 sm:py-1.5 sm:text-sm"
-                    aria-label={t('orders.addAfter')}
-                    title={t('orders.addAfter')}
-                  >
-                    +
                   </button>
                 </div>
               </div>
