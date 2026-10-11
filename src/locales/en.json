@@ -85,6 +85,8 @@
       "hint": "Crop the Length and Quantity columns, then read."
     },
     "openInPiramide": "Open in Pyramid",
+    "revertPiramide": "Undo Pyramid",
+    "revertPiramideHint": "Restore the order’s sizes from before the Pyramid",
     "toggleTotalLength": "Total Meters",
     "togglePause": "Pause After",
     "pauseSlots": "Choose Duration",
@@ -271,8 +273,14 @@
       "button": "Use in Calculator",
       "new": "New Calculation",
       "existing": "Add to a calculation",
-      "emptySaved": "No saved sheets calc.",
-      "sameOrder": "Back into the Same Order"
+      "emptySaved": "No saved sheets calc."
+    },
+    "link": {
+      "linked": "Linked to order “{{name}}”: every “Compute Layout” updates it.",
+      "linkedNoName": "Linked to the source order: every “Compute Layout” updates it.",
+      "applied": "Order “{{name}}” updated: you’ll find it in the calculator.",
+      "appliedNoName": "Source order updated: you’ll find it in the calculator.",
+      "unlink": "Unlink"
     },
     "tips": {
       "title": "💡 Tips for a good scan",

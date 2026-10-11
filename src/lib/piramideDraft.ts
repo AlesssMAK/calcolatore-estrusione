@@ -17,8 +17,19 @@ export interface PiramideDraft {
   allowScatter?: boolean;
   bancaliCount?: string;
   bancaliLens?: string[];
+  /** The order the sheets were opened from — kept so the work stays linked to
+   *  it (its results go back into that order) after a reload. */
+  origin?: PiramideOrigin;
   /** When it was last saved (epoch ms) — for the DRAFT_TTL_MS expiry. */
   ts?: number;
+}
+
+/** A saved calc + the order in it that Piramide was opened from. */
+export interface PiramideOrigin {
+  calcId: string;
+  orderId: string;
+  /** The order's product name, for the "linked to" note. */
+  label?: string;
 }
 
 const KEY = 'piramide.draft';
@@ -45,6 +56,7 @@ export function piramideDraftKey(d: PiramideDraft): string {
   return draftKey({
     ...d,
     ts: undefined,
+    origin: undefined, // a link, not work — unlinking leaves nothing unsaved
     rows: d.rows.map((r) => ({ length: r.length.trim(), qty: r.qty.trim() })),
   });
 }

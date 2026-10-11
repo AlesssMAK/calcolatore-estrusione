@@ -85,6 +85,8 @@
       "hint": "Recorta las columnas Longitud y Cantidad, luego lee."
     },
     "openInPiramide": "Abrir en Pirámide",
+    "revertPiramide": "Deshacer Pirámide",
+    "revertPiramideHint": "Restaurar las medidas del pedido de antes de la Pirámide",
     "toggleTotalLength": "Metros Totales",
     "togglePause": "Pausa Después",
     "pauseSlots": "Elegir Duración",
@@ -271,8 +273,14 @@
       "button": "Usar en la Calculadora",
       "new": "Nuevo Cálculo",
       "existing": "Añadir a un cálculo",
-      "emptySaved": "Ningún cálculo de láminas guardado.",
-      "sameOrder": "En el Mismo Pedido"
+      "emptySaved": "Ningún cálculo de láminas guardado."
+    },
+    "link": {
+      "linked": "Vinculado al pedido «{{name}}»: cada «Calcular Distribución» lo actualiza.",
+      "linkedNoName": "Vinculado al pedido de origen: cada «Calcular Distribución» lo actualiza.",
+      "applied": "Pedido «{{name}}» actualizado: lo encontrarás en la calculadora.",
+      "appliedNoName": "Pedido de origen actualizado: lo encontrarás en la calculadora.",
+      "unlink": "Desvincular"
     },
     "tips": {
       "title": "💡 Consejos para un buen escaneo",

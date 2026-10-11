@@ -19,6 +19,7 @@ import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
 import type {
   CalculatorMode,
+  FormMountState,
   ScheduledOrder,
   ScheduleResult,
   ScheduleSnapshot,
@@ -43,6 +44,8 @@ import {
 } from './utils/advance';
 import { buildEmptyDefaults, loadWeekendPref, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
+import { popOpenSaved, takePiramidePending } from './lib/piramidePending';
+import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
@@ -148,10 +151,12 @@ function CalculatorApp() {
   const [restoredValues, setRestoredValues] = useState<FormValues | undefined>(
     undefined,
   );
-  // The next form mount carries work that isn't saved yet (a draft, a Piramide
-  // import, completed orders brought back) → kept as a draft until "Calcola".
-  // False when it mounts a saved / viewed calc or a clean form.
-  const [unsavedMount, setUnsavedMount] = useState(false);
+  // What the next form mount carries: 'saved' — a saved / viewed calc or a
+  // clean form; 'unsaved' — work not saved yet (a draft, a Piramide import,
+  // completed orders brought back), kept as a draft until "Calcola";
+  // 'recompute' — a change applied for the user (a Piramide result for the
+  // order it came from, "Annulla Piramide") that's recomputed + saved at once.
+  const [mountState, setMountState] = useState<FormMountState>('saved');
   // The saved entry currently on screen + its "as of now" view (null when the
   // calc can't be advanced). Drives the advance/original banner + toggle.
   const [restoredEntry, setRestoredEntry] = useState<SavedCalculation | null>(
@@ -239,7 +244,7 @@ function CalculatorApp() {
     setSelectedMode(next);
     setResult(null);
     setRestoredValues(undefined);
-    setUnsavedMount(false);
+    setMountState('saved');
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -255,7 +260,7 @@ function CalculatorApp() {
     clearDraft(); // "Nuovo calcolo" → drop the crash-safety draft too
     setResult(null);
     setRestoredValues(undefined);
-    setUnsavedMount(false);
+    setMountState('saved');
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -327,7 +332,7 @@ function CalculatorApp() {
       // Orders were split off → remount the form with only the active ones
       // (just saved by the submit → no draft).
       setRestoredValues(values);
-      setUnsavedMount(false);
+      setMountState('saved');
       setFormKey((k) => k + 1);
     } else if (!keepCompleted) {
       setCompletedRows([]);
@@ -489,12 +494,14 @@ function CalculatorApp() {
     entry: SavedCalculation,
     showModal = false,
     scroll = true,
+    /** A change applied on top of the reopened form values (after the advance). */
+    patch?: (values: FormValues) => FormValues,
   ) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
     // Opening a saved / company calc is just viewing what's already stored →
     // no draft (and any unfinished one is left behind with the old form).
     clearDraft();
-    setUnsavedMount(false);
+    setMountState('saved');
     // Advancing a malformed saved entry must never leave its row un-openable:
     // on failure fall back to showing the saved result as-is (and note why),
     // so the click always does something instead of silently dying.
@@ -517,12 +524,12 @@ function CalculatorApp() {
     setFromSaved(true); // tracking a saved calc → enable "✓ Completa" buttons
     setSyncMeta(entry.sync ?? null); // re-attach to the shared doc, if any
     setEditingId(entry.id); // re-Calcola updates this saved entry in place
+    const reopened = adv ? adv.values : entry.values;
+    setRestoredValues(patch && reopened ? patch(reopened) : reopened);
     if (adv) {
-      setRestoredValues(adv.values);
       setResult(adv.result);
       setCompletedRows(adv.completedRows);
     } else {
-      setRestoredValues(entry.values);
       setResult(entry.result);
       setCompletedRows([]);
     }
@@ -587,12 +594,36 @@ function CalculatorApp() {
   // Open a saved calc, then (if it's a synced document) pull the latest in the
   // background and re-open if a newer version exists.
   const onRestore = (entry: SavedCalculation) => {
+    // Piramide results waiting for orders of this calc (opened from them, then
+    // "Calcola Distribuzione") land in those orders now, and the calc is
+    // recomputed + saved at once — which also pushes it to the shared doc, so
+    // no pull first.
+    const pending = takePiramidePending(entry.id);
+    if (pending.length > 0) {
+      doRestore(entry, false, true, (values) => ({
+        ...values,
+        orders: values.orders.map((o) => {
+          const p = pending.find((x) => x.orderId === o.id);
+          return p ? applyPiramideToOrder(o, p.rows, p.schema) : o;
+        }),
+      }));
+      setMountState('recompute');
+      return;
+    }
     doRestore(entry, true);
     if (entry.sync) {
       void syncPull(entry).then((updated) => {
         if (updated) doRestore(updated);
       });
     }
+  };
+
+  // A change the form made for the user ("Annulla Piramide"): remount it with
+  // these values and recompute + save them at once, on the same saved calc.
+  const remountAndRecompute = (values: FormValues) => {
+    setRestoredValues(values);
+    setMountState('recompute');
+    setFormKey((k) => k + 1);
   };
 
   // Jump from the modal to the active size in the form, then close the modal.
@@ -613,7 +644,7 @@ function CalculatorApp() {
     clearDraft();
     setShowOriginal(true);
     setRestoredValues(restoredEntry.values);
-    setUnsavedMount(false);
+    setMountState('saved');
     setResult(restoredEntry.result);
     setCompletedRows([]);
     setFormKey((k) => k + 1);
@@ -625,7 +656,7 @@ function CalculatorApp() {
     clearDraft();
     setShowOriginal(false);
     setRestoredValues(advancedCalc.values);
-    setUnsavedMount(false);
+    setMountState('saved');
     setResult(advancedCalc.result);
     setCompletedRows(advancedCalc.completedRows);
     setFormKey((k) => k + 1);
@@ -655,7 +686,7 @@ function CalculatorApp() {
     }));
     const restoredIds = new Set(rows.map((r) => r.order.id));
     setCompletedRows((prev) => prev.filter((r) => !restoredIds.has(r.order.id)));
-    setUnsavedMount(true); // not saved until the next "Calcola"
+    setMountState('unsaved'); // not saved until the next "Calcola"
     setFormKey((k) => k + 1);
   };
 
@@ -871,8 +902,25 @@ function CalculatorApp() {
   // On first load, restore the crash-safety draft — but only on a genuine
   // relaunch. A deliberate reload (F5 / pull-to-refresh, reported as a "reload"
   // navigation) means the operator wants a clean form, so drop the draft
-  // instead. A pending Piramide handoff takes precedence (handled below).
+  // instead. A pending Piramide handoff takes precedence (handled below), and
+  // so does coming back from Piramide after it updated an order: that calc
+  // opens (with the update applied, see onRestore).
   useEffect(() => {
+    const openId = popOpenSaved();
+    try {
+      // An explicit "Usa nel calcolatore" wins over reopening the origin calc
+      // (its update still lands whenever that calc is opened).
+      if (sessionStorage.getItem('calc.orderImport')) return;
+    } catch {
+      /* ignore */
+    }
+    const toOpen = openId
+      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === openId)
+      : undefined;
+    if (toOpen) {
+      onRestore(toOpen);
+      return;
+    }
     const navType = (
       performance.getEntriesByType('navigation')[0] as
         | PerformanceNavigationTiming
@@ -882,17 +930,12 @@ function CalculatorApp() {
       clearDraft();
       return;
     }
-    try {
-      if (sessionStorage.getItem('calc.orderImport')) return;
-    } catch {
-      /* ignore */
-    }
     const draft = loadDraft();
     if (!draft) return;
     if (draft.mode !== mode) setSelectedMode(draft.mode);
     setEditingId(draft.editingId);
     setRestoredValues(draft.values);
-    setUnsavedMount(true); // still unfinished until "Calcola"
+    setMountState('unsaved'); // still unfinished until "Calcola"
     setFormKey((k) => k + 1);
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -921,31 +964,6 @@ function CalculatorApp() {
       );
       if (entry) {
         const orders = entry.values?.orders ?? [];
-        // Round-trip: replace the origin order's sizes with the Piramide result
-        // (already in production order), keeping its other fields (id/speed/name)
-        // and attaching the fresh layout schema.
-        if (imported.replaceOrderId) {
-          const idx = orders.findIndex((o) => o.id === imported.replaceOrderId);
-          if (idx !== -1) {
-            const updated = orders.map((o, i) =>
-              i === idx
-                ? {
-                    ...o,
-                    sizes: order.sizes,
-                    useTotalLength: false,
-                    piramideSchema: imported.schema,
-                  }
-                : o,
-            );
-            onRestore({
-              ...entry,
-              values: { ...entry.values, orders: updated } as FormValues,
-            });
-            setUnsavedMount(true); // the import isn't saved until "Calcola"
-            return;
-          }
-          // Order gone → fall through to appending it instead.
-        }
         // Append the order (inherits speed from the queue) and open the calc.
         onRestore({
           ...entry,
@@ -954,7 +972,7 @@ function CalculatorApp() {
             orders: [...orders, order],
           } as FormValues,
         });
-        setUnsavedMount(true);
+        setMountState('unsaved'); // the import isn't saved until "Calcola"
         return;
       }
       // Target vanished (deleted/expired) → fall through to a new calculation.
@@ -970,7 +988,7 @@ function CalculatorApp() {
     setFromSaved(false);
     clearRestored();
     setRestoredValues(values);
-    setUnsavedMount(true);
+    setMountState('unsaved');
     setFormKey((k) => k + 1);
     scrollToResults();
     // Run once on mount.
@@ -1027,7 +1045,8 @@ function CalculatorApp() {
           }
           readOnly={readOnly}
           onAddToSaved={addToSaved}
-          unsavedOnMount={unsavedMount}
+          mountState={mountState}
+          onRecompute={remountAndRecompute}
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
