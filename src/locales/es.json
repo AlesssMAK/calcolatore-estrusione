@@ -77,7 +77,6 @@
     "productName": "Nombre del Producto",
     "addSize": "Añadir Medida",
     "removeSize": "Eliminar Medida",
-    "addAfter": "Añadir un pedido después de este",
     "scan": {
       "label": "Leer Medidas Desde Foto",
       "take": "Hacer Foto",
