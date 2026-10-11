@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DRAFT_TTL_MS, loadDraft, saveDraft } from './formDraft';
+import { DRAFT_TTL_MS, draftKey, loadDraft, saveDraft } from './formDraft';
 import type { FormValues } from '../formSchema';
 
 const values = {
@@ -39,5 +39,49 @@ describe('form draft expiry', () => {
   it('drops a draft saved before timestamps existed', () => {
     localStorage.setItem('calc.draft', JSON.stringify({ values, mode: 'sheets' }));
     expect(loadDraft()).toBeNull();
+  });
+});
+
+describe('draftKey (what counts as unsaved work)', () => {
+  const saved = {
+    settings: { startMode: 'now', gapMode: 'continuous', queue: undefined },
+    orders: [
+      {
+        id: 'o1',
+        sizes: [{ uid: 'a', sheets: 10, length: 3000 }],
+        producedSheets: [],
+      },
+    ],
+  };
+
+  it('ignores what merely opening a calc adds (empty Avanzato rows, uids, blanks)', () => {
+    const opened = {
+      settings: { startMode: 'now', gapMode: 'continuous', startAt: '' },
+      orders: [
+        {
+          id: 'o1',
+          sizes: [{ uid: 'b', sheets: 10, length: 3000, profilesPerPackage: null }],
+          producedSheets: [{ sizeIndex: 0, value: undefined }],
+          sheetsPerPallet: [{ sizeIndex: 0 }],
+        },
+      ],
+    };
+    expect(draftKey(opened)).toBe(draftKey(saved));
+  });
+
+  it('a real edit is unsaved work', () => {
+    const edited = structuredClone(saved);
+    edited.orders[0]!.sizes[0]!.sheets = 12;
+    expect(draftKey(edited)).not.toBe(draftKey(saved));
+    const produced = {
+      ...saved,
+      orders: [{ ...saved.orders[0]!, producedSheets: [{ sizeIndex: 0, value: 4 }] }],
+    };
+    expect(draftKey(produced)).not.toBe(draftKey(saved));
+  });
+
+  it('keeps the slot of a blank value in a positional list', () => {
+    expect(draftKey({ lens: ['', '5000'] })).not.toBe(draftKey({ lens: ['5000', ''] }));
+    expect(draftKey({ lens: ['5000', ''] })).toBe(draftKey({ lens: ['5000'] }));
   });
 });

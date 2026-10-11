@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadPiramideDraft, savePiramideDraft } from './piramideDraft';
+import {
+  hasPiramideRows,
+  loadPiramideDraft,
+  piramideDraftKey,
+  savePiramideDraft,
+} from './piramideDraft';
 import { DRAFT_TTL_MS } from './formDraft';
 
 const draft = {
@@ -35,5 +40,29 @@ describe('Piramide draft expiry (same 15 minutes as the form draft)', () => {
   it('drops a draft saved before timestamps existed', () => {
     localStorage.setItem('piramide.draft', JSON.stringify(draft));
     expect(loadPiramideDraft()).toBeNull();
+  });
+});
+
+describe('Piramide draft key (what counts as unsaved work)', () => {
+  it('blank rows and stray spaces are not changes', () => {
+    const withBlank = {
+      ...draft,
+      rows: [{ length: ' 3000', qty: '10 ' }, { length: '', qty: '' }],
+    };
+    expect(piramideDraftKey(withBlank)).toBe(piramideDraftKey(draft));
+  });
+
+  it('an edited quantity or option is', () => {
+    expect(
+      piramideDraftKey({ ...draft, rows: [{ length: '3000', qty: '12' }] }),
+    ).not.toBe(piramideDraftKey(draft));
+    expect(piramideDraftKey({ ...draft, lanes: '2' })).not.toBe(
+      piramideDraftKey(draft),
+    );
+  });
+
+  it('no sheet rows → nothing worth a draft', () => {
+    expect(hasPiramideRows({ ...draft, rows: [{ length: '', qty: ' ' }] })).toBe(false);
+    expect(hasPiramideRows(draft)).toBe(true);
   });
 });

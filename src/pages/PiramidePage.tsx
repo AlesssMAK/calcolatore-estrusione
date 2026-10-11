@@ -18,7 +18,14 @@ import {
 import { useCatalog } from '../contexts/CatalogContext';
 import { popPiramideImport } from '../lib/piramideImport';
 import { stashOrderImport } from '../lib/orderImport';
-import { loadPiramideDraft, savePiramideDraft } from '../lib/piramideDraft';
+import {
+  clearPiramideDraft,
+  hasPiramideRows,
+  loadPiramideDraft,
+  piramideDraftKey,
+  savePiramideDraft,
+  type PiramideDraft,
+} from '../lib/piramideDraft';
 import {
   savePiramideEntry,
   type SavedPiramide,
@@ -135,6 +142,12 @@ function PiramidePage() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
+  // What the inputs were last saved as (piramideDraftKey); null = nothing saved
+  // yet. adoptSavedRef = take the next state (just loaded from a saved source)
+  // as the saved one.
+  const savedKeyRef = useRef<string | null>(null);
+  const adoptSavedRef = useRef(false);
+
   // On mount: a handoff from the calculator ("📐 Piramide") wins over any draft;
   // otherwise restore the auto-saved draft so a reload doesn't lose the work.
   // Guarded so it runs exactly once — StrictMode double-invokes the effect, and
@@ -148,6 +161,8 @@ function PiramidePage() {
     if (imported) {
       setRows(imported.rows.map((r) => newRow(String(r.length), String(r.qty))));
       setOrigin(imported.origin);
+      // The sheets come from a saved calc → not unfinished work by themselves.
+      adoptSavedRef.current = true;
       return;
     }
     const draft = loadPiramideDraft();
@@ -166,25 +181,40 @@ function PiramidePage() {
     }
   }, []);
 
-  // Auto-save the current inputs as the draft. Skip the very first run so the
-  // initial (pre-restore) empty state doesn't clobber a saved draft.
+  // The inputs as a draft (also what "unfinished" is measured on).
+  const currentDraft = (): PiramideDraft => ({
+    rows: rows.map((r) => ({ length: r.length, qty: r.qty })),
+    base,
+    lanes,
+    maxRows,
+    minLen,
+    maxLen,
+    allowScatter,
+    bancaliCount,
+    bancaliLens,
+  });
+
+  // Auto-save the current inputs as the draft — only unfinished work: while
+  // they differ from what's saved (the last "Calcola", a layout opened from
+  // Salvati, sheets handed over from a calc) — see savedKeyRef. Skip the very
+  // first run so the initial (pre-restore) empty state doesn't clobber a saved
+  // draft.
   const draftSkip = useRef(true);
   useEffect(() => {
     if (draftSkip.current) {
       draftSkip.current = false;
       return;
     }
-    savePiramideDraft({
-      rows: rows.map((r) => ({ length: r.length, qty: r.qty })),
-      base,
-      lanes,
-      maxRows,
-      minLen,
-      maxLen,
-      allowScatter,
-      bancaliCount,
-      bancaliLens,
-    });
+    const d = currentDraft();
+    const key = piramideDraftKey(d);
+    if (adoptSavedRef.current) {
+      adoptSavedRef.current = false;
+      savedKeyRef.current = key;
+    }
+    if (!hasPiramideRows(d) || key === savedKeyRef.current) clearPiramideDraft();
+    else savePiramideDraft(d);
+    // currentDraft reads exactly these.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, base, lanes, maxRows, minLen, maxLen, allowScatter, bancaliCount, bancaliLens]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -319,12 +349,16 @@ function PiramidePage() {
       bancaliLens,
     });
     setHistKey((k) => k + 1);
+    // Saved → no unfinished work; later edits compare against this.
+    savedKeyRef.current = piramideDraftKey(currentDraft());
+    clearPiramideDraft();
     scrollToResult();
   };
 
   // Restore a saved layout: refill the inputs and recompute from the entry's
   // own values (state isn't updated synchronously) so the result shows at once.
   const restorePiramide = (e: SavedPiramide) => {
+    adoptSavedRef.current = true; // viewing a saved layout → no draft
     setRows(e.rows.length ? e.rows.map((r) => newRow(r.length, r.qty)) : [newRow()]);
     setBase(e.base ?? '');
     setLanes(e.lanes ?? '1');

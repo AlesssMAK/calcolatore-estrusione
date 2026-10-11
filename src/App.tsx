@@ -148,6 +148,10 @@ function CalculatorApp() {
   const [restoredValues, setRestoredValues] = useState<FormValues | undefined>(
     undefined,
   );
+  // The next form mount carries work that isn't saved yet (a draft, a Piramide
+  // import, completed orders brought back) → kept as a draft until "Calcola".
+  // False when it mounts a saved / viewed calc or a clean form.
+  const [unsavedMount, setUnsavedMount] = useState(false);
   // The saved entry currently on screen + its "as of now" view (null when the
   // calc can't be advanced). Drives the advance/original banner + toggle.
   const [restoredEntry, setRestoredEntry] = useState<SavedCalculation | null>(
@@ -231,9 +235,11 @@ function CalculatorApp() {
 
   const onModeChange = (next: CalculatorMode) => {
     if (next === mode) return;
+    clearDraft(); // the form starts clean in the other mode
     setSelectedMode(next);
     setResult(null);
     setRestoredValues(undefined);
+    setUnsavedMount(false);
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -249,6 +255,7 @@ function CalculatorApp() {
     clearDraft(); // "Nuovo calcolo" → drop the crash-safety draft too
     setResult(null);
     setRestoredValues(undefined);
+    setUnsavedMount(false);
     setEditingId(undefined);
     setCompletedRows([]);
     setFromSaved(false);
@@ -317,8 +324,10 @@ function CalculatorApp() {
         ...(keepCompleted ? prev : []),
         ...newlyCompleted,
       ]);
-      // Orders were split off → remount the form with only the active ones.
+      // Orders were split off → remount the form with only the active ones
+      // (just saved by the submit → no draft).
       setRestoredValues(values);
+      setUnsavedMount(false);
       setFormKey((k) => k + 1);
     } else if (!keepCompleted) {
       setCompletedRows([]);
@@ -482,6 +491,10 @@ function CalculatorApp() {
     scroll = true,
   ) => {
     if (entry.result.mode !== mode) setSelectedMode(entry.result.mode);
+    // Opening a saved / company calc is just viewing what's already stored →
+    // no draft (and any unfinished one is left behind with the old form).
+    clearDraft();
+    setUnsavedMount(false);
     // Advancing a malformed saved entry must never leave its row un-openable:
     // on failure fall back to showing the saved result as-is (and note why),
     // so the click always does something instead of silently dying.
@@ -597,8 +610,10 @@ function CalculatorApp() {
 
   const viewOriginal = () => {
     if (!restoredEntry) return;
+    clearDraft();
     setShowOriginal(true);
     setRestoredValues(restoredEntry.values);
+    setUnsavedMount(false);
     setResult(restoredEntry.result);
     setCompletedRows([]);
     setFormKey((k) => k + 1);
@@ -607,8 +622,10 @@ function CalculatorApp() {
 
   const viewAdvanced = () => {
     if (!advancedCalc) return;
+    clearDraft();
     setShowOriginal(false);
     setRestoredValues(advancedCalc.values);
+    setUnsavedMount(false);
     setResult(advancedCalc.result);
     setCompletedRows(advancedCalc.completedRows);
     setFormKey((k) => k + 1);
@@ -638,6 +655,7 @@ function CalculatorApp() {
     }));
     const restoredIds = new Set(rows.map((r) => r.order.id));
     setCompletedRows((prev) => prev.filter((r) => !restoredIds.has(r.order.id)));
+    setUnsavedMount(true); // not saved until the next "Calcola"
     setFormKey((k) => k + 1);
   };
 
@@ -874,6 +892,7 @@ function CalculatorApp() {
     if (draft.mode !== mode) setSelectedMode(draft.mode);
     setEditingId(draft.editingId);
     setRestoredValues(draft.values);
+    setUnsavedMount(true); // still unfinished until "Calcola"
     setFormKey((k) => k + 1);
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -922,6 +941,7 @@ function CalculatorApp() {
               ...entry,
               values: { ...entry.values, orders: updated } as FormValues,
             });
+            setUnsavedMount(true); // the import isn't saved until "Calcola"
             return;
           }
           // Order gone → fall through to appending it instead.
@@ -934,6 +954,7 @@ function CalculatorApp() {
             orders: [...orders, order],
           } as FormValues,
         });
+        setUnsavedMount(true);
         return;
       }
       // Target vanished (deleted/expired) → fall through to a new calculation.
@@ -949,6 +970,7 @@ function CalculatorApp() {
     setFromSaved(false);
     clearRestored();
     setRestoredValues(values);
+    setUnsavedMount(true);
     setFormKey((k) => k + 1);
     scrollToResults();
     // Run once on mount.
@@ -1005,6 +1027,7 @@ function CalculatorApp() {
           }
           readOnly={readOnly}
           onAddToSaved={addToSaved}
+          unsavedOnMount={unsavedMount}
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
