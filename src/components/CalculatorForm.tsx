@@ -39,7 +39,7 @@ import {
   toQueue,
   type SeqStep,
 } from '../utils/queue';
-import { saveDraft } from '../lib/formDraft';
+import { clearDraft, draftKey, saveDraft } from '../lib/formDraft';
 import { toCompletedRow } from '../utils/advance';
 import {
   deriveLabel,
@@ -120,6 +120,11 @@ interface Props {
   readOnly?: boolean;
   /** Copy the read-only calc into Salvati as an editable entry and open it. */
   onAddToSaved?: () => void;
+  /** The form mounts with work that isn't saved yet (a restored draft, a
+   *  Piramide import, completed orders brought back) → it's kept as a draft
+   *  until "Calcola". Otherwise the mounted values are the saved state and only
+   *  changes on top of them make a draft. */
+  unsavedOnMount?: boolean;
 }
 
 function CalculatorForm({
@@ -145,6 +150,7 @@ function CalculatorForm({
   onDeleteCompany,
   readOnly = false,
   onAddToSaved,
+  unsavedOnMount = false,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -201,16 +207,32 @@ function CalculatorForm({
     return () => obs.disconnect();
   }, []);
 
-  // Autosave a crash-safety draft as the form changes (debounced). It's restored
-  // on a genuine relaunch and cleared on a deliberate reload / reset elsewhere.
+  // Autosave a crash-safety draft as the form changes (debounced) — only for
+  // unfinished work: while the form differs from its saved state (what it was
+  // opened with, or the last "Calcola"). Back to that state → the draft goes.
+  // It's restored on a genuine relaunch and cleared on a deliberate reload /
+  // reset / opening a saved calc elsewhere. Null baseline = nothing saved yet.
   const draftTimerRef = useRef<number | null>(null);
+  const savedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (unsavedOnMount) {
+      saveDraft({ values: methods.getValues(), mode, editingId });
+    } else {
+      savedKeyRef.current = draftKey(methods.getValues());
+    }
+    // Once, for the values the form mounted with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const sub = methods.watch((values) => {
       if (draftTimerRef.current !== null) {
         window.clearTimeout(draftTimerRef.current);
       }
       draftTimerRef.current = window.setTimeout(() => {
-        saveDraft({ values: values as FormValues, mode, editingId });
+        // A view-only company calc can't be changed — nothing to keep.
+        if (readOnly) return;
+        if (draftKey(values) === savedKeyRef.current) clearDraft();
+        else saveDraft({ values: values as FormValues, mode, editingId });
       }, 500);
     });
     return () => {
@@ -219,7 +241,7 @@ function CalculatorForm({
         window.clearTimeout(draftTimerRef.current);
       }
     };
-  }, [methods, mode, editingId]);
+  }, [methods, mode, editingId, readOnly]);
 
   const showError = (msg: string) => {
     setSubmitError(msg);
@@ -314,6 +336,9 @@ function CalculatorForm({
     } catch {
       /* never block submit on storage failure */
     }
+    // Saved → no unfinished work left; later edits compare against this.
+    savedKeyRef.current = draftKey(methods.getValues());
+    clearDraft();
     // "✓ Completa" recomputes in place — the user stays where they tapped.
     if (stayInPlace) return;
     window.requestAnimationFrame(() => {
