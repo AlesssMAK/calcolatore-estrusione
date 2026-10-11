@@ -26,7 +26,9 @@ import type {
 import type { FormValues } from './formSchema';
 import {
   deriveLabel,
+  isViewOnly,
   loadHistory,
+  removeCalculation,
   saveCalculation,
   updateCalculation,
   updateSyncMeta,
@@ -407,15 +409,13 @@ function CalculatorApp() {
 
   // A company calc published "view only", opened on a device that can't edit
   // it (no edit token, not editable by the company): read-only view.
-  const readOnly =
-    !!syncMeta && !syncMeta.token && !syncMeta.companyEditable;
+  const readOnly = isViewOnly(syncMeta);
 
   // "Aggiungi ai Salvati" (read-only company calc): copy it into Salvati as an
-  // unbound, editable "(copia locale)" entry and open that copy.
+  // unbound, editable "(copia locale)" entry and open that copy. The calc on
+  // screen isn't itself in Salvati (view-only calcs never are).
   const addToSaved = () => {
-    const src = editingId
-      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
-      : undefined;
+    const src = restoredEntry ?? undefined;
     if (!src?.values) return;
     let copy: SavedCalculation;
     try {
@@ -542,21 +542,24 @@ function CalculatorApp() {
     if (!res || res.version <= sync.version) return null;
     const p = res.payload;
     const nextSync: SyncMeta = { ...sync, version: res.version };
-    try {
-      saveCalculation(
-        p.result,
-        p.values,
-        p.snapshot,
-        p.label ?? deriveLabel(p.result),
-        settings.maxSavedResults,
-        settings.savedRetentionDays,
-        entry.id,
-        p.completedRows,
-      );
-      updateSyncMeta(entry.id, nextSync, settings.savedRetentionDays);
-      setSavedRefreshKey((k) => k + 1);
-    } catch {
-      /* storage unavailable — still return the fresh entry for display */
+    // A view-only company calc isn't kept in Salvati — just show the fresh one.
+    if (!isViewOnly(sync)) {
+      try {
+        saveCalculation(
+          p.result,
+          p.values,
+          p.snapshot,
+          p.label ?? deriveLabel(p.result),
+          settings.maxSavedResults,
+          settings.savedRetentionDays,
+          entry.id,
+          p.completedRows,
+        );
+        updateSyncMeta(entry.id, nextSync, settings.savedRetentionDays);
+        setSavedRefreshKey((k) => k + 1);
+      } catch {
+        /* storage unavailable — still return the fresh entry for display */
+      }
     }
     return {
       ...entry,
@@ -742,6 +745,27 @@ function CalculatorApp() {
     const sync: SyncMeta = existing?.sync
       ? { ...existing.sync, version: c.version, companyEditable: c.isEditable }
       : { id: c.id, version: c.version, companyEditable: c.isEditable };
+    // View-only for this device: open it without putting it into Salvati —
+    // Salvati holds only the user's own / editable calcs ("Aggiungi ai
+    // Salvati" makes an editable copy). A copy cached there by older versions
+    // (or a detached slot already preserved above) is dropped.
+    if (isViewOnly(sync)) {
+      if (history.some((e) => e.id === savedId)) {
+        removeCalculation(savedId, settings.savedRetentionDays);
+        setSavedRefreshKey((k) => k + 1);
+      }
+      onRestore({
+        id: savedId,
+        ts: Date.now(),
+        label,
+        result: p.result,
+        values: p.values,
+        snapshot: p.snapshot,
+        completedRows: p.completedRows,
+        sync,
+      });
+      return;
+    }
     let entry: SavedCalculation;
     try {
       entry = saveCalculation(
@@ -806,9 +830,11 @@ function CalculatorApp() {
     if (!syncMeta) return;
     const pull = () => {
       if (document.visibilityState === 'hidden') return;
-      const entry = loadHistory(settings.savedRetentionDays).find(
-        (e) => e.id === editingId,
-      );
+      // A view-only company calc isn't in Salvati → use the one on screen.
+      const entry =
+        loadHistory(settings.savedRetentionDays).find(
+          (e) => e.id === editingId,
+        ) ?? (restoredEntry?.id === editingId ? restoredEntry : undefined);
       if (entry?.sync) {
         void syncPull(entry).then((updated) => {
           if (updated) doRestore(updated);

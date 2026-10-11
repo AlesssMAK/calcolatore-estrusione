@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { loadHistory } from '../../lib/calcHistory';
+import { isViewOnly, loadHistory } from '../../lib/calcHistory';
 
 export interface ImportRow {
   length: number;
@@ -50,7 +50,8 @@ function formatRelative(ts: number, lang: string): string {
 function buildGroups(retentionDays?: number): CalcGroup[] {
   const out: CalcGroup[] = [];
   for (const entry of loadHistory(retentionDays)) {
-    if (entry.result?.mode !== 'sheets') continue;
+    // Same list as Salvati: view-only company calcs aren't in it.
+    if (entry.result?.mode !== 'sheets' || isViewOnly(entry.sync)) continue;
     const orders = (entry.values?.orders ?? [])
       .map((o, i): ImportOrder | null => {
         if (o.useTotalLength) return null;
