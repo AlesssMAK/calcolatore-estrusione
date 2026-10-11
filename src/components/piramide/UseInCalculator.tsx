@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { loadHistory } from '../../lib/calcHistory';
+import { isViewOnly, loadHistory } from '../../lib/calcHistory';
 
 interface CalcOption {
   id: string;
@@ -41,7 +41,8 @@ function formatRelative(ts: number, lang: string): string {
 // direction, we don't require the calc to already carry importable sizes).
 function loadSheetsCalcs(retentionDays?: number): CalcOption[] {
   return loadHistory(retentionDays)
-    .filter((e) => e.result?.mode === 'sheets')
+    // Only the user's own / editable calcs (as in Salvati) can receive an order.
+    .filter((e) => e.result?.mode === 'sheets' && !isViewOnly(e.sync))
     .map((e) => ({ id: e.id, label: e.label, ts: e.ts }));
 }
 

@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  isViewOnly,
   loadHistory,
   removeCalculation,
   type SavedCalculation,
 } from '../lib/calcHistory';
+
+// Salvati lists only the user's own / editable calcs — a view-only company
+// calc cached there by older versions stays hidden (it's in 🏢 Azienda).
+const loadOwn = (retentionDays: number) =>
+  loadHistory(retentionDays).filter((e) => !isViewOnly(e.sync));
 import { useCatalog } from '../contexts/CatalogContext';
 import { SaveIcon } from './ActionIcons';
 import {
@@ -63,7 +69,7 @@ function SavedCalculationsButton({
   const retentionDays = settings.savedRetentionDays;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SavedCalculation[]>(() =>
-    loadHistory(retentionDays),
+    loadOwn(retentionDays),
   );
   const rootRef = useRef<HTMLDivElement>(null);
   // Which entry's company-publish menu is open (id), or null.
@@ -72,7 +78,7 @@ function SavedCalculationsButton({
   // Refresh whenever the dropdown opens, or the parent bumps the key after a
   // fresh save. Keeps the list in sync without prop-drilling the whole array.
   useEffect(() => {
-    if (open) setItems(loadHistory(retentionDays));
+    if (open) setItems(loadOwn(retentionDays));
   }, [open, refreshKey, retentionDays]);
 
   // Close on outside click + Esc.
@@ -304,7 +310,7 @@ function SavedCalculationsButton({
                     type="button"
                     onClick={() => {
                       removeCalculation(it.id, retentionDays);
-                      setItems(loadHistory(retentionDays));
+                      setItems(loadOwn(retentionDays));
                     }}
                     aria-label={t('saved.delete')}
                     title={t('saved.delete')}

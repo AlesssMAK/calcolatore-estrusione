@@ -61,6 +61,13 @@ export interface SyncMeta {
   companyEditable?: boolean;
 }
 
+/** A company calc published "view only" that this device can't edit (not the
+ *  author — no edit token — and not editable by the company). Such calcs are
+ *  shown read-only and never stored in Salvati (it holds only the user's own /
+ *  editable calcs). */
+export const isViewOnly = (sync: SyncMeta | null | undefined): boolean =>
+  !!sync && !sync.token && !sync.companyEditable;
+
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
  *  small set of date fields used inside ScheduleResult. Other strings are
  *  left untouched. Exported so shared-calc payloads (fetched from Supabase)
