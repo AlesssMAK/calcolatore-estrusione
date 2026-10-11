@@ -85,6 +85,8 @@
       "hint": "Ritaglia le colonne Lunghezza e Quantità, poi leggi."
     },
     "openInPiramide": "Apri in Piramide",
+    "revertPiramide": "Annulla Piramide",
+    "revertPiramideHint": "Ripristina le misure dell’ordine di prima della Piramide",
     "toggleTotalLength": "Metri Totali",
     "togglePause": "Pausa Dopo",
     "pauseSlots": "Scegli Durata",
@@ -271,8 +273,14 @@
       "button": "Usa nel Calcolatore",
       "new": "Nuovo Calcolo",
       "existing": "Aggiungi a un calcolo",
-      "emptySaved": "Nessun calcolo Lastre salvato.",
-      "sameOrder": "Nello Stesso Ordine"
+      "emptySaved": "Nessun calcolo Lastre salvato."
+    },
+    "link": {
+      "linked": "Collegato all’ordine «{{name}}»: ogni «Calcola Distribuzione» lo aggiorna.",
+      "linkedNoName": "Collegato all’ordine di origine: ogni «Calcola Distribuzione» lo aggiorna.",
+      "applied": "Ordine «{{name}}» aggiornato: lo trovi nel calcolatore.",
+      "appliedNoName": "Ordine di origine aggiornato: lo trovi nel calcolatore.",
+      "unlink": "Scollega"
     },
     "tips": {
       "title": "💡 Consigli per una buona scansione",

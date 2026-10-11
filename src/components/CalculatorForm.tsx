@@ -18,12 +18,15 @@ import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
 import type {
   CalculatorMode,
+  FormMountState,
+  Order,
   ProducedEntry,
   ScheduledOrder,
   ScheduleResult,
   ScheduleSnapshot,
 } from '../types';
 import { SIZE_ENTRY_GROUPS, type SizeEntryField } from '../utils/sizeEntries';
+import { revertPiramide } from '../utils/piramideApply';
 import { buildEmptyDefaults, genId } from '../utils/defaults';
 import QueueBanner from './QueueBanner';
 import StopPicker from './StopPicker';
@@ -120,11 +123,14 @@ interface Props {
   readOnly?: boolean;
   /** Copy the read-only calc into Salvati as an editable entry and open it. */
   onAddToSaved?: () => void;
-  /** The form mounts with work that isn't saved yet (a restored draft, a
-   *  Piramide import, completed orders brought back) → it's kept as a draft
-   *  until "Calcola". Otherwise the mounted values are the saved state and only
-   *  changes on top of them make a draft. */
-  unsavedOnMount?: boolean;
+  /** What the form mounts with. 'unsaved' — work not saved yet (a restored
+   *  draft, a Piramide import, completed orders brought back): kept as a draft
+   *  until "Calcola". 'recompute' — a change applied for the user (a Piramide
+   *  result for its order, "Annulla Piramide"): recomputed + saved right away.
+   *  'saved' (default) — the saved state; only changes on top make a draft. */
+  mountState?: FormMountState;
+  /** Remount the form with these values and recompute + save them at once. */
+  onRecompute?: (values: FormValues) => void;
 }
 
 function CalculatorForm({
@@ -150,7 +156,8 @@ function CalculatorForm({
   onDeleteCompany,
   readOnly = false,
   onAddToSaved,
-  unsavedOnMount = false,
+  mountState = 'saved',
+  onRecompute,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -214,12 +221,18 @@ function CalculatorForm({
   // reset / opening a saved calc elsewhere. Null baseline = nothing saved yet.
   const draftTimerRef = useRef<number | null>(null);
   const savedKeyRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
   useEffect(() => {
-    if (unsavedOnMount) {
-      saveDraft({ values: methods.getValues(), mode, editingId });
-    } else {
+    if (mountedRef.current) return; // once (StrictMode re-runs effects)
+    mountedRef.current = true;
+    if (mountState === 'saved') {
       savedKeyRef.current = draftKey(methods.getValues());
+      return;
     }
+    // Not saved yet → a draft until "Calcola" (or until the recompute below
+    // saves it; an invalid form simply stays a draft).
+    saveDraft({ values: methods.getValues(), mode, editingId });
+    if (mountState === 'recompute') recomputeInPlace();
     // Once, for the values the form mounted with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -554,6 +567,21 @@ function CalculatorForm({
     recomputeInPlace();
   };
 
+  // "Annulla Piramide": the order goes back to its sizes from before Piramide
+  // (what's produced since stays, by length) and the calc is recomputed + saved.
+  // Through a remount, so the size rows on screen are rebuilt from scratch.
+  const revertOrderPiramide = (orderIdx: number) => {
+    const values = methods.getValues();
+    const order = values.orders[orderIdx];
+    if (!order || !onRecompute) return;
+    onRecompute({
+      ...values,
+      orders: values.orders.map((o, i) =>
+        i === orderIdx ? (revertPiramide(o as Order) as typeof o) : o,
+      ),
+    });
+  };
+
   // Keep the registered handler pointing at the latest closure (so it uses the
   // current editingId / settings) while exposing a stable function reference.
   const completeRef = useRef(completeItem);
@@ -626,6 +654,9 @@ function CalculatorForm({
             }
             activeLoc={activeLoc}
             editingId={editingId}
+            onRevertPiramide={
+              onRecompute && !readOnly ? revertOrderPiramide : undefined
+            }
           />
         </div>
 

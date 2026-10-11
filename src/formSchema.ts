@@ -66,6 +66,8 @@ const orderSchema = z.object({
   // Opaque Piramide layout (NestingResult) carried with the order so it can show
   // its pallet-arrangement schema. Not validated — passed through as-is.
   piramideSchema: z.any().optional(),
+  // Sizes from before Piramide replaced them ("Annulla Piramide"). Passed as-is.
+  piramideOriginal: z.any().optional(),
 });
 
 const weekendDaySchema = z.object({

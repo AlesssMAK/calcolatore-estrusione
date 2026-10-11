@@ -62,7 +62,14 @@ export interface Order {
   /** Opaque Piramide layout (NestingResult) carried with the order to show its
    *  pallet-arrangement schema. Passed through the calculator untouched. */
   piramideSchema?: unknown;
+  /** The order's sizes before a Piramide layout replaced them (the automatic
+   *  round-trip) — what "Annulla Piramide" restores. Set on the first one. */
+  piramideOriginal?: { sizes: OrderSize[] };
 }
+
+/** What the calculator form mounts with: a saved state, unsaved work (kept as a
+ *  draft until "Calcola"), or a change to recompute + save right away. */
+export type FormMountState = 'saved' | 'unsaved' | 'recompute';
 
 export interface ProducedSummary {
   producedProfiles: number;

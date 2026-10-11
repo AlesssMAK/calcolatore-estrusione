@@ -84,6 +84,8 @@ interface Props {
   /** Id of the saved calc being edited, if any — passed to Piramide so its
    *  result can round-trip back into the same order. */
   editingId?: string;
+  /** "Annulla Piramide" on an order whose sizes came back from Piramide. */
+  onRevertPiramide?: (orderIdx: number) => void;
 }
 
 function OrdersList({
@@ -93,6 +95,7 @@ function OrdersList({
   onStopActive,
   activeLoc,
   editingId,
+  onRevertPiramide,
 }: Props) {
   'use no memo';
   // Orders the user manually expanded from their collapsed summary.
@@ -506,6 +509,11 @@ function OrdersList({
                             : null
                         }
                         editingId={editingId}
+                        onRevertPiramide={
+                          onRevertPiramide
+                            ? () => onRevertPiramide(idx)
+                            : undefined
+                        }
                       />
                     </div>
                   )}
@@ -550,6 +558,8 @@ interface FieldsProps {
   activeSizeIdx?: number | null;
   /** Saved-calc id (for Piramide round-trip back into this order). */
   editingId?: string;
+  /** "Annulla Piramide": back to the sizes from before Piramide. */
+  onRevertPiramide?: () => void;
 }
 
 function OrderFields({
@@ -563,6 +573,7 @@ function OrderFields({
   onStopActive,
   activeSizeIdx,
   editingId,
+  onRevertPiramide,
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -570,6 +581,11 @@ function OrderFields({
   const piramideSchema = useWatch({
     control,
     name: `orders.${idx}.piramideSchema`,
+  });
+  // Sizes from before Piramide replaced them → "Annulla Piramide" is offered.
+  const piramideOriginal = useWatch({
+    control,
+    name: `orders.${idx}.piramideOriginal`,
   });
   const useTotalLength = useWatch({
     control,
@@ -731,7 +747,25 @@ function OrderFields({
           )}
         />
       )}
-      <CollapsibleSchema schema={piramideSchema} />
+      <CollapsibleSchema
+        schema={piramideSchema}
+        action={
+          piramideOriginal && onRevertPiramide ? (
+            <button
+              type="button"
+              onClick={onRevertPiramide}
+              aria-label={t('orders.revertPiramide')}
+              title={t('orders.revertPiramideHint')}
+              className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-500 hover:text-brand-600 sm:px-3 sm:py-1.5 sm:text-sm"
+            >
+              ↺{' '}
+              <span className="hidden sm:inline">
+                {t('orders.revertPiramide')}
+              </span>
+            </button>
+          ) : undefined
+        }
+      />
     </div>
   );
 }

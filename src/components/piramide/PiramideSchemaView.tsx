@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   buildProductionPlan,
@@ -197,24 +197,34 @@ export function BancaleSchema({
 // A collapsed-by-default "Schema piramide" block wrapping the full layout view —
 // used by the calculator's order form and results to show a carried layout
 // without taking space until opened. Renders nothing without a valid schema.
-export function CollapsibleSchema({ schema }: { schema?: unknown }) {
+// `action` sits next to the toggle (e.g. the order's "Annulla Piramide").
+export function CollapsibleSchema({
+  schema,
+  action,
+}: {
+  schema?: unknown;
+  action?: ReactNode;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const result = schema as NestingResult | undefined;
   if (!result?.bancali?.length) return null;
   return (
     <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        // A viewing control — stays in the read-only company view.
-        data-view
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
-      >
-        <span aria-hidden>{open ? '▾' : '▸'}</span>
-        <span>📐 {t('piramide.schemaBlock')}</span>
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          // A viewing control — stays in the read-only company view.
+          data-view
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
+        >
+          <span aria-hidden>{open ? '▾' : '▸'}</span>
+          <span>📐 {t('piramide.schemaBlock')}</span>
+        </button>
+        {action}
+      </div>
       {open && (
         <div className="mt-1 rounded-md border border-neutral-200 bg-white p-2 sm:p-3">
           <PiramideSchemaView result={result} />

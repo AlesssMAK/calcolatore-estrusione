@@ -25,7 +25,9 @@ import {
   piramideDraftKey,
   savePiramideDraft,
   type PiramideDraft,
+  type PiramideOrigin,
 } from '../lib/piramideDraft';
+import { savePiramidePending, stashOpenSaved } from '../lib/piramidePending';
 import {
   savePiramideEntry,
   type SavedPiramide,
@@ -94,6 +96,31 @@ function groupStrati(strati: Strato[], startNumber: number): StratoGroup[] {
   return groups;
 }
 
+// The sheet list as an order's sizes. Prefer the production order the layout
+// computed (how the sheets stack on the pallet) so the calculator queue and
+// form come out in the same order they'll be produced. Merge lengths across
+// bancali by first occurrence; fall back to the raw input order when no layout
+// has been computed yet.
+function productionRows(
+  result: NestingResult | null,
+  fallback: SheetInput[],
+): { length: number; qty: number }[] {
+  if (result && result.bancali.length > 0) {
+    const order: number[] = [];
+    const qty = new Map<number, number>();
+    for (const bancale of result.bancali) {
+      for (const it of buildProductionPlan(bancale.strati).list) {
+        if (!qty.has(it.length)) order.push(it.length);
+        qty.set(it.length, (qty.get(it.length) ?? 0) + it.qty);
+      }
+    }
+    if (order.length > 0) {
+      return order.map((length) => ({ length, qty: qty.get(length)! }));
+    }
+  }
+  return fallback.map((s) => ({ length: s.length, qty: s.qty }));
+}
+
 function PiramidePage() {
   const { t } = useTranslation();
   const { company, settings } = useCatalog();
@@ -115,11 +142,11 @@ function PiramidePage() {
   const [bancaliCount, setBancaliCount] = useState('');
   const [bancaliLens, setBancaliLens] = useState<string[]>([]);
   const [result, setResult] = useState<NestingResult | null>(null);
-  // Origin order this Piramide session was opened from ("Apri in Piramide"), so
-  // its result can round-trip straight back into that same order.
-  const [origin, setOrigin] = useState<
-    { calcId: string; orderId: string } | undefined
-  >(undefined);
+  // Origin order this Piramide session was opened from ("Apri in Piramide"):
+  // every "Calcola Distribuzione" sends its result back into that order on its
+  // own (until unlinked). `originApplied` = the order already has a result.
+  const [origin, setOrigin] = useState<PiramideOrigin | undefined>(undefined);
+  const [originApplied, setOriginApplied] = useState(false);
   // Bumped after a save so the Salvati dropdown re-reads the history.
   const [histKey, setHistKey] = useState(0);
 
@@ -160,7 +187,7 @@ function PiramidePage() {
     const imported = popPiramideImport();
     if (imported) {
       setRows(imported.rows.map((r) => newRow(String(r.length), String(r.qty))));
-      setOrigin(imported.origin);
+      if (imported.origin) setOrigin({ ...imported.origin, label: imported.label });
       // The sheets come from a saved calc → not unfinished work by themselves.
       adoptSavedRef.current = true;
       return;
@@ -178,6 +205,7 @@ function PiramidePage() {
       setAllowScatter(draft.allowScatter ?? false);
       setBancaliCount(draft.bancaliCount ?? '');
       setBancaliLens(draft.bancaliLens ?? []);
+      setOrigin(draft.origin);
     }
   }, []);
 
@@ -192,6 +220,7 @@ function PiramidePage() {
     allowScatter,
     bancaliCount,
     bancaliLens,
+    origin,
   });
 
   // Auto-save the current inputs as the draft — only unfinished work: while
@@ -215,7 +244,7 @@ function PiramidePage() {
     else savePiramideDraft(d);
     // currentDraft reads exactly these.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, base, lanes, maxRows, minLen, maxLen, allowScatter, bancaliCount, bancaliLens]);
+  }, [rows, base, lanes, maxRows, minLen, maxLen, allowScatter, bancaliCount, bancaliLens, origin]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -352,6 +381,19 @@ function PiramidePage() {
     // Saved → no unfinished work; later edits compare against this.
     savedKeyRef.current = piramideDraftKey(currentDraft());
     clearPiramideDraft();
+    // Opened from an order → the result goes back into it on its own: the
+    // calculator applies it (and recomputes) when it next opens that calc —
+    // straight away on the way back.
+    if (origin) {
+      savePiramidePending({
+        calcId: origin.calcId,
+        orderId: origin.orderId,
+        rows: productionRows(r, parsedSheets),
+        schema: r,
+      });
+      stashOpenSaved(origin.calcId);
+      setOriginApplied(true);
+    }
     scrollToResult();
   };
 
@@ -392,50 +434,19 @@ function PiramidePage() {
   // Send the current sheet rows to the calculator as an order — a new
   // calculation, or appended to an existing saved one (targetCalcId). Handed
   // off via sessionStorage; the calculator picks it up on mount.
-  const sheetRowsForOrder = () => {
-    // Prefer the production order the layout computed (how the sheets stack on
-    // the pallet) so the calculator queue and form come out in the same order
-    // they'll be produced. Merge lengths across bancali by first occurrence;
-    // fall back to the raw input order when no layout has been computed yet.
-    if (result && result.bancali.length > 0) {
-      const order: number[] = [];
-      const qty = new Map<number, number>();
-      for (const bancale of result.bancali) {
-        for (const it of buildProductionPlan(bancale.strati).list) {
-          if (!qty.has(it.length)) order.push(it.length);
-          qty.set(it.length, (qty.get(it.length) ?? 0) + it.qty);
-        }
-      }
-      if (order.length > 0) {
-        return order.map((length) => ({ length, qty: qty.get(length)! }));
-      }
-    }
-    return parsedSheets.map((s) => ({ length: s.length, qty: s.qty }));
-  };
   const useInNewCalc = () => {
-    stashOrderImport({ rows: sheetRowsForOrder(), schema: result ?? undefined });
-    navigate(
-      company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
-    );
-  };
-  const useInExistingCalc = (calcId: string) => {
     stashOrderImport({
-      rows: sheetRowsForOrder(),
-      targetCalcId: calcId,
+      rows: productionRows(result, parsedSheets),
       schema: result ?? undefined,
     });
     navigate(
       company ? `/?company=${encodeURIComponent(company.slug)}` : '/',
     );
   };
-  // Round-trip: replace the sizes of the very order this Piramide was opened
-  // from, in production order (only offered when opened from a saved order).
-  const useInSameOrder = () => {
-    if (!origin) return;
+  const useInExistingCalc = (calcId: string) => {
     stashOrderImport({
-      rows: sheetRowsForOrder(),
-      targetCalcId: origin.calcId,
-      replaceOrderId: origin.orderId,
+      rows: productionRows(result, parsedSheets),
+      targetCalcId: calcId,
       schema: result ?? undefined,
     });
     navigate(
@@ -457,6 +468,39 @@ function PiramidePage() {
         >
           ← {t('piramide.backToCalculator')}
         </Link>
+
+        {/* Opened from an order: its results go back into it on their own. */}
+        {origin && (
+          <div
+            className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+              originApplied
+                ? 'border-success/30 bg-success/5 text-success'
+                : 'border-neutral-200 bg-white text-ink'
+            }`}
+          >
+            <span aria-hidden>{originApplied ? '✓' : '🔗'}</span>
+            <span className="min-w-0 flex-1">
+              {t(
+                `piramide.link.${originApplied ? 'applied' : 'linked'}${
+                  origin.label ? '' : 'NoName'
+                }`,
+                { name: origin.label },
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setOrigin(undefined);
+                setOriginApplied(false);
+              }}
+              aria-label={t('piramide.link.unlink')}
+              title={t('piramide.link.unlink')}
+              className="shrink-0 rounded px-1 text-ink-soft transition hover:text-danger"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Photo / OCR */}
         <section className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-5">
@@ -712,7 +756,6 @@ function PiramidePage() {
               <UseInCalculator
                 onNew={useInNewCalc}
                 onExisting={useInExistingCalc}
-                onSameOrder={origin ? useInSameOrder : undefined}
                 disabled={parsedSheets.length === 0}
                 t={t}
                 retentionDays={settings.savedRetentionDays}
