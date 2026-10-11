@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toolBtnCls } from './toolButton';
 
 /** Selection stored in NATURAL image pixels, so zoom/pan never invalidate it. */
 interface Rect {
@@ -57,9 +58,11 @@ function cropToCanvas(img: HTMLImageElement, sel: Rect | null): HTMLCanvasElemen
   return canvas;
 }
 
-const segCls = 'px-3 py-1.5 text-xs font-medium transition';
+// Same heights as the rest of the page's controls (h-8 phone / h-9 sm+).
+const segCls =
+  'inline-flex h-8 items-center px-3 text-xs font-medium transition sm:h-9 sm:text-sm';
 const zoomBtnCls =
-  'flex h-8 min-w-8 items-center justify-center rounded-md border border-neutral-300 bg-white px-2 text-sm font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink';
+  'flex h-8 min-w-8 items-center justify-center rounded-md border border-neutral-300 bg-white px-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:h-9 sm:min-w-9';
 
 function ImageCropper({
   src,
@@ -280,11 +283,12 @@ function ImageCropper({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
+        {/* Confirm / cancel keep their label on phones too (not icon actions). */}
         <button
           type="button"
           onClick={doCrop}
           disabled={busy}
-          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className={toolBtnCls(true)}
         >
           {sel ? t('piramide.photo.confirmCrop') : t('piramide.photo.wholeImage')}
         </button>
@@ -292,7 +296,7 @@ function ImageCropper({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:opacity-60"
+          className={toolBtnCls()}
         >
           {t('piramide.photo.cancel')}
         </button>

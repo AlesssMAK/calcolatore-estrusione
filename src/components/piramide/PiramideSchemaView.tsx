@@ -208,6 +208,8 @@ export function CollapsibleSchema({ schema }: { schema?: unknown }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        // A viewing control — stays in the read-only company view.
+        data-view
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
       >
         <span aria-hidden>{open ? '▾' : '▸'}</span>

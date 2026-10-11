@@ -7,6 +7,14 @@ import ImageCropper from '../components/piramide/ImageCropper';
 import ImportFromSaved from '../components/piramide/ImportFromSaved';
 import SavedPiramideButton from '../components/piramide/SavedPiramideButton';
 import UseInCalculator from '../components/piramide/UseInCalculator';
+import { toolBtnCls, toolIconCls } from '../components/piramide/toolButton';
+import {
+  CameraIcon,
+  ImageIcon,
+  PrintIcon,
+  ShareIcon,
+  TrashIcon,
+} from '../components/ActionIcons';
 import { useCatalog } from '../contexts/CatalogContext';
 import { popPiramideImport } from '../lib/piramideImport';
 import { stashOrderImport } from '../lib/orderImport';
@@ -42,8 +50,10 @@ const newRow = (length = '', qty = ''): SheetRow => ({
 // missing rows) — the operator should re-crop tighter.
 const MIN_CONFIDENCE = 90;
 
+// Same input as the calculator form (h-8 phone / h-9 sm+), so the −/+ row
+// buttons line up with the fields.
 const inputCls =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
+  'h-8 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9';
 const labelCls =
   'block text-xs font-medium tracking-wide text-ink-soft uppercase';
 
@@ -513,18 +523,20 @@ function PiramidePage() {
                 type="button"
                 onClick={() => cameraRef.current?.click()}
                 aria-label={t('piramide.photo.take')}
-                className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                title={t('piramide.photo.take')}
+                className={toolBtnCls(true)}
               >
-                <span aria-hidden>📷</span>
+                <CameraIcon className={toolIconCls} />
                 <span className="hidden sm:inline">{t('piramide.photo.take')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => uploadRef.current?.click()}
                 aria-label={t('piramide.photo.upload')}
-                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+                title={t('piramide.photo.upload')}
+                className={toolBtnCls()}
               >
-                <span aria-hidden>🖼</span>
+                <ImageIcon className={toolIconCls} />
                 <span className="hidden sm:inline">{t('piramide.photo.upload')}</span>
               </button>
             </div>
@@ -621,7 +633,8 @@ function PiramidePage() {
                     onClick={() => removeRow(r.id)}
                     disabled={rows.length <= 1}
                     aria-label={t('piramide.sheets.remove')}
-                    className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
+                    title={t('piramide.sheets.remove')}
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9"
                   >
                     −
                   </button>
@@ -629,7 +642,8 @@ function PiramidePage() {
                     type="button"
                     onClick={() => addRowAfter(r.id)}
                     aria-label={t('piramide.sheets.add')}
-                    className="flex h-9 w-9 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50"
+                    title={t('piramide.sheets.add')}
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                   >
                     +
                   </button>
@@ -642,9 +656,12 @@ function PiramidePage() {
             <button
               type="button"
               onClick={clearRows}
-              className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger"
+              aria-label={t('piramide.sheets.clear')}
+              title={t('piramide.sheets.clear')}
+              className={`${toolBtnCls()} hover:border-danger hover:text-danger`}
             >
-              {t('piramide.sheets.clear')}
+              <TrashIcon className={toolIconCls} />
+              <span className="hidden sm:inline">{t('piramide.sheets.clear')}</span>
             </button>
             <ImportFromSaved
               onImport={(imported) =>
@@ -780,14 +797,16 @@ function PiramidePage() {
             </span>
           </label>
 
-          <div className="mt-6 flex flex-wrap items-center gap-2">
+          {/* Same layout as the calculator's action bar: phones — full width,
+              the main action first; sm+ — right-aligned, the main action last. */}
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
             <button
               type="button"
               onClick={onCompute}
               disabled={parsedSheets.length === 0}
-              className="w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:order-2 sm:w-auto sm:py-2.5"
             >
-              {t('piramide.calculate')}
+              {t('piramide.calculate')} →
             </button>
             <SavedPiramideButton onRestore={restorePiramide} refreshKey={histKey} />
           </div>
@@ -876,7 +895,7 @@ function ResultView({ result }: { result: NestingResult }) {
       data-print="piramide"
       className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
     >
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-ink sm:text-lg">
           {t('piramide.result.title')}
         </h2>
@@ -884,17 +903,25 @@ function ResultView({ result }: { result: NestingResult }) {
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+            aria-label={t('actions.print')}
+            title={t('actions.print')}
+            className={toolBtnCls()}
           >
-            🖨 {t('actions.print')}
+            <PrintIcon className={toolIconCls} />
+            <span className="hidden sm:inline">{t('actions.print')}</span>
           </button>
           <button
             type="button"
             onClick={() => void exportAsImage()}
             disabled={exporting}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={t('actions.saveImage')}
+            title={t('actions.saveImage')}
+            className={toolBtnCls()}
           >
-            📷 {exporting ? t('actions.exporting') : t('actions.saveImage')}
+            <ShareIcon className={toolIconCls} />
+            <span className="hidden sm:inline">
+              {exporting ? t('actions.exporting') : t('actions.saveImage')}
+            </span>
           </button>
         </div>
       </div>

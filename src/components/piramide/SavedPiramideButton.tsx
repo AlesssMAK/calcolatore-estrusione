@@ -61,13 +61,15 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
   const lang = i18n.resolvedLanguage ?? 'it';
 
   return (
-    <div ref={rootRef} className="relative">
+    // Same as the calculator's "Salvati" in its action bar: full width on
+    // phones (after the main action), auto width on sm+ (before it).
+    <div ref={rootRef} className="relative order-2 w-full sm:order-1 sm:w-auto">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
       >
         <span aria-hidden>💾</span>
         <span>{t('actions.saved')}</span>
@@ -82,7 +84,7 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
         <div
           role="listbox"
           aria-label={t('piramide.saved.title')}
-          className="absolute left-0 z-30 mt-2 max-h-[60vh] w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
+          className="absolute right-0 z-30 mt-2 max-h-[60vh] w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
             {t('piramide.saved.title')}
