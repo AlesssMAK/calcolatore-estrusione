@@ -18,10 +18,12 @@ import { buildFormSchema } from '../formSchema';
 import type { FormValues } from '../formSchema';
 import type {
   CalculatorMode,
+  ProducedEntry,
   ScheduledOrder,
   ScheduleResult,
   ScheduleSnapshot,
 } from '../types';
+import { SIZE_ENTRY_GROUPS, type SizeEntryField } from '../utils/sizeEntries';
 import { buildEmptyDefaults, genId } from '../utils/defaults';
 import QueueBanner from './QueueBanner';
 import StopPicker from './StopPicker';
@@ -95,6 +97,11 @@ interface Props {
   registerComplete?: (
     fn: ((orderId: string, sizeIdx?: number) => void) | null,
   ) => void;
+  /** Register "set this size's produced count" for the active-order modal
+   *  (a sibling of the form). Called with the handler on mount, null on unmount. */
+  registerSetProduced?: (
+    fn: ((orderIdx: number, sizeIdx: number, produced: number) => void) | null,
+  ) => void;
   /** The order+size in production while viewing a saved calc — collapses the
    *  other orders/sizes in the form. Null → no collapse. */
   activeLoc?: { orderIdx: number; sizeIdx: number } | null;
@@ -131,6 +138,7 @@ function CalculatorForm({
   hasCompleted,
   canComplete,
   registerComplete,
+  registerSetProduced,
   activeLoc,
   onPublish,
   onOpenCompany,
@@ -459,6 +467,68 @@ function CalculatorForm({
     );
   };
 
+  // Active-order modal: set the produced count of one size to exactly what was
+  // typed, then recompute in place. The total goes on the size's first produced
+  // row; its other rows and its pallets/packages count are cleared, so nothing
+  // else adds to it. Sizes-mode orders only (total-meters has no per-size count).
+  const setProducedForSize = (
+    orderIdx: number,
+    sizeIdx: number,
+    produced: number,
+  ) => {
+    const order = methods.getValues(`orders.${orderIdx}`);
+    if (!order || order.useTotalLength) return;
+    const group: readonly SizeEntryField[] =
+      mode === 'profiles' ? SIZE_ENTRY_GROUPS[1] : SIZE_ENTRY_GROUPS[0];
+    const path = (name: SizeEntryField) =>
+      `orders.${orderIdx}.${name}` as `orders.${number}.${SizeEntryField}`;
+    const arrays = group.map((name) => [
+      ...((methods.getValues(path(name)) ?? []) as (ProducedEntry | undefined)[]),
+    ]);
+    // Align the parallel arrays (fill holes), then find this size's rows.
+    const len = Math.max(...arrays.map((a) => a.length));
+    const tagAt = (p: number) =>
+      arrays.find((a) => a[p]?.sizeIndex != null)?.[p]?.sizeIndex ?? p;
+    for (let p = 0; p < len; p++) {
+      const tag = tagAt(p);
+      arrays.forEach((a) => {
+        if (!a[p]) a[p] = { value: undefined, sizeIndex: tag };
+      });
+    }
+    const rows = arrays[0].flatMap((_, p) => (tagAt(p) === sizeIdx ? [p] : []));
+    if (rows.length === 0) {
+      arrays.forEach((a) => a.push({ value: undefined, sizeIndex: sizeIdx }));
+      rows.push(arrays[0].length - 1);
+    }
+    const count = arrays[0];
+    const total = arrays[arrays.length - 1]; // pallets / packages produced
+    rows.forEach((p, k) => {
+      count[p] = { ...count[p], sizeIndex: sizeIdx, value: k === 0 ? produced : undefined };
+      total[p] = { ...total[p], sizeIndex: sizeIdx, value: undefined };
+    });
+    group.forEach((name, i) =>
+      methods.setValue(path(name), arrays[i] as ProducedEntry[], {
+        shouldDirty: true,
+      }),
+    );
+    // Setting the whole array doesn't refresh inputs already on screen (the
+    // size's Calcolo Avanzato rows) — set their leaf values too so the form
+    // shows what was saved.
+    const countName = group[0];
+    const totalName = group[group.length - 1];
+    rows.forEach((p) => {
+      methods.setValue(
+        `${path(countName)}.${p}.value` as `orders.${number}.${SizeEntryField}.${number}.value`,
+        count[p]?.value,
+      );
+      methods.setValue(
+        `${path(totalName)}.${p}.value` as `orders.${number}.${SizeEntryField}.${number}.value`,
+        undefined,
+      );
+    });
+    recomputeInPlace();
+  };
+
   // Keep the registered handler pointing at the latest closure (so it uses the
   // current editingId / settings) while exposing a stable function reference.
   const completeRef = useRef(completeItem);
@@ -470,6 +540,13 @@ function CalculatorForm({
     registerComplete(fn);
     return () => registerComplete(null);
   }, [registerComplete]);
+  const setProducedRef = useRef(setProducedForSize);
+  setProducedRef.current = setProducedForSize;
+  useEffect(() => {
+    if (!registerSetProduced) return;
+    registerSetProduced((o, s, n) => setProducedRef.current(o, s, n));
+    return () => registerSetProduced(null);
+  }, [registerSetProduced]);
 
   return (
     <FormProvider {...methods}>

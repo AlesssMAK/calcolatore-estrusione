@@ -197,6 +197,10 @@ function CalculatorApp() {
   const [companyNotice, setCompanyNotice] = useState<string | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
   // panel (a sibling of the form) can trigger completion too.
+  // The form also registers "set a size's produced count" for the modal.
+  const setProducedRef = useRef<
+    ((orderIdx: number, sizeIdx: number, produced: number) => void) | null
+  >(null);
   const completeRef = useRef<
     ((orderId: string, sizeIdx?: number) => void) | null
   >(null);
@@ -978,6 +982,9 @@ function CalculatorApp() {
           registerComplete={(fn) => {
             completeRef.current = fn;
           }}
+          registerSetProduced={(fn) => {
+            setProducedRef.current = fn;
+          }}
         />
 
         <div id="results" className="mt-5 sm:mt-6">
@@ -1058,6 +1065,18 @@ function CalculatorApp() {
           info={activeModal.info}
           onClose={() => setActiveModal(null)}
           onGoToForm={goToActiveSize}
+          // Editable produced count — not on a read-only company calc, nor on
+          // a total-meters order (no per-size count there).
+          onSaveProduced={
+            !readOnly &&
+            !result?.rows?.[activeModal.orderIdx]?.order?.useTotalLength
+              ? (produced) => {
+                  const { orderIdx, sizeIdx } = activeModal;
+                  setActiveModal(null);
+                  setProducedRef.current?.(orderIdx, sizeIdx, produced);
+                }
+              : undefined
+          }
           t={t}
         />
       )}
