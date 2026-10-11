@@ -33,7 +33,15 @@ import SortableItem from './SortableItem';
 import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
-import { makeEmptyOrder, makeEmptySize } from '../utils/defaults';
+import { genId, makeEmptyOrder, makeEmptySize } from '../utils/defaults';
+import {
+  SIZE_ENTRY_GROUPS,
+  insertMap,
+  moveMap,
+  remapSizeGroup,
+  removeMap,
+  type SizeEntryField,
+} from '../utils/sizeEntries';
 import { isGapEnabled } from '../utils/calculator';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { StopIcon } from './ActionIcons';
@@ -106,7 +114,7 @@ function OrdersList({
     register,
   } = useFormContext<FormValues>();
 
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append, insert, remove, move } = useFieldArray({
     control,
     name: 'orders',
   });
@@ -166,6 +174,17 @@ function OrdersList({
         Boolean(last?.useTotalLength),
         last?.productName ?? '',
       ),
+    );
+  };
+
+  // The order's own "+": a new order right after it (like a size's "+").
+  // Orders keep their data in their own arrays, so nothing shifts between them.
+  const insertOrderAfter = (idx: number) => {
+    const src = watchedOrders?.[idx];
+    pendingFocusIdx.current = idx + 1;
+    insert(
+      idx + 1,
+      makeEmptyOrder(mode, Boolean(src?.useTotalLength), src?.productName ?? ''),
     );
   };
 
@@ -443,6 +462,16 @@ function OrdersList({
                     <span className="hidden sm:inline">
                       {t('orders.remove')}
                     </span>
+                  </button>
+                  {/* Like a size's "+": a new order right after this one. */}
+                  <button
+                    type="button"
+                    onClick={() => insertOrderAfter(idx)}
+                    className="rounded-md border border-brand-300 bg-white px-2.5 py-1 text-xs font-bold text-brand-700 transition hover:border-brand-600 hover:bg-brand-50 sm:px-3 sm:py-1.5 sm:text-sm"
+                    aria-label={t('orders.addAfter')}
+                    title={t('orders.addAfter')}
+                  >
+                    +
                   </button>
                 </div>
               </div>
@@ -1129,7 +1158,9 @@ function AdvancedSection({
             (watchedSizes ?? [{}]).map((_, sIdx) =>
               visibleSizeIdxs && !visibleSizeIdxs.has(sIdx) ? null : isProfiles ? (
                 <SizeAdvancedBlockProfili
-                  key={sIdx}
+                  // Keyed by the size's stable uid so a block (and its seeded row)
+                  // follows its size through insert / remove / reorder.
+                  key={watchedSizes?.[sIdx]?.uid ?? sIdx}
                   orderIdx={idx}
                   sizeIdx={sIdx}
                   totalSizes={watchedSizes?.length ?? 1}
@@ -1144,7 +1175,9 @@ function AdvancedSection({
                 />
               ) : (
                 <SizeAdvancedBlockListi
-                  key={sIdx}
+                  // Keyed by the size's stable uid so a block (and its seeded row)
+                  // follows its size through insert / remove / reorder.
+                  key={watchedSizes?.[sIdx]?.uid ?? sIdx}
                   orderIdx={idx}
                   sizeIdx={sIdx}
                   totalSizes={watchedSizes?.length ?? 1}
@@ -2141,6 +2174,7 @@ function SizesFieldArray({
     formState: { errors },
     control,
     getValues,
+    setValue,
   } = useFormContext<FormValues>();
 
   const {
@@ -2153,6 +2187,49 @@ function SizesFieldArray({
     control,
     name: `orders.${orderIdx}.sizes`,
   });
+
+  // Calcolo Avanzato rows point at a size by its index (sizeIndex). Insert /
+  // remove / reorder must carry them along — otherwise a size inserted in the
+  // middle showed the next size's produced data (and that size lost it). Sizes
+  // also get a stable uid, which keys their Calcolo Avanzato blocks.
+  const remapSizeEntries = (map: (sizeIdx: number) => number | null) => {
+    for (const group of SIZE_ENTRY_GROUPS) {
+      const arrays = group.map((name) =>
+        getValues(`orders.${orderIdx}.${name}` as `orders.${number}.${SizeEntryField}`),
+      );
+      if (arrays.every((a) => !a?.length)) continue;
+      const next = remapSizeGroup(arrays, map);
+      group.forEach((name, i) =>
+        setValue(
+          `orders.${orderIdx}.${name}` as `orders.${number}.${SizeEntryField}`,
+          next[i],
+          { shouldDirty: true },
+        ),
+      );
+    }
+  };
+  const ensureSizeUids = () =>
+    getValues(`orders.${orderIdx}.sizes`)?.forEach((s, i) => {
+      if (!s?.uid) setValue(`orders.${orderIdx}.sizes.${i}.uid`, genId());
+    });
+  const insertSizeAt = (at: number) => {
+    ensureSizeUids();
+    remapSizeEntries(insertMap(at));
+    // Render the just-inserted size expanded, not collapsed to a summary (the
+    // default for non-active sizes in a saved calc).
+    pendingSizeExpand.current = at;
+    insertSize(at, makeEmptySize());
+  };
+  const removeSizeAt = (at: number) => {
+    ensureSizeUids();
+    remapSizeEntries(removeMap(at));
+    removeSize(at);
+  };
+  const moveSizeTo = (from: number, to: number) => {
+    ensureSizeUids();
+    remapSizeEntries(moveMap(from, to));
+    moveSize(from, to);
+  };
 
   // Reorder the sizes within this order: drag (press-hold handle, mobile) or
   // ↑/↓ buttons (desktop), both via useFieldArray.move.
@@ -2169,7 +2246,7 @@ function SizesFieldArray({
     if (!over || active.id === over.id) return;
     const from = sizeFields.findIndex((f) => f.id === active.id);
     const to = sizeFields.findIndex((f) => f.id === over.id);
-    if (from !== -1 && to !== -1) moveSize(from, to);
+    if (from !== -1 && to !== -1) moveSizeTo(from, to);
   };
 
   const watchedSizes = useWatch({ control, name: `orders.${orderIdx}.sizes` });
@@ -2458,7 +2535,7 @@ function SizesFieldArray({
 
               <button
                 type="button"
-                onClick={() => removeSize(sIdx)}
+                onClick={() => removeSizeAt(sIdx)}
                 disabled={sizeFields.length <= 1}
                 className={`flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9 ${
                   showPerPackage ? 'col-start-4' : ''
@@ -2471,12 +2548,7 @@ function SizesFieldArray({
 
               <button
                 type="button"
-                onClick={() => {
-                  // Render the just-inserted size expanded, not collapsed to a
-                  // summary (the default for non-active sizes in a saved calc).
-                  pendingSizeExpand.current = sIdx + 1;
-                  insertSize(sIdx + 1, makeEmptySize());
-                }}
+                onClick={() => insertSizeAt(sIdx + 1)}
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}
