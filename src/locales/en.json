@@ -228,7 +228,8 @@
     "title": "Order in production",
     "size": "Size",
     "eta": "Expected finish",
-    "tapToGo": "Tap to open the size"
+    "tapToGo": "Tap to open the size",
+    "save": "Save"
   },
   "company": {
     "results": "Company",

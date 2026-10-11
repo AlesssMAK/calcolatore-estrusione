@@ -228,7 +228,8 @@
     "title": "Ordine in lavorazione",
     "size": "Misura",
     "eta": "Fine prevista",
-    "tapToGo": "Tocca per aprire la misura"
+    "tapToGo": "Tocca per aprire la misura",
+    "save": "Salva"
   },
   "company": {
     "results": "Azienda",

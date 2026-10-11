@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 
 export interface ActiveModalInfo {
@@ -20,13 +20,22 @@ interface Props {
   onClose: () => void;
   /** Jump to the active size in the form (tap on the modal body). */
   onGoToForm: () => void;
+  /** Set the produced count of the active size and recompute. Absent → the
+   *  count is shown read-only (total-meters orders, view-only company calcs). */
+  onSaveProduced?: (produced: number) => void;
   t: TFunction;
 }
 
 /** Shown once when a saved calc is opened: what size of which order is being
  *  produced now, how much is done and when it finishes. Tapping the body jumps
  *  to that size in the form; Esc / backdrop / ✕ close it. */
-function ActiveOrderModal({ info, onClose, onGoToForm, t }: Props) {
+function ActiveOrderModal({
+  info,
+  onClose,
+  onGoToForm,
+  onSaveProduced,
+  t,
+}: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -92,10 +101,19 @@ function ActiveOrderModal({ info, onClose, onGoToForm, t }: Props) {
           <Row
             label={t('results.produced')}
             value={
-              <>
-                <span className="num-blink">{info.produced}</span> /{' '}
-                {info.total}
-              </>
+              onSaveProduced ? (
+                <ProducedEditor
+                  produced={info.produced}
+                  total={info.total}
+                  onSave={onSaveProduced}
+                  t={t}
+                />
+              ) : (
+                <>
+                  <span className="num-blink">{info.produced}</span> /{' '}
+                  {info.total}
+                </>
+              )
             }
           />
           <Row label={t('activeModal.eta')} value={info.etaLabel} accent />
@@ -106,6 +124,63 @@ function ActiveOrderModal({ info, onClose, onGoToForm, t }: Props) {
         </p>
       </div>
     </div>
+  );
+}
+
+// Editable produced count ("30 / 60"): type the real amount, "Salva" (or
+// Enter) sets it on the active size and recomputes. Its clicks / keys don't
+// reach the card (which jumps to the form on tap / Enter).
+function ProducedEditor({
+  produced,
+  total,
+  onSave,
+  t,
+}: {
+  produced: number;
+  total: number;
+  onSave: (produced: number) => void;
+  t: TFunction;
+}) {
+  const [text, setText] = useState(String(produced));
+  const n = Number(text);
+  const valid = text.trim() !== '' && Number.isFinite(n) && n >= 0;
+  const save = () => {
+    if (!valid) return;
+    onSave(Math.min(Math.round(n), total > 0 ? total : Math.round(n)));
+  };
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          save();
+        }
+      }}
+    >
+      <input
+        type="number"
+        min="0"
+        max={total > 0 ? total : undefined}
+        step="1"
+        inputMode="numeric"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        aria-label={t('results.produced')}
+        className="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-right text-sm font-semibold text-brand-700 shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+      />
+      <span className="text-ink">/ {total}</span>
+      <button
+        type="button"
+        onClick={save}
+        disabled={!valid || Number(text) === produced}
+        className="rounded-md bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+      >
+        {t('activeModal.save')}
+      </button>
+    </span>
   );
 }
 

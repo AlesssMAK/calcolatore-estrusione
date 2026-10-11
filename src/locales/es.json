@@ -228,7 +228,8 @@
     "title": "Pedido en producción",
     "size": "Medida",
     "eta": "Fin previsto",
-    "tapToGo": "Toca para abrir la medida"
+    "tapToGo": "Toca para abrir la medida",
+    "save": "Guardar"
   },
   "company": {
     "results": "Empresa",
