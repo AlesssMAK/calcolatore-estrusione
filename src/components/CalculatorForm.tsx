@@ -170,6 +170,17 @@ function CalculatorForm({
     reValidateMode: 'onChange',
   });
 
+  // react-hook-form fills an input whose value is undefined with the *default*
+  // value at the same path — the orders as they were when the form mounted.
+  // After a size / order is inserted, removed or moved, that path holds another
+  // item, so a new empty size showed (and took) the data of the size that used
+  // to sit there. Every initial value already lives in the form values, so the
+  // orders' defaults are dropped once mounted: an empty field stays empty.
+  // (Field arrays read the defaults only before mount; isDirty isn't used.)
+  useEffect(() => {
+    (methods.control._defaultValues as Partial<FormValues>).orders = [];
+  }, [methods]);
+
   // No orders left (e.g. a reopened calc whose orders are all completed) →
   // nothing to compute: "Calcola" stays visible but inactive until one is added.
   const orders = useWatch({ control: methods.control, name: 'orders' });
