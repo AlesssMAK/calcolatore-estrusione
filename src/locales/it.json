@@ -248,6 +248,34 @@
     "localCopySuffix": "(copia locale)",
     "localCopyKept": "Le tue modifiche sono in Salvati: «{{label}}»."
   },
+  "report": {
+    "title": "Report",
+    "open": "Report",
+    "tabs": {
+      "current": "In Corso",
+      "closing": "Alla Chiusura",
+      "at": "Data e Ora"
+    },
+    "currentHint": "Quando finisce l’ordine in lavorazione di ogni calcolo.",
+    "closingAt": "Stato alla chiusura della linea:",
+    "noClosing": "La linea lavora 24/7: non c’è una chiusura.",
+    "day": "Giorno",
+    "hour": "Ora",
+    "orderEnd": "Fine ordine",
+    "starts": "Inizia",
+    "ended": "Finito",
+    "unitSheets": "lastre",
+    "unitProfiles": "profili",
+    "loading": "Caricamento…",
+    "empty": "Nessun calcolo in lavorazione in Azienda.",
+    "status": {
+      "running": "In produzione",
+      "stopped": "Linea ferma",
+      "waiting": "In pausa",
+      "notStarted": "Non iniziato",
+      "done": "Completato"
+    }
+  },
   "footer": {
     "madeBy": "Calcolatore di Estrusione",
     "installApp": "📲 Installa l’app"

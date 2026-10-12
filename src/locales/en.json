@@ -248,6 +248,34 @@
     "localCopySuffix": "(local copy)",
     "localCopyKept": "Your changes are in Saved: «{{label}}»."
   },
+  "report": {
+    "title": "Report",
+    "open": "Report",
+    "tabs": {
+      "current": "In Progress",
+      "closing": "At Closing",
+      "at": "Date and Time"
+    },
+    "currentHint": "When the order in progress of each calculation ends.",
+    "closingAt": "Status when the line closes:",
+    "noClosing": "The line runs 24/7: there is no closing.",
+    "day": "Day",
+    "hour": "Time",
+    "orderEnd": "Order ends",
+    "starts": "Starts",
+    "ended": "Ended",
+    "unitSheets": "sheets",
+    "unitProfiles": "profiles",
+    "loading": "Loading…",
+    "empty": "No calculation in production in Company.",
+    "status": {
+      "running": "In production",
+      "stopped": "Line stopped",
+      "waiting": "Paused",
+      "notStarted": "Not started",
+      "done": "Completed"
+    }
+  },
   "footer": {
     "madeBy": "Extrusion Calculator",
     "installApp": "📲 Install the app"

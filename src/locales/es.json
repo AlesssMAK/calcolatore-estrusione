@@ -248,6 +248,34 @@
     "localCopySuffix": "(copia local)",
     "localCopyKept": "Tus cambios están en Guardados: «{{label}}»."
   },
+  "report": {
+    "title": "Informe",
+    "open": "Informe",
+    "tabs": {
+      "current": "En Curso",
+      "closing": "Al Cierre",
+      "at": "Fecha y Hora"
+    },
+    "currentHint": "Cuándo termina el pedido en producción de cada cálculo.",
+    "closingAt": "Estado al cierre de la línea:",
+    "noClosing": "La línea trabaja 24/7: no hay cierre.",
+    "day": "Día",
+    "hour": "Hora",
+    "orderEnd": "Fin del pedido",
+    "starts": "Empieza",
+    "ended": "Terminado",
+    "unitSheets": "láminas",
+    "unitProfiles": "perfiles",
+    "loading": "Cargando…",
+    "empty": "Ningún cálculo en producción en Empresa.",
+    "status": {
+      "running": "En producción",
+      "stopped": "Línea parada",
+      "waiting": "En pausa",
+      "notStarted": "No iniciado",
+      "done": "Completado"
+    }
+  },
   "footer": {
     "madeBy": "Calculadora de Extrusión",
     "installApp": "📲 Instalar la app"

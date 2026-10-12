@@ -429,6 +429,28 @@ function blockStartFrom(d: Date, work?: Work): Date {
   return cursor;
 }
 
+type WorkSnapshot = Pick<ScheduleSnapshot, 'weekend' | 'schedule' | 'noLimits'>;
+
+/** The working-time config of a schedule snapshot (as progressAsOf reads it). */
+function workOf(s: WorkSnapshot): Work {
+  return { weekend: s.weekend, schedule: s.schedule, allDay: !!s.noLimits };
+}
+
+/** True when the line is working at `at` (inside a working interval; warm-up /
+ *  shutdown time counts as working). */
+export function isWorkingAt(at: Date, s: WorkSnapshot): boolean {
+  return rawNextWorkingInstant(at, workOf(s)).getTime() === at.getTime();
+}
+
+/** When the line next closes: the end of the working run going on at `at`, or
+ *  of the next one when the line is stopped then. Null for a line that never
+ *  stops (24/7). */
+export function nextClosing(at: Date, s: WorkSnapshot): Date | null {
+  const work = workOf(s);
+  if (isContinuous(work)) return null;
+  return blockEndFrom(rawNextWorkingInstant(at, work), work);
+}
+
 /** A bare production window (enriched into a full Segment later). */
 interface RawSegment {
   start: Date;
