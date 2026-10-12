@@ -7,6 +7,7 @@ import CalculatorForm from './components/CalculatorForm';
 import ResultsPanel from './components/ResultsPanel';
 import AdvanceBanner from './components/AdvanceBanner';
 import RestoreCompletedButton from './components/RestoreCompletedButton';
+import CompanyReportModal from './components/CompanyReportModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ActiveOrderModal, {
   type ActiveModalInfo,
@@ -204,6 +205,8 @@ function CalculatorApp() {
   // The displayed result is a "Calcolo fisso": a static result, not tracked as
   // in production → no active modal / collapse, and the blinking is off.
   const [viewFrozen, setViewFrozen] = useState(false);
+  // "Report" of the company's results (opened from the Azienda list).
+  const [reportOpen, setReportOpen] = useState(false);
   // Transient notice for company-publish feedback (e.g. limit reached).
   const [companyNotice, setCompanyNotice] = useState<string | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
@@ -1043,6 +1046,9 @@ function CalculatorApp() {
           onDeleteCompany={
             isSupabaseConfigured && company ? deleteCompanyCalc : undefined
           }
+          onOpenReport={
+            isSupabaseConfigured && company ? () => setReportOpen(true) : undefined
+          }
           readOnly={readOnly}
           onAddToSaved={addToSaved}
           mountState={mountState}
@@ -1146,6 +1152,13 @@ function CalculatorApp() {
               : undefined
           }
           t={t}
+        />
+      )}
+
+      {reportOpen && (
+        <CompanyReportModal
+          onClose={() => setReportOpen(false)}
+          onOpen={openCompanyCalc}
         />
       )}
 

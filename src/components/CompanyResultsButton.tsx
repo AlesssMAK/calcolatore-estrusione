@@ -20,6 +20,8 @@ interface Props {
   onDelete?: (calc: CompanyCalc) => void | Promise<void>;
   /** Bump to re-read the list (after a publish/unpublish). */
   refreshKey?: number;
+  /** "Report" at the bottom of the list: production status of all results. */
+  onOpenReport?: () => void;
   /** Compact icon variant for the pinned floating actions. Omit → full button. */
   placement?: FloatPlacement;
 }
@@ -45,6 +47,7 @@ function CompanyResultsButton({
   onDelete,
   refreshKey = 0,
   placement,
+  onOpenReport,
 }: Props) {
   const { t, i18n } = useTranslation();
   const { company, settings } = useCatalog();
@@ -234,6 +237,21 @@ function CompanyResultsButton({
                 );
               })}
             </ul>
+          )}
+          {onOpenReport && (
+            <div className="mt-1 border-t border-neutral-100 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onOpenReport();
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+              >
+                <span aria-hidden>📊</span>
+                <span>{t('report.open')}</span>
+              </button>
+            </div>
           )}
         </div>
       )}
