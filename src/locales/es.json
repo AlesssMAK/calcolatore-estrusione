@@ -230,7 +230,8 @@
     "size": "Medida",
     "eta": "Fin previsto",
     "tapToGo": "Toca para abrir la medida",
-    "save": "Guardar"
+    "save": "Guardar",
+    "edit": "Editar los producidos"
   },
   "company": {
     "results": "Empresa",

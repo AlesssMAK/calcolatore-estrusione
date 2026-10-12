@@ -11,7 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ActiveOrderModal, {
   type ActiveModalInfo,
 } from './components/ActiveOrderModal';
-import { formatDateTime } from './utils/format';
+import { formatDateParts } from './utils/format';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -90,7 +90,6 @@ function computeActive(
   if (pick) {
     const i = pick.i;
     const row = rows[i];
-    const orderLabel = row.order?.productName?.trim() || `#${i + 1}`;
     const sizes = row.sizeDetails;
     let sizeIdx = 0;
     let length: number | undefined;
@@ -118,11 +117,12 @@ function computeActive(
     }
     return {
       info: {
-        orderLabel,
+        orderNo: i + 1,
+        productName: row.order?.productName?.trim() || undefined,
         sizeLabel: length ? `${length} mm` : '—',
         produced,
         total,
-        etaLabel: formatDateTime(row.end, lang),
+        eta: formatDateParts(row.end, lang),
       },
       orderIdx: i,
       sizeIdx,

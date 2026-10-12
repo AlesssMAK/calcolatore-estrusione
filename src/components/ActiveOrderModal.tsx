@@ -1,17 +1,20 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 
 export interface ActiveModalInfo {
-  /** Product name or "#N" of the order currently in production. */
-  orderLabel: string;
+  /** Number of the order in production (the form's "#N"). */
+  orderNo: number;
+  /** Its product name, when it has one. */
+  productName?: string;
   /** The active size, e.g. "6000 mm". */
   sizeLabel: string;
   /** Produced count at the active size (blinks in the modal). */
   produced: number;
   /** Total count at the active size ("produced / total"). */
   total: number;
-  /** Expected finish of the active order (formatted date-time). */
-  etaLabel: string;
+  /** Expected finish of the active order — date and time apart, so the time
+   *  can drop to its own line on a narrow screen. */
+  eta: { date: string; time: string };
 }
 
 interface Props {
@@ -36,6 +39,9 @@ function ActiveOrderModal({
   onSaveProduced,
   t,
 }: Props) {
+  // The produced count turns into an input + "Salva" once tapped.
+  const [editing, setEditing] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -96,27 +102,67 @@ function ActiveOrderModal({
         </div>
 
         <dl className="space-y-2 text-sm">
-          <Row label={t('orders.productName')} value={info.orderLabel} />
-          <Row label={t('activeModal.size')} value={info.sizeLabel} />
           <Row
-            label={t('results.produced')}
+            label={t('orders.productName')}
             value={
-              onSaveProduced ? (
-                <ProducedEditor
-                  produced={info.produced}
-                  total={info.total}
-                  onSave={onSaveProduced}
-                  t={t}
-                />
-              ) : (
-                <>
-                  <span className="num-blink">{info.produced}</span> /{' '}
-                  {info.total}
-                </>
-              )
+              // "#N" badge as in the form, then the name (if any).
+              <span className="flex min-w-0 items-center justify-end gap-2">
+                <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
+                  #{info.orderNo}
+                </span>
+                {info.productName && (
+                  <span className="min-w-0 truncate">{info.productName}</span>
+                )}
+              </span>
             }
           />
-          <Row label={t('activeModal.eta')} value={info.etaLabel} accent />
+          <Row label={t('activeModal.size')} value={info.sizeLabel} />
+          {editing && onSaveProduced ? (
+            <ProducedEditor
+              produced={info.produced}
+              total={info.total}
+              onSave={onSaveProduced}
+              onCancel={() => setEditing(false)}
+              t={t}
+            />
+          ) : (
+            <Row
+              label={t('results.produced')}
+              value={
+                <>
+                  {onSaveProduced ? (
+                    // Looks like the plain count; a tap opens the editor.
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(true);
+                      }}
+                      title={t('activeModal.edit')}
+                      aria-label={t('activeModal.edit')}
+                      className="num-blink rounded px-1 underline decoration-dotted underline-offset-4 transition hover:bg-neutral-100"
+                    >
+                      {info.produced}
+                    </button>
+                  ) : (
+                    <span className="num-blink">{info.produced}</span>
+                  )}{' '}
+                  / {info.total}
+                </>
+              }
+            />
+          )}
+          <Row
+            label={t('activeModal.eta')}
+            value={
+              // The time drops under the date when both don't fit.
+              <span className="flex flex-wrap justify-end gap-x-1.5">
+                <span className="whitespace-nowrap">{info.eta.date}</span>
+                <span className="whitespace-nowrap">{info.eta.time}</span>
+              </span>
+            }
+            accent
+          />
         </dl>
 
         <p className="mt-4 text-center text-xs font-medium text-brand-700">
@@ -127,21 +173,32 @@ function ActiveOrderModal({
   );
 }
 
-// Editable produced count ("30 / 60"): type the real amount, "Salva" (or
-// Enter) sets it on the active size and recomputes. Its clicks / keys don't
-// reach the card (which jumps to the form on tap / Enter).
+// Editing the produced count (opened by tapping it): its own full-width line
+// under the label — input, "/ total", "Salva" — so it fits a 320px screen.
+// "Salva" (or Enter) sets it on the active size and recomputes; Esc cancels.
+// Its clicks / keys don't reach the card (which jumps to the form on tap /
+// Enter) nor the modal's Esc-to-close.
 function ProducedEditor({
   produced,
   total,
   onSave,
+  onCancel,
   t,
 }: {
   produced: number;
   total: number;
   onSave: (produced: number) => void;
+  onCancel: () => void;
   t: TFunction;
 }) {
   const [text, setText] = useState(String(produced));
+  // Focus + select the count right away — without scrolling the page behind
+  // the modal (autoFocus would).
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+    inputRef.current?.select();
+  }, []);
   const n = Number(text);
   const valid = text.trim() !== '' && Number.isFinite(n) && n >= 0;
   const save = () => {
@@ -149,38 +206,46 @@ function ProducedEditor({
     onSave(Math.min(Math.round(n), total > 0 ? total : Math.round(n)));
   };
   return (
-    <span
-      className="inline-flex items-center gap-1.5"
+    <div
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
         e.stopPropagation();
         if (e.key === 'Enter') {
           e.preventDefault();
           save();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onCancel();
         }
       }}
     >
-      <input
-        type="number"
-        min="0"
-        max={total > 0 ? total : undefined}
-        step="1"
-        inputMode="numeric"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-label={t('results.produced')}
-        className="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-right text-sm font-semibold text-brand-700 shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-      />
-      <span className="text-ink">/ {total}</span>
-      <button
-        type="button"
-        onClick={save}
-        disabled={!valid || Number(text) === produced}
-        className="rounded-md bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
-      >
-        {t('activeModal.save')}
-      </button>
-    </span>
+      <dt className="text-xs tracking-wide text-ink-soft uppercase">
+        {t('results.produced')}
+      </dt>
+      <dd className="mt-1 flex items-center gap-2">
+        <input
+          type="number"
+          min="0"
+          max={total > 0 ? total : undefined}
+          step="1"
+          inputMode="numeric"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          ref={inputRef}
+          aria-label={t('results.produced')}
+          className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-right text-sm font-semibold text-brand-700 shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+        />
+        <span className="shrink-0 font-semibold text-ink">/ {total}</span>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!valid || Number(text) === produced}
+          className="h-9 shrink-0 rounded-md bg-brand-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+        >
+          {t('activeModal.save')}
+        </button>
+      </dd>
+    </div>
   );
 }
 

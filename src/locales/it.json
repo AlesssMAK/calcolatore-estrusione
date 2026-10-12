@@ -230,7 +230,8 @@
     "size": "Misura",
     "eta": "Fine prevista",
     "tapToGo": "Tocca per aprire la misura",
-    "save": "Salva"
+    "save": "Salva",
+    "edit": "Modifica i prodotti"
   },
   "company": {
     "results": "Azienda",

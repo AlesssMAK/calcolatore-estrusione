@@ -230,7 +230,8 @@
     "size": "Size",
     "eta": "Expected finish",
     "tapToGo": "Tap to open the size",
-    "save": "Save"
+    "save": "Save",
+    "edit": "Edit produced count"
   },
   "company": {
     "results": "Company",
