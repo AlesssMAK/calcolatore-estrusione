@@ -19,6 +19,19 @@ export function formatDateTime(date: Date, lang: string): string {
   return format(date, 'd MMMM yyyy, HH:mm', { locale: getDateFnsLocale(lang) });
 }
 
+/** formatDateTime in two parts, for places that drop the time to its own line
+ *  when the full date-time doesn't fit. */
+export function formatDateParts(
+  date: Date,
+  lang: string,
+): { date: string; time: string } {
+  const locale = getDateFnsLocale(lang);
+  return {
+    date: format(date, 'd MMMM yyyy', { locale }),
+    time: format(date, 'HH:mm', { locale }),
+  };
+}
+
 export function formatShortDateTime(date: Date, lang: string): string {
   return format(date, 'dd.MM.yyyy HH:mm', { locale: getDateFnsLocale(lang) });
 }
