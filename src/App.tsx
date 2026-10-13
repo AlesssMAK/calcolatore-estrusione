@@ -870,6 +870,75 @@ function CalculatorApp() {
     onRestore(entry);
   };
 
+  // ⏸ / ▶ in the Produzione list: pause a running process (frozen at its state
+  // right now — nothing more is subtracted) or start it again (recomputed from
+  // now) — the 🔄 toggle of Salvati, written to the shared document so everyone
+  // sees it. Only where this device may edit it: its author (edit token) or an
+  // "editable by anyone" result. Returns the updated row, or null on failure.
+  const toggleCompanyRunning = async (
+    c: CompanyCalc,
+  ): Promise<CompanyCalc | null> => {
+    const p = c.payload;
+    const local = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.sync?.id === c.id,
+    );
+    const entry: SavedCalculation = local ?? {
+      id: `shared-${c.id}`,
+      ts: Date.now(),
+      label: p.label ?? deriveLabel(p.result),
+      result: p.result,
+      values: p.values,
+      snapshot: p.snapshot,
+      completedRows: p.completedRows,
+    };
+    // The shared version is the latest — work from it, not a stale local copy.
+    const current: SavedCalculation = {
+      ...entry,
+      result: p.result,
+      values: p.values,
+      snapshot: p.snapshot,
+      completedRows: p.completedRows,
+    };
+    let patch: TrackingPatch | null = null;
+    try {
+      patch = toggleTracking(current, new Date(), currentScheduleFor(current));
+    } catch (err) {
+      console.error('Failed to pause / start company calc', c.id, err);
+    }
+    if (!patch?.values) return null;
+    const payload: SharedPayload = {
+      v: 1,
+      mode: p.mode,
+      values: patch.values,
+      result: patch.result,
+      completedRows: patch.completedRows,
+      label: p.label,
+      snapshot: patch.snapshot,
+    };
+    const token = local?.sync?.token;
+    const version = token
+      ? await updateSharedCalc(c.id, token, payload)
+      : c.isEditable
+        ? await updateCompanyCalc(c.id, payload)
+        : null;
+    if (version == null) return null;
+    // Keep this device's copy (if any) in step, and refresh the calc on screen.
+    if (local?.sync) {
+      const updated = updateCalculation(local.id, patch, settings.savedRetentionDays);
+      const sync: SyncMeta = { ...local.sync, version };
+      updateSyncMeta(local.id, sync, settings.savedRetentionDays);
+      setSavedRefreshKey((k) => k + 1);
+      if (updated && editingId === local.id) doRestore({ ...updated, sync }, false, false);
+    } else if (syncMeta?.id === c.id && restoredEntry) {
+      doRestore(
+        { ...restoredEntry, ...patch, sync: { ...syncMeta, version } },
+        false,
+        false,
+      );
+    }
+    return { ...c, payload, version };
+  };
+
   // Remove a result from the company's shared list (unpublish). Only the author
   // can — the edit token lives on their local saved entry bound to this shared
   // row. Clears the published flags locally so the "Salvati" 🏭 state matches.
@@ -1073,6 +1142,9 @@ function CalculatorApp() {
             }
             onOpenReport={
               isSupabaseConfigured && company ? () => setReportOpen(true) : undefined
+            }
+            onToggleCompanyRunning={
+              isSupabaseConfigured && company ? toggleCompanyRunning : undefined
             }
             readOnly={readOnly}
             onAddToSaved={addToSaved}

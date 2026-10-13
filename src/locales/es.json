@@ -251,7 +251,9 @@
     "addedToSaved": "Añadido a Guardados: «{{label}}» — ya puedes editarlo.",
     "readOnlySaved": "Solo lectura: cambios guardados solo en este dispositivo.",
     "localCopySuffix": "(copia local)",
-    "localCopyKept": "Tus cambios están en Guardados: «{{label}}»."
+    "localCopyKept": "Tus cambios están en Guardados: «{{label}}».",
+    "pause": "Pausar",
+    "resume": "Iniciar"
   },
   "report": {
     "title": "Informe",

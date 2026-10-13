@@ -4,7 +4,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
-import { FactoryIcon } from './ActionIcons';
+import { FactoryIcon, PauseIcon, PlayIcon } from './ActionIcons';
 import {
   floatBadgeCls,
   floatBtnCls,
@@ -22,6 +22,9 @@ interface Props {
   refreshKey?: number;
   /** "Report" at the bottom of the list: production status of all results. */
   onOpenReport?: () => void;
+  /** ⏸ / ▶: pause a running result or start it again. Resolves to the updated
+   *  row (null on failure). Shown where this device may edit the result. */
+  onToggleRunning?: (calc: CompanyCalc) => Promise<CompanyCalc | null>;
   /** Compact icon variant for the pinned floating actions. Omit → full button. */
   placement?: FloatPlacement;
 }
@@ -48,6 +51,7 @@ function CompanyResultsButton({
   refreshKey = 0,
   placement,
   onOpenReport,
+  onToggleRunning,
 }: Props) {
   const { t, i18n } = useTranslation();
   const { company, settings } = useCatalog();
@@ -61,6 +65,8 @@ function CompanyResultsButton({
   const [ownedIds, setOwnedIds] = useState<Set<string>>(() => new Set());
   const rootRef = useRef<HTMLDivElement>(null);
   const lang = i18n.resolvedLanguage ?? 'it';
+  // The row whose ⏸ / ▶ is being saved (its button waits meanwhile).
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   // Keep the badge count fresh (also when closed) so members notice new results.
   useEffect(() => {
@@ -179,6 +185,16 @@ function CompanyResultsButton({
                   now < c.payload.result.endAt.getTime();
                 const ts = c.updatedAt ? new Date(c.updatedAt).getTime() : now;
                 const canDelete = !!onDelete && (ownedIds.has(c.id) || isAdmin);
+                // ⏸ while it runs, ▶ once paused (a frozen result) — where this
+                // device may edit it. A finished run has nothing to pause.
+                const paused = !!c.payload.values?.settings.frozen;
+                const finished =
+                  c.payload.result?.endAt instanceof Date &&
+                  c.payload.result.endAt.getTime() <= now;
+                const canToggle =
+                  !!onToggleRunning &&
+                  (ownedIds.has(c.id) || c.isEditable) &&
+                  (paused || !finished);
                 return (
                   <li
                     key={c.id}
@@ -217,6 +233,33 @@ function CompanyResultsButton({
                         {formatRelative(ts, lang)}
                       </span>
                     </button>
+                    {canToggle && (
+                      <button
+                        type="button"
+                        disabled={busyId === c.id}
+                        onClick={() => {
+                          setBusyId(c.id);
+                          void onToggleRunning!(c)
+                            .then((updated) => {
+                              if (updated) {
+                                setItems((cur) =>
+                                  cur.map((x) => (x.id === c.id ? updated : x)),
+                                );
+                              }
+                            })
+                            .finally(() => setBusyId(null));
+                        }}
+                        aria-label={t(paused ? 'company.resume' : 'company.pause')}
+                        title={t(paused ? 'company.resume' : 'company.pause')}
+                        className="shrink-0 rounded p-1.5 text-ink-soft transition last:mr-1 hover:bg-neutral-100 hover:text-ink disabled:cursor-wait disabled:opacity-50"
+                      >
+                        {paused ? (
+                          <PlayIcon className="h-4 w-4" />
+                        ) : (
+                          <PauseIcon className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
                     {canDelete && (
                       <button
                         type="button"
