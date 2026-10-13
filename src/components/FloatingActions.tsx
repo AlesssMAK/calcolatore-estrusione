@@ -32,6 +32,7 @@ interface Props {
   onOpenCompany?: (calc: CompanyCalc) => void;
   onDeleteCompany?: (calc: CompanyCalc) => void | Promise<void>;
   onOpenReport?: () => void;
+  onToggleCompanyRunning?: (calc: CompanyCalc) => Promise<CompanyCalc | null>;
 }
 
 /** Pinned, icon-only copy of the form actions (Calcola / Nuovo / Salvati /
@@ -51,6 +52,7 @@ function FloatingActions({
   onOpenCompany,
   onDeleteCompany,
   onOpenReport,
+  onToggleCompanyRunning,
 }: Props) {
   const { t } = useTranslation();
   const isPhone = useMediaQuery('(max-width: 639px)');
@@ -161,6 +163,7 @@ function FloatingActions({
             onDelete={onDeleteCompany}
             refreshKey={savedRefreshKey}
             onOpenReport={onOpenReport}
+            onToggleRunning={onToggleCompanyRunning}
           />
         )}
       </div>

@@ -1502,7 +1502,6 @@ function SizeBlockHeader({
   cols,
   labels,
   actions,
-  note,
 }: {
   sizeIdx: number;
   totalSizes: number;
@@ -1510,8 +1509,6 @@ function SizeBlockHeader({
   labels: { label: string; disabled?: boolean }[];
   /** Per-size action buttons (✓ / ⏭ / ⏹), right of the "#N" badge. */
   actions?: ReactNode;
-  /** A line under the header (when the size ends, in a tracked calc). */
-  note?: ReactNode;
 }) {
   return (
     <>
@@ -1527,7 +1524,6 @@ function SizeBlockHeader({
           {actions}
         </div>
       )}
-      {note}
       <div className={`grid ${cols} items-end gap-1.5 sm:gap-2`}>
         {labels.map((l, i) => (
           <label
@@ -1572,7 +1568,7 @@ function SizeEndNote({
     minute: t('units.minute'),
   };
   return (
-    <p className="mb-1 text-[11px] text-ink-soft">
+    <p className="mt-1.5 text-[11px] text-ink-soft">
       {t('orders.sizeEnds')}{' '}
       <span className="num-blink">
         {formatShortDateTime(timing.end, i18n.resolvedLanguage ?? 'it')}
@@ -1702,9 +1698,6 @@ function SizeAdvancedBlockListi({
         totalSizes={totalSizes}
         cols={cols}
         actions={actions}
-        note={
-          <SizeEndNote orderIdx={orderIdx} sizeIdx={sizeIdx} mode="sheets" t={t} />
-        }
         labels={[
           { label: countLabel, disabled: countDisabled },
           { label: rateLabel, disabled: rateDisabled },
@@ -1806,6 +1799,7 @@ function SizeAdvancedBlockListi({
           </div>
         ))}
       </div>
+      <SizeEndNote orderIdx={orderIdx} sizeIdx={sizeIdx} mode="sheets" t={t} />
     </div>
   );
 }
@@ -1884,14 +1878,6 @@ function SizeAdvancedBlockProfili({
         totalSizes={totalSizes}
         cols={cols}
         actions={actions}
-        note={
-          <SizeEndNote
-            orderIdx={orderIdx}
-            sizeIdx={sizeIdx}
-            mode="profiles"
-            t={t}
-          />
-        }
         labels={[
           { label: countLabel, disabled: countDisabled },
           { label: totalLabel, disabled: totalDisabled },
@@ -1970,6 +1956,7 @@ function SizeAdvancedBlockProfili({
           </div>
         ))}
       </div>
+      <SizeEndNote orderIdx={orderIdx} sizeIdx={sizeIdx} mode="profiles" t={t} />
     </div>
   );
 }

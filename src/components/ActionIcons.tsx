@@ -50,6 +50,24 @@ export function FactoryIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Pause — stop a running process. */
+export function PauseIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M9 5v14M15 5v14" />
+    </svg>
+  );
+}
+
+/** Play — start a paused process again. */
+export function PlayIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M7 4.5v15l12-7.5z" />
+    </svg>
+  );
+}
+
 /** Camera — take a photo. */
 export function CameraIcon({ className = 'h-5 w-5' }: IconProps) {
   return (

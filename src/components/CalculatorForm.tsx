@@ -119,6 +119,8 @@ interface Props {
   onDeleteCompany?: (calc: CompanyCalc) => void | Promise<void>;
   /** "Report" at the bottom of the company list. */
   onOpenReport?: () => void;
+  /** ⏸ / ▶ of a result in the company list. */
+  onToggleCompanyRunning?: (calc: CompanyCalc) => Promise<CompanyCalc | null>;
   /** A company calc published "view only" that this device can't edit: no
    *  modification controls, inputs locked, and "Calcola" becomes "Aggiungi ai
    *  Salvati" (an editable copy). */
@@ -157,6 +159,7 @@ function CalculatorForm({
   onOpenCompany,
   onDeleteCompany,
   onOpenReport,
+  onToggleCompanyRunning,
   readOnly = false,
   onAddToSaved,
   mountState = 'saved',
@@ -692,6 +695,7 @@ function CalculatorForm({
               onDelete={onDeleteCompany}
               refreshKey={savedRefreshKey}
               onOpenReport={onOpenReport}
+              onToggleRunning={onToggleCompanyRunning}
             />
           )}
           {readOnly ? (
@@ -748,6 +752,7 @@ function CalculatorForm({
         onOpenCompany={onOpenCompany}
         onDeleteCompany={onDeleteCompany}
         onOpenReport={onOpenReport}
+        onToggleCompanyRunning={onToggleCompanyRunning}
       />
       {/* Room under the page so the pinned phone bar never covers the end. */}
       {showFloating && <div aria-hidden className="h-16 sm:hidden" />}
