@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
+import { CalcIcon } from './ActionIcons';
 
 export interface ActiveModalInfo {
   /** Number of the order in production (the form's "#N"). */
@@ -12,9 +13,14 @@ export interface ActiveModalInfo {
   produced: number;
   /** Total count at the active size ("produced / total"). */
   total: number;
-  /** Expected finish of the active order — date and time apart, so the time
-   *  can drop to its own line on a narrow screen. */
-  eta: { date: string; time: string };
+  /** When the active size ends (multi-size orders only) — date and time apart,
+   *  so the time can drop to its own line on a narrow screen. */
+  sizeEnd?: { date: string; time: string };
+  /** The order's other sizes still to come, in the order they run, with when
+   *  each ends (short date-time). */
+  otherSizes: { label: string; end: string }[];
+  /** When the whole order ends. */
+  orderEnd: { date: string; time: string };
 }
 
 interface Props {
@@ -121,7 +127,11 @@ function ActiveOrderModal({
             <ProducedEditor
               produced={info.produced}
               total={info.total}
-              onSave={onSaveProduced}
+              onSave={(n) => {
+                // Recomputed in place — the modal stays and shows the result.
+                setEditing(false);
+                onSaveProduced(n);
+              }}
               onCancel={() => setEditing(false)}
               t={t}
             />
@@ -152,15 +162,26 @@ function ActiveOrderModal({
               }
             />
           )}
+          {info.sizeEnd && (
+            <Row
+              label={t('activeModal.sizeEnd')}
+              value={<DateTime value={info.sizeEnd} />}
+            />
+          )}
+          {info.otherSizes.length > 0 && (
+            // The sizes still to come, smaller: when each of them ends.
+            <ul className="space-y-0.5 border-l-2 border-neutral-200 pl-2 text-xs text-ink-soft">
+              {info.otherSizes.map((s, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate">{s.label}</span>
+                  <span className="shrink-0 tabular-nums">{s.end}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <Row
-            label={t('activeModal.eta')}
-            value={
-              // The time drops under the date when both don't fit.
-              <span className="flex flex-wrap justify-end gap-x-1.5">
-                <span className="whitespace-nowrap">{info.eta.date}</span>
-                <span className="whitespace-nowrap">{info.eta.time}</span>
-              </span>
-            }
+            label={t('activeModal.orderEnd')}
+            value={<DateTime value={info.orderEnd} />}
             accent
           />
         </dl>
@@ -173,11 +194,21 @@ function ActiveOrderModal({
   );
 }
 
+// A date + time whose time drops under the date when both don't fit.
+function DateTime({ value }: { value: { date: string; time: string } }) {
+  return (
+    <span className="flex flex-wrap justify-end gap-x-1.5">
+      <span className="whitespace-nowrap">{value.date}</span>
+      <span className="whitespace-nowrap">{value.time}</span>
+    </span>
+  );
+}
+
 // Editing the produced count (opened by tapping it): its own full-width line
-// under the label — input, "/ total", "Salva" — so it fits a 320px screen.
-// "Salva" (or Enter) sets it on the active size and recomputes; Esc cancels.
-// Its clicks / keys don't reach the card (which jumps to the form on tap /
-// Enter) nor the modal's Esc-to-close.
+// under the label — input, "/ total", the Calcola icon — so it fits a 320px
+// screen. Calcola (or Enter) sets it on the active size and recomputes at once;
+// Esc cancels. Its clicks / keys don't reach the card (which jumps to the form
+// on tap / Enter) nor the modal's Esc-to-close.
 function ProducedEditor({
   produced,
   total,
@@ -240,9 +271,11 @@ function ProducedEditor({
           type="button"
           onClick={save}
           disabled={!valid || Number(text) === produced}
-          className="h-9 shrink-0 rounded-md bg-brand-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+          aria-label={t('activeModal.calculate')}
+          title={t('activeModal.calculate')}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-600 text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
         >
-          {t('activeModal.save')}
+          <CalcIcon />
         </button>
       </dd>
     </div>

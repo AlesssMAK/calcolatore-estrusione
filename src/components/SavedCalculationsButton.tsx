@@ -8,7 +8,7 @@ import {
 } from '../lib/calcHistory';
 
 // Salvati lists only the user's own / editable calcs — a view-only company
-// calc cached there by older versions stays hidden (it's in 🏢 Azienda).
+// calc cached there by older versions stays hidden (it's in 🏭 Produzione).
 const loadOwn = (retentionDays: number) =>
   loadHistory(retentionDays).filter((e) => !isViewOnly(e.sync));
 import { useCatalog } from '../contexts/CatalogContext';
@@ -208,7 +208,7 @@ function SavedCalculationsButton({
                           title={t('company.broadcasting')}
                           aria-label={t('company.broadcasting')}
                         >
-                          🏢
+                          🏭
                         </span>
                       )}
                       <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-soft uppercase">
@@ -260,7 +260,7 @@ function SavedCalculationsButton({
                             : 'text-ink-soft hover:bg-neutral-100 hover:text-brand-600'
                         }`}
                       >
-                        🏢
+                        🏭
                       </button>
                       {publishMenuId === it.id && (
                         <div

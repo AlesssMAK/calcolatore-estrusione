@@ -8,11 +8,12 @@ import ResultsPanel from './components/ResultsPanel';
 import AdvanceBanner from './components/AdvanceBanner';
 import RestoreCompletedButton from './components/RestoreCompletedButton';
 import CompanyReportModal from './components/CompanyReportModal';
+import { TrackedResultContext } from './contexts/trackedResult';
 import ErrorBoundary from './components/ErrorBoundary';
 import ActiveOrderModal, {
   type ActiveModalInfo,
 } from './components/ActiveOrderModal';
-import { formatDateParts } from './utils/format';
+import { formatDateParts, formatShortDateTime } from './utils/format';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -116,6 +117,19 @@ function computeActive(
         ? (row.producedProfiles ?? 0)
         : (row.producedSheets ?? 0);
     }
+    // Multi-size: when this size ends, then the sizes still to come (in the
+    // order they run) and when each ends.
+    const multi = sizes && sizes.length > 1;
+    const otherSizes = multi
+      ? sizes
+          .map((sd, j) => ({ sd, j }))
+          .filter(({ sd, j }) => j !== sizeIdx && sd.remainingMinutes >= 0.5)
+          .sort((a, b) => a.sd.start.getTime() - b.sd.start.getTime())
+          .map(({ sd }) => ({
+            label: `${sd.sheets} × ${sd.length} mm`,
+            end: formatShortDateTime(sd.end, lang),
+          }))
+      : [];
     return {
       info: {
         orderNo: i + 1,
@@ -123,7 +137,9 @@ function computeActive(
         sizeLabel: length ? `${length} mm` : '—',
         produced,
         total,
-        eta: formatDateParts(row.end, lang),
+        sizeEnd: multi ? formatDateParts(sizes[sizeIdx].end, lang) : undefined,
+        otherSizes,
+        orderEnd: formatDateParts(row.end, lang),
       },
       orderIdx: i,
       sizeIdx,
@@ -205,8 +221,10 @@ function CalculatorApp() {
   // The displayed result is a "Calcolo fisso": a static result, not tracked as
   // in production → no active modal / collapse, and the blinking is off.
   const [viewFrozen, setViewFrozen] = useState(false);
-  // "Report" of the company's results (opened from the Azienda list).
+  // "Report" of the company's results (opened from the Produzione list).
   const [reportOpen, setReportOpen] = useState(false);
+  // Set by the modal's Calcola: the recompute keeps the modal open.
+  const keepModalRef = useRef(false);
   // Transient notice for company-publish feedback (e.g. limit reached).
   const [companyNotice, setCompanyNotice] = useState<string | null>(null);
   // The form registers its "mark fully produced" handler here, so the results
@@ -311,7 +329,6 @@ function CalculatorApp() {
     newlyCompleted: ScheduledOrder[] = [],
   ) => {
     clearRestored();
-    setActiveModal(null);
     const frozen = !!values.settings.frozen;
     setViewFrozen(frozen);
     // While tracking a saved calc, move the collapse to the new active order /
@@ -322,6 +339,10 @@ function CalculatorApp() {
       fromSaved && !frozen
         ? computeActive(r, i18n.resolvedLanguage ?? 'it')
         : null;
+    // Recomputed from the active-order modal → it stays open on the new state
+    // (the next size / order once this one is done); otherwise it closes.
+    setActiveModal(keepModalRef.current ? nextActive : null);
+    keepModalRef.current = false;
     setActiveLoc(
       nextActive
         ? { orderIdx: nextActive.orderIdx, sizeIdx: nextActive.sizeIdx }
@@ -633,6 +654,7 @@ function CalculatorApp() {
   const goToActiveSize = () => {
     if (!activeModal) return;
     const { orderIdx, sizeIdx } = activeModal;
+    keepModalRef.current = false;
     setActiveModal(null);
     window.requestAnimationFrame(() => {
       const el =
@@ -850,7 +872,7 @@ function CalculatorApp() {
 
   // Remove a result from the company's shared list (unpublish). Only the author
   // can — the edit token lives on their local saved entry bound to this shared
-  // row. Clears the published flags locally so the "Salvati" 🏢 state matches.
+  // row. Clears the published flags locally so the "Salvati" 🏭 state matches.
   const deleteCompanyCalc = async (c: CompanyCalc) => {
     if (!company) return;
     const local = loadHistory(settings.savedRetentionDays).find(
@@ -1017,54 +1039,58 @@ function CalculatorApp() {
           onToggleSettings={() => setSettingsOpen((v) => !v)}
         />
 
-        <CalculatorForm
-          key={`${formKey}:${mode}`}
-          mode={mode}
-          settingsOpen={settingsOpen}
-          onSettingsErrors={() => setSettingsOpen(true)}
-          onResult={onFormResult}
-          onRequestReset={onReset}
-          onSaved={(id) => {
-            setEditingId(id);
-            setSavedRefreshKey((k) => k + 1);
-          }}
-          onRestore={onRestore}
-          onToggleTracking={onToggleTracking}
-          savedRefreshKey={savedRefreshKey}
-          initialValues={restoredValues}
-          editingId={editingId}
-          completedRows={completedRows}
-          hasCompleted={completedRows.length > 0}
-          canComplete={fromSaved}
-          activeLoc={activeLoc}
-          onPublish={
-            isSupabaseConfigured && company ? publishToCompany : undefined
-          }
-          onOpenCompany={
-            isSupabaseConfigured && company ? openCompanyCalc : undefined
-          }
-          onDeleteCompany={
-            isSupabaseConfigured && company ? deleteCompanyCalc : undefined
-          }
-          onOpenReport={
-            isSupabaseConfigured && company ? () => setReportOpen(true) : undefined
-          }
-          readOnly={readOnly}
-          onAddToSaved={addToSaved}
-          mountState={mountState}
-          onRecompute={remountAndRecompute}
-          registerComplete={(fn) => {
-            completeRef.current = fn;
-          }}
-          registerSetProduced={(fn) => {
-            setProducedRef.current = fn;
-          }}
-        />
+        {/* A tracked calc (Salvati / Produzione): the form shows when each
+            size and order ends, from the result on screen. */}
+        <TrackedResultContext.Provider value={fromSaved ? result : null}>
+          <CalculatorForm
+            key={`${formKey}:${mode}`}
+            mode={mode}
+            settingsOpen={settingsOpen}
+            onSettingsErrors={() => setSettingsOpen(true)}
+            onResult={onFormResult}
+            onRequestReset={onReset}
+            onSaved={(id) => {
+              setEditingId(id);
+              setSavedRefreshKey((k) => k + 1);
+            }}
+            onRestore={onRestore}
+            onToggleTracking={onToggleTracking}
+            savedRefreshKey={savedRefreshKey}
+            initialValues={restoredValues}
+            editingId={editingId}
+            completedRows={completedRows}
+            hasCompleted={completedRows.length > 0}
+            canComplete={fromSaved}
+            activeLoc={activeLoc}
+            onPublish={
+              isSupabaseConfigured && company ? publishToCompany : undefined
+            }
+            onOpenCompany={
+              isSupabaseConfigured && company ? openCompanyCalc : undefined
+            }
+            onDeleteCompany={
+              isSupabaseConfigured && company ? deleteCompanyCalc : undefined
+            }
+            onOpenReport={
+              isSupabaseConfigured && company ? () => setReportOpen(true) : undefined
+            }
+            readOnly={readOnly}
+            onAddToSaved={addToSaved}
+            mountState={mountState}
+            onRecompute={remountAndRecompute}
+            registerComplete={(fn) => {
+              completeRef.current = fn;
+            }}
+            registerSetProduced={(fn) => {
+              setProducedRef.current = fn;
+            }}
+          />
+        </TrackedResultContext.Provider>
 
         <div id="results" className="mt-5 sm:mt-6">
           {result && syncMeta?.published && (
             <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700">
-              <span aria-hidden>🏢</span>
+              <span aria-hidden>🏭</span>
               <span>{t('company.broadcasting')}</span>
             </div>
           )}
@@ -1137,7 +1163,10 @@ function CalculatorApp() {
       {activeModal && (
         <ActiveOrderModal
           info={activeModal.info}
-          onClose={() => setActiveModal(null)}
+          onClose={() => {
+            keepModalRef.current = false; // e.g. a recompute that didn't validate
+            setActiveModal(null);
+          }}
           onGoToForm={goToActiveSize}
           // Editable produced count — not on a read-only company calc, nor on
           // a total-meters order (no per-size count there).
@@ -1146,7 +1175,9 @@ function CalculatorApp() {
             !result?.rows?.[activeModal.orderIdx]?.order?.useTotalLength
               ? (produced) => {
                   const { orderIdx, sizeIdx } = activeModal;
-                  setActiveModal(null);
+                  // Recompute in place; the modal stays open and shows the
+                  // new state (see onFormResult).
+                  keepModalRef.current = true;
                   setProducedRef.current?.(orderIdx, sizeIdx, produced);
                 }
               : undefined
