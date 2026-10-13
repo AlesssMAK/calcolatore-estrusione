@@ -111,7 +111,11 @@
     "completeSize": "Completar Medida",
     "prioritize": "Sin Cola: producir tras la medida en curso",
     "stopActive": "Detener Producción",
-    "reorder": "Arrastrar para mover"
+    "reorder": "Arrastrar para mover",
+    "sizeEnds": "Fin",
+    "orderEnds": "Fin del pedido",
+    "perItem": "{{time}}/lámina",
+    "perItemProfiles": "{{time}}/perfil"
   },
   "actions": {
     "calculate": "Calcular",
@@ -228,19 +232,20 @@
   "activeModal": {
     "title": "Pedido en producción",
     "size": "Medida",
-    "eta": "Fin previsto",
     "tapToGo": "Toca para abrir la medida",
-    "save": "Guardar",
-    "edit": "Editar los producidos"
+    "edit": "Editar los producidos",
+    "sizeEnd": "Fin medida",
+    "orderEnd": "Fin del pedido",
+    "calculate": "Recalcular"
   },
   "company": {
-    "results": "Empresa",
+    "results": "Producción",
     "empty": "Ningún resultado compartido.",
-    "publish": "Compartir con la Empresa",
-    "unpublish": "Quitar de la Empresa",
+    "publish": "Publicar en Producción",
+    "unpublish": "Quitar de Producción",
     "editable": "Editable",
     "limitReached": "Límite alcanzado ({{max}})",
-    "broadcasting": "Compartido con la empresa",
+    "broadcasting": "Publicado en Producción",
     "readOnlyBanner": "Cálculo de la empresa de solo lectura. Para editarlo, añádelo a Guardados.",
     "addToSaved": "Añadir a Guardados",
     "addedToSaved": "Añadido a Guardados: «{{label}}» — ya puedes editarlo.",
@@ -267,7 +272,7 @@
     "unitSheets": "láminas",
     "unitProfiles": "perfiles",
     "loading": "Cargando…",
-    "empty": "Ningún cálculo en producción en Empresa.",
+    "empty": "Ningún cálculo en producción.",
     "status": {
       "running": "En producción",
       "stopped": "Línea parada",

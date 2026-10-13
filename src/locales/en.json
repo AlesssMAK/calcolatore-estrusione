@@ -111,7 +111,11 @@
     "completeSize": "Complete Size",
     "prioritize": "Skip the Queue: produce right after the size in progress",
     "stopActive": "Stop Production",
-    "reorder": "Drag to reorder"
+    "reorder": "Drag to reorder",
+    "sizeEnds": "Ends",
+    "orderEnds": "Order ends",
+    "perItem": "{{time}}/sheet",
+    "perItemProfiles": "{{time}}/profile"
   },
   "actions": {
     "calculate": "Calculate",
@@ -228,19 +232,20 @@
   "activeModal": {
     "title": "Order in production",
     "size": "Size",
-    "eta": "Expected finish",
     "tapToGo": "Tap to open the size",
-    "save": "Save",
-    "edit": "Edit produced count"
+    "edit": "Edit produced count",
+    "sizeEnd": "Size ends",
+    "orderEnd": "Order ends",
+    "calculate": "Recalculate"
   },
   "company": {
-    "results": "Company",
+    "results": "Production",
     "empty": "No shared results.",
-    "publish": "Share with the Company",
-    "unpublish": "Remove from Company",
+    "publish": "Publish to Production",
+    "unpublish": "Remove from Production",
     "editable": "Editable",
     "limitReached": "Limit reached ({{max}})",
-    "broadcasting": "Shared with the company",
+    "broadcasting": "Published to Production",
     "readOnlyBanner": "Company calculation, view only. To edit it, add it to Saved.",
     "addToSaved": "Add to Saved",
     "addedToSaved": "Added to Saved: «{{label}}» — you can edit it now.",
@@ -267,7 +272,7 @@
     "unitSheets": "sheets",
     "unitProfiles": "profiles",
     "loading": "Loading…",
-    "empty": "No calculation in production in Company.",
+    "empty": "No calculation in production.",
     "status": {
       "running": "In production",
       "stopped": "Line stopped",

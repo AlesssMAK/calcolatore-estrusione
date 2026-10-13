@@ -111,7 +111,11 @@
     "completeSize": "Completa Misura",
     "prioritize": "Senza Coda: produci dopo la misura in corso",
     "stopActive": "Ferma Produzione",
-    "reorder": "Trascina per spostare"
+    "reorder": "Trascina per spostare",
+    "sizeEnds": "Fine",
+    "orderEnds": "Fine ordine",
+    "perItem": "{{time}}/lastra",
+    "perItemProfiles": "{{time}}/profilo"
   },
   "actions": {
     "calculate": "Calcola",
@@ -228,19 +232,20 @@
   "activeModal": {
     "title": "Ordine in lavorazione",
     "size": "Misura",
-    "eta": "Fine prevista",
     "tapToGo": "Tocca per aprire la misura",
-    "save": "Salva",
-    "edit": "Modifica i prodotti"
+    "edit": "Modifica i prodotti",
+    "sizeEnd": "Fine misura",
+    "orderEnd": "Fine ordine",
+    "calculate": "Ricalcola"
   },
   "company": {
-    "results": "Azienda",
+    "results": "Produzione",
     "empty": "Nessun risultato condiviso.",
-    "publish": "Condividi con l'Azienda",
-    "unpublish": "Rimuovi dall'Azienda",
+    "publish": "Pubblica in Produzione",
+    "unpublish": "Rimuovi da Produzione",
     "editable": "Modificabile",
     "limitReached": "Limite raggiunto ({{max}})",
-    "broadcasting": "Condiviso con l'azienda",
+    "broadcasting": "Pubblicato in Produzione",
     "readOnlyBanner": "Calcolo dell'azienda in sola lettura. Per modificarlo, aggiungilo ai Salvati.",
     "addToSaved": "Aggiungi ai Salvati",
     "addedToSaved": "Aggiunto ai Salvati: «{{label}}» — ora puoi modificarlo.",
@@ -267,7 +272,7 @@
     "unitSheets": "lastre",
     "unitProfiles": "profili",
     "loading": "Caricamento…",
-    "empty": "Nessun calcolo in lavorazione in Azienda.",
+    "empty": "Nessun calcolo in lavorazione.",
     "status": {
       "running": "In produzione",
       "stopped": "Linea ferma",

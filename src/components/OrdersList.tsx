@@ -53,6 +53,9 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
+import { useTrackedResult } from '../contexts/trackedResult';
+import { rowForOrder, sizeTiming } from '../utils/formTiming';
+import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/format';
 
 // All form inputs share a fixed height: 32px on mobile, 36px on sm+ (matching
 // the +/− action buttons). Height controls the size, so no vertical padding.
@@ -177,19 +180,32 @@ function OrdersList({
         Boolean(last?.useTotalLength),
         last?.productName ?? '',
       ),
+      // Not RHF's own focus: it lands on the order's first field — the
+      // (inherited) product name — and pops its suggestion list open.
+      { shouldFocus: false },
     );
   };
 
+  // Focus the new order's quantity once it's on screen. A just-added order must
+  // render expanded, not collapsed to a summary (the default for non-active
+  // orders once a saved calc is open) — then its quantity field only exists
+  // from the next render, so this waits for it.
   useEffect(() => {
     const idx = pendingFocusIdx.current;
     if (idx === null) return;
-    pendingFocusIdx.current = null;
-    // A just-added order must render expanded, not collapsed to a summary (which
-    // is the default for non-active orders once a saved calc is open).
+    const qty = document.getElementById(`qty-${idx}`);
+    if (qty) {
+      pendingFocusIdx.current = null;
+      qty.focus();
+      return;
+    }
     const id = fields[idx]?.id;
-    if (id) setExpandedOrders((s) => new Set(s).add(id));
-    document.getElementById(`qty-${idx}`)?.focus();
-  }, [fields.length]);
+    if (id && !expandedOrders.has(id)) {
+      setExpandedOrders((s) => new Set(s).add(id));
+    } else {
+      pendingFocusIdx.current = null; // expanded, yet no field — give up
+    }
+  }, [fields, expandedOrders]);
 
   const topButtonRef = useRef<HTMLButtonElement>(null);
   const [showBottomButton, setShowBottomButton] = useState(false);
@@ -745,6 +761,7 @@ function OrderFields({
           ) : undefined
         }
       />
+      <OrderEndNote idx={idx} t={t} />
     </div>
   );
 }
@@ -1485,6 +1502,7 @@ function SizeBlockHeader({
   cols,
   labels,
   actions,
+  note,
 }: {
   sizeIdx: number;
   totalSizes: number;
@@ -1492,6 +1510,8 @@ function SizeBlockHeader({
   labels: { label: string; disabled?: boolean }[];
   /** Per-size action buttons (✓ / ⏭ / ⏹), right of the "#N" badge. */
   actions?: ReactNode;
+  /** A line under the header (when the size ends, in a tracked calc). */
+  note?: ReactNode;
 }) {
   return (
     <>
@@ -1507,6 +1527,7 @@ function SizeBlockHeader({
           {actions}
         </div>
       )}
+      {note}
       <div className={`grid ${cols} items-end gap-1.5 sm:gap-2`}>
         {labels.map((l, i) => (
           <label
@@ -1520,6 +1541,74 @@ function SizeBlockHeader({
         <span />
       </div>
     </>
+  );
+}
+
+// Tracked calc (Salvati / Produzione): when this size will be finished — small,
+// blinking — plus the time one sheet / profile takes. Nothing for a fresh calc,
+// a finished size or one changed since the last "Calcola".
+function SizeEndNote({
+  orderIdx,
+  sizeIdx,
+  mode,
+  t,
+}: {
+  orderIdx: number;
+  sizeIdx: number;
+  mode: CalculatorMode;
+  t: TFunction;
+}) {
+  'use no memo';
+  const { i18n } = useTranslation();
+  const result = useTrackedResult();
+  const { control } = useFormContext<FormValues>();
+  const orderId = useWatch({ control, name: `orders.${orderIdx}.id` });
+  const size = useWatch({ control, name: `orders.${orderIdx}.sizes.${sizeIdx}` });
+  const timing = sizeTiming(rowForOrder(result, orderId), size, sizeIdx);
+  if (!timing) return null;
+  const units = {
+    day: t('units.day'),
+    hour: t('units.hour'),
+    minute: t('units.minute'),
+  };
+  return (
+    <p className="mb-1 text-[11px] text-ink-soft">
+      {t('orders.sizeEnds')}{' '}
+      <span className="num-blink">
+        {formatShortDateTime(timing.end, i18n.resolvedLanguage ?? 'it')}
+      </span>
+      {timing.perItemMin !== undefined && (
+        <>
+          {' · '}
+          {t(mode === 'profiles' ? 'orders.perItemProfiles' : 'orders.perItem', {
+            time: formatDuration(timing.perItemMin, units),
+          })}
+        </>
+      )}
+    </p>
+  );
+}
+
+// Tracked calc: when the whole order will be finished, at the end of its card.
+function OrderEndNote({ idx, t }: { idx: number; t: TFunction }) {
+  'use no memo';
+  const { i18n } = useTranslation();
+  const result = useTrackedResult();
+  const { control } = useFormContext<FormValues>();
+  const orderId = useWatch({ control, name: `orders.${idx}.id` });
+  const row = rowForOrder(result, orderId);
+  if (!row || row.remainingMinutes < 0.5) return null;
+  const end = formatDateParts(row.end, i18n.resolvedLanguage ?? 'it');
+  return (
+    <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-2 border-t border-neutral-200 pt-2 text-xs">
+      <span className="tracking-wide text-ink-soft uppercase">
+        {t('orders.orderEnds')}
+      </span>
+      <span className="num-blink flex flex-wrap justify-end gap-x-1.5">
+        <span className="whitespace-nowrap">{end.date}</span>
+        <span className="whitespace-nowrap">{end.time}</span>
+      </span>
+    </p>
   );
 }
 
@@ -1577,10 +1666,12 @@ function SizeAdvancedBlockListi({
   // size (e.g. brand-new order, brand-new size).
   const rows: (number | null)[] = positions.length > 0 ? positions : [null];
 
+  // Seeding only — never steal the focus (RHF focuses an appended row).
   const appendAll = () => {
-    sheets.append({ value: undefined, sizeIndex: sizeIdx });
-    rates.append({ value: undefined, sizeIndex: sizeIdx });
-    totals.append({ value: undefined, sizeIndex: sizeIdx });
+    const opts = { shouldFocus: false };
+    sheets.append({ value: undefined, sizeIndex: sizeIdx }, opts);
+    rates.append({ value: undefined, sizeIndex: sizeIdx }, opts);
+    totals.append({ value: undefined, sizeIndex: sizeIdx }, opts);
   };
 
   // Seed an empty entry for this size so its inputs are directly typeable —
@@ -1611,6 +1702,9 @@ function SizeAdvancedBlockListi({
         totalSizes={totalSizes}
         cols={cols}
         actions={actions}
+        note={
+          <SizeEndNote orderIdx={orderIdx} sizeIdx={sizeIdx} mode="sheets" t={t} />
+        }
         labels={[
           { label: countLabel, disabled: countDisabled },
           { label: rateLabel, disabled: rateDisabled },
@@ -1756,9 +1850,11 @@ function SizeAdvancedBlockProfili({
   const positions = arrayPositionsForSize(watchedCounts, sizeIdx);
   const rows: (number | null)[] = positions.length > 0 ? positions : [null];
 
+  // Seeding only — never steal the focus (RHF focuses an appended row).
   const appendAll = () => {
-    counts.append({ value: undefined, sizeIndex: sizeIdx });
-    totals.append({ value: undefined, sizeIndex: sizeIdx });
+    const opts = { shouldFocus: false };
+    counts.append({ value: undefined, sizeIndex: sizeIdx }, opts);
+    totals.append({ value: undefined, sizeIndex: sizeIdx }, opts);
   };
 
   // Seed an empty entry for this size so its inputs are directly typeable —
@@ -1788,6 +1884,14 @@ function SizeAdvancedBlockProfili({
         totalSizes={totalSizes}
         cols={cols}
         actions={actions}
+        note={
+          <SizeEndNote
+            orderIdx={orderIdx}
+            sizeIdx={sizeIdx}
+            mode="profiles"
+            t={t}
+          />
+        }
         labels={[
           { label: countLabel, disabled: countDisabled },
           { label: totalLabel, disabled: totalDisabled },
