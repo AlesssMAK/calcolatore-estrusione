@@ -123,6 +123,8 @@ interface Props {
   onOpenReport?: () => void;
   /** ⏸ / ▶ of a result in the company list. */
   onToggleCompanyRunning?: (calc: CompanyCalc) => Promise<CompanyCalc | null>;
+  /** Opening Salvati refreshed the originals' Produzione status. */
+  onProductionChecked?: () => void;
   /** A company calc published "view only" that this device can't edit: no
    *  modification controls, inputs locked, and "Calcola" becomes "Aggiungi ai
    *  Salvati" (an editable copy). */
@@ -165,6 +167,7 @@ function CalculatorForm({
   onDeleteCompany,
   onOpenReport,
   onToggleCompanyRunning,
+  onProductionChecked,
   readOnly = false,
   onAddToSaved,
   mountState = 'saved',
@@ -697,6 +700,7 @@ function CalculatorForm({
               onToggleTracking={onToggleTracking}
               refreshKey={savedRefreshKey}
               onPublish={onPublish}
+              onProductionChecked={onProductionChecked}
             />
           )}
           {onOpenCompany && (
@@ -759,6 +763,7 @@ function CalculatorForm({
         onToggleTracking={onToggleTracking}
         savedRefreshKey={savedRefreshKey}
         onPublish={onPublish}
+        onProductionChecked={onProductionChecked}
         onOpenCompany={onOpenCompany}
         onDeleteCompany={onDeleteCompany}
         onOpenReport={onOpenReport}

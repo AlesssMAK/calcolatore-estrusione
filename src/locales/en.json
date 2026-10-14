@@ -259,7 +259,13 @@
     "send": "Send to Production",
     "sent": "Sent to Production.",
     "sendFailed": "Sending to Production failed.",
-    "compare": "Compare"
+    "compare": "Compare",
+    "diffBadge_one": "1 difference from Production",
+    "diffBadge_other": "{{count}} differences from Production",
+    "goneShort": "No longer in Production",
+    "gone": "No longer in Production: it was removed from the list. Your original is here.",
+    "republish": "Republish",
+    "republished": "Republished to Production."
   },
   "report": {
     "title": "Report",
