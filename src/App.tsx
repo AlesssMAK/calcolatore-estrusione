@@ -29,11 +29,13 @@ import type {
 import type { FormValues } from './formSchema';
 import {
   deriveLabel,
+  isOriginal,
   isViewOnly,
   loadHistory,
   removeCalculation,
   saveCalculation,
   updateCalculation,
+  updateProduction,
   updateSyncMeta,
   type SavedCalculation,
   type SyncMeta,
@@ -300,11 +302,15 @@ function CalculatorApp() {
     r: ScheduleResult,
     values: FormValues,
     completed: ScheduledOrder[],
+    /** The schedule the result was computed on (else the bound entry's). */
+    computedOn?: ScheduleSnapshot,
   ): SharedPayload => {
-    const snapshot = editingId
-      ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
-          ?.snapshot
-      : undefined;
+    const snapshot =
+      computedOn ??
+      (editingId
+        ? loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId)
+            ?.snapshot
+        : undefined);
     return {
       v: 1,
       mode,
@@ -327,6 +333,7 @@ function CalculatorApp() {
     values: FormValues,
     keepCompleted?: boolean,
     newlyCompleted: ScheduledOrder[] = [],
+    computedOn?: ScheduleSnapshot,
   ) => {
     clearRestored();
     const frozen = !!values.settings.frozen;
@@ -362,15 +369,21 @@ function CalculatorApp() {
       setCompletedRows([]);
     }
     setResult(r);
-    // Push edits to the live shared document if this calc is synced.
-    if (syncMeta) {
+    // Push edits to the live shared document if this calc is synced — except
+    // the author's original: it changes only here until "Invia a Produzione".
+    if (syncMeta && !isOriginal(syncMeta)) {
       const newCompleted =
         newlyCompleted.length > 0
           ? [...(keepCompleted ? completedRows : []), ...newlyCompleted]
           : keepCompleted
             ? completedRows
             : [];
-      pushToShared(syncMeta, buildPayload(r, values, newCompleted), editingId, true);
+      pushToShared(
+        syncMeta,
+        buildPayload(r, values, newCompleted, computedOn),
+        editingId,
+        true,
+      );
     }
   };
 
@@ -476,8 +489,9 @@ function CalculatorApp() {
   };
 
   // 🔄 in the Salvati list: flip a saved calc between fixed and tracking, in
-  // place (the list doesn't reorder). Synced calcs push the change; the calc on
-  // screen is reopened so the form/result reflect it.
+  // place (the list doesn't reorder). Synced calcs push the change (not an
+  // original — that waits for "Invia a Produzione"); the calc on screen is
+  // reopened so the form/result reflect it.
   const onToggleTracking = (entry: SavedCalculation) => {
     let patch: TrackingPatch | null = null;
     try {
@@ -490,7 +504,7 @@ function CalculatorApp() {
     if (!updated) return;
     setSavedRefreshKey((k) => k + 1);
     const isCurrent = editingId === entry.id;
-    if (updated.sync && updated.values) {
+    if (updated.sync && !isOriginal(updated.sync) && updated.values) {
       pushToShared(
         updated.sync,
         {
@@ -582,12 +596,25 @@ function CalculatorApp() {
   ): Promise<SavedCalculation | null> => {
     const sync = entry.sync;
     if (!sync) return null;
+    const original = isOriginal(sync);
+    const seen = original ? (entry.production?.version ?? sync.version) : sync.version;
     const res = await fetchSharedCalc(sync.id);
-    if (!res || res.version <= sync.version) return null;
+    if (!res || res.version <= seen) return null;
     const p = res.payload;
+    // The author's original is never overwritten by the shared version — it's
+    // only noted as the Produzione version to compare against.
+    if (original) {
+      updateProduction(
+        entry.id,
+        { version: res.version, payload: p, seenAt: Date.now() },
+        settings.savedRetentionDays,
+      );
+      return null;
+    }
     const nextSync: SyncMeta = { ...sync, version: res.version };
-    // A view-only company calc isn't kept in Salvati — just show the fresh one.
-    if (!isViewOnly(sync)) {
+    // A view-only company calc (or the live Produzione version opened from the
+    // list) isn't kept in Salvati — just show the fresh one.
+    if (!isViewOnly(sync) && !sync.live) {
       try {
         saveCalculation(
           p.result,
@@ -730,9 +757,11 @@ function CalculatorApp() {
   ) => {
     if (!isSupabaseConfigured || !company || !entry.values) return;
     let sync = entry.sync ?? null;
+    // Produzione's first version = this original as it is now.
+    let created: SharedPayload | null = null;
     if (!sync?.token) {
       try {
-        const { id, editToken } = await createSharedCalc({
+        const payload: SharedPayload = {
           v: 1,
           mode: entry.result.mode,
           values: entry.values,
@@ -740,8 +769,10 @@ function CalculatorApp() {
           completedRows: entry.completedRows,
           label: entry.label,
           snapshot: entry.snapshot,
-        });
+        };
+        const { id, editToken } = await createSharedCalc(payload);
         sync = { id, token: editToken, version: 1 };
+        created = payload;
       } catch {
         return;
       }
@@ -773,6 +804,13 @@ function CalculatorApp() {
       publishedEditable: mode === 'edit',
     };
     updateSyncMeta(entry.id, next, settings.savedRetentionDays);
+    if (created) {
+      updateProduction(
+        entry.id,
+        { version: 1, payload: created, seenAt: Date.now() },
+        settings.savedRetentionDays,
+      );
+    }
     if (editingId === entry.id) setSyncMeta(next);
     setSavedRefreshKey((k) => k + 1);
   };
@@ -783,14 +821,38 @@ function CalculatorApp() {
   const openCompanyCalc = (c: CompanyCalc) => {
     const p = c.payload;
     const label = p.label ?? deriveLabel(p.result);
-    // If a local entry is already bound to this shared row (typically the
-    // author's own published calc), update THAT slot instead of creating a
-    // parallel `shared-<id>` copy — otherwise opening your own published result
-    // from the company list duplicates it in "Salvati". Keep the existing
-    // sync (incl. the edit token + published flags) so the owner can still edit
-    // and unpublish it; just refresh the version + editable flag from the list.
+    // If a local entry is already bound to this shared row (a member's copy of
+    // an editable result), update THAT slot instead of creating a parallel
+    // `shared-<id>` copy; just refresh the version + editable flag from the
+    // list. The author's own entry is the original and is never overwritten.
     const history = loadHistory(settings.savedRetentionDays);
     const existing = history.find((e) => e.sync?.id === c.id);
+    // The author's own: Salvati holds the original — this opens the live
+    // Produzione version beside it (not stored), whose edits go straight to
+    // the shared document. Seeing it updates what the original is compared to.
+    if (existing?.sync && isOriginal(existing.sync)) {
+      updateProduction(
+        existing.id,
+        { version: c.version, payload: p, seenAt: Date.now() },
+        settings.savedRetentionDays,
+      );
+      onRestore({
+        id: `live-${c.id}`,
+        ts: Date.now(),
+        label,
+        result: p.result,
+        values: p.values,
+        snapshot: p.snapshot,
+        completedRows: p.completedRows,
+        sync: {
+          ...existing.sync,
+          version: c.version,
+          companyEditable: c.isEditable,
+          live: true,
+        },
+      });
+      return;
+    }
     const savedId = existing?.id ?? `shared-${c.id}`;
     // A view-only calc edited on this device was detached (its `shared-<id>`
     // slot lost the sync binding) — those edits live only here. Keep them as
@@ -922,21 +984,92 @@ function CalculatorApp() {
         ? await updateCompanyCalc(c.id, payload)
         : null;
     if (version == null) return null;
-    // Keep this device's copy (if any) in step, and refresh the calc on screen.
-    if (local?.sync) {
+    // Keep this device's copy in step — a member's copy follows; the author's
+    // original only notes the new Produzione version — and refresh the live
+    // version on screen.
+    if (local?.sync && isOriginal(local.sync)) {
+      updateProduction(
+        local.id,
+        { version, payload, seenAt: Date.now() },
+        settings.savedRetentionDays,
+      );
+    } else if (local?.sync) {
       const updated = updateCalculation(local.id, patch, settings.savedRetentionDays);
       const sync: SyncMeta = { ...local.sync, version };
       updateSyncMeta(local.id, sync, settings.savedRetentionDays);
       setSavedRefreshKey((k) => k + 1);
       if (updated && editingId === local.id) doRestore({ ...updated, sync }, false, false);
-    } else if (syncMeta?.id === c.id && restoredEntry) {
+    }
+    if (syncMeta?.live && syncMeta.id === c.id) {
       doRestore(
-        { ...restoredEntry, ...patch, sync: { ...syncMeta, version } },
+        {
+          id: `live-${c.id}`,
+          ts: Date.now(),
+          label: p.label ?? deriveLabel(p.result),
+          ...patch,
+          sync: { ...syncMeta, version },
+        },
         false,
         false,
       );
     }
     return { ...c, payload, version };
+  };
+
+  // "Invia a Produzione": send the original, as last saved, to the shared
+  // version. `sync.version` is the Produzione version the author last sent (or
+  // accepted); when Produzione moved on since — the factory changed it — ask
+  // first instead of overwriting that unseen (sendConfirmFor = this calc).
+  const [sendConfirmFor, setSendConfirmFor] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const sendToProduction = async (force = false) => {
+    const sync = syncMeta;
+    if (!sync?.token || !isOriginal(sync) || !editingId) return;
+    const entry = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.id === editingId,
+    );
+    if (!entry?.values) return;
+    setSending(true);
+    try {
+      if (!force) {
+        const server = await fetchSharedCalc(sync.id);
+        if (server && server.version > sync.version) {
+          updateProduction(
+            entry.id,
+            { version: server.version, payload: server.payload, seenAt: Date.now() },
+            settings.savedRetentionDays,
+          );
+          setSendConfirmFor(entry.id);
+          return;
+        }
+      }
+      const payload: SharedPayload = {
+        v: 1,
+        mode: entry.result.mode,
+        values: entry.values,
+        result: entry.result,
+        completedRows: entry.completedRows,
+        label: entry.label,
+        snapshot: entry.snapshot,
+      };
+      const version = await updateSharedCalc(sync.id, sync.token, payload);
+      if (version == null) {
+        flashNotice(t('company.sendFailed'));
+        return;
+      }
+      const next: SyncMeta = { ...sync, version };
+      updateSyncMeta(entry.id, next, settings.savedRetentionDays);
+      updateProduction(
+        entry.id,
+        { version, payload, seenAt: Date.now() },
+        settings.savedRetentionDays,
+      );
+      setSyncMeta(next);
+      setSendConfirmFor(null);
+      flashNotice(t('company.sent'));
+    } finally {
+      setSending(false);
+    }
   };
 
   // Remove a result from the company's shared list (unpublish). Only the author
@@ -1126,7 +1259,8 @@ function CalculatorApp() {
             onToggleTracking={onToggleTracking}
             savedRefreshKey={savedRefreshKey}
             initialValues={restoredValues}
-            editingId={editingId}
+            // The live Produzione version isn't a saved entry of this device.
+            editingId={syncMeta?.live ? undefined : editingId}
             completedRows={completedRows}
             hasCompleted={completedRows.length > 0}
             canComplete={fromSaved}
@@ -1148,6 +1282,9 @@ function CalculatorApp() {
             }
             readOnly={readOnly}
             onAddToSaved={addToSaved}
+            // The live Produzione version (opened from the list) isn't kept in
+            // Salvati — its "Calcola" only goes to the shared document.
+            persist={!syncMeta?.live}
             mountState={mountState}
             onRecompute={remountAndRecompute}
             registerComplete={(fn) => {
@@ -1161,9 +1298,53 @@ function CalculatorApp() {
 
         <div id="results" className="mt-5 sm:mt-6">
           {result && syncMeta?.published && (
-            <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700">
-              <span aria-hidden>🏭</span>
-              <span>{t('company.broadcasting')}</span>
+            <div className="no-print mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="flex min-w-0 flex-1 items-start gap-2 font-medium">
+                  <span aria-hidden>🏭</span>
+                  <span>
+                    {syncMeta.live
+                      ? t('company.liveBanner')
+                      : isOriginal(syncMeta)
+                        ? t('company.originalBanner')
+                        : t('company.broadcasting')}
+                  </span>
+                </span>
+                {isOriginal(syncMeta) && sendConfirmFor !== editingId && (
+                  <button
+                    type="button"
+                    onClick={() => void sendToProduction()}
+                    disabled={sending}
+                    className="shrink-0 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:text-sm"
+                  >
+                    {t('company.send')}
+                  </button>
+                )}
+              </div>
+              {isOriginal(syncMeta) && sendConfirmFor === editingId && (
+                // Produzione changed since the last send → overwrite only on
+                // purpose.
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-200 pt-2">
+                  <span className="min-w-0 flex-1 basis-full font-medium text-amber-800 sm:basis-0">
+                    ⚠ {t('company.productionChanged')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSendConfirmFor(null)}
+                    className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:text-sm"
+                  >
+                    {t('actions.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void sendToProduction(true)}
+                    disabled={sending}
+                    className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-wait disabled:opacity-60 sm:text-sm"
+                  >
+                    {t('company.sendAnyway')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {/* Opened from Azienda, published view-only, and this device can't

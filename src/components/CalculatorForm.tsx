@@ -66,6 +66,8 @@ interface Props {
     /** Orders that were fully produced this submit — split out of the form and
      *  shown as completed rows in the results. */
     newlyCompleted?: ScheduledOrder[],
+    /** The working schedule + buffers the result was computed on. */
+    computedOn?: ScheduleSnapshot,
   ) => void;
   onRequestReset: () => void;
   /** Called after a successful submit with the saved entry's id, so the parent
@@ -135,6 +137,9 @@ interface Props {
   mountState?: FormMountState;
   /** Remount the form with these values and recompute + save them at once. */
   onRecompute?: (values: FormValues) => void;
+  /** "Calcola" saves to Salvati (default). False for a calc kept elsewhere —
+   *  the live Produzione version — which is never stored on this device. */
+  persist?: boolean;
 }
 
 function CalculatorForm({
@@ -164,6 +169,7 @@ function CalculatorForm({
   onAddToSaved,
   mountState = 'saved',
   onRecompute,
+  persist = true,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -259,8 +265,9 @@ function CalculatorForm({
         window.clearTimeout(draftTimerRef.current);
       }
       draftTimerRef.current = window.setTimeout(() => {
-        // A view-only company calc can't be changed — nothing to keep.
-        if (readOnly) return;
+        // A view-only company calc can't be changed — nothing to keep; the
+        // live Produzione version isn't kept on this device at all.
+        if (readOnly || !persist) return;
         if (draftKey(values) === savedKeyRef.current) clearDraft();
         else saveDraft({ values: values as FormValues, mode, editingId });
       }, 500);
@@ -271,7 +278,7 @@ function CalculatorForm({
         window.clearTimeout(draftTimerRef.current);
       }
     };
-  }, [methods, mode, editingId, readOnly]);
+  }, [methods, mode, editingId, readOnly, persist]);
 
   const showError = (msg: string) => {
     setSubmitError(msg);
@@ -326,7 +333,6 @@ function CalculatorForm({
       newlyCompleted.length > 0
         ? { ...schedule, rows: schedule.rows.filter((_, i) => !isDone[i]) }
         : schedule;
-    onResult(outSchedule, outValues, keepCompleted, newlyCompleted);
     // Snapshot the *effective* schedule + buffers so the saved calc can be
     // advanced to "now" / recalculated later without depending on (possibly
     // changed) company settings. Mirrors what calculateSchedule just used.
@@ -342,29 +348,33 @@ function CalculatorForm({
           : values.settings.shutdownMinutes) ?? 0,
       noLimits: !!values.settings.noLimits,
     };
+    onResult(outSchedule, outValues, keepCompleted, newlyCompleted, snapshot);
     // Persist the computed result so the user can re-open it from the
     // "Salvati" dropdown without recalculating. Best-effort: storage errors
-    // are swallowed inside `saveCalculation`.
-    try {
-      // Persist the active queue + the accumulated completed rows (prior ones
-      // kept only on "Ricalcola", plus any split off this submit).
-      const combinedCompleted = [
-        ...(keepCompleted ? (completedRows ?? []) : []),
-        ...newlyCompleted,
-      ];
-      const saved = saveCalculation(
-        outSchedule,
-        outValues,
-        snapshot,
-        deriveLabel(schedule),
-        catalogSettings.maxSavedResults,
-        catalogSettings.savedRetentionDays,
-        editingId,
-        combinedCompleted.length ? combinedCompleted : undefined,
-      );
-      onSaved?.(saved.id);
-    } catch {
-      /* never block submit on storage failure */
+    // are swallowed inside `saveCalculation`. Not for a calc kept elsewhere
+    // (the live Produzione version).
+    if (persist) {
+      try {
+        // Persist the active queue + the accumulated completed rows (prior
+        // ones kept only on "Ricalcola", plus any split off this submit).
+        const combinedCompleted = [
+          ...(keepCompleted ? (completedRows ?? []) : []),
+          ...newlyCompleted,
+        ];
+        const saved = saveCalculation(
+          outSchedule,
+          outValues,
+          snapshot,
+          deriveLabel(schedule),
+          catalogSettings.maxSavedResults,
+          catalogSettings.savedRetentionDays,
+          editingId,
+          combinedCompleted.length ? combinedCompleted : undefined,
+        );
+        onSaved?.(saved.id);
+      } catch {
+        /* never block submit on storage failure */
+      }
     }
     // Saved → no unfinished work left; later edits compare against this.
     savedKeyRef.current = draftKey(methods.getValues());
