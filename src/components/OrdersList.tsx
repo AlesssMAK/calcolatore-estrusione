@@ -685,6 +685,8 @@ function OrderFields({
             fieldPath={`orders.${idx}.cavity`}
             icon="🔢"
             label={t('orders.cavity')}
+            // Like the speed: from the 2nd order on it inherits when empty.
+            inheritLabel={isFirst ? undefined : t('orders.optionalInherit')}
             inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
             chain={cavityChain}
             placeholder={inheritedHint('cavity')}
@@ -973,8 +975,8 @@ function CollapsibleInheritField({
   icon: string;
   label: string;
   /** Optional hint shown in parentheses after the label and as the
-   *  collapsed-button tooltip. Omit to render just the bare label (e.g.
-   *  Cavità, where the field name is already self-explanatory). */
+   *  collapsed-button tooltip. Omit to render just the bare label (e.g. a
+   *  value that doesn't inherit, like per pacco or the first order's cavità). */
   inheritLabel?: string;
   inputProps: {
     min: string;
