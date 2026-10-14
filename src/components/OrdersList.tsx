@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -12,6 +13,8 @@ import {
   useFormContext,
   useWatch,
   type FieldErrors,
+  type UseFormGetValues,
+  type UseFormSetValue,
 } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -55,6 +58,11 @@ import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
 import { useTrackedResult } from '../contexts/trackedResult';
 import { rowForOrder, sizeTiming } from '../utils/formTiming';
+import {
+  effectiveValue,
+  followersToReset,
+  type InheritedKey,
+} from '../utils/inherit';
 import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/format';
 
 // All form inputs share a fixed height: 32px on mobile, 36px on sm+ (matching
@@ -592,6 +600,19 @@ function OrderFields({
   const showInlinePerPackage =
     isProfiles && !useTotalLength && sizesCount <= 1;
   const isFirst = idx === 0;
+  // A changed speed / cavity carries down to the orders that follow it.
+  const speedChain = useInheritChain(idx, 'speedMPerMin');
+  const cavityChain = useInheritChain(idx, 'cavity');
+  // What an empty speed / cavity inherits — shown greyed in the field.
+  const { i18n } = useTranslation();
+  const allOrders = useWatch({ control, name: 'orders' });
+  const inheritedHint = (key: InheritedKey) => {
+    const v = idx > 0 ? effectiveValue(allOrders ?? [], idx - 1, key) : undefined;
+    return v === undefined ? undefined : v.toLocaleString(i18n.resolvedLanguage);
+  };
+  const speedReg = register(`orders.${idx}.speedMPerMin`, {
+    setValueAs: numericSetValueAs,
+  });
 
   return (
     <div className="space-y-2">
@@ -605,9 +626,12 @@ function OrderFields({
               step="0.1"
               inputMode="decimal"
               className={`${inputBase} mt-1`}
-              {...register(`orders.${idx}.speedMPerMin`, {
-                setValueAs: numericSetValueAs,
-              })}
+              {...speedReg}
+              {...chainHandlers(speedChain)}
+              onBlur={(e) => {
+                void speedReg.onBlur(e);
+                speedChain.commit();
+              }}
             />
             <FieldError
               message={
@@ -623,6 +647,8 @@ function OrderFields({
             icon="⚡"
             label={t('orders.speed')}
             inheritLabel={t('orders.optionalInherit')}
+            chain={speedChain}
+            placeholder={inheritedHint('speedMPerMin')}
             inputProps={{
               min: '0',
               step: '0.1',
@@ -660,6 +686,8 @@ function OrderFields({
             icon="🔢"
             label={t('orders.cavity')}
             inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
+            chain={cavityChain}
+            placeholder={inheritedHint('cavity')}
             errorMessage={
               rowErr?.cavity?.message
                 ? t(`validation.${rowErr.cavity.message}`)
@@ -871,6 +899,61 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
 // creating a new order doesn't auto-focus it — mobile users were getting
 // trapped editing speed on each new order. Per-pacco / cavity use it on every
 // order, and per-pacco also in multi-size rows (`compact`).
+// A changed speed / cavity carries down the queue: the orders after `idx` that
+// repeated its old value (`previous`) go back to inheriting — so they follow —
+// up to the first order with a different value of its own.
+function carryDown(
+  getValues: UseFormGetValues<FormValues>,
+  setValue: UseFormSetValue<FormValues>,
+  idx: number,
+  key: InheritedKey,
+  previous: number | undefined,
+) {
+  if (previous === undefined) return;
+  const orders = getValues('orders') ?? [];
+  if (effectiveValue(orders, idx, key) === previous) return;
+  for (const j of followersToReset(orders, idx, key, previous)) {
+    setValue(`orders.${j}.${key}`, undefined, { shouldDirty: true });
+  }
+}
+
+// carryDown for an input: the value at the start of the edit (focus) against
+// the one when it's done (blur / Enter) — not per keystroke, as typing "1.8"
+// passes through "1", which must not catch an order that really runs at 1.
+function useInheritChain(idx: number, key: InheritedKey): InheritChain {
+  const { getValues, setValue } = useFormContext<FormValues>();
+  const startRef = useRef<number | undefined>(undefined);
+  return {
+    begin: () => {
+      startRef.current = effectiveValue(getValues('orders') ?? [], idx, key);
+    },
+    commit: () => {
+      carryDown(getValues, setValue, idx, key, startRef.current);
+      startRef.current = undefined;
+    },
+  };
+}
+
+interface InheritChain {
+  begin: () => void;
+  commit: () => void;
+}
+
+// Wires an inherited-value input to its chain: focus starts the edit, blur
+// ends it, Enter (which submits the form) ends it first and starts anew.
+const chainHandlers = (chain: InheritChain | undefined) =>
+  chain
+    ? {
+        onFocus: chain.begin,
+        onKeyDown: (e: ReactKeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            chain.commit();
+            chain.begin();
+          }
+        },
+      }
+    : {};
+
 function CollapsibleInheritField({
   fieldPath,
   icon,
@@ -881,6 +964,7 @@ function CollapsibleInheritField({
   placeholder,
   compact,
   expandedClassName = 'min-w-0 flex-1 basis-0 sm:min-w-[140px]',
+  chain,
 }: {
   fieldPath:
     | `orders.${number}.speedMPerMin`
@@ -905,6 +989,8 @@ function CollapsibleInheritField({
   compact?: boolean;
   /** Wrapper classes of the expanded field (grid/flex placement). */
   expandedClassName?: string;
+  /** An inherited value (speed / cavity): a change carries down the queue. */
+  chain?: InheritChain;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -957,12 +1043,14 @@ function CollapsibleInheritField({
         placeholder={placeholder}
         className={`${compact ? sizeInputBase : inputBase} mt-1`}
         {...reg}
+        {...chainHandlers(chain)}
         onBlur={(e) => {
           // RHF blur first (validation, dirty/touched flags), then collapse
           // only if the input was actually left empty. Reading the DOM value
           // directly avoids stale useWatch state and intermediate values
           // (typing "1." briefly parses to 1 — we shouldn't collapse on that).
           reg.onBlur(e);
+          chain?.commit();
           if (e.target.value === '') setOpen(false);
         }}
       />
@@ -1242,7 +1330,7 @@ function OrderNameField({
   t: TFunction;
 }) {
   'use no memo';
-  const { register, control, setValue } = useFormContext<FormValues>();
+  const { register, control, setValue, getValues } = useFormContext<FormValues>();
   const value = useWatch({
     control,
     name: `orders.${idx}.productName`,
@@ -1309,6 +1397,10 @@ function OrderNameField({
   );
 
   const pickProduct = (p: (typeof filtered)[number]) => {
+    // The speed / cavity it changes carry down to the orders that follow.
+    const before = getValues('orders') ?? [];
+    const prevSpeed = effectiveValue(before, idx, 'speedMPerMin');
+    const prevCavity = effectiveValue(before, idx, 'cavity');
     setValue(`orders.${idx}.productName`, p.name, {
       shouldValidate: true,
       shouldDirty: true,
@@ -1326,6 +1418,8 @@ function OrderNameField({
         shouldDirty: true,
       });
     }
+    carryDown(getValues, setValue, idx, 'speedMPerMin', prevSpeed);
+    carryDown(getValues, setValue, idx, 'cavity', prevCavity);
     setDropdownOpen(false);
   };
 

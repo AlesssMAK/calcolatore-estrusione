@@ -102,8 +102,10 @@ export function buildAdvancedCalc(
   // cavity multiplier). Once earlier orders are split off as completed, the new
   // first active order would lose those inherited values — the re-calc then
   // throws "speedMPerMin required on the first order" (and cavity would wrongly
-  // reset to 1). So materialize the resolved values onto each order, keeping
-  // every active order self-contained.
+  // reset to 1). So an active order gets the resolved value written in only
+  // where it would otherwise inherit a different one (or none) from the active
+  // orders before it — the others keep inheriting, so changing a speed later
+  // still carries down the queue.
   let lastSpeed: number | undefined;
   let lastCavity: number | undefined;
   const resolvedSpeed: (number | undefined)[] = [];
@@ -119,6 +121,10 @@ export function buildAdvancedCalc(
     if (ownCavity) lastCavity = ownCavity;
   });
 
+  // What the active orders kept so far hand down (resolved values).
+  let activeSpeed: number | undefined;
+  let activeCavity: number | undefined;
+
   values.orders.forEach((order, i) => {
     const p = progress.orders[i];
 
@@ -129,13 +135,17 @@ export function buildAdvancedCalc(
       return;
     }
 
-    // Still active → inject produced-so-far and keep it editable. Stamp the
-    // inherited speed/cavity so the order stands alone if it's now the first.
+    // Still active → inject produced-so-far and keep it editable. Stamp an
+    // inherited speed/cavity only when the order it came from left the form.
     const base = {
       ...order,
-      speedMPerMin: resolvedSpeed[i] ?? order.speedMPerMin,
-      cavity: resolvedCavity[i] ?? order.cavity,
+      speedMPerMin:
+        resolvedSpeed[i] !== activeSpeed ? resolvedSpeed[i] : order.speedMPerMin,
+      cavity:
+        resolvedCavity[i] !== activeCavity ? resolvedCavity[i] : order.cavity,
     };
+    activeSpeed = resolvedSpeed[i];
+    activeCavity = resolvedCavity[i];
 
     if (base.useTotalLength) {
       // Total-meters: elapsed meters as a single 1 m-unit produced batch
