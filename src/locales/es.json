@@ -129,7 +129,8 @@
     "saveImage": "Compartir Foto",
     "exporting": "Guardando…",
     "saved": "Guardados",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "cancel": "Cancelar"
   },
   "saved": {
     "title": "Cálculos Guardados",
@@ -253,7 +254,14 @@
     "localCopySuffix": "(copia local)",
     "localCopyKept": "Tus cambios están en Guardados: «{{label}}».",
     "pause": "Pausar",
-    "resume": "Iniciar"
+    "resume": "Iniciar",
+    "originalBanner": "Publicado en Producción · esta es tu versión original: los cambios se quedan aquí hasta que los envíes.",
+    "liveBanner": "Versión en Producción: los cambios llegan a todos al instante.",
+    "send": "Enviar a Producción",
+    "sendAnyway": "Enviar de Todos Modos",
+    "sent": "Enviado a Producción.",
+    "sendFailed": "No se pudo enviar a Producción.",
+    "productionChanged": "En Producción hay cambios que aún no has visto: al enviar los sobrescribes."
   },
   "report": {
     "title": "Informe",

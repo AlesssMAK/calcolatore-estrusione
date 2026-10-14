@@ -129,7 +129,8 @@
     "saveImage": "Share Photo",
     "exporting": "Saving…",
     "saved": "Saved",
-    "close": "Close"
+    "close": "Close",
+    "cancel": "Cancel"
   },
   "saved": {
     "title": "Saved Calculations",
@@ -253,7 +254,14 @@
     "localCopySuffix": "(local copy)",
     "localCopyKept": "Your changes are in Saved: «{{label}}».",
     "pause": "Pause",
-    "resume": "Start"
+    "resume": "Start",
+    "originalBanner": "Published to Production · this is your original: changes stay here until you send them.",
+    "liveBanner": "Production version: changes reach everyone right away.",
+    "send": "Send to Production",
+    "sendAnyway": "Send Anyway",
+    "sent": "Sent to Production.",
+    "sendFailed": "Sending to Production failed.",
+    "productionChanged": "Production has changes you haven't seen yet: sending overwrites them."
   },
   "report": {
     "title": "Report",

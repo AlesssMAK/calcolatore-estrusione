@@ -129,7 +129,8 @@
     "saveImage": "Condividi Foto",
     "exporting": "Salvando…",
     "saved": "Salvati",
-    "close": "Chiudi"
+    "close": "Chiudi",
+    "cancel": "Annulla"
   },
   "saved": {
     "title": "Calcoli Salvati",
@@ -253,7 +254,14 @@
     "localCopySuffix": "(copia locale)",
     "localCopyKept": "Le tue modifiche sono in Salvati: «{{label}}».",
     "pause": "Metti in pausa",
-    "resume": "Avvia"
+    "resume": "Avvia",
+    "originalBanner": "Pubblicato in Produzione · questa è la tua versione originale: le modifiche restano qui finché non le invii.",
+    "liveBanner": "Versione in Produzione: le modifiche arrivano subito a tutti.",
+    "send": "Invia a Produzione",
+    "sendAnyway": "Invia Comunque",
+    "sent": "Inviato a Produzione.",
+    "sendFailed": "Invio a Produzione non riuscito.",
+    "productionChanged": "In Produzione ci sono modifiche che non hai ancora visto: inviando le sovrascrivi."
   },
   "report": {
     "title": "Report",

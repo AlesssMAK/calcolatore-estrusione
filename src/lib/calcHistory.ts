@@ -4,6 +4,7 @@ import type {
   ScheduleSnapshot,
 } from '../types';
 import type { FormValues } from '../formSchema';
+import type { SharedPayload } from './sharedCalc';
 
 // v2 stored only the computed ScheduleResult; v3 also stores the raw input
 // `values` (settings + orders) so restore can refill the form for editing /
@@ -40,6 +41,17 @@ export interface SavedCalculation {
   completedRows?: ScheduledOrder[];
   /** Present when this saved calc is a "live" (synced) shared document. */
   sync?: SyncMeta;
+  /** (Author's original, see isOriginal) the last Produzione version this
+   *  device has seen — what the original is compared against. */
+  production?: ProductionSnapshot;
+}
+
+/** A published calc as it stood in Produzione at some version. */
+export interface ProductionSnapshot {
+  version: number;
+  payload: SharedPayload;
+  /** When this device saw it (epoch ms). */
+  seenAt: number;
 }
 
 /** Live-sync binding for a shared calculation. When present on a saved entry,
@@ -59,6 +71,9 @@ export interface SyncMeta {
   /** (Member's entry) opened from the company list as editable → this device may
    *  edit it via `update_company_calc` even without the token. */
   companyEditable?: boolean;
+  /** The live Produzione version opened from the company list (not stored in
+   *  Salvati) — edits go straight to the shared document. Never persisted. */
+  live?: boolean;
 }
 
 /** A company calc published "view only" that this device can't edit (not the
@@ -67,6 +82,12 @@ export interface SyncMeta {
  *  editable calcs). */
 export const isViewOnly = (sync: SyncMeta | null | undefined): boolean =>
   !!sync && !sync.token && !sync.companyEditable;
+
+/** The author's own copy in Salvati of a calc published to Produzione: it's the
+ *  original — its changes stay here until "Invia a Produzione", and the shared
+ *  version never overwrites it (the two are compared instead). */
+export const isOriginal = (sync: SyncMeta | null | undefined): boolean =>
+  !!sync?.token && !sync.live;
 
 /** JSON.parse reviver that turns ISO strings back into Date objects for the
  *  small set of date fields used inside ScheduleResult. Other strings are
@@ -92,8 +113,11 @@ function safeParse(raw: string | null): SavedCalculation[] {
     // revive `values.settings.startAt`, where the form expects a plain ISO
     // string — turn that one back into a string.
     for (const e of parsed as SavedCalculation[]) {
-      const s = e?.values?.settings as { startAt?: unknown } | undefined;
-      if (s?.startAt instanceof Date) s.startAt = s.startAt.toISOString();
+      // (also in the stored Produzione snapshot, compared with the original)
+      for (const v of [e?.values, e?.production?.payload?.values]) {
+        const s = v?.settings as { startAt?: unknown } | undefined;
+        if (s?.startAt instanceof Date) s.startAt = s.startAt.toISOString();
+      }
     }
     return parsed as SavedCalculation[];
   } catch {
@@ -147,6 +171,9 @@ export function saveCalculation(
   replaceId?: string,
   completedRows?: ScheduledOrder[],
 ): SavedCalculation {
+  const history = loadHistory(retentionDays);
+  // Re-saving a slot keeps its Produzione binding + last-seen snapshot.
+  const prev = replaceId ? history.find((i) => i.id === replaceId) : undefined;
   const entry: SavedCalculation = {
     id: replaceId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: Date.now(),
@@ -155,9 +182,11 @@ export function saveCalculation(
     values,
     snapshot,
     completedRows: completedRows && completedRows.length ? completedRows : undefined,
+    sync: prev?.sync,
+    production: prev?.production,
   };
   const cap = Math.max(1, Math.floor(maxEntries));
-  const rest = loadHistory(retentionDays).filter((i) => i.id !== entry.id);
+  const rest = history.filter((i) => i.id !== entry.id);
   const next = [entry, ...rest].slice(0, cap);
   safeWrite(next);
   return entry;
@@ -203,6 +232,20 @@ export function updateSyncMeta(
   const idx = items.findIndex((i) => i.id === id);
   if (idx === -1) return;
   items[idx] = { ...items[idx], sync };
+  safeWrite(items);
+}
+
+/** Record the Produzione version an original was last compared against. No-op
+ *  when the entry is gone. */
+export function updateProduction(
+  id: string,
+  production: ProductionSnapshot,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): void {
+  const items = loadHistory(retentionDays);
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx === -1) return;
+  items[idx] = { ...items[idx], production };
   safeWrite(items);
 }
 
