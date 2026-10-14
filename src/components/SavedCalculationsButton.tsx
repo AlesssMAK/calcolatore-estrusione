@@ -12,6 +12,8 @@ import {
 const loadOwn = (retentionDays: number) =>
   loadHistory(retentionDays).filter((e) => !isViewOnly(e.sync));
 import { useCatalog } from '../contexts/CatalogContext';
+import { checkProduction, productionStatus } from '../lib/productionCheck';
+import type { TFunction } from 'i18next';
 import { SaveIcon } from './ActionIcons';
 import {
   floatBadgeCls,
@@ -38,6 +40,9 @@ interface Props {
   ) => void | Promise<void>;
   /** Compact icon variant for the pinned floating actions. Omit → full button. */
   placement?: FloatPlacement;
+  /** Called when opening the list refreshed the originals' Produzione status
+   *  (newer versions / no longer listed). */
+  onProductionChecked?: () => void;
 }
 
 /** Relative time formatter that prefers the current i18n language. Falls
@@ -63,9 +68,10 @@ function SavedCalculationsButton({
   refreshKey = 0,
   onPublish,
   placement,
+  onProductionChecked,
 }: Props) {
   const { t, i18n } = useTranslation();
-  const { settings } = useCatalog();
+  const { company, settings } = useCatalog();
   const retentionDays = settings.savedRetentionDays;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SavedCalculation[]>(() =>
@@ -80,6 +86,23 @@ function SavedCalculationsButton({
   useEffect(() => {
     if (open) setItems(loadOwn(retentionDays));
   }, [open, refreshKey, retentionDays]);
+
+  // Opening the list also checks the published originals against Produzione
+  // (one read of the company list) so their badges are current.
+  useEffect(() => {
+    if (!open || !company) return;
+    let cancelled = false;
+    void checkProduction(company.slug, retentionDays).then((changed) => {
+      if (cancelled || !changed) return;
+      setItems(loadOwn(retentionDays));
+      onProductionChecked?.();
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Once per opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, company, retentionDays]);
 
   // Close on outside click + Esc.
   useEffect(() => {
@@ -202,7 +225,7 @@ function SavedCalculationsButton({
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                         {it.label}
                       </span>
-                      {it.sync?.published && (
+                      {it.sync?.published && !it.sync.gone && (
                         <span
                           className="shrink-0 rounded bg-brand-100 px-1 py-0.5 text-[10px] font-semibold text-brand-700"
                           title={t('company.broadcasting')}
@@ -211,6 +234,7 @@ function SavedCalculationsButton({
                           🏭
                         </span>
                       )}
+                      <ProductionBadge entry={it} t={t} />
                       <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-soft uppercase">
                         {t(`tabs.${it.result.mode}`)}
                       </span>
@@ -330,6 +354,35 @@ function SavedCalculationsButton({
         </div>
       )}
     </div>
+  );
+}
+
+// A published original against Produzione: "⚠ N" when the plans differ, a
+// crossed-out 🏭 when it's no longer in the Produzione list.
+function ProductionBadge({ entry, t }: { entry: SavedCalculation; t: TFunction }) {
+  const status = productionStatus(entry);
+  if (!status) return null;
+  if (status.gone) {
+    return (
+      <span
+        className="shrink-0 rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-semibold text-ink-soft line-through"
+        title={t('company.goneShort')}
+        aria-label={t('company.goneShort')}
+      >
+        🏭
+      </span>
+    );
+  }
+  if (status.diffs === 0) return null;
+  const text = t('company.diffBadge', { count: status.diffs });
+  return (
+    <span
+      className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-800"
+      title={text}
+      aria-label={text}
+    >
+      ⚠ {status.diffs}
+    </span>
   );
 }
 

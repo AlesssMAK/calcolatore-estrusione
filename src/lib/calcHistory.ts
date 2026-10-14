@@ -74,6 +74,9 @@ export interface SyncMeta {
   /** The live Produzione version opened from the company list (not stored in
    *  Salvati) — edits go straight to the shared document. Never persisted. */
   live?: boolean;
+  /** (Author's original) published, but no longer in the company's Produzione
+   *  list — taken off by an admin or expired. "Ripubblica" puts it back. */
+  gone?: boolean;
 }
 
 /** A company calc published "view only" that this device can't edit (not the

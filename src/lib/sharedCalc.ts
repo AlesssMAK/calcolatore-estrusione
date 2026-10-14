@@ -160,11 +160,19 @@ export interface CompanyCalc {
 export async function fetchCompanyCalcs(
   company: string,
 ): Promise<CompanyCalc[]> {
-  if (!supabase) return [];
+  return (await loadCompanyCalcs(company)) ?? [];
+}
+
+/** Like fetchCompanyCalcs, but null when the list couldn't be read (offline /
+ *  error) — for callers that conclude something from a calc being absent. */
+export async function loadCompanyCalcs(
+  company: string,
+): Promise<CompanyCalc[] | null> {
+  if (!supabase) return null;
   const { data, error } = await supabase.rpc('get_company_calcs', {
     p_company: company,
   });
-  if (error || !Array.isArray(data)) return [];
+  if (error || !Array.isArray(data)) return null;
   const out: CompanyCalc[] = [];
   for (const row of data as {
     id: string;

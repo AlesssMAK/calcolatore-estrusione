@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
@@ -40,9 +40,11 @@ import {
   updateCalculation,
   updateProduction,
   updateSyncMeta,
+  type ProductionSnapshot,
   type SavedCalculation,
   type SyncMeta,
 } from './lib/calcHistory';
+import { checkProduction, productionStatus } from './lib/productionCheck';
 import {
   buildAdvancedCalc,
   toggleTracking,
@@ -228,6 +230,9 @@ function CalculatorApp() {
   const [viewFrozen, setViewFrozen] = useState(false);
   // "Report" of the company's results (opened from the Produzione list).
   const [reportOpen, setReportOpen] = useState(false);
+  // Bumped whenever an original's Produzione snapshot / listing changes, so the
+  // banner's "Confronta · N" / "non più in Produzione" follow.
+  const [productionRev, setProductionRev] = useState(0);
   // Set by the modal's Calcola: the recompute keeps the modal open.
   const keepModalRef = useRef(false);
   // Transient notice for company-publish feedback (e.g. limit reached).
@@ -297,6 +302,17 @@ function CalculatorApp() {
     clearRestored();
     setFormKey((k) => k + 1);
   };
+
+  // A saved entry as the shared document (Produzione) carries it.
+  const payloadOf = (entry: SavedCalculation): SharedPayload => ({
+    v: 1,
+    mode: entry.result.mode,
+    values: entry.values!,
+    result: entry.result,
+    completedRows: entry.completedRows,
+    label: entry.label,
+    snapshot: entry.snapshot,
+  });
 
   // Build the shareable payload for a set of values/result/completed rows,
   // carrying the effective schedule snapshot (from the bound saved entry) so a
@@ -390,6 +406,13 @@ function CalculatorApp() {
     }
   };
 
+  // Record the Produzione version an original is compared against (and let
+  // the banner recount).
+  const noteProduction = (id: string, snapshot: ProductionSnapshot) => {
+    updateProduction(id, snapshot, settings.savedRetentionDays);
+    setProductionRev((r) => r + 1);
+  };
+
   // Transient bottom notice (company publish / read-only feedback).
   const flashNotice = (msg: string, ms = 4000) => {
     setCompanyNotice(msg);
@@ -464,6 +487,18 @@ function CalculatorApp() {
   // A company calc published "view only", opened on a device that can't edit
   // it (no edit token, not editable by the company): read-only view.
   const readOnly = isViewOnly(syncMeta);
+
+  // The original on screen against Produzione (plan differences / no longer
+  // listed) — follows its saves and every Produzione refresh.
+  const originalStatus = useMemo(() => {
+    void productionRev; // recount on a Produzione refresh
+    void savedRefreshKey; // …and after the original is saved again
+    if (!syncMeta || !isOriginal(syncMeta) || !editingId) return null;
+    const entry = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.id === editingId,
+    );
+    return entry ? productionStatus(entry) : null;
+  }, [syncMeta, editingId, productionRev, savedRefreshKey, settings.savedRetentionDays]);
 
   // "Aggiungi ai Salvati" (read-only company calc): copy it into Salvati as an
   // unbound, editable "(copia locale)" entry and open that copy. The calc on
@@ -599,21 +634,18 @@ function CalculatorApp() {
   ): Promise<SavedCalculation | null> => {
     const sync = entry.sync;
     if (!sync) return null;
-    const original = isOriginal(sync);
-    const seen = original ? (entry.production?.version ?? sync.version) : sync.version;
-    const res = await fetchSharedCalc(sync.id);
-    if (!res || res.version <= seen) return null;
-    const p = res.payload;
     // The author's original is never overwritten by the shared version — it's
-    // only noted as the Produzione version to compare against.
-    if (original) {
-      updateProduction(
-        entry.id,
-        { version: res.version, payload: p, seenAt: Date.now() },
-        settings.savedRetentionDays,
-      );
+    // only compared with it: refresh its Produzione snapshot (and whether it's
+    // still listed there).
+    if (isOriginal(sync)) {
+      if (company && (await checkProduction(company.slug, settings.savedRetentionDays))) {
+        setProductionRev((r) => r + 1);
+      }
       return null;
     }
+    const res = await fetchSharedCalc(sync.id);
+    if (!res || res.version <= sync.version) return null;
+    const p = res.payload;
     const nextSync: SyncMeta = { ...sync, version: res.version };
     // A view-only company calc (or the live Produzione version opened from the
     // list) isn't kept in Salvati — just show the fresh one.
@@ -758,64 +790,92 @@ function CalculatorApp() {
     entry: SavedCalculation,
     mode: 'view' | 'edit' | 'off',
   ) => {
-    if (!isSupabaseConfigured || !company || !entry.values) return;
+    await publishEntry(entry, mode);
+  };
+
+  // Publish / unpublish; true on success. A published original whose shared
+  // document is gone (removed / expired) is published anew from the original.
+  const publishEntry = async (
+    entry: SavedCalculation,
+    mode: 'view' | 'edit' | 'off',
+  ): Promise<boolean> => {
+    if (!isSupabaseConfigured || !company || !entry.values) return false;
     let sync = entry.sync ?? null;
     // Produzione's first version = this original as it is now.
     let created: SharedPayload | null = null;
+    const createDoc = async () => {
+      const payload = payloadOf(entry);
+      const { id, editToken } = await createSharedCalc(payload);
+      return { sync: { id, token: editToken, version: 1 } as SyncMeta, payload };
+    };
     if (!sync?.token) {
       try {
-        const payload: SharedPayload = {
-          v: 1,
-          mode: entry.result.mode,
-          values: entry.values,
-          result: entry.result,
-          completedRows: entry.completedRows,
-          label: entry.label,
-          snapshot: entry.snapshot,
-        };
-        const { id, editToken } = await createSharedCalc(payload);
-        sync = { id, token: editToken, version: 1 };
-        created = payload;
+        const doc = await createDoc();
+        sync = doc.sync;
+        created = doc.payload;
       } catch {
-        return;
+        return false;
       }
     }
     const token = sync.token;
-    if (!token) return;
+    if (!token) return false;
     const isPublic = mode !== 'off';
-    if (isPublic && !sync.published && settings.maxCompanyShared > 0) {
+    if (isPublic && (!sync.published || sync.gone) && settings.maxCompanyShared > 0) {
       const existing = await fetchCompanyCalcs(company.slug);
       if (existing.length >= settings.maxCompanyShared) {
         setCompanyNotice(
           t('company.limitReached', { max: settings.maxCompanyShared }),
         );
         window.setTimeout(() => setCompanyNotice(null), 3000);
-        return;
+        return false;
       }
     }
-    const ok = await setCompanyPublish(
+    let ok = await setCompanyPublish(
       sync.id,
       token,
       company.slug,
       isPublic,
       mode === 'edit',
     );
-    if (!ok) return;
+    if (!ok && isPublic && !created) {
+      try {
+        const doc = await createDoc();
+        sync = doc.sync;
+        created = doc.payload;
+        ok = await setCompanyPublish(doc.sync.id, doc.sync.token!, company.slug, true, mode === 'edit');
+      } catch {
+        ok = false;
+      }
+    }
+    if (!ok) return false;
     const next: SyncMeta = {
       ...sync,
       published: isPublic,
       publishedEditable: mode === 'edit',
+      gone: undefined,
     };
     updateSyncMeta(entry.id, next, settings.savedRetentionDays);
     if (created) {
-      updateProduction(
-        entry.id,
-        { version: 1, payload: created, seenAt: Date.now() },
-        settings.savedRetentionDays,
-      );
+      noteProduction(entry.id, { version: 1, payload: created, seenAt: Date.now() });
+    } else {
+      setProductionRev((r) => r + 1); // listed again → no longer "gone"
     }
     if (editingId === entry.id) setSyncMeta(next);
     setSavedRefreshKey((k) => k + 1);
+    return true;
+  };
+
+  // "Ripubblica": the original on screen is no longer in Produzione — put it
+  // back, published as it was (view-only / editable).
+  const republish = async () => {
+    const sync = syncMeta;
+    if (!sync || !isOriginal(sync) || !editingId) return;
+    const entry = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.id === editingId,
+    );
+    if (!entry) return;
+    const ok = await publishEntry(entry, sync.publishedEditable ? 'edit' : 'view');
+    flashNotice(t(ok ? 'company.republished' : 'company.sendFailed'));
   };
 
   // Open a company-published result: save it locally (shared-<id> slot) bound as
@@ -834,10 +894,9 @@ function CalculatorApp() {
     // Produzione version beside it (not stored), whose edits go straight to
     // the shared document. Seeing it updates what the original is compared to.
     if (existing?.sync && isOriginal(existing.sync)) {
-      updateProduction(
+      noteProduction(
         existing.id,
         { version: c.version, payload: p, seenAt: Date.now() },
-        settings.savedRetentionDays,
       );
       onRestore({
         id: `live-${c.id}`,
@@ -991,11 +1050,7 @@ function CalculatorApp() {
     // original only notes the new Produzione version — and refresh the live
     // version on screen.
     if (local?.sync && isOriginal(local.sync)) {
-      updateProduction(
-        local.id,
-        { version, payload, seenAt: Date.now() },
-        settings.savedRetentionDays,
-      );
+      noteProduction(local.id, { version, payload, seenAt: Date.now() });
     } else if (local?.sync) {
       const updated = updateCalculation(local.id, patch, settings.savedRetentionDays);
       const sync: SyncMeta = { ...local.sync, version };
@@ -1054,10 +1109,9 @@ function CalculatorApp() {
       flashNotice(t('compare.unavailable'));
       return;
     }
-    updateProduction(
+    noteProduction(
       entry.id,
       { version: server.version, payload: server.payload, seenAt: Date.now() },
-      settings.savedRetentionDays,
     );
     const seen: SyncMeta = { ...sync, version: Math.max(sync.version, server.version) };
     updateSyncMeta(entry.id, seen, settings.savedRetentionDays);
@@ -1129,11 +1183,7 @@ function CalculatorApp() {
       flashNotice(t('company.sendFailed'));
       return;
     }
-    updateProduction(
-      entry.id,
-      { version, payload, seenAt: Date.now() },
-      settings.savedRetentionDays,
-    );
+    noteProduction(entry.id, { version, payload, seenAt: Date.now() });
     const next: SyncMeta = { ...sync, version };
     updateSyncMeta(entry.id, next, settings.savedRetentionDays);
     if (editingId === entry.id) setSyncMeta(next);
@@ -1159,15 +1209,7 @@ function CalculatorApp() {
         await openCompare(true, server);
         return;
       }
-      const payload: SharedPayload = {
-        v: 1,
-        mode: entry.result.mode,
-        values: entry.values,
-        result: entry.result,
-        completedRows: entry.completedRows,
-        label: entry.label,
-        snapshot: entry.snapshot,
-      };
+      const payload = payloadOf(entry);
       const version = await updateSharedCalc(sync.id, sync.token, payload);
       if (version == null) {
         flashNotice(t('company.sendFailed'));
@@ -1175,11 +1217,7 @@ function CalculatorApp() {
       }
       const next: SyncMeta = { ...sync, version };
       updateSyncMeta(entry.id, next, settings.savedRetentionDays);
-      updateProduction(
-        entry.id,
-        { version, payload, seenAt: Date.now() },
-        settings.savedRetentionDays,
-      );
+      noteProduction(entry.id, { version, payload, seenAt: Date.now() });
       setSyncMeta(next);
       flashNotice(t('company.sent'));
     } finally {
@@ -1395,6 +1433,7 @@ function CalculatorApp() {
             onToggleCompanyRunning={
               isSupabaseConfigured && company ? toggleCompanyRunning : undefined
             }
+            onProductionChecked={() => setProductionRev((r) => r + 1)}
             readOnly={readOnly}
             onAddToSaved={addToSaved}
             // The live Produzione version (opened from the list) isn't kept in
@@ -1421,18 +1460,37 @@ function CalculatorApp() {
                     {syncMeta.live
                       ? t('company.liveBanner')
                       : isOriginal(syncMeta)
-                        ? t('company.originalBanner')
+                        ? originalStatus?.gone
+                          ? t('company.gone')
+                          : t('company.originalBanner')
                         : t('company.broadcasting')}
                   </span>
                 </span>
-                {isOriginal(syncMeta) && (
+                {isOriginal(syncMeta) && originalStatus?.gone && (
+                  <button
+                    type="button"
+                    onClick={() => void republish()}
+                    className="shrink-0 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:text-sm"
+                  >
+                    {t('company.republish')}
+                  </button>
+                )}
+                {isOriginal(syncMeta) && !originalStatus?.gone && (
                   <span className="flex shrink-0 gap-2">
                     <button
                       type="button"
                       onClick={() => void openCompare()}
-                      className="rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:text-sm"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:text-sm"
                     >
                       {t('company.compare')}
+                      {originalStatus && originalStatus.diffs > 0 && (
+                        <span
+                          className="rounded bg-amber-100 px-1 text-[11px] font-semibold text-amber-800"
+                          title={t('company.diffBadge', { count: originalStatus.diffs })}
+                        >
+                          ⚠ {originalStatus.diffs}
+                        </span>
+                      )}
                     </button>
                     <button
                       type="button"

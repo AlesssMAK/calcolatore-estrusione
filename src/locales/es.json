@@ -259,7 +259,13 @@
     "send": "Enviar a Producción",
     "sent": "Enviado a Producción.",
     "sendFailed": "No se pudo enviar a Producción.",
-    "compare": "Comparar"
+    "compare": "Comparar",
+    "diffBadge_one": "1 diferencia con Producción",
+    "diffBadge_other": "{{count}} diferencias con Producción",
+    "goneShort": "Ya no está en Producción",
+    "gone": "Ya no está en Producción: se quitó de la lista. Tu versión original está aquí.",
+    "republish": "Volver a Publicar",
+    "republished": "Publicado de nuevo en Producción."
   },
   "report": {
     "title": "Informe",
