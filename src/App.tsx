@@ -1453,8 +1453,10 @@ function CalculatorApp() {
         <div id="results" className="mt-5 sm:mt-6">
           {result && syncMeta?.published && (
             <div className="no-print mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <span className="flex min-w-0 flex-1 items-start gap-2 font-medium">
+              {/* Phones: the text on its own, the buttons full width under it;
+                  sm+: the buttons beside the text. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+                <span className="flex min-w-0 basis-full items-start gap-2 font-medium sm:flex-1 sm:basis-0">
                   <span aria-hidden>🏭</span>
                   <span>
                     {syncMeta.live
@@ -1470,17 +1472,17 @@ function CalculatorApp() {
                   <button
                     type="button"
                     onClick={() => void republish()}
-                    className="shrink-0 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:text-sm"
+                    className="w-full shrink-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:w-auto sm:py-1.5"
                   >
                     {t('company.republish')}
                   </button>
                 )}
                 {isOriginal(syncMeta) && !originalStatus?.gone && (
-                  <span className="flex shrink-0 gap-2">
+                  <span className="grid w-full shrink-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
                     <button
                       type="button"
                       onClick={() => void openCompare()}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:text-sm"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:py-1.5"
                     >
                       {t('company.compare')}
                       {originalStatus && originalStatus.diffs > 0 && (
@@ -1496,7 +1498,7 @@ function CalculatorApp() {
                       type="button"
                       onClick={() => void sendToProduction()}
                       disabled={sending}
-                      className="rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:text-sm"
+                      className="rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:py-1.5"
                     >
                       {t('company.send')}
                     </button>
