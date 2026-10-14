@@ -129,8 +129,7 @@
     "saveImage": "Share Photo",
     "exporting": "Saving…",
     "saved": "Saved",
-    "close": "Close",
-    "cancel": "Cancel"
+    "close": "Close"
   },
   "saved": {
     "title": "Saved Calculations",
@@ -258,10 +257,9 @@
     "originalBanner": "Published to Production · this is your original: changes stay here until you send them.",
     "liveBanner": "Production version: changes reach everyone right away.",
     "send": "Send to Production",
-    "sendAnyway": "Send Anyway",
     "sent": "Sent to Production.",
     "sendFailed": "Sending to Production failed.",
-    "productionChanged": "Production has changes you haven't seen yet: sending overwrites them."
+    "compare": "Compare"
   },
   "report": {
     "title": "Report",
@@ -290,6 +288,43 @@
       "notStarted": "Not started",
       "done": "Completed"
     }
+  },
+  "compare": {
+    "title": "Compare",
+    "settings": "Settings",
+    "queue": "Queued orders",
+    "original": "Original",
+    "production": "Production",
+    "useOriginal": "Use Original",
+    "useProduction": "Use Production",
+    "allOriginal": "All from Original",
+    "allProduction": "All from Production",
+    "fromSend": "Before sending: Production has changes you haven't seen yet. Choose what to keep, then send.",
+    "none": "No differences: the original and Production match.",
+    "unavailable": "Production unreachable: try again later.",
+    "progress": "Progress",
+    "progressHint": "How much has been produced. Doesn't count as a difference.",
+    "setting": {
+      "productName": "Calculation name",
+      "noLimits": "No time limits",
+      "frozen": "Paused (Fixed calculation)",
+      "queue": "Custom production order"
+    },
+    "orderSequence": "Order sequence",
+    "orderAdded": "Order added in Production: {{name}}",
+    "orderRemoved": "Order removed in Production: {{name}}",
+    "sizeSequence": "Size order",
+    "sizeAdded": "Size added in Production",
+    "sizeRemoved": "Size removed in Production",
+    "state": "Status",
+    "done": "Completed",
+    "running": "In progress",
+    "present": "Present",
+    "doneOrder": "(completed)",
+    "queueOn": "On",
+    "yes": "Yes",
+    "no": "No",
+    "newOrder": "(new)"
   },
   "footer": {
     "madeBy": "Extrusion Calculator",

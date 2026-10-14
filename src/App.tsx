@@ -8,6 +8,9 @@ import ResultsPanel from './components/ResultsPanel';
 import AdvanceBanner from './components/AdvanceBanner';
 import RestoreCompletedButton from './components/RestoreCompletedButton';
 import CompanyReportModal from './components/CompanyReportModal';
+import CompareModal from './components/CompareModal';
+import type { CalcDiff, CalcVersion } from './utils/calcDiff';
+import { settleDiffs, type DiffSide } from './utils/calcMerge';
 import { TrackedResultContext } from './contexts/trackedResult';
 import ErrorBoundary from './components/ErrorBoundary';
 import ActiveOrderModal, {
@@ -1016,13 +1019,133 @@ function CalculatorApp() {
     return { ...c, payload, version };
   };
 
+  // "Confronta": the original on screen against the version in Produzione.
+  // Opening it fetches Produzione and counts it as seen (sync.version), so a
+  // following "Invia" doesn't stop again for the same changes.
+  const [compare, setCompare] = useState<{
+    entryId: string;
+    original: CalcVersion;
+    production: { version: number; payload: SharedPayload };
+    fromSend: boolean;
+  } | null>(null);
+  const versionOf = (x: {
+    values?: FormValues;
+    result: ScheduleResult;
+    completedRows?: ScheduledOrder[];
+    snapshot?: ScheduleSnapshot;
+  }): CalcVersion => ({
+    values: x.values!,
+    result: x.result,
+    completedRows: x.completedRows,
+    snapshot: x.snapshot,
+  });
+  const openCompare = async (
+    fromSend = false,
+    fetched?: { version: number; payload: SharedPayload },
+  ) => {
+    const sync = syncMeta;
+    if (!sync || !isOriginal(sync) || !editingId) return;
+    const entry = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.id === editingId,
+    );
+    if (!entry?.values) return;
+    const server = fetched ?? (await fetchSharedCalc(sync.id));
+    if (!server) {
+      flashNotice(t('compare.unavailable'));
+      return;
+    }
+    updateProduction(
+      entry.id,
+      { version: server.version, payload: server.payload, seenAt: Date.now() },
+      settings.savedRetentionDays,
+    );
+    const seen: SyncMeta = { ...sync, version: Math.max(sync.version, server.version) };
+    updateSyncMeta(entry.id, seen, settings.savedRetentionDays);
+    setSyncMeta(seen);
+    setCompare({
+      entryId: entry.id,
+      original: versionOf(entry),
+      production: { version: server.version, payload: server.payload },
+      fromSend,
+    });
+  };
+
+  // Settle differences from "Confronta": 'production' wins → the original is
+  // updated (recomputed from now, saved, reopened); 'original' wins →
+  // Produzione is updated (recomputed from now and sent).
+  const settleCompare = async (diffs: CalcDiff[], from: DiffSide) => {
+    if (!compare) return;
+    const entry = loadHistory(settings.savedRetentionDays).find(
+      (e) => e.id === compare.entryId,
+    );
+    const sync = entry?.sync;
+    if (!entry?.values || !sync?.token) return;
+    const prodPayload = compare.production.payload;
+    const production = versionOf(prodPayload);
+    const now = new Date();
+    if (from === 'production') {
+      const merged = settleDiffs(
+        versionOf(entry),
+        production,
+        diffs,
+        'production',
+        currentScheduleFor(entry),
+        now,
+      );
+      const saved = saveCalculation(
+        merged.result,
+        merged.values,
+        merged.snapshot,
+        deriveLabel(merged.result),
+        settings.maxSavedResults,
+        settings.savedRetentionDays,
+        entry.id,
+        merged.completedRows,
+      );
+      setSavedRefreshKey((k) => k + 1);
+      setCompare({ ...compare, original: versionOf(saved) });
+      if (editingId === entry.id) doRestore(saved, false, false);
+      return;
+    }
+    const merged = settleDiffs(
+      production,
+      versionOf(entry),
+      diffs,
+      'original',
+      currentScheduleFor({ ...entry, values: prodPayload.values, snapshot: prodPayload.snapshot }),
+      now,
+    );
+    const payload: SharedPayload = {
+      v: 1,
+      mode: prodPayload.mode,
+      values: merged.values,
+      result: merged.result,
+      completedRows: merged.completedRows?.length ? merged.completedRows : undefined,
+      label: deriveLabel(merged.result),
+      snapshot: merged.snapshot,
+    };
+    const version = await updateSharedCalc(sync.id, sync.token, payload);
+    if (version == null) {
+      flashNotice(t('company.sendFailed'));
+      return;
+    }
+    updateProduction(
+      entry.id,
+      { version, payload, seenAt: Date.now() },
+      settings.savedRetentionDays,
+    );
+    const next: SyncMeta = { ...sync, version };
+    updateSyncMeta(entry.id, next, settings.savedRetentionDays);
+    if (editingId === entry.id) setSyncMeta(next);
+    setCompare({ ...compare, production: { version, payload } });
+  };
+
   // "Invia a Produzione": send the original, as last saved, to the shared
-  // version. `sync.version` is the Produzione version the author last sent (or
-  // accepted); when Produzione moved on since — the factory changed it — ask
-  // first instead of overwriting that unseen (sendConfirmFor = this calc).
-  const [sendConfirmFor, setSendConfirmFor] = useState<string | null>(null);
+  // version. `sync.version` is the Produzione version the author last sent or
+  // saw; when Produzione moved on since — the factory changed it — "Confronta"
+  // opens first instead of overwriting that unseen.
   const [sending, setSending] = useState(false);
-  const sendToProduction = async (force = false) => {
+  const sendToProduction = async () => {
     const sync = syncMeta;
     if (!sync?.token || !isOriginal(sync) || !editingId) return;
     const entry = loadHistory(settings.savedRetentionDays).find(
@@ -1031,17 +1154,10 @@ function CalculatorApp() {
     if (!entry?.values) return;
     setSending(true);
     try {
-      if (!force) {
-        const server = await fetchSharedCalc(sync.id);
-        if (server && server.version > sync.version) {
-          updateProduction(
-            entry.id,
-            { version: server.version, payload: server.payload, seenAt: Date.now() },
-            settings.savedRetentionDays,
-          );
-          setSendConfirmFor(entry.id);
-          return;
-        }
+      const server = await fetchSharedCalc(sync.id);
+      if (server && server.version > sync.version) {
+        await openCompare(true, server);
+        return;
       }
       const payload: SharedPayload = {
         v: 1,
@@ -1065,7 +1181,6 @@ function CalculatorApp() {
         settings.savedRetentionDays,
       );
       setSyncMeta(next);
-      setSendConfirmFor(null);
       flashNotice(t('company.sent'));
     } finally {
       setSending(false);
@@ -1310,41 +1425,26 @@ function CalculatorApp() {
                         : t('company.broadcasting')}
                   </span>
                 </span>
-                {isOriginal(syncMeta) && sendConfirmFor !== editingId && (
-                  <button
-                    type="button"
-                    onClick={() => void sendToProduction()}
-                    disabled={sending}
-                    className="shrink-0 rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:text-sm"
-                  >
-                    {t('company.send')}
-                  </button>
+                {isOriginal(syncMeta) && (
+                  <span className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void openCompare()}
+                      className="rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:text-sm"
+                    >
+                      {t('company.compare')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void sendToProduction()}
+                      disabled={sending}
+                      className="rounded-md border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:text-sm"
+                    >
+                      {t('company.send')}
+                    </button>
+                  </span>
                 )}
               </div>
-              {isOriginal(syncMeta) && sendConfirmFor === editingId && (
-                // Produzione changed since the last send → overwrite only on
-                // purpose.
-                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-brand-200 pt-2">
-                  <span className="min-w-0 flex-1 basis-full font-medium text-amber-800 sm:basis-0">
-                    ⚠ {t('company.productionChanged')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSendConfirmFor(null)}
-                    className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:text-sm"
-                  >
-                    {t('actions.cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void sendToProduction(true)}
-                    disabled={sending}
-                    className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-wait disabled:opacity-60 sm:text-sm"
-                  >
-                    {t('company.sendAnyway')}
-                  </button>
-                </div>
-              )}
             </div>
           )}
           {/* Opened from Azienda, published view-only, and this device can't
@@ -1436,6 +1536,21 @@ function CalculatorApp() {
               : undefined
           }
           t={t}
+        />
+      )}
+
+      {compare && (
+        <CompareModal
+          label={
+            loadHistory(settings.savedRetentionDays).find((e) => e.id === compare.entryId)
+              ?.label ?? ''
+          }
+          mode={compare.original.result.mode}
+          original={compare.original}
+          production={versionOf(compare.production.payload)}
+          fromSend={compare.fromSend}
+          onSettle={settleCompare}
+          onClose={() => setCompare(null)}
         />
       )}
 

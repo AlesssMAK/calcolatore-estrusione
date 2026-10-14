@@ -121,7 +121,7 @@ const same = (a: unknown, b: unknown) =>
 
 /** Stable keys of an order's sizes: their uids, or "#<n>" (by position) when
  *  either version has a size without one. */
-function sizeKeys(sizes: OrderSize[], byPosition: boolean): string[] {
+export function sizeKeys(sizes: OrderSize[], byPosition: boolean): string[] {
   return sizes.map((s, i) => (byPosition || !s?.uid ? `#${i}` : s.uid));
 }
 
@@ -155,7 +155,7 @@ function side(v: CalcVersion): Side {
 
 /** Produced pieces per size key (and done orders) as of `at`. A "Calcolo
  *  fisso" doesn't advance, so it counts as it was computed. */
-function producedAt(
+export function producedAt(
   v: CalcVersion,
   at: Date,
   byPositionFor: (orderId: string) => boolean,
