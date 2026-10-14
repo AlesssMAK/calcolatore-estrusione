@@ -129,8 +129,7 @@
     "saveImage": "Condividi Foto",
     "exporting": "Salvando…",
     "saved": "Salvati",
-    "close": "Chiudi",
-    "cancel": "Annulla"
+    "close": "Chiudi"
   },
   "saved": {
     "title": "Calcoli Salvati",
@@ -258,10 +257,9 @@
     "originalBanner": "Pubblicato in Produzione · questa è la tua versione originale: le modifiche restano qui finché non le invii.",
     "liveBanner": "Versione in Produzione: le modifiche arrivano subito a tutti.",
     "send": "Invia a Produzione",
-    "sendAnyway": "Invia Comunque",
     "sent": "Inviato a Produzione.",
     "sendFailed": "Invio a Produzione non riuscito.",
-    "productionChanged": "In Produzione ci sono modifiche che non hai ancora visto: inviando le sovrascrivi."
+    "compare": "Confronta"
   },
   "report": {
     "title": "Report",
@@ -290,6 +288,43 @@
       "notStarted": "Non iniziato",
       "done": "Completato"
     }
+  },
+  "compare": {
+    "title": "Confronta",
+    "settings": "Impostazioni",
+    "queue": "Ordini in coda",
+    "original": "Originale",
+    "production": "Produzione",
+    "useOriginal": "Usa Originale",
+    "useProduction": "Usa Produzione",
+    "allOriginal": "Tutto da Originale",
+    "allProduction": "Tutto da Produzione",
+    "fromSend": "Prima di inviare: in Produzione ci sono modifiche che non hai ancora visto. Scegli cosa tenere, poi invia.",
+    "none": "Nessuna differenza: l’originale e Produzione coincidono.",
+    "unavailable": "Produzione non raggiungibile: riprova più tardi.",
+    "progress": "Avanzamento",
+    "progressHint": "Quanto è stato prodotto. Non conta tra le differenze.",
+    "setting": {
+      "productName": "Nome del calcolo",
+      "noLimits": "Senza limiti orari",
+      "frozen": "In pausa (Calcolo fisso)",
+      "queue": "Ordine di produzione personalizzato"
+    },
+    "orderSequence": "Sequenza degli ordini",
+    "orderAdded": "Ordine aggiunto in Produzione: {{name}}",
+    "orderRemoved": "Ordine tolto in Produzione: {{name}}",
+    "sizeSequence": "Ordine delle misure",
+    "sizeAdded": "Misura aggiunta in Produzione",
+    "sizeRemoved": "Misura tolta in Produzione",
+    "state": "Stato",
+    "done": "Completato",
+    "running": "In corso",
+    "present": "Presente",
+    "doneOrder": "(completato)",
+    "queueOn": "Attivo",
+    "yes": "Sì",
+    "no": "No",
+    "newOrder": "(nuovo)"
   },
   "footer": {
     "madeBy": "Calcolatore di Estrusione",

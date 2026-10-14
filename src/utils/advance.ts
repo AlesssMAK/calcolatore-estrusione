@@ -45,7 +45,7 @@ export function toCompletedRow(row: ScheduledOrder): ScheduledOrder {
 }
 
 /** An empty schedule (used when every order is already completed). */
-function emptyResult(now: Date, base: ScheduleResult): ScheduleResult {
+export function emptyResult(now: Date, base: ScheduleResult): ScheduleResult {
   return {
     rows: [],
     startAt: now,

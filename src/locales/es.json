@@ -129,8 +129,7 @@
     "saveImage": "Compartir Foto",
     "exporting": "Guardando…",
     "saved": "Guardados",
-    "close": "Cerrar",
-    "cancel": "Cancelar"
+    "close": "Cerrar"
   },
   "saved": {
     "title": "Cálculos Guardados",
@@ -258,10 +257,9 @@
     "originalBanner": "Publicado en Producción · esta es tu versión original: los cambios se quedan aquí hasta que los envíes.",
     "liveBanner": "Versión en Producción: los cambios llegan a todos al instante.",
     "send": "Enviar a Producción",
-    "sendAnyway": "Enviar de Todos Modos",
     "sent": "Enviado a Producción.",
     "sendFailed": "No se pudo enviar a Producción.",
-    "productionChanged": "En Producción hay cambios que aún no has visto: al enviar los sobrescribes."
+    "compare": "Comparar"
   },
   "report": {
     "title": "Informe",
@@ -290,6 +288,43 @@
       "notStarted": "No iniciado",
       "done": "Completado"
     }
+  },
+  "compare": {
+    "title": "Comparar",
+    "settings": "Ajustes",
+    "queue": "Pedidos en cola",
+    "original": "Original",
+    "production": "Producción",
+    "useOriginal": "Usar Original",
+    "useProduction": "Usar Producción",
+    "allOriginal": "Todo del Original",
+    "allProduction": "Todo de Producción",
+    "fromSend": "Antes de enviar: en Producción hay cambios que aún no has visto. Elige qué conservar y luego envía.",
+    "none": "Sin diferencias: el original y Producción coinciden.",
+    "unavailable": "Producción no disponible: inténtalo más tarde.",
+    "progress": "Avance",
+    "progressHint": "Cuánto se ha producido. No cuenta como diferencia.",
+    "setting": {
+      "productName": "Nombre del cálculo",
+      "noLimits": "Sin límites horarios",
+      "frozen": "En pausa (Cálculo fijo)",
+      "queue": "Orden de producción personalizado"
+    },
+    "orderSequence": "Secuencia de pedidos",
+    "orderAdded": "Pedido añadido en Producción: {{name}}",
+    "orderRemoved": "Pedido quitado en Producción: {{name}}",
+    "sizeSequence": "Orden de las medidas",
+    "sizeAdded": "Medida añadida en Producción",
+    "sizeRemoved": "Medida quitada en Producción",
+    "state": "Estado",
+    "done": "Completado",
+    "running": "En curso",
+    "present": "Presente",
+    "doneOrder": "(completado)",
+    "queueOn": "Activo",
+    "yes": "Sí",
+    "no": "No",
+    "newOrder": "(nuevo)"
   },
   "footer": {
     "madeBy": "Calculadora de Extrusión",
