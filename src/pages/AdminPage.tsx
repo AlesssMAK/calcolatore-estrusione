@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { companyUrl } from '../lib/appUrl';
 import { useAuth } from '../contexts/AuthContext';
@@ -224,15 +224,19 @@ function AdminPage() {
               <SettingsIcon className={toolIconCls} />
               <span className="hidden sm:inline">Impostazioni</span>
             </button>
-            <Link
-              to={calcHref}
-              aria-label="Calcolatore"
-              title="Calcolatore"
+            {/* A full page load, not a router <Link>: the catalog reads
+                ?company= only when the app loads, so an in-app jump from /admin
+                would open the clean calculator — and the load also picks up the
+                products / settings just edited here. */}
+            <a
+              href={calcHref}
+              aria-label={company ? `Calcolatore ${company.name}` : 'Calcolatore'}
+              title={company ? `Calcolatore ${company.name}` : 'Calcolatore'}
               className={toolBtnCls()}
             >
               <CalcIcon className={toolIconCls} />
               <span className="hidden sm:inline">Calcolatore</span>
-            </Link>
+            </a>
             <button
               type="button"
               onClick={() => void signOut()}
