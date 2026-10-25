@@ -530,6 +530,8 @@ function CalculatorForm({
     const values = methods.getValues();
     const live = liveSchedule(values, mode);
     if (!live) return;
+    // Something runs now → no pause is holding the work any more.
+    methods.setValue('settings.resumeAt', undefined, { shouldDirty: true });
     applyQueue(
       interruptWith(values.settings.queue, values.orders, live, activeStep, target),
     );

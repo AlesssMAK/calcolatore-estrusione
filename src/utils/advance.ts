@@ -209,6 +209,11 @@ export function buildAdvancedCalc(
     shutdownMinutes: snapshot.shutdownMinutes,
     startMode: 'now',
     startAt: '',
+    // A pause between blocks running now: the next block waits for its end
+    // instead of starting "now". Cleared once it's over.
+    resumeAt:
+      runningPauseEnd(result, (i) => !!progress.orders[i]?.done, now)?.toISOString() ??
+      undefined,
   };
 
   const advResult =
@@ -234,6 +239,30 @@ export function buildAdvancedCalc(
   }
 
   return { values: { settings, orders: activeOrders }, result: advResult, completedRows };
+}
+
+/**
+ * The end of a pause running at `now`: one after a block that's done (its
+ * closing order is). Results from before pauses carried their times fall back
+ * to the pause running from that order's end to the next work's start.
+ */
+export function runningPauseEnd(
+  result: ScheduleResult,
+  done: (rowIdx: number) => boolean,
+  now: Date,
+): Date | null {
+  const t = now.getTime();
+  const starts = result.rows
+    .filter((r, i) => !done(i) && r.remainingMinutes >= 0.5)
+    .map((r) => r.start.getTime());
+  const nextStart = starts.length ? Math.min(...starts) : Number.NaN;
+  for (const [i, row] of result.rows.entries()) {
+    if (!done(i) || !(row.gapAfterMin > 0)) continue;
+    const from = (row.gapStart ?? row.end).getTime();
+    const to = row.gapEnd?.getTime() ?? nextStart;
+    if (Number.isFinite(to) && from <= t && t < to) return new Date(to);
+  }
+  return null;
 }
 
 /** The new content of a saved calc after its 🔄 tracking toggle. */

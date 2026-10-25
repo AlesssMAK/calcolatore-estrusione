@@ -56,7 +56,7 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
   const orders = values.orders ?? [];
   const live = useMemo(() => liveSchedule(values, mode), [values, mode]);
   const [seq, setSeq] = useState<SeqStep[]>(() =>
-    resolveSequence(values.settings?.queue, orders)
+    resolveSequence(values.settings?.queue, orders),
   );
 
   useEffect(() => {
@@ -78,39 +78,33 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
   // Which block each step is in; the block's closing order carries its pause.
   const blockOf = blockIndexes(orders, values.settings?.gapMode);
-  const blockOfStep = (st: SeqStep | undefined) =>
-    st ? blockOf[st.orderIdx] : -1;
+  const blockOfStep = (st: SeqStep | undefined) => (st ? blockOf[st.orderIdx] : -1);
   const closerOf = (b: number) => blockOf.lastIndexOf(b);
-  const keyBlock = new Map(seq.map(st => [stepKey(st), blockOfStep(st)]));
-  const collision: CollisionDetection = args =>
+  const keyBlock = new Map(seq.map((st) => [stepKey(st), blockOfStep(st)]));
+  const collision: CollisionDetection = (args) =>
     closestCenter({
       ...args,
       droppableContainers: args.droppableContainers.filter(
-        c => keyBlock.get(String(c.id)) === keyBlock.get(String(args.active.id))
+        (c) => keyBlock.get(String(c.id)) === keyBlock.get(String(args.active.id)),
       ),
     });
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const from = seq.findIndex(s => stepKey(s) === active.id);
-    const to = seq.findIndex(s => stepKey(s) === over.id);
-    if (
-      from === -1 ||
-      to === -1 ||
-      blockOfStep(seq[from]) !== blockOfStep(seq[to])
-    )
-      return;
-    setSeq(cur => arrayMove(cur, from, to));
+    const from = seq.findIndex((s) => stepKey(s) === active.id);
+    const to = seq.findIndex((s) => stepKey(s) === over.id);
+    if (from === -1 || to === -1 || blockOfStep(seq[from]) !== blockOfStep(seq[to])) return;
+    setSeq((cur) => arrayMove(cur, from, to));
   };
   const canShift = (i: number, dir: -1 | 1) =>
     !!seq[i + dir] && blockOfStep(seq[i + dir]) === blockOfStep(seq[i]);
   const shift = (i: number, dir: -1 | 1) =>
-    setSeq(cur => (canShift(i, dir) ? arrayMove(cur, i, i + dir) : cur));
+    setSeq((cur) => (canShift(i, dir) ? arrayMove(cur, i, i + dir) : cur));
 
   const arrowCls =
     'flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-sm text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft';
@@ -124,7 +118,7 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
       onClick={onClose}
     >
       <div
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
         className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border border-neutral-200 bg-white shadow-xl"
       >
         <div className="border-b border-neutral-100 px-4 pt-4 pb-3 sm:px-5">
@@ -162,9 +156,7 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
                     i < seq.length - 1 && blockOfStep(seq[i + 1]) !== b
                       ? orders[closerOf(b)]
                       : undefined;
-                  const pauseHex = pauseColorHex(
-                    pauseAfter?.gapReason?.color ?? 'grey'
-                  );
+                  const pauseHex = pauseColorHex(pauseAfter?.gapReason?.color ?? 'grey');
                   return (
                     <Fragment key={stepKey(s)}>
                       <SortableItem id={stepKey(s)}>
@@ -237,10 +229,7 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
                       {pauseAfter && (
                         <li
                           className="flex items-center gap-2 rounded-md border px-2 py-1 text-xs text-ink"
-                          style={{
-                            backgroundColor: `${pauseHex}14`,
-                            borderColor: `${pauseHex}66`,
-                          }}
+                          style={{ backgroundColor: `${pauseHex}14`, borderColor: `${pauseHex}66` }}
                         >
                           <span
                             aria-hidden
@@ -248,9 +237,7 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
                             style={{ backgroundColor: pauseHex }}
                           />
                           <span className="min-w-0 flex-1 truncate font-medium">
-                            ⏸{' '}
-                            {pauseAfter.gapReason?.name ??
-                              t('orders.togglePause')}
+                            ⏸ {pauseAfter.gapReason?.name ?? t('orders.togglePause')}
                           </span>
                           {(pauseAfter.gapAfterMin ?? 0) > 0 && (
                             <span className="shrink-0 text-ink-soft">

@@ -139,6 +139,10 @@ export interface GlobalSettings {
    *  form). Sizes stay grouped under their order in form + results; only the
    *  timing follows this sequence. Dropped once it no longer changes anything. */
   queue?: QueueItem[];
+  /** ISO time the work left must not start before — set by the advance while a
+   *  pause between blocks is running (the block before it is done), so the next
+   *  block still waits for the pause's end. Internal, not shown in the form. */
+  resumeAt?: string;
 }
 
 /** A single continuous production window (used when an order is split across
@@ -224,6 +228,11 @@ export interface ScheduledOrder {
   start: Date;
   end: Date;
   gapAfterMin: number;
+  /** When the pause after this order (closing its block) runs — set when
+   *  gapAfterMin > 0. It runs on working time, so it can span a stop. Missing
+   *  in results computed before it existed. */
+  gapStart?: Date;
+  gapEnd?: Date;
   packages?: number;
   totalProfiles?: number;
   producedProfiles?: number;

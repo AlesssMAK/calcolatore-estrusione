@@ -105,6 +105,8 @@ const settingsSchema = z.object({
   queue: z
     .array(z.object({ orderId: z.string(), sizeUid: z.string().optional() }))
     .optional(),
+  // A running pause's end (see GlobalSettings.resumeAt).
+  resumeAt: z.string().optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

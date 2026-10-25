@@ -232,3 +232,58 @@ describe('toggleTracking (🔄 in Salvati)', () => {
     expect(patch.result).toBe(entry.result);
   });
 });
+
+describe('a pause between blocks running "now"', () => {
+  // Mon 06:00: A 120 m (06–08) ⏸ 2 h (08–10) | B 60 m (10–11).
+  function pausedEntry(): SavedCalculation {
+    const start = localDate(2026, 4, 11, 6);
+    const values = {
+      settings: { startMode: 'manual', startAt: start.toISOString(), gapMode: 'continuous' },
+      orders: [
+        {
+          id: 'a',
+          useTotalLength: true,
+          totalLengthM: 120,
+          speedMPerMin: 1,
+          gapEnabled: true,
+          gapAfterMin: 120,
+          gapReason: { id: 'r', name: 'Cambio stampo', color: 'blue', defaultMin: 120 },
+        },
+        { id: 'b', useTotalLength: true, totalLengthM: 60 },
+      ],
+    } as unknown as FormValues;
+    const result = calculateSchedule(values.settings, values.orders, { now: start });
+    const snapshot: ScheduleSnapshot = { warmupMinutes: 0, shutdownMinutes: 0, schedule: null };
+    return { id: 'p', ts: start.getTime(), label: 't', result, values, snapshot };
+  }
+  const hm = (d: Date) => `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+  it('the result carries when the pause runs', () => {
+    const { result } = pausedEntry();
+    expect(hm(result.rows[0]!.gapStart!)).toBe('8:00');
+    expect(hm(result.rows[0]!.gapEnd!)).toBe('10:00');
+    expect(hm(result.rows[1]!.start)).toBe('10:00');
+  });
+
+  it('the next block still waits for the pause end (not "now")', () => {
+    const adv = buildAdvancedCalc(pausedEntry(), localDate(2026, 4, 11, 9))!;
+    expect(adv.completedRows.map((r) => r.order.id)).toEqual(['a']);
+    expect(adv.values.settings.resumeAt).toBe(localDate(2026, 4, 11, 10).toISOString());
+    expect(hm(adv.result.rows[0]!.start)).toBe('10:00');
+    expect(hm(adv.result.endAt)).toBe('11:00');
+  });
+
+  it('results saved before pauses had times: waits for the next start', () => {
+    const entry = pausedEntry();
+    delete entry.result.rows[0]!.gapStart;
+    delete entry.result.rows[0]!.gapEnd;
+    const adv = buildAdvancedCalc(entry, localDate(2026, 4, 11, 9))!;
+    expect(hm(adv.result.rows[0]!.start)).toBe('10:00');
+  });
+
+  it('once the pause is over nothing is held any more', () => {
+    const adv = buildAdvancedCalc(pausedEntry(), localDate(2026, 4, 11, 10, 30))!;
+    expect(adv.values.settings.resumeAt).toBeUndefined();
+    expect(adv.result.rows[0]!.remainingMinutes).toBeCloseTo(30, 0);
+  });
+});

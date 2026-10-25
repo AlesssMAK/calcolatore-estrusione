@@ -5,6 +5,7 @@ import { StopIcon } from './ActionIcons';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { liveSchedule } from '../utils/liveSchedule';
+import { blockIndexes } from '../utils/blocks';
 import {
   resolveSequence,
   stepInfo,
@@ -31,9 +32,13 @@ function StopPicker({ mode, stopped, onClose, onPick }: Props) {
   const [values] = useState(() => getValues());
   const orders = values.orders ?? [];
   const live = useMemo(() => liveSchedule(values, mode), [values, mode]);
+  // Only the stopped size's block: another block is past a pause (a different
+  // product) and can't jump ahead of it.
+  const blockOf = blockIndexes(orders, values.settings?.gapMode);
   const steps = resolveSequence(values.settings?.queue, orders).filter(
     (s) =>
       !(s.orderIdx === stopped.orderIdx && s.sizeIdx === stopped.sizeIdx) &&
+      blockOf[s.orderIdx] === blockOf[stopped.orderIdx] &&
       (!live || stepRemaining(live, s) >= 0.5),
   );
   const stoppedInfo = stepInfo(orders, stopped);

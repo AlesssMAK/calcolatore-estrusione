@@ -99,7 +99,12 @@ export const isOriginal = (sync: SyncMeta | null | undefined): boolean =>
 export function dateReviver(key: string, value: unknown): unknown {
   if (
     typeof value === 'string' &&
-    (key === 'start' || key === 'end' || key === 'startAt' || key === 'endAt')
+    (key === 'start' ||
+      key === 'end' ||
+      key === 'startAt' ||
+      key === 'endAt' ||
+      key === 'gapStart' ||
+      key === 'gapEnd')
   ) {
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? value : d;
