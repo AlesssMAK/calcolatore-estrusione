@@ -5,7 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toolBtnCls } from './toolButton';
+import { toolBtnCls } from '../toolButton';
 
 /** Selection stored in NATURAL image pixels, so zoom/pan never invalidate it. */
 interface Rect {

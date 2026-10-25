@@ -12,6 +12,21 @@ import {
 } from '../lib/catalog';
 import CompaniesTab from '../components/admin/CompaniesTab';
 import GlobalSettingsModal from '../components/admin/GlobalSettingsModal';
+import {
+  AdminModal,
+  Field,
+  ModalActions,
+  RowActions,
+} from '../components/admin/adminUi';
+import { adminInputCls } from '../components/admin/adminStyles';
+import {
+  CalcIcon,
+  CheckIcon,
+  CopyIcon,
+  LogoutIcon,
+  SettingsIcon,
+} from '../components/ActionIcons';
+import { toolBtnCls, toolIconCls } from '../components/toolButton';
 
 type AdminTab = 'products' | 'companies';
 
@@ -176,88 +191,115 @@ function AdminPage() {
     else await reload();
   };
 
+  const editProduct = (p: CatalogProduct) =>
+    setDraft({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      speed_m_per_min: String(p.speed_m_per_min),
+      cavity: p.cavity != null ? String(p.cavity) : '',
+    });
+  const categoryLabel = (p: CatalogProduct) =>
+    p.category === 'sheets' ? 'Lastre' : 'Profili';
+
   return (
     <div className="min-h-full bg-surface-alt">
       <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold text-ink sm:text-lg">
               Admin{company ? ` · ${company.name}` : ' · Listino prodotti'}
             </h1>
             <p className="truncate text-xs text-ink-soft">{user?.email}</p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* Phones: icons only; sm+: icon + label. */}
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setShowGlobal(true)}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-brand-500 sm:text-sm"
+              aria-label="Impostazioni"
+              title="Impostazioni"
+              className={toolBtnCls()}
             >
-              ⚙ Impostazioni
+              <SettingsIcon className={toolIconCls} />
+              <span className="hidden sm:inline">Impostazioni</span>
             </button>
             <Link
               to={calcHref}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-brand-500 sm:text-sm"
+              aria-label="Calcolatore"
+              title="Calcolatore"
+              className={toolBtnCls()}
             >
-              Calcolatore
+              <CalcIcon className={toolIconCls} />
+              <span className="hidden sm:inline">Calcolatore</span>
             </Link>
             <button
               type="button"
               onClick={() => void signOut()}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:border-danger hover:text-danger sm:text-sm"
+              aria-label="Esci"
+              title="Esci"
+              className={`${toolBtnCls()} hover:border-danger hover:text-danger`}
             >
-              Esci
+              <LogoutIcon className={toolIconCls} />
+              <span className="hidden sm:inline">Esci</span>
             </button>
           </div>
         </div>
         {company && (
           <div className="border-t border-neutral-200 bg-neutral-50">
             <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2">
-              <span className="shrink-0 text-xs font-medium text-ink-soft">
+              <span className="hidden shrink-0 text-xs font-medium text-ink-soft sm:inline">
                 Link calcolatore:
               </span>
               <input
                 readOnly
                 value={calcUrl}
+                aria-label="Link calcolatore"
                 onFocus={(e) => e.currentTarget.select()}
-                className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-ink"
+                className="h-8 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm sm:h-9"
               />
               <button
                 type="button"
                 onClick={() => void copyCalcUrl()}
-                className="shrink-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-ink hover:border-brand-500"
+                aria-label={copied ? 'Copiato' : 'Copia'}
+                title={copied ? 'Copiato' : 'Copia'}
+                className={toolBtnCls()}
               >
-                {copied ? '✓ Copiato' : '📋 Copia'}
+                {copied ? (
+                  <CheckIcon className={`${toolIconCls} text-success`} />
+                ) : (
+                  <CopyIcon className={toolIconCls} />
+                )}
+                <span className="hidden sm:inline">{copied ? 'Copiato' : 'Copia'}</span>
               </button>
             </div>
           </div>
         )}
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+      <main className="mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-8">
         {isSuper && (
-          <div className="mb-5 inline-flex rounded-md border border-neutral-300 bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setTab('products')}
-              className={
-                tab === 'products'
-                  ? 'rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white'
-                  : 'rounded-md px-3 py-1.5 text-sm font-medium text-ink-soft hover:text-ink'
-              }
-            >
-              Prodotti
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('companies')}
-              className={
-                tab === 'companies'
-                  ? 'rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white'
-                  : 'rounded-md px-3 py-1.5 text-sm font-medium text-ink-soft hover:text-ink'
-              }
-            >
-              Aziende
-            </button>
+          // Same segmented control as the calculator's Lastre / Profili tabs.
+          <div className="mb-4 inline-flex rounded-lg border border-neutral-200 bg-white p-1 shadow-sm sm:mb-5">
+            {(
+              [
+                ['products', 'Prodotti'],
+                ['companies', 'Aziende'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={
+                  tab === key
+                    ? 'rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition'
+                    : 'rounded-md px-4 py-2 text-sm font-medium text-ink-soft transition hover:bg-neutral-100'
+                }
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
@@ -265,128 +307,120 @@ function AdminPage() {
           <CompaniesTab />
         ) : (
           <>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-ink sm:text-lg">
-            Prodotti ({products.length})
-          </h2>
-          <button
-            type="button"
-            onClick={() => setDraft({ ...emptyDraft })}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700"
-          >
-            + Aggiungi prodotto
-          </button>
-        </div>
+            <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
+              <h2 className="text-base font-semibold text-ink sm:text-lg">
+                Prodotti ({products.length})
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDraft({ ...emptyDraft })}
+                aria-label="Aggiungi Prodotto"
+                title="Aggiungi Prodotto"
+                className={toolBtnCls(true)}
+              >
+                <span aria-hidden className="text-base leading-none">+</span>
+                <span className="hidden sm:inline">Aggiungi Prodotto</span>
+              </button>
+            </div>
 
-        {error && (
-          <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">
-            ⚠ {error}
-          </p>
-        )}
+            {error && (
+              <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">
+                ⚠ {error}
+              </p>
+            )}
 
-        {loading ? (
-          <p className="text-sm text-ink-soft">Caricamento…</p>
-        ) : products.length === 0 ? (
-          <p className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-ink-soft">
-            Nessun prodotto. Clicca «+ Aggiungi prodotto» per iniziare.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  <th className="px-3 py-2">Nome</th>
-                  <th className="px-3 py-2">Categoria</th>
-                  <th className="px-3 py-2 text-right">m/min</th>
-                  <th className="px-3 py-2 text-right">Cavità</th>
-                  <th className="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr key={p.id} className="border-b border-neutral-100 last:border-b-0">
-                    <td className="px-3 py-2 font-medium text-ink">{p.name}</td>
-                    <td className="px-3 py-2 text-ink-soft">
-                      {p.category === 'sheets' ? 'Lastre' : 'Profili'}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-brand-700">
-                      {p.speed_m_per_min}
-                    </td>
-                    <td className="px-3 py-2 text-right text-ink-soft">
-                      {p.cavity ?? '—'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDraft({
-                              id: p.id,
-                              name: p.name,
-                              category: p.category,
-                              speed_m_per_min: String(p.speed_m_per_min),
-                              cavity: p.cavity != null ? String(p.cavity) : '',
-                            })
-                          }
-                          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-brand-500 hover:text-brand-700"
-                        >
-                          ✎ Modifica
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void onDelete(p)}
-                          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-danger hover:text-danger"
-                        >
-                          🗑 Elimina
-                        </button>
+            {loading ? (
+              <p className="text-sm text-ink-soft">Caricamento…</p>
+            ) : products.length === 0 ? (
+              <p className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-ink-soft">
+                Nessun prodotto. Tocca «+» per aggiungerne uno.
+              </p>
+            ) : (
+              <>
+                {/* Phones: one card per product. */}
+                <ul className="space-y-2 sm:hidden">
+                  {products.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{p.name}</p>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                          {categoryLabel(p)} ·{' '}
+                          <span className="font-semibold text-brand-700">
+                            {p.speed_m_per_min} m/min
+                          </span>
+                          {p.cavity != null && <> · Cavità {p.cavity}</>}
+                        </p>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      <RowActions
+                        onEdit={() => editProduct(p)}
+                        onDelete={() => void onDelete(p)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                {/* sm+: a table. */}
+                <div className="hidden overflow-x-auto rounded-md border border-neutral-200 bg-white sm:block">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                        <th className="px-3 py-2">Nome</th>
+                        <th className="px-3 py-2">Categoria</th>
+                        <th className="px-3 py-2 text-right">m/min</th>
+                        <th className="px-3 py-2 text-right">Cavità</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((p) => (
+                        <tr key={p.id} className="border-b border-neutral-100 last:border-b-0">
+                          <td className="px-3 py-2 font-medium text-ink">{p.name}</td>
+                          <td className="px-3 py-2 text-ink-soft">{categoryLabel(p)}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-brand-700">
+                            {p.speed_m_per_min}
+                          </td>
+                          <td className="px-3 py-2 text-right text-ink-soft">
+                            {p.cavity ?? '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <RowActions
+                              onEdit={() => editProduct(p)}
+                              onDelete={() => void onDelete(p)}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </>
         )}
       </main>
 
       {draft && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDraft(null);
-          }}
-        >
-          <form
-            onSubmit={onSubmit}
-            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6"
-          >
+        <AdminModal onClose={() => setDraft(null)}>
+          <form onSubmit={onSubmit}>
             <h3 className="text-base font-semibold text-ink sm:text-lg">
-              {draft.id ? 'Modifica prodotto' : 'Nuovo prodotto'}
+              {draft.id ? 'Modifica Prodotto' : 'Nuovo Prodotto'}
             </h3>
 
             <div className="mt-4 space-y-3">
-              <div>
-                <label className="block text-xs font-medium uppercase tracking-wide text-ink-soft">
-                  Nome
-                </label>
+              <Field label="Nome">
                 <input
                   type="text"
                   autoFocus
                   required
                   value={draft.name}
-                  onChange={(e) =>
-                    setDraft({ ...draft, name: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  className={adminInputCls}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label className="block text-xs font-medium uppercase tracking-wide text-ink-soft">
-                  Categoria
-                </label>
+              <Field label="Categoria">
                 <select
                   value={draft.category}
                   onChange={(e) =>
@@ -395,17 +429,14 @@ function AdminPage() {
                       category: e.target.value as Draft['category'],
                     })
                   }
-                  className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                  className={adminInputCls}
                 >
                   <option value="sheets">Lastre</option>
                   <option value="profiles">Profili</option>
                 </select>
-              </div>
+              </Field>
 
-              <div>
-                <label className="block text-xs font-medium uppercase tracking-wide text-ink-soft">
-                  Velocità (m/min)
-                </label>
+              <Field label="Velocità (m/min)">
                 <input
                   type="number"
                   min="0"
@@ -416,18 +447,20 @@ function AdminPage() {
                   onChange={(e) =>
                     setDraft({ ...draft, speed_m_per_min: e.target.value })
                   }
-                  className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                  className={adminInputCls}
                 />
-              </div>
+              </Field>
 
               {draft.category === 'profiles' && (
-                <div>
-                  <label className="block text-xs font-medium uppercase tracking-wide text-ink-soft">
-                    Cavità{' '}
-                    <span className="ml-1 normal-case text-ink-soft">
-                      (opz.)
-                    </span>
-                  </label>
+                <Field
+                  label={
+                    <>
+                      Cavità{' '}
+                      <span className="ml-1 normal-case text-ink-soft">(opz.)</span>
+                    </>
+                  }
+                  hint="Numero di profili estrusi simultaneamente. Lascia vuoto se 1."
+                >
                   <input
                     type="number"
                     min="1"
@@ -435,37 +468,20 @@ function AdminPage() {
                     inputMode="numeric"
                     placeholder="1"
                     value={draft.cavity}
-                    onChange={(e) =>
-                      setDraft({ ...draft, cavity: e.target.value })
-                    }
-                    className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+                    onChange={(e) => setDraft({ ...draft, cavity: e.target.value })}
+                    className={adminInputCls}
                   />
-                  <p className="mt-1 text-[10px] text-ink-soft">
-                    Numero di profili estrusi simultaneamente. Lascia vuoto
-                    se 1.
-                  </p>
-                </div>
+                </Field>
               )}
             </div>
 
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDraft(null)}
-                className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink hover:border-brand-500"
-              >
-                Annulla
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? 'Salvando…' : draft.id ? 'Salva' : 'Crea'}
-              </button>
-            </div>
+            <ModalActions
+              onCancel={() => setDraft(null)}
+              busy={saving}
+              primary={saving ? 'Salvando…' : draft.id ? 'Salva' : 'Crea'}
+            />
           </form>
-        </div>
+        </AdminModal>
       )}
 
       {showGlobal && companyId && (

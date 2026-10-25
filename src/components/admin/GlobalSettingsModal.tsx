@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   saveCompanySettings,
   WEEKDAY_KEYS,
@@ -9,6 +9,8 @@ import {
 } from '../../lib/catalog';
 import type { WeekendDay } from '../../types';
 import DayHoursRow from '../DayHoursRow';
+import { ModalActions } from './adminUi';
+import { adminLabelCls } from './adminStyles';
 
 const DAY_LABELS: Record<WeekdayKey, string> = {
   mon: 'Lunedì',
@@ -65,6 +67,14 @@ export default function GlobalSettingsModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const setDay = (key: WeekdayKey, value: WeekendDay) => {
     if (!draft.schedule) return;
     setDraft({ ...draft, schedule: { ...draft.schedule, [key]: value } });
@@ -83,208 +93,215 @@ export default function GlobalSettingsModal({
     onClose();
   };
 
+  // A label on the left, the number (+ unit) on the right — one row per setting.
+  const numRow = (
+    key: string,
+    label: string,
+    input: ReactNode,
+    unit?: string,
+  ) => (
+    <div key={key} className="flex items-center justify-between gap-3">
+      <label className="min-w-0 text-sm text-ink-soft">{label}</label>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {input}
+        <span className="w-6 text-xs text-ink-soft">{unit}</span>
+      </div>
+    </div>
+  );
+
   return (
+    // Phones: full screen with a fixed header and footer; sm+: a centred card.
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/50 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Impostazioni Globali"
+      onClick={onClose}
     >
-      <div className="my-auto w-full max-w-lg rounded-xl bg-white p-5 shadow-xl sm:p-6">
-        <div className="flex items-start justify-between gap-3">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex h-full w-full flex-col overflow-hidden bg-white shadow-xl sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-xl"
+      >
+        <header className="flex items-start justify-between gap-2 border-b border-neutral-200 px-4 py-3">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-ink sm:text-lg">
-              Impostazioni globali
-            </h3>
-            {subtitle && (
-              <p className="truncate text-xs text-ink-soft">{subtitle}</p>
-            )}
+            <h3 className="text-base font-semibold text-ink">Impostazioni Globali</h3>
+            {subtitle && <p className="truncate text-xs text-ink-soft">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Chiudi"
-            className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-ink-soft hover:border-brand-500"
+            className="rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
           >
             ✕
           </button>
-        </div>
+        </header>
 
-        {/* Visibilità calcolatore */}
-        <section className="mt-4">
-          <h4 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Mostra nel calcolatore
-          </h4>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {MODE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={draft.modes === o.value}
-                onClick={() => setDraft({ ...draft, modes: o.value })}
-                className={
-                  draft.modes === o.value
-                    ? 'rounded-md border border-brand-600 bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm'
-                    : 'rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-soft shadow-sm hover:border-brand-400 hover:text-ink'
-                }
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-          <label className="mt-3 inline-flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={draft.showPiramide}
-              onChange={(e) =>
-                setDraft({ ...draft, showPiramide: e.target.checked })
-              }
-              className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
-            />
-            Mostra «Piramide» (distribuzione fogli)
-          </label>
-        </section>
-
-        {/* Orari di lavoro */}
-        <section className="mt-5">
-          <label className="inline-flex items-center gap-2 text-sm font-medium text-ink">
-            <input
-              type="checkbox"
-              checked={draft.schedule !== null}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  schedule: e.target.checked ? seedSchedule() : null,
-                })
-              }
-              className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
-            />
-            Orari di lavoro personalizzati (7 giorni)
-          </label>
-          {draft.schedule === null ? (
-            <p className="mt-1 text-xs text-ink-soft">
-              Predefinito: Lun–Ven 24 h, weekend fermo.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {WEEKDAY_KEYS.map((k) => (
-                <DayHoursRow
-                  key={k}
-                  label={DAY_LABELS[k]}
-                  value={draft.schedule![k]}
-                  onChange={(v) => setDay(k, v)}
-                  labels={HOUR_LABELS}
-                />
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+          {/* Visibilità calcolatore */}
+          <section>
+            <h4 className={adminLabelCls}>Mostra nel calcolatore</h4>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+              {MODE_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={draft.modes === o.value}
+                  onClick={() => setDraft({ ...draft, modes: o.value })}
+                  className={
+                    draft.modes === o.value
+                      ? 'rounded-md border border-brand-600 bg-brand-600 px-2 py-1.5 text-sm font-medium text-white shadow-sm sm:px-3'
+                      : 'rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm font-medium text-ink-soft shadow-sm hover:border-brand-400 hover:text-ink sm:px-3'
+                  }
+                >
+                  {o.label}
+                </button>
               ))}
             </div>
+            <label className="mt-3 flex items-start gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={draft.showPiramide}
+                onChange={(e) => setDraft({ ...draft, showPiramide: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+              />
+              Mostra «Piramide» (distribuzione fogli)
+            </label>
+          </section>
+
+          {/* Orari di lavoro */}
+          <section>
+            <label className="flex items-start gap-2 text-sm font-medium text-ink">
+              <input
+                type="checkbox"
+                checked={draft.schedule !== null}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    schedule: e.target.checked ? seedSchedule() : null,
+                  })
+                }
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+              />
+              Orari di lavoro personalizzati (7 giorni)
+            </label>
+            {draft.schedule === null ? (
+              <p className="mt-1 text-xs text-ink-soft">
+                Predefinito: Lun–Ven 24 h, weekend fermo.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {WEEKDAY_KEYS.map((k) => (
+                  <DayHoursRow
+                    key={k}
+                    label={DAY_LABELS[k]}
+                    value={draft.schedule![k]}
+                    onChange={(v) => setDay(k, v)}
+                    labels={HOUR_LABELS}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Buffer linea */}
+          <section>
+            <h4 className={adminLabelCls}>Buffer linea</h4>
+            <div className="mt-2 space-y-2">
+              {(
+                [
+                  ['Riscaldamento', 'warmupMinutes'],
+                  ['Arresto', 'shutdownMinutes'],
+                ] as const
+              ).map(([label, key]) =>
+                numRow(
+                  key,
+                  label,
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    inputMode="decimal"
+                    aria-label={label}
+                    className={numInputCls}
+                    value={draft[key] / 60}
+                    onChange={(e) => {
+                      const h = parseFloat(e.target.value);
+                      setDraft({
+                        ...draft,
+                        [key]: Number.isFinite(h) ? Math.round(h * 60) : 0,
+                      });
+                    }}
+                  />,
+                  'ore',
+                ),
+              )}
+            </div>
+            <p className="mt-2 text-xs text-ink-soft">
+              Riscaldamento a inizio blocco, arresto prima della fine di ogni
+              blocco. Ignorati se la linea è continua (nessuna pausa).
+            </p>
+          </section>
+
+          {/* Cronologia salvataggi */}
+          <section>
+            <h4 className={adminLabelCls}>Risultati salvati</h4>
+            <div className="mt-2 space-y-2">
+              {(
+                [
+                  ['Max risultati', 'maxSavedResults', 1, 100, undefined],
+                  ['Giorni di conservazione', 'savedRetentionDays', 1, 365, 'gg'],
+                  ['Max condivisi azienda', 'maxCompanyShared', 0, 100, undefined],
+                ] as const
+              ).map(([label, key, lo, hi, unit]) =>
+                numRow(
+                  key,
+                  label,
+                  <input
+                    type="number"
+                    min={lo}
+                    max={hi}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label={label}
+                    className={numInputCls}
+                    value={draft[key]}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      setDraft({
+                        ...draft,
+                        [key]: Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo,
+                      });
+                    }}
+                  />,
+                  unit,
+                ),
+              )}
+            </div>
+            <p className="mt-2 text-xs text-ink-soft">
+              Numero massimo di calcoli tenuti nella cronologia «Salvati» e per
+              quanti giorni conservarli.
+            </p>
+          </section>
+
+          {error && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-danger">⚠ {error}</p>
           )}
-        </section>
-
-        {/* Buffer linea */}
-        <section className="mt-5">
-          <h4 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Buffer linea (ore)
-          </h4>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-            {(
-              [
-                ['Riscaldamento', 'warmupMinutes'],
-                ['Arresto', 'shutdownMinutes'],
-              ] as const
-            ).map(([label, key]) => (
-              <div key={key} className="flex items-center gap-2">
-                <label className="text-sm text-ink-soft">{label}</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  inputMode="decimal"
-                  className="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:outline-none"
-                  value={draft[key] / 60}
-                  onChange={(e) => {
-                    const h = parseFloat(e.target.value);
-                    setDraft({
-                      ...draft,
-                      [key]: Number.isFinite(h) ? Math.round(h * 60) : 0,
-                    });
-                  }}
-                />
-                <span className="text-xs text-ink-soft">ore</span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-1 text-xs text-ink-soft">
-            Riscaldamento a inizio blocco, arresto prima della fine di ogni
-            blocco. Ignorati se la linea è continua (nessuna pausa).
-          </p>
-        </section>
-
-        {/* Cronologia salvataggi */}
-        <section className="mt-5">
-          <h4 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Risultati salvati
-          </h4>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-            {(
-              [
-                ['Max risultati', 'maxSavedResults', 1, 100],
-                ['Giorni di conservazione', 'savedRetentionDays', 1, 365],
-                ['Max condivisi azienda', 'maxCompanyShared', 0, 100],
-              ] as const
-            ).map(([label, key, lo, hi]) => (
-              <div key={key} className="flex items-center gap-2">
-                <label className="text-sm text-ink-soft">{label}</label>
-                <input
-                  type="number"
-                  min={lo}
-                  max={hi}
-                  step={1}
-                  inputMode="numeric"
-                  className="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:outline-none"
-                  value={draft[key]}
-                  onChange={(e) => {
-                    const n = parseInt(e.target.value, 10);
-                    setDraft({
-                      ...draft,
-                      [key]: Number.isFinite(n)
-                        ? Math.min(hi, Math.max(lo, n))
-                        : lo,
-                    });
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          <p className="mt-1 text-xs text-ink-soft">
-            Numero massimo di calcoli tenuti nella cronologia «Salvati» e per
-            quanti giorni conservarli.
-          </p>
-        </section>
-
-        {error && (
-          <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">
-            ⚠ {error}
-          </p>
-        )}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink hover:border-brand-500"
-          >
-            Annulla
-          </button>
-          <button
-            type="button"
-            onClick={() => void onSave()}
-            disabled={saving}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving ? 'Salvando…' : 'Salva'}
-          </button>
         </div>
+
+        <footer className="border-t border-neutral-200 px-4 py-3">
+          <ModalActions
+            className=""
+            onCancel={onClose}
+            onConfirm={() => void onSave()}
+            busy={saving}
+            primary={saving ? 'Salvando…' : 'Salva'}
+          />
+        </footer>
       </div>
     </div>
   );
 }
+
+const numInputCls =
+  'h-9 w-20 rounded-md border border-neutral-300 bg-white px-2 text-right text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
