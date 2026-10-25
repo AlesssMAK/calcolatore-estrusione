@@ -508,7 +508,10 @@ function OrdersList({
                   : undefined
               }
               onPrioritizeSize={
-                onPrioritize
+                // ⏭ only within the block in production: another block is
+                // past a pause and can't jump ahead of it.
+                onPrioritize &&
+                (!activeLoc || blockOf[idx] === blockOf[activeLoc.orderIdx])
                   ? (sizeIdx) => onPrioritize(idx, sizeIdx)
                   : undefined
               }

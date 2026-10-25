@@ -10,6 +10,7 @@ import { calculateTotalProfiles } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { buildResultPdfBlob } from '../lib/resultPdf';
 import MarqueeText from './MarqueeText';
+import PauseStrip from './PauseStrip';
 import UnitsTimeline from './UnitsTimeline';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import {
@@ -83,6 +84,12 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
   const [showCompleted, setShowCompleted] = useState(false);
   const doneCount = result.rows.filter(isRowDone).length;
   const sectionRef = useRef<HTMLElement>(null);
+  const [now] = useState(() => new Date());
+  // The pause after a row (closing its block). Under a folded completed order
+  // it still shows while it isn't over (running now / still ahead).
+  const pauseShown = (row: ScheduledOrder, done: boolean): boolean =>
+    row.gapAfterMin > 0 &&
+    (!done || showCompleted || (row.gapEnd?.getTime() ?? 0) > now.getTime());
 
   // Generate a crisp vector PDF of the result and hand it to the user in the
   // most share-friendly way the platform allows:
@@ -296,10 +303,17 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
             const profilesCount = profilesCountFor(row);
             const perItemMin = perItemMinFor(row);
             const done = isRowDone(row);
-            if (done && !showCompleted) return null;
+            const pause = pauseShown(row, done) && (
+              <li>
+                <PauseStrip row={row} now={now} />
+              </li>
+            );
+            if (done && !showCompleted) {
+              return pause ? <Fragment key={row.order.id}>{pause}</Fragment> : null;
+            }
             return (
+              <Fragment key={row.order.id}>
               <li
-                key={row.order.id}
                 className={`rounded-lg border p-3 ${
                   done
                     ? 'border-success/30 bg-success/5'
@@ -560,6 +574,8 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                     />
                   )}
               </li>
+              {pause}
+              </Fragment>
             );
           })}
         </ul>
@@ -606,7 +622,16 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                 const profilesCount = profilesCountFor(row);
                 const perItemMin = perItemMinFor(row);
                 const done = isRowDone(row);
-                if (done && !showCompleted) return null;
+                const pause = pauseShown(row, done) && (
+                  <tr>
+                    <td colSpan={isProfiles ? 9 : 7} className="py-1.5">
+                      <PauseStrip row={row} now={now} />
+                    </td>
+                  </tr>
+                );
+                if (done && !showCompleted) {
+                  return pause ? <Fragment key={row.order.id}>{pause}</Fragment> : null;
+                }
                 const hasProduced =
                   row.producedProfiles !== undefined ||
                   row.producedSheets !== undefined;
@@ -896,6 +921,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                           </td>
                         </tr>
                       )}
+                    {pause}
                   </Fragment>
                 );
               })}

@@ -995,7 +995,11 @@ export function calculateSchedule(
     ),
   };
   // "Senza limiti orari" always counts from now (a manual start is ignored).
-  const rawStart = settings.noLimits ? now : resolveStartDate(settings, now);
+  // A pause running now (set by the advance) holds the rest until it ends.
+  const resumeAt = settings.resumeAt ? new Date(settings.resumeAt) : null;
+  const plannedStart = settings.noLimits ? now : resolveStartDate(settings, now);
+  const rawStart =
+    resumeAt && resumeAt.getTime() > plannedStart.getTime() ? resumeAt : plannedStart;
 
   // A fully continuous line never stops → no warm-up/shutdown and no splitting.
   // Otherwise production runs on "productive windows" (blocks trimmed by the
@@ -1411,6 +1415,18 @@ export function calculateSchedule(
         return { ...sd, start: startI, end: endI };
       });
       const segments = enrich(d, raw);
+      // A finished order adds no real gap and must not push the cursor forward —
+      // keep it (and any following finished orders) at the last working moment
+      // instead of dragging them past the weekend into the next window.
+      let gap: Pick<ScheduledOrder, 'gapStart' | 'gapEnd'> = {};
+      if (rem > 0) {
+        totalGapMinutes += d.gapNatural;
+        const g = run(end, d.gapNatural);
+        cursor = g.end;
+        if (d.gapNatural > 0) gap = { gapStart: g.segments[0]?.start ?? end, gapEnd: g.end };
+      } else {
+        cursor = end;
+      }
       rows.push({
         ...d.base,
         start,
@@ -1418,17 +1434,9 @@ export function calculateSchedule(
         segments: segments.length > 1 ? segments : undefined,
         sizeDetails,
         gapAfterMin: d.gapNatural,
+        ...gap,
       });
       totalProductionMinutes += rem;
-      // A finished order adds no real gap and must not push the cursor forward —
-      // keep it (and any following finished orders) at the last working moment
-      // instead of dragging them past the weekend into the next window.
-      if (rem > 0) {
-        totalGapMinutes += d.gapNatural;
-        cursor = run(end, d.gapNatural).end;
-      } else {
-        cursor = end;
-      }
     }
   } else {
     // Custom queue: run the steps (a size, or a whole single-size / total-
@@ -1452,6 +1460,7 @@ export function calculateSchedule(
     for (const s of working) lastStepOf.set(blockOf[s.orderIdx], s);
     const timed = new Map<string, { start: Date; end: Date; raw: RawSegment[] }>();
     const gapOf = new Map<number, number>();
+    const gapTimesOf = new Map<number, Pick<ScheduledOrder, 'gapStart' | 'gapEnd'>>();
     const key = (s: SeqStep) => `${s.orderIdx}:${s.sizeIdx ?? '*'}`;
     let cursor = rawStart;
     working.forEach((s, i) => {
@@ -1466,7 +1475,9 @@ export function calculateSchedule(
       if (lastStepOf.get(b) === s && i < working.length - 1 && gap > 0) {
         gapOf.set(closer, gap);
         totalGapMinutes += gap;
-        cursor = run(end, gap).end;
+        const g = run(end, gap);
+        gapTimesOf.set(closer, { gapStart: g.segments[0]?.start ?? end, gapEnd: g.end });
+        cursor = g.end;
       }
     });
 
@@ -1506,6 +1517,7 @@ export function calculateSchedule(
         segments: segments.length > 1 ? segments : undefined,
         sizeDetails,
         gapAfterMin: gapOf.get(orderIdx) ?? 0,
+        ...gapTimesOf.get(orderIdx),
       });
       totalProductionMinutes += d.base.remainingMinutes;
     });

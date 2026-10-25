@@ -5,6 +5,7 @@ import {
   formatShortDateTime,
 } from '../utils/format';
 import { calculateTotalProfiles } from '../utils/calculator';
+import { pauseColorHex } from './pauseReasons';
 
 // A translate function (react-i18next's `t`), narrowed to what we use here.
 type T = (key: string, opts?: Record<string, unknown>) => string;
@@ -19,6 +20,10 @@ interface BuildOpts {
 }
 
 type RGB = [number, number, number];
+const hexToRgb = (hex: string): RGB => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
 const INK: RGB = [24, 24, 27];
 const SOFT: RGB = [113, 113, 122];
 const BRAND: RGB = [200, 16, 46];
@@ -69,6 +74,8 @@ interface CardModel {
   segTitle?: string;
   parts?: Part[];
   sizes?: Sub[];
+  /** The pause after this order (closing its block), drawn as a strip below. */
+  pause?: { label: string; when?: string; hex: string };
 }
 
 /**
@@ -253,6 +260,18 @@ export async function buildResultPdfBlob(
       rows,
     };
 
+    if (row.gapAfterMin > 0) {
+      const reason = row.order.gapReason;
+      model.pause = {
+        label: `${reason?.name ?? t('results.pause')} · ${dur(row.gapAfterMin)}`,
+        when:
+          row.gapStart && row.gapEnd
+            ? `${formatShortDateTime(row.gapStart, lang)} – ${formatShortDateTime(row.gapEnd, lang)}`
+            : undefined,
+        hex: pauseColorHex(reason?.color ?? 'grey'),
+      };
+    }
+
     if (row.segments && row.segments.length > 1) {
       model.segTitle = t('results.splitParts', { n: row.segments.length });
       const unitLower = (
@@ -428,6 +447,37 @@ export async function buildResultPdfBlob(
     }
 
     y += h + 4;
+    if (m.pause) drawPause(m.pause);
+  };
+
+  // A pause strip: tinted with its reason's colour (as in the app), a dot, the
+  // name + duration on the left and when it runs on the right.
+  const drawPause = (p: NonNullable<CardModel['pause']>) => {
+    const H = 7;
+    ensure(H + 4);
+    const c = hexToRgb(p.hex);
+    const mix = (k: number): RGB => [
+      Math.round(c[0] * k + 255 * (1 - k)),
+      Math.round(c[1] * k + 255 * (1 - k)),
+      Math.round(c[2] * k + 255 * (1 - k)),
+    ];
+    setFill(mix(0.08));
+    setDraw(mix(0.4));
+    doc.roundedRect(margin, y, contentW, H, 1.5, 1.5, 'FD');
+    setFill(c);
+    doc.circle(margin + 4, y + H / 2, 1.1, 'F');
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    const whenW = p.when ? doc.getTextWidth(p.when) + 4 : 0;
+    doc.setFont('helvetica', 'bold');
+    setText(INK);
+    doc.text(fit(p.label, contentW - 10 - whenW), margin + 7, y + 4.7);
+    if (p.when) {
+      doc.setFont('helvetica', 'normal');
+      setText(SOFT);
+      doc.text(p.when, margin + contentW - 3, y + 4.7, { align: 'right' });
+    }
+    y += H + 4;
   };
 
   cards.forEach(drawCard);
