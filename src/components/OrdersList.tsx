@@ -54,6 +54,7 @@ import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
+import { fmtPause } from '../lib/pauseReasons';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
 import { useTrackedResult } from '../contexts/trackedResult';
@@ -799,12 +800,6 @@ function OrderFields({
 // Pause slots (minutes): 30-min steps up to 12 h.
 const PAUSE_SLOTS: number[] = [];
 for (let m = 30; m <= 720; m += 30) PAUSE_SLOTS.push(m);
-const fmtPause = (min: number) => {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m} min`;
-  return m === 0 ? `${h} h` : `${h} h ${m} min`;
-};
 
 // "Pausa dopo (min)": free numeric input + a ▾ list of 30-min slots to pick.
 function PauseField({ idx, t }: { idx: number; t: TFunction }) {

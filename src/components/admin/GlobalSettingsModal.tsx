@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  saveCompanySettings,
+  patchCompanySettings,
   WEEKDAY_KEYS,
   type CalcModes,
   type CompanySettings,
@@ -83,13 +83,17 @@ export default function GlobalSettingsModal({
   const onSave = async () => {
     setSaving(true);
     setError(null);
-    const { error: err } = await saveCompanySettings(companyId, draft);
+    // The pause reasons have their own tab — keep whatever is saved there.
+    const { settings, error: err } = await patchCompanySettings(companyId, (cur) => ({
+      ...draft,
+      pauseReasons: cur.pauseReasons,
+    }));
     setSaving(false);
-    if (err) {
-      setError(err);
+    if (err || !settings) {
+      setError(err ?? 'Errore');
       return;
     }
-    onSaved(draft);
+    onSaved(settings);
     onClose();
   };
 
