@@ -247,7 +247,9 @@
     "edit": "Modifica i prodotti",
     "sizeEnd": "Fine misura",
     "orderEnd": "Fine ordine",
-    "calculate": "Ricalcola"
+    "calculate": "Ricalcola",
+    "paused": "In Pausa",
+    "afterPause": "Dopo la pausa"
   },
   "company": {
     "results": "Produzione",
@@ -304,7 +306,8 @@
       "waiting": "In pausa",
       "notStarted": "Non iniziato",
       "done": "Completato"
-    }
+    },
+    "pauseUntil": "fino alle {{time}}"
   },
   "compare": {
     "title": "Confronta",

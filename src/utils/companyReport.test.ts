@@ -98,3 +98,64 @@ describe('stage of a published calc at a moment', () => {
     expect(stageAt(payload, at(13, 7)).status).toBe('done');
   });
 });
+
+describe('stageAt — a pause between blocks', () => {
+  // Mon 08:00: A 60 m (08–09) ⏸ Cambio stampo 2 h (09–11) | B 30 m (11–11:30).
+  const s = {
+    startMode: 'manual',
+    startAt: at(12, 8).toISOString(),
+    gapMode: 'continuous',
+  } as GlobalSettings;
+  const o = [
+    {
+      id: 'a',
+      productName: 'PC 10',
+      speedMPerMin: 1,
+      sizes: [{ sheets: 60, length: 1000 }],
+      gapEnabled: true,
+      gapAfterMin: 120,
+      gapReason: { id: 'r', name: 'Cambio stampo', color: 'blue', defaultMin: 120 },
+    },
+    { id: 'b', productName: 'PC 16', sizes: [{ sheets: 30, length: 1000 }] },
+  ] as Order[];
+  const opts = { mode: 'sheets' as const, schedule, warmupMinutes: 0, shutdownMinutes: 0 };
+  const result = calculateSchedule(s, o, { ...opts, now: at(12, 8) });
+  const p: SharedPayload = {
+    v: 1,
+    mode: 'sheets',
+    values: { settings: s, orders: o } as unknown as FormValues,
+    result,
+    snapshot,
+  };
+
+  it('in the pause: "waiting", which pause until when, then the next order', () => {
+    const st = stageAt(p, at(12, 10));
+    expect(st.status).toBe('waiting');
+    expect(st.pause?.name).toBe('Cambio stampo');
+    expect(st.pause?.until.getHours()).toBe(11);
+    expect(st.orderNo).toBe(2);
+  });
+
+  it('also once the block before it was split off as completed', () => {
+    // After an advance in the pause: A is a completed row, B starts at 11:00.
+    const rest = calculateSchedule(
+      { ...s, startMode: 'now', resumeAt: at(12, 11).toISOString() },
+      [{ ...o[1]!, speedMPerMin: 1 }],
+      { ...opts, now: at(12, 10) },
+    );
+    const advanced: SharedPayload = {
+      ...p,
+      result: rest,
+      completedRows: [{ ...result.rows[0]!, completed: true }],
+    };
+    const st = stageAt(advanced, at(12, 10));
+    expect(st.status).toBe('waiting'); // not "not started"
+    expect(st.pause?.name).toBe('Cambio stampo');
+    expect(st.stepStart?.getHours()).toBe(11);
+  });
+
+  it('no pause before / after it', () => {
+    expect(stageAt(p, at(12, 8, 30)).pause).toBeUndefined();
+    expect(stageAt(p, at(12, 11, 10)).status).toBe('running');
+  });
+});

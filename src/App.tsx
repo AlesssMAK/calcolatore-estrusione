@@ -17,6 +17,7 @@ import ActiveOrderModal, {
   type ActiveModalInfo,
 } from './components/ActiveOrderModal';
 import { formatDateParts, formatShortDateTime } from './utils/format';
+import { pauseAt } from './utils/pauseAt';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -76,6 +77,8 @@ import {
 function computeActive(
   result: ScheduleResult,
   lang: string,
+  // Already-completed orders: a pause after the last of them may be running.
+  completed: ScheduledOrder[] = [],
 ): { info: ActiveModalInfo; orderIdx: number; sizeIdx: number } | null {
   const rows = result.rows ?? [];
   const isProfiles = result.mode === 'profiles';
@@ -147,6 +150,7 @@ function computeActive(
         sizeEnd: multi ? formatDateParts(sizes[sizeIdx].end, lang) : undefined,
         otherSizes,
         orderEnd: formatDateParts(row.end, lang),
+        pause: pauseAt([...completed, ...rows], new Date()) ?? undefined,
       },
       orderIdx: i,
       sizeIdx,
@@ -363,7 +367,10 @@ function CalculatorApp() {
     // calc isn't tracked → no collapse.
     const nextActive =
       fromSaved && !frozen
-        ? computeActive(r, i18n.resolvedLanguage ?? 'it')
+        ? computeActive(r, i18n.resolvedLanguage ?? 'it', [
+            ...(keepCompleted ? completedRows : []),
+            ...newlyCompleted,
+          ])
         : null;
     // Recomputed from the active-order modal → it stays open on the new state
     // (the next size / order once this one is done); otherwise it closes.
@@ -617,7 +624,11 @@ function CalculatorApp() {
     setViewFrozen(frozen);
     const active = frozen
       ? null
-      : computeActive(displayed, i18n.resolvedLanguage ?? 'it');
+      : computeActive(
+          displayed,
+          i18n.resolvedLanguage ?? 'it',
+          adv ? adv.completedRows : (entry.completedRows ?? []),
+        );
     setActiveLoc(
       active ? { orderIdx: active.orderIdx, sizeIdx: active.sizeIdx } : null,
     );

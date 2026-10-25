@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
 import { FactoryIcon, PauseIcon, PlayIcon } from './ActionIcons';
+import PauseNowNote from './PauseNowNote';
+import { pauseAt } from '../utils/pauseAt';
 import {
   floatBadgeCls,
   floatBtnCls,
@@ -195,6 +197,14 @@ function CompanyResultsButton({
                   !!onToggleRunning &&
                   (ownedIds.has(c.id) || c.isEditable) &&
                   (paused || !finished);
+                // A pause between blocks running now (its block may already be
+                // among the completed orders).
+                const pauseNow = paused
+                  ? null
+                  : pauseAt(
+                      [...(c.payload.completedRows ?? []), ...(c.payload.result?.rows ?? [])],
+                      new Date(now),
+                    );
                 return (
                   <li
                     key={c.id}
@@ -211,7 +221,7 @@ function CompanyResultsButton({
                       className="flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md px-2 py-2 text-left transition"
                     >
                       <span className="flex w-full items-center gap-1.5">
-                        {inProduction && (
+                        {inProduction && !pauseNow && (
                           <span
                             className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500"
                             aria-hidden
@@ -229,6 +239,7 @@ function CompanyResultsButton({
                           </span>
                         )}
                       </span>
+                      {pauseNow && <PauseNowNote pause={pauseNow} now={new Date(now)} />}
                       <span className="text-[11px] text-ink-soft">
                         {formatRelative(ts, lang)}
                       </span>

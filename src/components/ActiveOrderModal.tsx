@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import { CalcIcon } from './ActionIcons';
+import PauseNowNote from './PauseNowNote';
+import type { RunningPause } from '../utils/pauseAt';
 
 export interface ActiveModalInfo {
   /** Number of the order in production (the form's "#N"). */
@@ -21,6 +23,9 @@ export interface ActiveModalInfo {
   otherSizes: { label: string; end: string }[];
   /** When the whole order ends. */
   orderEnd: { date: string; time: string };
+  /** A pause between blocks running now — then the order above is the one
+   *  that starts after it. */
+  pause?: RunningPause;
 }
 
 interface Props {
@@ -47,6 +52,7 @@ function ActiveOrderModal({
 }: Props) {
   // The produced count turns into an input + "Salva" once tapped.
   const [editing, setEditing] = useState(false);
+  const [now] = useState(() => new Date());
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -97,15 +103,28 @@ function ActiveOrderModal({
           ✕
         </button>
 
-        <div className="mb-3 flex items-center gap-2">
-          <span
-            className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-500"
-            aria-hidden
-          />
-          <h2 className="text-base font-semibold text-ink">
-            {t('activeModal.title')}
-          </h2>
-        </div>
+        {info.pause ? (
+          // In a pause: which and until when, then the order that follows it.
+          <div className="mb-3 space-y-2 pr-6">
+            <h2 className="text-base font-semibold text-ink">
+              {t('activeModal.paused')}
+            </h2>
+            <PauseNowNote pause={info.pause} now={now} />
+            <p className="text-xs tracking-wide text-ink-soft uppercase">
+              {t('activeModal.afterPause')}
+            </p>
+          </div>
+        ) : (
+          <div className="mb-3 flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-500"
+              aria-hidden
+            />
+            <h2 className="text-base font-semibold text-ink">
+              {t('activeModal.title')}
+            </h2>
+          </div>
+        )}
 
         <dl className="space-y-2 text-sm">
           <Row

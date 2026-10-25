@@ -247,7 +247,9 @@
     "edit": "Edit produced count",
     "sizeEnd": "Size ends",
     "orderEnd": "Order ends",
-    "calculate": "Recalculate"
+    "calculate": "Recalculate",
+    "paused": "Paused",
+    "afterPause": "After the pause"
   },
   "company": {
     "results": "Production",
@@ -304,7 +306,8 @@
       "waiting": "Paused",
       "notStarted": "Not started",
       "done": "Completed"
-    }
+    },
+    "pauseUntil": "until {{time}}"
   },
   "compare": {
     "title": "Compare",
