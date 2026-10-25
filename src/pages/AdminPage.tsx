@@ -12,6 +12,7 @@ import {
 } from '../lib/catalog';
 import CompaniesTab from '../components/admin/CompaniesTab';
 import GlobalSettingsModal from '../components/admin/GlobalSettingsModal';
+import PauseReasonsTab from '../components/admin/PauseReasonsTab';
 import {
   AdminModal,
   Field,
@@ -28,7 +29,7 @@ import {
 } from '../components/ActionIcons';
 import { toolBtnCls, toolIconCls } from '../components/toolButton';
 
-type AdminTab = 'products' | 'companies';
+type AdminTab = 'products' | 'reasons' | 'companies';
 
 type Draft = {
   id?: string;
@@ -282,33 +283,40 @@ function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-8">
-        {isSuper && (
-          // Same segmented control as the calculator's Lastre / Profili tabs.
-          <div className="mb-4 inline-flex rounded-lg border border-neutral-200 bg-white p-1 shadow-sm sm:mb-5">
-            {(
-              [
-                ['products', 'Prodotti'],
-                ['companies', 'Aziende'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={
-                  tab === key
-                    ? 'rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition'
-                    : 'rounded-md px-4 py-2 text-sm font-medium text-ink-soft transition hover:bg-neutral-100'
-                }
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Same segmented control as the calculator's Lastre / Profili tabs. */}
+        <div className="mb-4 inline-flex rounded-lg border border-neutral-200 bg-white p-1 shadow-sm sm:mb-5">
+          {(
+            [
+              ['products', 'Prodotti'],
+              ['reasons', 'Causali'],
+              ...(isSuper ? [['companies', 'Aziende'] as const] : []),
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={
+                tab === key
+                  ? 'rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition sm:px-4'
+                  : 'rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-neutral-100 sm:px-4'
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {tab === 'companies' ? (
           <CompaniesTab />
+        ) : tab === 'reasons' ? (
+          companyId && (
+            <PauseReasonsTab
+              companyId={companyId}
+              reasons={companySettings.pauseReasons}
+              onSaved={setCompanySettings}
+            />
+          )
         ) : (
           <>
             <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">

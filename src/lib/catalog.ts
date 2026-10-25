@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { WeekendDay, WeekdayKey, WeekSchedule } from '../types';
+import { normalizePauseReasons, type PauseReason } from './pauseReasons';
 export type { WeekdayKey, WeekSchedule } from '../types';
 
 export interface Company {
@@ -39,6 +40,8 @@ export interface CompanySettings {
   /** Cap on how many results the company can have published to its shared list
    *  at once (0 = disabled). */
   maxCompanyShared: number;
+  /** "Causali di Fermo": named pauses picked between orders. */
+  pauseReasons: PauseReason[];
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -52,6 +55,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   maxSavedResults: 10,
   savedRetentionDays: 5,
   maxCompanyShared: 10,
+  pauseReasons: [],
 };
 
 function parseDay(raw: unknown): WeekendDay {
@@ -94,6 +98,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
     maxSavedResults: intIn(p.maxSavedResults, 10, 1, 100),
     savedRetentionDays: intIn(p.savedRetentionDays, 5, 1, 365),
     maxCompanyShared: intIn(p.maxCompanyShared, 10, 0, 100),
+    pauseReasons: normalizePauseReasons(p.pauseReasons),
   };
 }
 
@@ -194,4 +199,32 @@ export async function saveCompanySettings(
       { onConflict: 'company_id' },
     );
   return { error: error ? error.message : null };
+}
+
+/** Read → patch → write, so saving one part (e.g. the pause reasons) never
+ *  overwrites the rest with defaults when the page's copy is stale or failed to
+ *  load. `patch` may be built from the freshly read settings. Resolves to the
+ *  saved settings. */
+export async function patchCompanySettings(
+  companyId: string,
+  patch:
+    | Partial<CompanySettings>
+    | ((current: CompanySettings) => Partial<CompanySettings>),
+): Promise<{ settings: CompanySettings | null; error: string | null }> {
+  if (!supabase) return { settings: null, error: 'Supabase non disponibile' };
+  const { data, error } = await supabase
+    .from('company_settings')
+    .select('settings')
+    .eq('company_id', companyId)
+    .maybeSingle();
+  if (error) return { settings: null, error: error.message };
+  const current = normalizeCompanySettings(
+    (data as { settings: unknown } | null)?.settings,
+  );
+  const next = {
+    ...current,
+    ...(typeof patch === 'function' ? patch(current) : patch),
+  };
+  const { error: saveErr } = await saveCompanySettings(companyId, next);
+  return saveErr ? { settings: null, error: saveErr } : { settings: next, error: null };
 }
