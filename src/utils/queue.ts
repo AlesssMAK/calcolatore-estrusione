@@ -1,4 +1,5 @@
 import type { Order, QueueItem, ScheduleResult } from '../types';
+import { blockIndexes } from './blocks';
 
 /** A step of the production sequence, by position: one size of an order, or the
  *  whole order (`sizeIdx` null — total-meters / single-size orders, which have
@@ -70,7 +71,13 @@ export function resolveSequence(
     else seq.push(n);
     seen.add(key(n));
   }
-  return seq;
+  // A queue only re-arranges sizes within a block (orders between two pauses):
+  // the blocks themselves run in form order.
+  const blockOf = blockIndexes(orders);
+  return seq
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => blockOf[a.s.orderIdx] - blockOf[b.s.orderIdx] || a.i - b.i)
+    .map(({ s }) => s);
 }
 
 /** True when the sequence differs from the form order. */

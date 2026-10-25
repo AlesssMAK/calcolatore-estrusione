@@ -56,6 +56,15 @@ const orderSchema = z.object({
   cavity: z.number().int('integer').positive('positive').optional(),
   gapEnabled: z.boolean().optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
+  // Snapshot of the company pause reason (see Order.gapReason).
+  gapReason: z
+    .object({
+      id: z.string().optional(),
+      name: z.string(),
+      color: z.string(),
+      defaultMin: z.number().nullable().optional(),
+    })
+    .optional(),
   producedProfiles: producedArray,
   producedPackages: producedArray,
   producedSheets: producedArray,

@@ -16,6 +16,7 @@ import type {
 } from '../types';
 
 import { differsFromNatural, resolveSequence, type SeqStep } from './queue';
+import { blockIndexes, isGapEnabled } from './blocks';
 
 export function sumEntries(entries: ProducedEntry[] | undefined): number {
   if (!entries) return 0;
@@ -570,14 +571,7 @@ function resolveStartDate(settings: GlobalSettings, now: Date): Date {
   return parsed;
 }
 
-/** Is a pause scheduled after this order? Per-order toggle; orders saved before
- *  the toggle existed fall back to the old global "with gaps" setting. */
-export function isGapEnabled(
-  order: Pick<Order, 'gapEnabled'> | undefined,
-  settings: Pick<GlobalSettings, 'gapMode'> | undefined,
-): boolean {
-  return order?.gapEnabled ?? settings?.gapMode === 'withGaps';
-}
+export { isGapEnabled };
 
 function resolveSpeed(
   order: Order,
@@ -1448,8 +1442,14 @@ export function calculateSchedule(
         : (d.sizes?.[s.sizeIdx]?.remainingMinutes ?? 0);
     };
     const working = sequence.filter((s) => stepRem(s) > 0);
+    // The queue re-arranges sizes within a block only, so a block's pause (on
+    // its last order) comes after the block's last step, wherever the queue put
+    // that order's own steps.
+    const blockOf = blockIndexes(orders, settings.gapMode);
+    const blockEnd = new Map<number, number>();
+    blockOf.forEach((b, i) => blockEnd.set(b, i));
     const lastStepOf = new Map<number, SeqStep>();
-    for (const s of working) lastStepOf.set(s.orderIdx, s);
+    for (const s of working) lastStepOf.set(blockOf[s.orderIdx], s);
     const timed = new Map<string, { start: Date; end: Date; raw: RawSegment[] }>();
     const gapOf = new Map<number, number>();
     const key = (s: SeqStep) => `${s.orderIdx}:${s.sizeIdx ?? '*'}`;
@@ -1459,13 +1459,14 @@ export function calculateSchedule(
       const { end, segments: raw } = run(start, stepRem(s));
       timed.set(key(s), { start, end, raw });
       cursor = end;
-      // "Pausa dopo" once the order is done (its last step), unless nothing
-      // follows it.
-      const d = drafts[s.orderIdx];
-      if (lastStepOf.get(s.orderIdx) === s && i < working.length - 1 && d.gapRaw > 0) {
-        gapOf.set(s.orderIdx, d.gapRaw);
-        totalGapMinutes += d.gapRaw;
-        cursor = run(end, d.gapRaw).end;
+      // The block's pause once its work is done, unless nothing follows it.
+      const b = blockOf[s.orderIdx];
+      const closer = blockEnd.get(b)!;
+      const gap = drafts[closer].gapRaw;
+      if (lastStepOf.get(b) === s && i < working.length - 1 && gap > 0) {
+        gapOf.set(closer, gap);
+        totalGapMinutes += gap;
+        cursor = run(end, gap).end;
       }
     });
 

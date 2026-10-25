@@ -29,6 +29,16 @@ export interface ProducedEntry {
   sizeIndex?: number;
 }
 
+/** A pause reason as stored in an order (see Order.gapReason). */
+export interface PauseReasonSnapshot {
+  id?: string;
+  name: string;
+  /** PAUSE_COLORS key. */
+  color: string;
+  /** The reason's fixed duration when picked (null → "Libera"). */
+  defaultMin?: number | null;
+}
+
 export interface Order {
   id: string;
   productName?: string;
@@ -49,6 +59,11 @@ export interface Order {
    *  `settings.gapMode === 'withGaps'` decides (old saved calcs). */
   gapEnabled?: boolean;
   gapAfterMin?: number;
+  /** The company "Causale di Fermo" picked for this pause — a snapshot (name,
+   *  colour, its standard duration), so saved / published calcs keep showing
+   *  it even if the admin later edits or deletes the reason. None → a plain
+   *  pause. */
+  gapReason?: PauseReasonSnapshot;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
   producedSheets?: ProducedEntry[];

@@ -656,7 +656,7 @@ function CalculatorForm({
               ? (e) => {
                   const tag = (e.target as HTMLElement).tagName;
                   if (
-                    (tag === 'INPUT' || tag === 'TEXTAREA') &&
+                    (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') &&
                     e.key !== 'Tab'
                   ) {
                     e.preventDefault();

@@ -77,17 +77,39 @@ describe('custom production queue — scheduling', () => {
     expect(t(r.endAt)).toBe('13:00');
   });
 
-  it('applies "Pausa dopo" after the order\'s last step, never after the very last', () => {
+  it('a pause closes a block: the queue can\'t pull sizes across it', () => {
     const orders = makeOrders();
     orders[0]!.gapEnabled = true;
     orders[0]!.gapAfterMin = 30;
     orders[1]!.gapEnabled = true;
     orders[1]!.gapAfterMin = 30;
     const r = calculateSchedule(settings(Q), orders, { now: at(8) });
-    // A finishes with A2 at 12:00 → 30 min pause → B2 12:30–13:30; B ends last.
-    expect(t(r.rows[1]!.sizeDetails![1]!.start)).toBe('12:30');
+    // Q asks B1 first, but B is in the next block: A1 08–09, A2 09–11, pause
+    // → B1 11:30–12:30, B2 12:30–13:30. No pause after the very last.
+    expect(r.rows[1]!.sizeDetails!.map((s) => t(s.start))).toEqual(['11:30', '12:30']);
     expect(r.rows[0]!.gapAfterMin).toBe(30);
     expect(r.rows[1]!.gapAfterMin).toBe(0);
+    expect(r.totalGapMinutes).toBe(30);
+  });
+
+  it('inside a block the pause comes after the block\'s last step', () => {
+    const orders = makeOrders();
+    // One block [A, B] closed by B's pause, then C.
+    orders[1]!.gapEnabled = true;
+    orders[1]!.gapAfterMin = 30;
+    orders.push({ id: 'C', sizes: [{ sheets: 60, length: 1000, uid: 'c1' }] });
+    // B runs first, A last: the pause still waits for A2 (block end).
+    const q: QueueItem[] = [
+      { orderId: 'B', sizeUid: 'b1' },
+      { orderId: 'B', sizeUid: 'b2' },
+      { orderId: 'A', sizeUid: 'a1' },
+      { orderId: 'A', sizeUid: 'a2' },
+    ];
+    const r = calculateSchedule(settings(q), orders, { now: at(8) });
+    // B1 08–09, B2 09–10, A1 10–11, A2 11–13, pause → C 13:30.
+    expect(t(r.rows[0]!.end)).toBe('13:00');
+    expect(t(r.rows[2]!.start)).toBe('13:30');
+    expect(r.rows[1]!.gapAfterMin).toBe(30);
     expect(r.totalGapMinutes).toBe(30);
   });
 
