@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
+import { toolBtnCls } from '../toolButton';
+import { AdminModal, Field, ModalActions, RowActions } from './adminUi';
+import { adminInputCls } from './adminStyles';
 
 interface CompanyRow {
   id: string;
@@ -164,18 +167,24 @@ function CompaniesTab() {
     await reload();
   };
 
+  const editCompany = (r: CompanyRow) =>
+    setEditDraft({ id: r.id, slug: r.slug, name: r.name });
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <h2 className="text-base font-semibold text-ink sm:text-lg">
           Aziende ({rows.length})
         </h2>
         <button
           type="button"
           onClick={() => setCreateDraft({ ...emptyCreate })}
-          className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700"
+          aria-label="Nuova Azienda"
+          title="Nuova Azienda"
+          className={toolBtnCls(true)}
         >
-          + Nuova azienda
+          <span aria-hidden className="text-base leading-none">+</span>
+          <span className="hidden sm:inline">Nuova Azienda</span>
         </button>
       </div>
 
@@ -192,70 +201,77 @@ function CompaniesTab() {
           Nessuna azienda.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                <th className="px-3 py-2">Nome</th>
-                <th className="px-3 py-2">Slug</th>
-                <th className="px-3 py-2 text-right">Prodotti</th>
-                <th className="px-3 py-2 text-right">Admin</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-neutral-100 last:border-b-0"
-                >
-                  <td className="px-3 py-2 font-medium text-ink">{r.name}</td>
-                  <td className="px-3 py-2 text-ink-soft">
-                    <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">
+        <>
+          {/* Phones: one card per company. */}
+          <ul className="space-y-2 sm:hidden">
+            {rows.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{r.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-ink-soft">
+                    <code className="rounded bg-neutral-100 px-1 py-0.5 text-[11px]">
                       {r.slug}
-                    </code>
-                  </td>
-                  <td className="px-3 py-2 text-right">{r.productCount}</td>
-                  <td className="px-3 py-2 text-right text-ink-soft">
-                    {r.adminEmail ?? '—'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditDraft({
-                            id: r.id,
-                            slug: r.slug,
-                            name: r.name,
-                          })
-                        }
-                        className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-brand-500 hover:text-brand-700"
-                      >
-                        ✎ Modifica
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void onDelete(r)}
-                        disabled={busy}
-                        className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:border-danger hover:text-danger disabled:opacity-60"
-                      >
-                        🗑 Elimina
-                      </button>
-                    </div>
-                  </td>
+                    </code>{' '}
+                    · {r.productCount} prodotti
+                    {r.adminEmail && <> · {r.adminEmail}</>}
+                  </p>
+                </div>
+                <RowActions
+                  onEdit={() => editCompany(r)}
+                  onDelete={() => void onDelete(r)}
+                  disabled={busy}
+                />
+              </li>
+            ))}
+          </ul>
+          {/* sm+: a table. */}
+          <div className="hidden overflow-x-auto rounded-md border border-neutral-200 bg-white sm:block">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                  <th className="px-3 py-2">Nome</th>
+                  <th className="px-3 py-2">Slug</th>
+                  <th className="px-3 py-2 text-right">Prodotti</th>
+                  <th className="px-3 py-2 text-right">Admin</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-b border-neutral-100 last:border-b-0">
+                    <td className="px-3 py-2 font-medium text-ink">{r.name}</td>
+                    <td className="px-3 py-2 text-ink-soft">
+                      <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">
+                        {r.slug}
+                      </code>
+                    </td>
+                    <td className="px-3 py-2 text-right">{r.productCount}</td>
+                    <td className="px-3 py-2 text-right text-ink-soft">
+                      {r.adminEmail ?? '—'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <RowActions
+                        onEdit={() => editCompany(r)}
+                        onDelete={() => void onDelete(r)}
+                        disabled={busy}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {createDraft && (
-        <Modal onClose={() => setCreateDraft(null)}>
+        <AdminModal onClose={() => setCreateDraft(null)}>
           <form onSubmit={onCreate}>
             <h3 className="text-base font-semibold text-ink sm:text-lg">
-              Nuova azienda
+              Nuova Azienda
             </h3>
             <p className="mt-1 text-xs text-ink-soft">
               Verrà creata l'azienda + l'utente admin (email + password) +
@@ -272,7 +288,7 @@ function CompaniesTab() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, name: e.target.value })
                   }
-                  className={inputCls}
+                  className={adminInputCls}
                 />
               </Field>
 
@@ -284,6 +300,9 @@ function CompaniesTab() {
                   type="text"
                   required
                   pattern="[a-z0-9-]+"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={createDraft.slug}
                   onChange={(e) =>
                     setCreateDraft({
@@ -291,7 +310,7 @@ function CompaniesTab() {
                       slug: e.target.value.toLowerCase(),
                     })
                   }
-                  className={`${inputCls} font-mono`}
+                  className={`${adminInputCls} font-mono`}
                 />
               </Field>
 
@@ -299,11 +318,12 @@ function CompaniesTab() {
                 <input
                   type="email"
                   required
+                  autoCapitalize="none"
                   value={createDraft.email}
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, email: e.target.value })
                   }
-                  className={inputCls}
+                  className={adminInputCls}
                 />
               </Field>
 
@@ -315,6 +335,9 @@ function CompaniesTab() {
                   type="text"
                   required
                   minLength={8}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={createDraft.password}
                   onChange={(e) =>
                     setCreateDraft({
@@ -322,25 +345,25 @@ function CompaniesTab() {
                       password: e.target.value,
                     })
                   }
-                  className={`${inputCls} font-mono`}
+                  className={`${adminInputCls} font-mono`}
                 />
               </Field>
             </div>
 
-            <Actions
+            <ModalActions
               onCancel={() => setCreateDraft(null)}
               busy={busy}
-              primary={busy ? 'Creando…' : 'Crea azienda'}
+              primary={busy ? 'Creando…' : 'Crea Azienda'}
             />
           </form>
-        </Modal>
+        </AdminModal>
       )}
 
       {editDraft && (
-        <Modal onClose={() => setEditDraft(null)}>
+        <AdminModal onClose={() => setEditDraft(null)}>
           <form onSubmit={onEdit}>
             <h3 className="text-base font-semibold text-ink sm:text-lg">
-              Modifica azienda
+              Modifica Azienda
             </h3>
             <div className="mt-4 space-y-3">
               <Field label="Nome">
@@ -352,7 +375,7 @@ function CompaniesTab() {
                   onChange={(e) =>
                     setEditDraft({ ...editDraft, name: e.target.value })
                   }
-                  className={inputCls}
+                  className={adminInputCls}
                 />
               </Field>
               <Field
@@ -363,6 +386,9 @@ function CompaniesTab() {
                   type="text"
                   required
                   pattern="[a-z0-9-]+"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={editDraft.slug}
                   onChange={(e) =>
                     setEditDraft({
@@ -370,91 +396,18 @@ function CompaniesTab() {
                       slug: e.target.value.toLowerCase(),
                     })
                   }
-                  className={`${inputCls} font-mono`}
+                  className={`${adminInputCls} font-mono`}
                 />
               </Field>
             </div>
-            <Actions
+            <ModalActions
               onCancel={() => setEditDraft(null)}
               busy={busy}
               primary={busy ? 'Salvando…' : 'Salva'}
             />
           </form>
-        </Modal>
+        </AdminModal>
       )}
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
-
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-medium uppercase tracking-wide text-ink-soft">
-        {label}
-      </label>
-      <div className="mt-1">{children}</div>
-      {hint && <p className="mt-1 text-[11px] text-ink-soft">{hint}</p>}
-    </div>
-  );
-}
-
-function Modal({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl sm:p-6">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Actions({
-  onCancel,
-  busy,
-  primary,
-}: {
-  onCancel: () => void;
-  busy: boolean;
-  primary: string;
-}) {
-  return (
-    <div className="mt-5 flex justify-end gap-2">
-      <button
-        type="button"
-        onClick={onCancel}
-        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink hover:border-brand-500"
-      >
-        Annulla
-      </button>
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {primary}
-      </button>
     </div>
   );
 }

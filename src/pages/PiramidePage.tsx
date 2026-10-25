@@ -7,7 +7,7 @@ import ImageCropper from '../components/piramide/ImageCropper';
 import ImportFromSaved from '../components/piramide/ImportFromSaved';
 import SavedPiramideButton from '../components/piramide/SavedPiramideButton';
 import UseInCalculator from '../components/piramide/UseInCalculator';
-import { toolBtnCls, toolIconCls } from '../components/piramide/toolButton';
+import { toolBtnCls, toolIconCls } from '../components/toolButton';
 import {
   CameraIcon,
   ImageIcon,

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { isViewOnly, loadHistory } from '../../lib/calcHistory';
 import { CalcIcon } from '../ActionIcons';
-import { toolBtnCls, toolIconCls } from './toolButton';
+import { toolBtnCls, toolIconCls } from '../toolButton';
 
 interface CalcOption {
   id: string;
