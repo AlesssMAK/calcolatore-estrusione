@@ -247,7 +247,9 @@
     "edit": "Editar los producidos",
     "sizeEnd": "Fin medida",
     "orderEnd": "Fin del pedido",
-    "calculate": "Recalcular"
+    "calculate": "Recalcular",
+    "paused": "En Pausa",
+    "afterPause": "Después de la pausa"
   },
   "company": {
     "results": "Producción",
@@ -304,7 +306,8 @@
       "waiting": "En pausa",
       "notStarted": "No iniciado",
       "done": "Completado"
-    }
+    },
+    "pauseUntil": "hasta las {{time}}"
   },
   "compare": {
     "title": "Comparar",

@@ -1,6 +1,7 @@
 import type { SharedPayload } from '../lib/sharedCalc';
 import type { ScheduleSnapshot } from '../types';
 import { isWorkingAt, progressAsOf } from './calculator';
+import { pauseAt, type RunningPause } from './pauseAt';
 
 /** Where a published calc stands at a given moment:
  *  - running — a size is being produced
@@ -25,6 +26,9 @@ export interface ReportStage {
   unit: 'pieces' | 'meters';
   /** When this step starts (useful while not started / waiting). */
   stepStart?: Date;
+  /** A pause between blocks running at that moment (status "waiting"); the
+   *  order fields then describe what comes after it. */
+  pause?: RunningPause;
   /** End of the whole queue. */
   calcEnd: Date;
 }
@@ -86,13 +90,18 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
   const step = current ?? steps.find((s) => s.start.getTime() > t) ?? null;
   if (!step) return { status: 'done', unit: 'pieces', calcEnd: result.endAt };
 
+  // A pause between blocks — the block before it may already be among the
+  // completed orders (then the rest starts after the pause, not "not started").
+  const pause = current ? null : pauseAt([...(p.completedRows ?? []), ...result.rows], at);
   const status: StageStatus = current
     ? isWorkingAt(at, snapshot)
       ? 'running'
       : 'stopped'
-    : t < steps[0].start.getTime()
-      ? 'notStarted'
-      : 'waiting';
+    : pause
+      ? 'waiting'
+      : t < steps[0].start.getTime()
+        ? 'notStarted'
+        : 'waiting';
 
   const row = result.rows[step.orderIdx];
   const progress = progressAsOf(result, at, snapshot).orders[step.orderIdx];
@@ -120,5 +129,6 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
     unit: unitOf(step.orderIdx),
     stepStart: step.start,
     calcEnd: result.endAt,
+    ...(pause ? { pause } : {}),
   };
 }

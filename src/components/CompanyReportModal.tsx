@@ -7,6 +7,7 @@ import { nextClosing } from '../utils/calculator';
 import { stageAt, type ReportStage } from '../utils/companyReport';
 import { loadWeekendPref } from '../utils/defaults';
 import { formatDateParts } from '../utils/format';
+import PauseNowNote from './PauseNowNote';
 
 type ReportMode = 'current' | 'closing' | 'at';
 const MODES: ReportMode[] = ['current', 'closing', 'at'];
@@ -246,6 +247,16 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                       </span>
                       <StatusChip status={stage.status} label={t(`report.status.${stage.status}`)} />
                     </span>
+
+                    {/* A pause between blocks: which and until when; the order
+                        below is the one after it. */}
+                    {stage.pause && (
+                      <PauseNowNote
+                        pause={stage.pause}
+                        now={new Date(atMs)}
+                        className="mt-1.5"
+                      />
+                    )}
 
                     {stage.orderNo !== undefined && (
                       <>
