@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useCatalog } from '../contexts/CatalogContext';
 
 function AdminLoginPage() {
   'use no memo';
   const { signIn, user, loading } = useAuth();
+  const { company } = useCatalog();
   const navigate = useNavigate();
+  const backHref = company ? `/?company=${encodeURIComponent(company.slug)}` : '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -88,7 +91,9 @@ function AdminLoginPage() {
           </form>
 
           <p className="mt-6 text-center text-xs text-ink-soft">
-            <a href="/" className="hover:text-brand-700">
+            {/* Back to the calculator it was opened from (the logo hold), with
+                its company — a full load, as the catalog reads ?company= then. */}
+            <a href={backHref} className="hover:text-brand-700">
               ← Torna al calcolatore
             </a>
           </p>

@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { useLongPress } from '../hooks/useLongPress';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useCatalog } from '../contexts/CatalogContext';
 import { clearDraft } from '../lib/formDraft';
@@ -22,17 +24,34 @@ function Header({ title, homeHref }: Props) {
   const homeUrl = company
     ? `${base}?company=${encodeURIComponent(company.slug)}`
     : base;
+  // Hidden way into the admin (the installed app has no address bar): hold the
+  // logo for ~2 s. A normal tap still goes home.
+  const navigate = useNavigate();
+  const adminPress = useLongPress(() => navigate('/admin'));
 
   return (
     <header className="no-print border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-2 px-3 py-3 sm:flex-nowrap sm:gap-4 sm:px-4 sm:py-4">
         <a
           href={homeUrl}
-          onClick={() => clearDraft()}
-          className="block shrink-0"
+          {...adminPress.handlers}
+          onClick={(e) => {
+            if (adminPress.wasLongPress()) {
+              e.preventDefault();
+              return;
+            }
+            clearDraft();
+          }}
+          draggable={false}
+          className="block shrink-0 select-none [-webkit-touch-callout:none]"
           aria-label={heading}
         >
-          <img src="/logo.png" alt={heading} className="h-10 w-50 md:h-12" />
+          <img
+            src="/logo.png"
+            alt={heading}
+            draggable={false}
+            className="h-10 w-50 md:h-12"
+          />
         </a>
         <h1 className="order-last w-full text-center text-base font-semibold text-ink leading-tight sm:order-none sm:w-auto sm:flex-1 sm:whitespace-nowrap sm:text-[clamp(0.7rem,2.6vw,1.25rem)]">
           {heading}
