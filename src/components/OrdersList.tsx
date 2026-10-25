@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -25,6 +26,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
@@ -45,7 +47,15 @@ import {
   removeMap,
   type SizeEntryField,
 } from '../utils/sizeEntries';
-import { isGapEnabled } from '../utils/calculator';
+import {
+  blockIndexes,
+  isGapEnabled,
+  moveBlock,
+  moveInBlock,
+  NO_PAUSE,
+  samePause,
+  type Rearrangement,
+} from '../utils/blocks';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { StopIcon } from './ActionIcons';
 import FieldError from './FieldError';
@@ -54,7 +64,8 @@ import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
-import { fmtPause } from '../lib/pauseReasons';
+import { inputBase, labelBase } from './formStyles';
+import PauseCard from './PauseCard';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
 import { useTrackedResult } from '../contexts/trackedResult';
@@ -66,18 +77,12 @@ import {
 } from '../utils/inherit';
 import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/format';
 
-// All form inputs share a fixed height: 32px on mobile, 36px on sm+ (matching
-// the +/− action buttons). Height controls the size, so no vertical padding.
-const inputBase =
-  'h-8 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9';
 // Size-row inputs sit next to the +/−/✓ action buttons. Fixed height so they
 // line up with the buttons — 36px on sm+ (= button height), a smaller 32px on
 // mobile (with the buttons also shrunk) so the buttons take less room and the
 // number fields get more width. Height controls the size, so no vertical pad.
 const sizeInputBase =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
-const labelBase =
-  'block text-xs font-medium tracking-wide text-ink-soft uppercase';
 
 type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
 
@@ -126,6 +131,7 @@ function OrdersList({
     formState: { errors },
     control,
     setValue,
+    getValues,
     register,
   } = useFormContext<FormValues>();
 
@@ -150,26 +156,100 @@ function OrdersList({
     }
   };
 
-  // Reorder the queue: drag (a press-hold handle, mobile) or ↑/↓ buttons
-  // (desktop). Both call useFieldArray.move so RHF state stays consistent.
+  const gapMode = useWatch({ control, name: 'settings.gapMode' });
+  const watchedOrders = useWatch({ control, name: 'orders' });
+
+  // Blocks: the orders between two pauses (see utils/blocks). A block's id is
+  // its first order's field key, so it stays stable while it moves.
+  const blockOf = blockIndexes(
+    fields.map((_, i) => watchedOrders?.[i] ?? {}),
+    gapMode,
+  );
+  const blocks: number[][] = [];
+  blockOf.forEach((b, i) => (blocks[b] ??= []).push(i));
+  const multiBlock = blocks.length > 1;
+  const blockKey = (list: number[]) => `block:${fields[list[0]].id}`;
+  const blockOfField = new Map(fields.map((f, i) => [f.id, blockOf[i]]));
+
+  // A dragged block lands among blocks only; a dragged order among the orders
+  // of its own block only (they never move alone into another block).
+  const sameGroup = (activeId: unknown, id: unknown) => {
+    const a = String(activeId);
+    const b = String(id);
+    return a.startsWith('block:')
+      ? b.startsWith('block:')
+      : !b.startsWith('block:') && blockOfField.get(b) === blockOfField.get(a);
+  };
+  const collision: CollisionDetection = (args) =>
+    closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((c) =>
+        sameGroup(args.active.id, c.id),
+      ),
+    });
+
+  // Reorder: drag a press-hold handle (mobile / mouse) or the keyboard (focus
+  // the handle, Space, arrows, Space). The arrows only step through the same
+  // group too — otherwise they'd land on the enclosing block.
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { delay: 200, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: (event, args) => {
+        const all = args.context.droppableContainers;
+        const activeId = args.context.active?.id;
+        const scoped = {
+          getEnabled: () => all.getEnabled().filter((c) => sameGroup(activeId, c.id)),
+          get: (id: Parameters<typeof all.get>[0]) => all.get(id),
+        } as unknown as typeof all;
+        return sortableKeyboardCoordinates(event, {
+          ...args,
+          context: { ...args.context, droppableContainers: scoped },
+        });
+      },
     }),
   );
+
+  // Apply a re-arrangement with field-array moves (keeps each order's field
+  // key → its expanded / registered state), then re-seat the pauses on the
+  // blocks' new last orders.
+  const applyArrangement = (r: Rearrangement, before: FormValues['orders']) => {
+    const cur = before.map((_, i) => i);
+    r.order.forEach((oldIdx, i) => {
+      const pos = cur.indexOf(oldIdx);
+      if (pos !== i) {
+        move(pos, i);
+        cur.splice(i, 0, ...cur.splice(pos, 1));
+      }
+    });
+    const opts = { shouldDirty: true, shouldValidate: true };
+    r.pauses.forEach((pause, i) => {
+      if (samePause(before[r.order[i]], pause, gapMode)) return;
+      const next = pause ?? NO_PAUSE;
+      setValue(`orders.${i}.gapEnabled`, next.gapEnabled, opts);
+      setValue(`orders.${i}.gapAfterMin`, next.gapAfterMin, opts);
+      setValue(`orders.${i}.gapReason`, next.gapReason, opts);
+    });
+  };
+
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const from = fields.findIndex((f) => f.id === active.id);
-    const to = fields.findIndex((f) => f.id === over.id);
-    if (from !== -1 && to !== -1) move(from, to);
+    const a = String(active.id);
+    const o = String(over.id);
+    const before = getValues('orders');
+    const keys = blocks.map(blockKey);
+    const r = a.startsWith('block:')
+      ? moveBlock(before, keys.indexOf(a), keys.indexOf(o), gapMode)
+      : moveInBlock(
+          before,
+          fields.findIndex((f) => f.id === a),
+          fields.findIndex((f) => f.id === o),
+          gapMode,
+        );
+    if (r) applyArrangement(r, before);
   };
-
-  const gapMode = useWatch({ control, name: 'settings.gapMode' });
-  const watchedOrders = useWatch({ control, name: 'orders' });
 
   const rootError =
     typeof errors.orders?.message === 'string' ? errors.orders.message : null;
@@ -231,6 +311,229 @@ function OrdersList({
     obs.observe(node);
     return () => obs.disconnect();
   }, []);
+
+  const renderOrder = (
+    field: (typeof fields)[number],
+    idx: number,
+    canDrag: boolean,
+  ) => {
+    const rowErr = errors.orders?.[idx];
+    const wo = watchedOrders?.[idx];
+    // Pause after this order only. Always editable — on the last
+    // order it's simply ignored by the scheduler (nothing follows).
+    const gapOn = isGapEnabled(wo, { gapMode });
+    const oName = wo?.productName?.trim();
+    const oSizes = wo?.sizes ?? [];
+    // Compact list of the order's sizes ("qty × length mm"), so a
+    // collapsed order shows what's inside it at a glance.
+    const sizesSummary = wo?.useTotalLength
+      ? `${Number(wo?.totalLengthM) || 0} m`
+      : oSizes
+          .map(
+            (z) =>
+              `${Number(z?.sheets) || 0} × ${Number(z?.length) || 0} mm`,
+          )
+          .join(' · ');
+    // Key params on the collapsed card too, so an edit (e.g. speed) is
+    // visible without expanding — live from the watched form values.
+    const oSpeed = Number(wo?.speedMPerMin) || 0;
+    const oCavity = Number(wo?.cavity) || 0;
+    const paramsSummary = [
+      oSpeed > 0 ? `⚡ ${oSpeed} m/min` : null,
+      oCavity > 1 ? `× ${oCavity}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    // Collapse inactive orders (not the one in production, not manually
+    // expanded) to a summary while viewing a saved calc.
+    const collapsed =
+      !!activeLoc &&
+      idx !== activeLoc.orderIdx &&
+      !expandedOrders.has(field.id);
+
+    return (
+      <SortableItem key={field.id} id={field.id}>
+        {({ setNodeRef, style, handleProps, isDragging }) =>
+          collapsed ? (
+            <div
+              ref={setNodeRef}
+              style={style}
+              className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedOrders((s) => new Set(s).add(field.id))
+                }
+                // Viewing control — kept in the read-only view.
+                data-view
+                title={t('orders.expandOrder')}
+                className="flex w-full flex-col items-start gap-1 text-left"
+              >
+                <span className="flex w-full items-center gap-2">
+                  <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
+                    #{idx + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                    {oName || t('orders.order', { n: idx + 1 })}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-ink-soft"
+                  >
+                    ▸
+                  </span>
+                </span>
+                <span className="text-xs text-ink-soft">
+                  {sizesSummary}
+                </span>
+                {paramsSummary && (
+                  <span className="text-xs text-ink-soft">
+                    {paramsSummary}
+                  </span>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div
+              ref={setNodeRef}
+              style={style}
+              className={`rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4 ${
+                isDragging ? 'shadow-lg' : ''
+              }`}
+            >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {canDrag && (
+                  <button
+                    type="button"
+                    {...handleProps}
+                    aria-label={t('orders.reorder')}
+                    title={t('orders.reorder')}
+                    className="flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing"
+                  >
+                    ⠿
+                  </button>
+                )}
+                <OrderNameField idx={idx} mode={mode} t={t} />
+              </div>
+              <div className="flex items-center gap-2">
+                {onComplete && (
+          <button
+            type="button"
+            onClick={() => {
+              const id = watchedOrders?.[idx]?.id;
+              if (id) onComplete(id);
+            }}
+            title={t('orders.completeOrder')}
+            className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
+          >
+            ✓{' '}
+            <span className="hidden sm:inline">
+              {t('orders.completeOrder')}
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() =>
+            setValue(
+              `orders.${idx}.useTotalLength`,
+              !watchedOrders?.[idx]?.useTotalLength,
+              { shouldValidate: true },
+            )
+          }
+          aria-pressed={Boolean(
+            watchedOrders?.[idx]?.useTotalLength,
+          )}
+          title={t('orders.toggleTotalLength')}
+          className={
+            watchedOrders?.[idx]?.useTotalLength
+              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+          }
+        >
+          Σ{' '}
+          <span className="hidden sm:inline">
+            {t('orders.toggleTotalLength')}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setValue(`orders.${idx}.gapEnabled`, !gapOn, {
+              shouldValidate: true,
+              shouldDirty: true,
+            })
+          }
+          aria-pressed={gapOn}
+          title={t('orders.togglePause')}
+          className={
+            gapOn
+              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+          }
+        >
+          ⏸{' '}
+          <span className="hidden sm:inline">
+            {t('orders.togglePause')}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => remove(idx)}
+          disabled={fields.length <= 1}
+          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+          aria-label={t('orders.remove')}
+        >
+          🗑{' '}
+          <span className="hidden sm:inline">
+            {t('orders.remove')}
+          </span>
+        </button>
+      </div>
+    </div>
+
+            <OrderFields
+              idx={idx}
+              rowErr={rowErr}
+              mode={mode}
+              t={t}
+              onCompleteSize={
+                onComplete
+                  ? (sizeIdx) => {
+                      const id = watchedOrders?.[idx]?.id;
+                      if (id) onComplete(id, sizeIdx);
+                    }
+                  : undefined
+              }
+              onPrioritizeSize={
+                onPrioritize
+                  ? (sizeIdx) => onPrioritize(idx, sizeIdx)
+                  : undefined
+              }
+              onStopActive={
+                activeLoc && idx === activeLoc.orderIdx
+                  ? onStopActive
+                  : undefined
+              }
+              activeSizeIdx={
+                activeLoc && idx === activeLoc.orderIdx
+                  ? activeLoc.sizeIdx
+                  : null
+              }
+              editingId={editingId}
+              onRevertPiramide={
+                onRevertPiramide
+                  ? () => onRevertPiramide(idx)
+                  : undefined
+              }
+            />
+          </div>
+        )}
+      </SortableItem>
+    );
+  };
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-5">
@@ -294,234 +597,70 @@ function OrdersList({
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collision}
         onDragEnd={handleDragEnd}
       >
+        {/* Blocks (orders between two pauses) are sortable as a whole; their
+            orders only within the block. The pause cards sit between blocks
+            and stay there (they belong to the boundary). */}
         <SortableContext
-          items={fields.map((f) => f.id)}
+          items={multiBlock ? blocks.map(blockKey) : []}
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-3">
-            {fields.map((field, idx) => {
-              const rowErr = errors.orders?.[idx];
-              const wo = watchedOrders?.[idx];
-              // Pause after this order only. Always editable — on the last
-              // order it's simply ignored by the scheduler (nothing follows).
-              const gapOn = isGapEnabled(wo, { gapMode });
-              const showGap = gapOn;
-              const oName = wo?.productName?.trim();
-              const oSizes = wo?.sizes ?? [];
-              // Compact list of the order's sizes ("qty × length mm"), so a
-              // collapsed order shows what's inside it at a glance.
-              const sizesSummary = wo?.useTotalLength
-                ? `${Number(wo?.totalLengthM) || 0} m`
-                : oSizes
-                    .map(
-                      (z) =>
-                        `${Number(z?.sheets) || 0} × ${Number(z?.length) || 0} mm`,
-                    )
-                    .join(' · ');
-              // Key params on the collapsed card too, so an edit (e.g. speed) is
-              // visible without expanding — live from the watched form values.
-              const oSpeed = Number(wo?.speedMPerMin) || 0;
-              const oCavity = Number(wo?.cavity) || 0;
-              const oGap = Number(wo?.gapAfterMin) || 0;
-              const paramsSummary = [
-                oSpeed > 0 ? `⚡ ${oSpeed} m/min` : null,
-                oCavity > 1 ? `× ${oCavity}` : null,
-                showGap && oGap > 0 ? `⏸ ${oGap} min` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ');
-              // Collapse inactive orders (not the one in production, not manually
-              // expanded) to a summary while viewing a saved calc.
-              const collapsed =
-                !!activeLoc &&
-                idx !== activeLoc.orderIdx &&
-                !expandedOrders.has(field.id);
-
+            {blocks.map((list, b) => {
+              const closer = list[list.length - 1];
+              const pauseOn = isGapEnabled(watchedOrders?.[closer], { gapMode });
+              const inner = (
+                <SortableContext
+                  items={list.map((i) => fields[i].id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {list.map((i) => renderOrder(fields[i], i, list.length > 1))}
+                  </div>
+                </SortableContext>
+              );
               return (
-                <SortableItem key={field.id} id={field.id}>
-                  {({ setNodeRef, style, handleProps, isDragging }) =>
-                    collapsed ? (
-                      <div
-                        ref={setNodeRef}
-                        style={style}
-                        className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedOrders((s) => new Set(s).add(field.id))
-                          }
-                          // Viewing control — kept in the read-only view.
-                          data-view
-                          title={t('orders.expandOrder')}
-                          className="flex w-full flex-col items-start gap-1 text-left"
+                <Fragment key={blockKey(list)}>
+                  {multiBlock ? (
+                    <SortableItem id={blockKey(list)}>
+                      {({ setNodeRef, style, handleProps, isDragging }) => (
+                        <div
+                          ref={setNodeRef}
+                          style={style}
+                          className={`space-y-2 rounded-xl border border-dashed border-neutral-300 p-2 sm:space-y-3 sm:p-3 ${
+                            isDragging ? 'bg-white shadow-lg' : ''
+                          }`}
                         >
-                          <span className="flex w-full items-center gap-2">
-                            <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
-                              #{idx + 1}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                              {oName || t('orders.order', { n: idx + 1 })}
-                            </span>
-                            <span
-                              aria-hidden
-                              className="shrink-0 text-ink-soft"
-                            >
-                              ▸
-                            </span>
-                          </span>
-                          <span className="text-xs text-ink-soft">
-                            {sizesSummary}
-                          </span>
-                          {paramsSummary && (
-                            <span className="text-xs text-ink-soft">
-                              {paramsSummary}
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      <div
-                        ref={setNodeRef}
-                        style={style}
-                        className={`rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4 ${
-                          isDragging ? 'shadow-lg' : ''
-                        }`}
-                      >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                          {fields.length > 1 && (
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               {...handleProps}
-                              aria-label={t('orders.reorder')}
-                              title={t('orders.reorder')}
+                              aria-label={t('orders.moveBlock')}
+                              title={t('orders.moveBlock')}
                               className="flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing"
                             >
                               ⠿
                             </button>
-                          )}
-                          <OrderNameField idx={idx} mode={mode} t={t} />
+                            <span className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                              {t('orders.block', { n: b + 1 })}
+                            </span>
+                            <span className="text-xs text-ink-soft">
+                              · {t('orders.blockOrders', { count: list.length })}
+                            </span>
+                          </div>
+                          {inner}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {onComplete && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const id = watchedOrders?.[idx]?.id;
-                        if (id) onComplete(id);
-                      }}
-                      title={t('orders.completeOrder')}
-                      className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
-                    >
-                      ✓{' '}
-                      <span className="hidden sm:inline">
-                        {t('orders.completeOrder')}
-                      </span>
-                    </button>
+                      )}
+                    </SortableItem>
+                  ) : (
+                    inner
                   )}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setValue(
-                        `orders.${idx}.useTotalLength`,
-                        !watchedOrders?.[idx]?.useTotalLength,
-                        { shouldValidate: true },
-                      )
-                    }
-                    aria-pressed={Boolean(
-                      watchedOrders?.[idx]?.useTotalLength,
-                    )}
-                    title={t('orders.toggleTotalLength')}
-                    className={
-                      watchedOrders?.[idx]?.useTotalLength
-                        ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-                        : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
-                    }
-                  >
-                    Σ{' '}
-                    <span className="hidden sm:inline">
-                      {t('orders.toggleTotalLength')}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setValue(`orders.${idx}.gapEnabled`, !gapOn, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    aria-pressed={gapOn}
-                    title={t('orders.togglePause')}
-                    className={
-                      gapOn
-                        ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-                        : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
-                    }
-                  >
-                    ⏸{' '}
-                    <span className="hidden sm:inline">
-                      {t('orders.togglePause')}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(idx)}
-                    disabled={fields.length <= 1}
-                    className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
-                    aria-label={t('orders.remove')}
-                  >
-                    🗑{' '}
-                    <span className="hidden sm:inline">
-                      {t('orders.remove')}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-                      <OrderFields
-                        idx={idx}
-                        rowErr={rowErr}
-                        showGap={showGap}
-                        mode={mode}
-                        t={t}
-                        onCompleteSize={
-                          onComplete
-                            ? (sizeIdx) => {
-                                const id = watchedOrders?.[idx]?.id;
-                                if (id) onComplete(id, sizeIdx);
-                              }
-                            : undefined
-                        }
-                        onPrioritizeSize={
-                          onPrioritize
-                            ? (sizeIdx) => onPrioritize(idx, sizeIdx)
-                            : undefined
-                        }
-                        onStopActive={
-                          activeLoc && idx === activeLoc.orderIdx
-                            ? onStopActive
-                            : undefined
-                        }
-                        activeSizeIdx={
-                          activeLoc && idx === activeLoc.orderIdx
-                            ? activeLoc.sizeIdx
-                            : null
-                        }
-                        editingId={editingId}
-                        onRevertPiramide={
-                          onRevertPiramide
-                            ? () => onRevertPiramide(idx)
-                            : undefined
-                        }
-                      />
-                    </div>
+                  {pauseOn && (
+                    <PauseCard idx={closer} isLast={closer === fields.length - 1} />
                   )}
-                </SortableItem>
+                </Fragment>
               );
             })}
           </div>
@@ -548,7 +687,6 @@ function OrdersList({
 interface FieldsProps {
   idx: number;
   rowErr: OrderError | undefined;
-  showGap: boolean;
   mode: CalculatorMode;
   t: TFunction;
   /** Mark a single size fully produced (bound to this order's id). */
@@ -569,7 +707,6 @@ interface FieldsProps {
 function OrderFields({
   idx,
   rowErr,
-  showGap,
   mode,
   t,
   onCompleteSize,
@@ -698,20 +835,6 @@ function OrderFields({
             }
           />
         )}
-
-        {showGap && (
-          <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
-            <label className={labelBase}>{t('orders.gapAfter')}</label>
-            <PauseField idx={idx} t={t} />
-            <FieldError
-              message={
-                rowErr?.gapAfterMin?.message
-                  ? t(`validation.${rowErr.gapAfterMin.message}`)
-                  : undefined
-              }
-            />
-          </div>
-        )}
       </div>
 
       {useTotalLength ? (
@@ -793,98 +916,6 @@ function OrderFields({
         }
       />
       <OrderEndNote idx={idx} t={t} />
-    </div>
-  );
-}
-
-// Pause slots (minutes): 30-min steps up to 12 h.
-const PAUSE_SLOTS: number[] = [];
-for (let m = 30; m <= 720; m += 30) PAUSE_SLOTS.push(m);
-
-// "Pausa dopo (min)": free numeric input + a ▾ list of 30-min slots to pick.
-function PauseField({ idx, t }: { idx: number; t: TFunction }) {
-  'use no memo';
-  const { register, setValue, control } = useFormContext<FormValues>();
-  const value = useWatch({ control, name: `orders.${idx}.gapAfterMin` });
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  const pick = (m: number) => {
-    setValue(`orders.${idx}.gapAfterMin`, m, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    setOpen(false);
-  };
-
-  return (
-    <div ref={wrapperRef} className="relative mt-1 flex gap-1.5">
-      <input
-        type="number"
-        min="0"
-        step="1"
-        inputMode="numeric"
-        className={inputBase}
-        {...register(`orders.${idx}.gapAfterMin`, {
-          setValueAs: numericSetValueAs,
-        })}
-      />
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        title={t('orders.pauseSlots')}
-        aria-label={t('orders.pauseSlots')}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-300 bg-white text-xs text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink sm:h-9 sm:w-9"
-      >
-        ▾
-      </button>
-      {open && (
-        <ul
-          role="listbox"
-          className="absolute top-full right-0 left-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
-        >
-          {PAUSE_SLOTS.map((m) => (
-            <li key={m}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={Number(value) === m}
-                onClick={() => pick(m)}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm ${
-                  Number(value) === m
-                    ? 'bg-brand-50 font-semibold text-brand-700'
-                    : 'text-ink'
-                }`}
-              >
-                <span>{fmtPause(m)}</span>
-                {m >= 60 && (
-                  <span className="text-[10px] text-ink-soft sm:text-xs">
-                    {m} min
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { calculateSchedule, progressAsOf } from './calculator';
 import { queueStatus } from './queue';
+import { NO_PAUSE, pausesAfterRemoval, samePause } from './blocks';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type {
@@ -125,6 +126,11 @@ export function buildAdvancedCalc(
   let activeSpeed: number | undefined;
   let activeCavity: number | undefined;
 
+  // A block whose last order is done but not the others (a custom queue ran it
+  // first) keeps its closing pause on the last order still in the form.
+  const gapMode = values.settings.gapMode;
+  const pauses = pausesAfterRemoval(values.orders, (i) => !progress.orders[i]?.done, gapMode);
+
   values.orders.forEach((order, i) => {
     const p = progress.orders[i];
 
@@ -137,8 +143,10 @@ export function buildAdvancedCalc(
 
     // Still active → inject produced-so-far and keep it editable. Stamp an
     // inherited speed/cavity only when the order it came from left the form.
+    const pause = pauses.get(i) ?? null;
     const base = {
       ...order,
+      ...(samePause(order, pause, gapMode) ? {} : (pause ?? NO_PAUSE)),
       speedMPerMin:
         resolvedSpeed[i] !== activeSpeed ? resolvedSpeed[i] : order.speedMPerMin,
       cavity:

@@ -304,6 +304,7 @@ function makeFormatter(
     cavity: t('orders.cavity'),
     gapEnabled: t('orders.togglePause'),
     gapAfterMin: t('orders.gapAfter'),
+    gapReason: t('orders.pauseReason'),
     useTotalLength: t('orders.toggleTotalLength'),
     totalLengthM: t('orders.totalLength'),
     sheets: profiles ? t('orders.profiles') : t('orders.sheets'),
@@ -363,6 +364,7 @@ function makeFormatter(
         if (d.field === 'gapAfterMin')
           return typeof v === 'number' ? formatDuration(v, units) : '—';
         if (d.field === 'totalLengthM') return typeof v === 'number' ? `${num(v)} m` : '—';
+        if (d.field === 'gapReason') return (v as { name?: string } | undefined)?.name ?? '—';
         return num(v);
       }
       case 'sizeSequence':
