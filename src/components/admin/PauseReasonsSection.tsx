@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react';
-import { patchCompanySettings, type CompanySettings } from '../../lib/catalog';
 import {
   fmtPause,
   MAX_PAUSE_REASON_MIN,
@@ -10,9 +9,8 @@ import {
 } from '../../lib/pauseReasons';
 import { genId } from '../../utils/defaults';
 import { CheckIcon } from '../ActionIcons';
-import { toolBtnCls } from '../toolButton';
 import { AdminModal, Field, ModalActions, RowActions } from './adminUi';
-import { adminInputCls } from './adminStyles';
+import { adminInputCls, adminLabelCls } from './adminStyles';
 
 type Draft = {
   id?: string;
@@ -30,7 +28,7 @@ const segOff =
 
 /** How a pause looks in the calculator (form + results): a slim card tinted
  *  with the reason's colour. */
-export function PausePreview({
+function PausePreview({
   name,
   color,
   minutes,
@@ -54,38 +52,19 @@ export function PausePreview({
   );
 }
 
-/** Admin tab: the company's "Causali di Fermo" (name, colour, fixed or free
- *  duration), stored in company_settings.pauseReasons. */
-function PauseReasonsTab({
-  companyId,
+/** "Causali di Fermo" section of the global settings: the company's pause
+ *  reasons (name, colour, fixed or free duration). Edits only the settings
+ *  draft — they reach company_settings.pauseReasons with the modal's «Salva». */
+function PauseReasonsSection({
   reasons,
-  onSaved,
+  onChange,
 }: {
-  companyId: string;
   reasons: PauseReason[];
-  onSaved: (s: CompanySettings) => void;
+  onChange: (reasons: PauseReason[]) => void;
 }) {
   'use no memo';
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-
-  // Save against the freshly read list, so nothing saved elsewhere is lost.
-  const save = async (update: (list: PauseReason[]) => PauseReason[]) => {
-    setBusy(true);
-    setError(null);
-    const { settings, error: err } = await patchCompanySettings(companyId, (cur) => ({
-      pauseReasons: update(cur.pauseReasons),
-    }));
-    setBusy(false);
-    if (err || !settings) {
-      setError(err ?? 'Errore');
-      return false;
-    }
-    onSaved(settings);
-    return true;
-  };
 
   const openNew = () => {
     const used = new Set(reasons.map((r) => r.color));
@@ -113,7 +92,7 @@ function PauseReasonsTab({
     return h * 60 + m;
   };
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!draft) return;
     const name = draft.name.trim();
@@ -127,83 +106,67 @@ function PauseReasonsTab({
     if (durationMin != null && (durationMin <= 0 || durationMin > MAX_PAUSE_REASON_MIN)) {
       return setFormError('La durata deve essere tra 1 min e 24 h.');
     }
-    setFormError(null);
     const reason: PauseReason = { id: draft.id ?? genId(), name, color: draft.color, durationMin };
-    const ok = await save((list) =>
-      list.some((r) => r.id === reason.id)
-        ? list.map((r) => (r.id === reason.id ? reason : r))
-        : [...list, reason],
+    onChange(
+      reasons.some((r) => r.id === reason.id)
+        ? reasons.map((r) => (r.id === reason.id ? reason : r))
+        : [...reasons, reason],
     );
-    if (ok) setDraft(null);
+    setDraft(null);
   };
 
-  const onDelete = async (r: PauseReason) => {
+  const onDelete = (r: PauseReason) => {
     if (
       !window.confirm(
         `Eliminare la causale "${r.name}"? I calcoli già salvati mantengono nome e colore.`,
       )
     )
       return;
-    await save((list) => list.filter((x) => x.id !== r.id));
+    onChange(reasons.filter((x) => x.id !== r.id));
   };
 
   return (
-    <div>
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-ink sm:text-lg">
-          Causali di Fermo ({reasons.length})
-        </h2>
+    <section>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className={adminLabelCls}>Causali di Fermo ({reasons.length})</h4>
         <button
           type="button"
           onClick={openNew}
-          aria-label="Nuova Causale"
-          title="Nuova Causale"
-          className={toolBtnCls(true)}
+          className="inline-flex items-center gap-1 rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700"
         >
-          <span aria-hidden className="text-base leading-none">+</span>
-          <span className="hidden sm:inline">Nuova Causale</span>
+          <span aria-hidden className="text-sm leading-none">+</span>
+          Nuova Causale
         </button>
       </div>
-      <p className="mb-3 text-xs text-ink-soft sm:mb-4">
-        Pause tra gli ordini (cambio stampo, pulizia…). Nel calcolatore si
-        scelgono nella «Pausa Dopo»: la durata fissa viene proposta e resta
-        modificabile.
-      </p>
-
-      {error && (
-        <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">⚠ {error}</p>
-      )}
 
       {reasons.length === 0 ? (
-        <p className="rounded-md border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-ink-soft">
-          Nessuna causale. Tocca «+» per aggiungerne una.
+        <p className="mt-2 rounded-md border border-dashed border-neutral-300 p-4 text-center text-sm text-ink-soft">
+          Nessuna causale.
         </p>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {reasons.map((r) => {
-            const hex = pauseColorHex(r.color);
-            return (
-              <li
-                key={r.id}
-                className="flex items-center gap-3 rounded-lg border border-l-4 border-neutral-200 bg-white p-3 shadow-sm"
-                style={{ borderLeftColor: hex }}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{r.name}</p>
-                  <p className="mt-0.5 text-xs text-ink-soft">
-                    {r.durationMin != null ? fmtPause(r.durationMin) : 'Durata libera'}
-                  </p>
-                </div>
-                <RowActions
-                  onEdit={() => openEdit(r)}
-                  onDelete={() => void onDelete(r)}
-                  disabled={busy}
-                />
-              </li>
-            );
-          })}
+        <ul className="mt-2 space-y-2">
+          {reasons.map((r) => (
+            <li
+              key={r.id}
+              className="flex items-center gap-3 rounded-lg border border-l-4 border-neutral-200 bg-white p-2.5 shadow-sm"
+              style={{ borderLeftColor: pauseColorHex(r.color) }}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">{r.name}</p>
+                <p className="mt-0.5 text-xs text-ink-soft">
+                  {r.durationMin != null ? fmtPause(r.durationMin) : 'Durata libera'}
+                </p>
+              </div>
+              <RowActions onEdit={() => openEdit(r)} onDelete={() => onDelete(r)} />
+            </li>
+          ))}
         </ul>
       )}
+      <p className="mt-2 text-xs text-ink-soft">
+        Pause tra i blocchi di ordini (cambio stampo, pulizia…). Nel calcolatore
+        si scelgono nella card della pausa: la durata fissa viene proposta e
+        resta modificabile.
+      </p>
 
       {draft && (
         <AdminModal onClose={() => setDraft(null)}>
@@ -321,14 +284,14 @@ function PauseReasonsTab({
 
             <ModalActions
               onCancel={() => setDraft(null)}
-              busy={busy}
-              primary={busy ? 'Salvando…' : draft.id ? 'Salva' : 'Crea'}
+              busy={false}
+              primary={draft.id ? 'Applica' : 'Aggiungi'}
             />
           </form>
         </AdminModal>
       )}
-    </div>
+    </section>
   );
 }
 
-export default PauseReasonsTab;
+export default PauseReasonsSection;

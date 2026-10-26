@@ -11,6 +11,7 @@ import type { WeekendDay } from '../../types';
 import DayHoursRow from '../DayHoursRow';
 import { ModalActions } from './adminUi';
 import { adminLabelCls } from './adminStyles';
+import PauseReasonsSection from './PauseReasonsSection';
 
 const DAY_LABELS: Record<WeekdayKey, string> = {
   mon: 'Lunedì',
@@ -68,8 +69,9 @@ export default function GlobalSettingsModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // A pause reason's editor on top takes Esc for itself (defaultPrevented).
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -83,11 +85,7 @@ export default function GlobalSettingsModal({
   const onSave = async () => {
     setSaving(true);
     setError(null);
-    // The pause reasons have their own tab — keep whatever is saved there.
-    const { settings, error: err } = await patchCompanySettings(companyId, (cur) => ({
-      ...draft,
-      pauseReasons: cur.pauseReasons,
-    }));
+    const { settings, error: err } = await patchCompanySettings(companyId, draft);
     setSaving(false);
     if (err || !settings) {
       setError(err ?? 'Errore');
@@ -287,6 +285,11 @@ export default function GlobalSettingsModal({
               quanti giorni conservarli.
             </p>
           </section>
+
+          <PauseReasonsSection
+            reasons={draft.pauseReasons}
+            onChange={(pauseReasons) => setDraft({ ...draft, pauseReasons })}
+          />
 
           {error && (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-danger">⚠ {error}</p>

@@ -36,11 +36,15 @@ export function AdminModal({
   children: ReactNode;
 }) {
   useEffect(() => {
+    // Capture phase + preventDefault: when it is opened over another modal
+    // (a pause reason over the settings), Esc closes only this one.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      onClose();
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
   return (
     <div
