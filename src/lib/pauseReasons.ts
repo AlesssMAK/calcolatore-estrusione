@@ -2,6 +2,8 @@
 // cleaning…), each with a colour and an optional fixed duration. Set in /admin
 // (stored in company_settings.pauseReasons), picked in the calculator's pause.
 
+import type { PauseReasonSnapshot } from '../types';
+
 /** 12 distinct colours. No red / pink: the brand red and its pink tint already
  *  mean "in production". */
 export const PAUSE_COLORS = [
@@ -37,6 +39,11 @@ const COLOR_KEYS = new Set<string>(PAUSE_COLORS.map((c) => c.key));
 
 export function pauseColorHex(color: string | undefined): string {
   return PAUSE_COLORS.find((c) => c.key === color)?.hex ?? PAUSE_COLORS[0].hex;
+}
+
+/** What an order keeps of a reason picked for its pause (Order.gapReason). */
+export function reasonSnapshot(r: PauseReason): PauseReasonSnapshot {
+  return { id: r.id, name: r.name, color: r.color, defaultMin: r.durationMin };
 }
 
 /** "30 min", "2 h", "2 h 30 min". */

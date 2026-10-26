@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
 import { useCatalog } from '../contexts/CatalogContext';
-import { fmtPause, pauseColorHex } from '../lib/pauseReasons';
+import { fmtPause, pauseColorHex, reasonSnapshot } from '../lib/pauseReasons';
 import { numericSetValueAs } from '../utils/numeric';
 import FieldError from './FieldError';
 import { inputBase } from './formStyles';
@@ -43,11 +43,7 @@ function PauseCard({ idx, isLast }: { idx: number; isLast: boolean }) {
     }
     const r = reasons.find((x) => x.id === value);
     if (!r) return;
-    setValue(
-      `orders.${idx}.gapReason`,
-      { id: r.id, name: r.name, color: r.color, defaultMin: r.durationMin },
-      opts,
-    );
+    setValue(`orders.${idx}.gapReason`, reasonSnapshot(r), opts);
     if (r.durationMin != null) setValue(`orders.${idx}.gapAfterMin`, r.durationMin, opts);
   };
   const standard = reason?.defaultMin ?? null;

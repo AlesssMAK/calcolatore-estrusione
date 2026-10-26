@@ -313,6 +313,11 @@ button:disabled,
 .calc-readonly textarea {
   pointer-events: none;
 }
+/* Reminders only the editor can act on (e.g. a product change without a
+   pause). */
+.calc-readonly .edit-only {
+  display: none !important;
+}
 
 /* "Calcolo fisso": a static result, not tracked as in production → nothing
    pulses (same resting look as reduced motion). */
