@@ -66,6 +66,12 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
 import { inputBase, labelBase } from './formStyles';
 import PauseCard from './PauseCard';
+import {
+  ProductChangeModal,
+  ProductChangeStrip,
+  type ProductChangeSides,
+} from './ProductChange';
+import { productChangesWithoutPause, sameProduct } from '../utils/productChange';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
 import { useTrackedResult } from '../contexts/trackedResult';
@@ -169,6 +175,14 @@ function OrdersList({
   blockOf.forEach((b, i) => (blocks[b] ??= []).push(i));
   const multiBlock = blocks.length > 1;
   const blockKey = (list: number[]) => `block:${fields[list[0]].id}`;
+  // Different products next to each other with no pause (always inside a
+  // block): a reminder strip between them.
+  const changeAt = new Set(
+    productChangesWithoutPause(
+      fields.map((_, i) => watchedOrders?.[i] ?? {}),
+      gapMode,
+    ),
+  );
   const blockOfField = new Map(fields.map((f, i) => [f.id, blockOf[i]]));
 
   // A dragged block lands among blocks only; a dragged order among the orders
@@ -620,7 +634,18 @@ function OrdersList({
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-3">
-                    {list.map((i) => renderOrder(fields[i], i, list.length > 1))}
+                    {list.map((i) => (
+                      <Fragment key={fields[i].id}>
+                        {renderOrder(fields[i], i, list.length > 1)}
+                        {changeAt.has(i) && (
+                          <ProductChangeStrip
+                            idx={i}
+                            from={watchedOrders?.[i]?.productName ?? ''}
+                            to={watchedOrders?.[i + 1]?.productName ?? ''}
+                          />
+                        )}
+                      </Fragment>
+                    ))}
                   </div>
                 </SortableContext>
               );
@@ -1385,6 +1410,8 @@ function OrderNameField({
   // Phone-only: expand the suggestion list into a full-screen picker so long
   // product names are fully readable. Toggled by a button under the list.
   const [fullScreen, setFullScreen] = useState(false);
+  // "Cambio Prodotto": the product change just picked, asking for its stop.
+  const [change, setChange] = useState<ProductChangeSides | null>(null);
 
   // Close on click outside (also handles taps on mobile via mousedown).
   useEffect(() => {
@@ -1430,6 +1457,7 @@ function OrderNameField({
   const pickProduct = (p: (typeof filtered)[number]) => {
     // The speed / cavity it changes carry down to the orders that follow.
     const before = getValues('orders') ?? [];
+    const changed = !sameProduct(before[idx]?.productName, p.name);
     const prevSpeed = effectiveValue(before, idx, 'speedMPerMin');
     const prevCavity = effectiveValue(before, idx, 'cavity');
     setValue(`orders.${idx}.productName`, p.name, {
@@ -1452,6 +1480,20 @@ function OrderNameField({
     carryDown(getValues, setValue, idx, 'speedMPerMin', prevSpeed);
     carryDown(getValues, setValue, idx, 'cavity', prevCavity);
     setDropdownOpen(false);
+    // Every product change stops the line: next to a different product with
+    // no pause between (the order before, else the one after) → ask which stop.
+    if (changed) {
+      const orders = getValues('orders') ?? [];
+      const open = productChangesWithoutPause(orders, getValues('settings.gapMode'));
+      const at = open.includes(idx - 1) ? idx - 1 : open.includes(idx) ? idx : null;
+      if (at !== null) {
+        setChange({
+          idx: at,
+          from: orders[at].productName ?? '',
+          to: orders[at + 1].productName ?? '',
+        });
+      }
+    }
   };
 
   const reg = register(`orders.${idx}.productName`);
@@ -1591,6 +1633,8 @@ function OrderNameField({
           </div>,
           document.body,
         )}
+
+      {change && <ProductChangeModal change={change} onClose={() => setChange(null)} />}
     </div>
   );
 }
