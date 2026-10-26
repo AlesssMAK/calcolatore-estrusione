@@ -6,10 +6,20 @@ type ProductOrder = Pick<Order, 'productName' | 'gapEnabled'>;
 /** Product names compared the way an operator reads them (case / spaces). */
 const productKey = (name: string | undefined): string => (name ?? '').trim().toLowerCase();
 
+/** Do order `i` and the next one make different products? Orders without a
+ *  product name don't count. */
+export function isProductChange(
+  orders: ReadonlyArray<Pick<Order, 'productName'> | undefined>,
+  i: number,
+): boolean {
+  const a = productKey(orders[i]?.productName);
+  const b = productKey(orders[i + 1]?.productName);
+  return !!a && !!b && a !== b;
+}
+
 /**
  * Every product change stops the line: the indexes `i` where order `i` and the
- * next one make different products with no pause between them. Orders without
- * a product name don't count.
+ * next one make different products with no pause between them.
  */
 export function productChangesWithoutPause(
   orders: ReadonlyArray<ProductOrder | undefined>,
@@ -17,9 +27,7 @@ export function productChangesWithoutPause(
 ): number[] {
   const out: number[] = [];
   for (let i = 0; i < orders.length - 1; i++) {
-    const a = productKey(orders[i]?.productName);
-    const b = productKey(orders[i + 1]?.productName);
-    if (a && b && a !== b && !isGapEnabled(orders[i], { gapMode })) out.push(i);
+    if (isProductChange(orders, i) && !isGapEnabled(orders[i], { gapMode })) out.push(i);
   }
   return out;
 }

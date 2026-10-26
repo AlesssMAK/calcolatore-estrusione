@@ -140,6 +140,19 @@ export function ProductChangeModal({
   );
 }
 
+/** The pause card's ✕ / ⏸ between two different products: it can't go. */
+export function PauseKeptNote(change: ProductChangeSides) {
+  const { t } = useTranslation();
+  return (
+    <p role="alert" className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-danger">
+      <span className="font-semibold">⚠ {t('orders.pauseKeptTitle')}</span>
+      <span className="mt-0.5 block break-words">
+        <Sides {...change} /> — {t('orders.pauseKeptText')}
+      </span>
+    </p>
+  );
+}
+
 /** Between two orders of different products with no pause yet: a reminder
  *  with the reasons to pick from (hidden in the read-only view). */
 export function ProductChangeStrip(change: ProductChangeSides) {

@@ -71,7 +71,11 @@ import {
   ProductChangeStrip,
   type ProductChangeSides,
 } from './ProductChange';
-import { productChangesWithoutPause, sameProduct } from '../utils/productChange';
+import {
+  isProductChange,
+  productChangesWithoutPause,
+  sameProduct,
+} from '../utils/productChange';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
 import { useTrackedResult } from '../contexts/trackedResult';
@@ -183,6 +187,26 @@ function OrdersList({
       gapMode,
     ),
   );
+  const sidesAt = (i: number): ProductChangeSides => ({
+    idx: i,
+    from: watchedOrders?.[i]?.productName ?? '',
+    to: watchedOrders?.[i + 1]?.productName ?? '',
+  });
+
+  // The pause between two different products can't be removed (every product
+  // change stops the line) — its card says so instead.
+  const [pauseKept, setPauseKept] = useState<number | null>(null);
+  const removePause = (i: number) => {
+    if (isProductChange(watchedOrders ?? [], i)) {
+      setPauseKept(i);
+      return;
+    }
+    setPauseKept(null);
+    setValue(`orders.${i}.gapEnabled`, false, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
   const blockOfField = new Map(fields.map((f, i) => [f.id, blockOf[i]]));
 
   // A dragged block lands among blocks only; a dragged order among the orders
@@ -475,10 +499,12 @@ function OrdersList({
         <button
           type="button"
           onClick={() =>
-            setValue(`orders.${idx}.gapEnabled`, !gapOn, {
-              shouldValidate: true,
-              shouldDirty: true,
-            })
+            gapOn
+              ? removePause(idx)
+              : setValue(`orders.${idx}.gapEnabled`, true, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
           }
           aria-pressed={gapOn}
           title={t('orders.togglePause')}
@@ -637,13 +663,7 @@ function OrdersList({
                     {list.map((i) => (
                       <Fragment key={fields[i].id}>
                         {renderOrder(fields[i], i, list.length > 1)}
-                        {changeAt.has(i) && (
-                          <ProductChangeStrip
-                            idx={i}
-                            from={watchedOrders?.[i]?.productName ?? ''}
-                            to={watchedOrders?.[i + 1]?.productName ?? ''}
-                          />
-                        )}
+                        {changeAt.has(i) && <ProductChangeStrip {...sidesAt(i)} />}
                       </Fragment>
                     ))}
                   </div>
@@ -686,7 +706,13 @@ function OrdersList({
                     inner
                   )}
                   {pauseOn && (
-                    <PauseCard idx={closer} isLast={closer === fields.length - 1} />
+                    <PauseCard
+                      idx={closer}
+                      isLast={closer === fields.length - 1}
+                      onRemove={() => removePause(closer)}
+                      kept={pauseKept === closer ? sidesAt(closer) : null}
+                      clearKept={setPauseKept}
+                    />
                   )}
                 </Fragment>
               );

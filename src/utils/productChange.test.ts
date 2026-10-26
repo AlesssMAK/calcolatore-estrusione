@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { productChangesWithoutPause, sameProduct } from './productChange';
+import { isProductChange, productChangesWithoutPause, sameProduct } from './productChange';
 
 const o = (productName: string, gapEnabled = false) => ({ productName, gapEnabled });
 
@@ -24,6 +24,18 @@ describe('productChangesWithoutPause', () => {
     const orders = [{ productName: 'A' }, { productName: 'B' }];
     expect(productChangesWithoutPause(orders, 'withGaps')).toEqual([]);
     expect(productChangesWithoutPause(orders, 'continuous')).toEqual([0]);
+  });
+});
+
+describe('isProductChange', () => {
+  it('different products after order i, pause or not', () => {
+    const orders = [o('A', true), o('B'), o('b '), o('')];
+    expect([0, 1, 2, 3].map((i) => isProductChange(orders, i))).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
   });
 });
 
