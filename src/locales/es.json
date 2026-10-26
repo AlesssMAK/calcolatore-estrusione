@@ -94,6 +94,8 @@
     "pauseRemove": "Quitar Pausa",
     "pauseStandard": "Estándar {{d}}",
     "pauseNoNext": "Se aplica al siguiente pedido",
+    "pauseKeptTitle": "No se puede quitar la pausa",
+    "pauseKeptText": "productos distintos: cada cambio de producto detiene la producción.",
     "block": "Bloque {{n}}",
     "blockOrders_one": "{{count}} pedido",
     "blockOrders_other": "{{count}} pedidos",
