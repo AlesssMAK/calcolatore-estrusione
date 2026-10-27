@@ -44,7 +44,17 @@ export interface SavedCalculation {
   /** (Author's original, see isOriginal) the last Produzione version this
    *  device has seen — what the original is compared against. */
   production?: ProductionSnapshot;
+  /** (Author's original) its own version from before changes were taken from
+   *  Produzione ("Confronta" → "Usa Produzione") — what "Torna alla Mia
+   *  Versione" brings back. Kept until the next "Calcola" saves over it. */
+  beforeProduction?: OwnVersion;
 }
+
+/** The content of a saved calc, without its binding. */
+export type OwnVersion = Pick<
+  SavedCalculation,
+  'label' | 'result' | 'values' | 'snapshot' | 'completedRows'
+>;
 
 /** A published calc as it stood in Produzione at some version. */
 export interface ProductionSnapshot {
@@ -121,8 +131,9 @@ function safeParse(raw: string | null): SavedCalculation[] {
     // revive `values.settings.startAt`, where the form expects a plain ISO
     // string — turn that one back into a string.
     for (const e of parsed as SavedCalculation[]) {
-      // (also in the stored Produzione snapshot, compared with the original)
-      for (const v of [e?.values, e?.production?.payload?.values]) {
+      // (also in the stored Produzione snapshot, compared with the original,
+      // and in the original's own version kept from before it)
+      for (const v of [e?.values, e?.production?.payload?.values, e?.beforeProduction?.values]) {
         const s = v?.settings as { startAt?: unknown } | undefined;
         if (s?.startAt instanceof Date) s.startAt = s.startAt.toISOString();
       }
@@ -255,6 +266,42 @@ export function updateProduction(
   if (idx === -1) return;
   items[idx] = { ...items[idx], production };
   safeWrite(items);
+}
+
+/** Keep the original's own version from before changes are taken from
+ *  Produzione (or forget it, with `undefined`). No-op when the entry is gone. */
+export function updateBeforeProduction(
+  id: string,
+  own: OwnVersion | undefined,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): void {
+  const items = loadHistory(retentionDays);
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx === -1) return;
+  items[idx] = { ...items[idx], beforeProduction: own };
+  safeWrite(items);
+}
+
+/** "Torna alla Mia Versione": the original goes back to its own version from
+ *  before changes were taken from Produzione (same slot, binding and position).
+ *  Returns the updated entry, or null when there's nothing to go back to. */
+export function restoreBeforeProduction(
+  id: string,
+  retentionDays: number = DEFAULT_RETENTION_DAYS,
+): SavedCalculation | null {
+  const items = loadHistory(retentionDays);
+  const idx = items.findIndex((i) => i.id === id);
+  const own = items[idx]?.beforeProduction;
+  if (!own) return null;
+  const next: SavedCalculation = {
+    ...items[idx],
+    ...own,
+    completedRows: own.completedRows?.length ? own.completedRows : undefined,
+    beforeProduction: undefined,
+  };
+  items[idx] = next;
+  safeWrite(items);
+  return next;
 }
 
 /** Pick the most useful human label for a saved result, in this order:
