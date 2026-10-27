@@ -37,7 +37,9 @@ import {
   isViewOnly,
   loadHistory,
   removeCalculation,
+  restoreBeforeProduction,
   saveCalculation,
+  updateBeforeProduction,
   updateCalculation,
   updateProduction,
   updateSyncMeta,
@@ -495,17 +497,21 @@ function CalculatorApp() {
   // it (no edit token, not editable by the company): read-only view.
   const readOnly = isViewOnly(syncMeta);
 
-  // The original on screen against Produzione (plan differences / no longer
-  // listed) — follows its saves and every Produzione refresh.
-  const originalStatus = useMemo(() => {
-    void productionRev; // recount on a Produzione refresh
+  // The original on screen, as stored — follows its saves and every
+  // Produzione refresh.
+  const originalEntry = useMemo(() => {
+    void productionRev; // reread on a Produzione refresh
     void savedRefreshKey; // …and after the original is saved again
     if (!syncMeta || !isOriginal(syncMeta) || !editingId) return null;
-    const entry = loadHistory(settings.savedRetentionDays).find(
-      (e) => e.id === editingId,
+    return (
+      loadHistory(settings.savedRetentionDays).find((e) => e.id === editingId) ?? null
     );
-    return entry ? productionStatus(entry) : null;
   }, [syncMeta, editingId, productionRev, savedRefreshKey, settings.savedRetentionDays]);
+  // …against Produzione (plan differences / no longer listed).
+  const originalStatus = useMemo(
+    () => (originalEntry ? productionStatus(originalEntry) : null),
+    [originalEntry],
+  );
 
   // "Aggiungi ai Salvati" (read-only company calc): copy it into Salvati as an
   // unbound, editable "(copia locale)" entry and open that copy. The calc on
@@ -1136,7 +1142,8 @@ function CalculatorApp() {
   };
 
   // Settle differences from "Confronta": 'production' wins → the original is
-  // updated (recomputed from now, saved, reopened); 'original' wins →
+  // updated (recomputed from now, saved, reopened) and its own version from
+  // before is kept for "Torna alla Mia Versione"; 'original' wins →
   // Produzione is updated (recomputed from now and sent).
   const settleCompare = async (diffs: CalcDiff[], from: DiffSide) => {
     if (!compare) return;
@@ -1167,6 +1174,16 @@ function CalculatorApp() {
         entry.id,
         merged.completedRows,
       );
+      // Several takes in a row: the version from before the first is the own one.
+      const own = entry.beforeProduction ?? {
+        label: entry.label,
+        result: entry.result,
+        values: entry.values,
+        snapshot: entry.snapshot,
+        completedRows: entry.completedRows,
+      };
+      updateBeforeProduction(entry.id, own, settings.savedRetentionDays);
+      if (!entry.beforeProduction) flashNotice(t('company.ownVersionKept'), 5000);
       setSavedRefreshKey((k) => k + 1);
       setCompare({ ...compare, original: versionOf(saved) });
       if (editingId === entry.id) doRestore(saved, false, false);
@@ -1199,6 +1216,17 @@ function CalculatorApp() {
     updateSyncMeta(entry.id, next, settings.savedRetentionDays);
     if (editingId === entry.id) setSyncMeta(next);
     setCompare({ ...compare, production: { version, payload } });
+  };
+
+  // "Torna alla Mia Versione": undo taking changes from Produzione — the
+  // original goes back to what it was before (Produzione isn't touched).
+  const revertToOwnVersion = () => {
+    if (!editingId) return;
+    const entry = restoreBeforeProduction(editingId, settings.savedRetentionDays);
+    if (!entry) return;
+    setSavedRefreshKey((k) => k + 1);
+    doRestore(entry, false, false);
+    flashNotice(t('company.ownVersionBack'));
   };
 
   // "Invia a Produzione": send the original, as last saved, to the shared
@@ -1514,6 +1542,16 @@ function CalculatorApp() {
                       {t('company.send')}
                     </button>
                   </span>
+                )}
+                {isOriginal(syncMeta) && originalEntry?.beforeProduction && (
+                  <button
+                    type="button"
+                    onClick={revertToOwnVersion}
+                    title={t('company.ownVersionHint')}
+                    className="w-full shrink-0 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto sm:py-1.5"
+                  >
+                    ↺ {t('company.ownVersion')}
+                  </button>
                 )}
               </div>
             </div>

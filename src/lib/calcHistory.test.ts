@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   isOriginal,
   loadHistory,
+  restoreBeforeProduction,
   saveCalculation,
+  updateBeforeProduction,
   updateProduction,
   updateSyncMeta,
 } from './calcHistory';
@@ -38,6 +40,38 @@ describe('an original published to Produzione', () => {
     const saved = saveCalculation(result, values, undefined, 'calc');
     expect(saved.sync).toBeUndefined();
     expect(saved.production).toBeUndefined();
+  });
+
+  it('goes back to its own version from before changes taken from Produzione', () => {
+    const saved = saveCalculation(result, values, undefined, 'mine');
+    updateSyncMeta(saved.id, { id: 'p1', token: 't', version: 3, published: true });
+    updateProduction(saved.id, { version: 4, payload, seenAt: 1 });
+    const own = { label: saved.label, result: saved.result, values: saved.values };
+    // "Usa Produzione" saves Produzione's version over the slot…
+    const prodValues = { ...values, orders: [{ ...values.orders[0], sheets: 90 }] };
+    saveCalculation(result, prodValues, undefined, 'theirs', 10, 5, saved.id);
+    updateBeforeProduction(saved.id, own);
+    expect(loadHistory()[0]!.beforeProduction?.values?.orders[0]?.sheets).toBe(60);
+    // (the kept start comes back as the form keeps it — a plain string)
+    expect(typeof loadHistory()[0]!.beforeProduction?.values?.settings.startAt).toBe('string');
+
+    const back = restoreBeforeProduction(saved.id)!;
+    expect(back.label).toBe('mine');
+    expect(back.values?.orders[0]?.sheets).toBe(60);
+    const [entry] = loadHistory();
+    expect(entry!.values?.orders[0]?.sheets).toBe(60);
+    expect(entry!.beforeProduction).toBeUndefined();
+    expect(entry!.sync?.token).toBe('t');
+    expect(entry!.production?.version).toBe(4);
+    // Nothing more to go back to.
+    expect(restoreBeforeProduction(saved.id)).toBeNull();
+  });
+
+  it('"Calcola" saves over the kept version — it’s gone', () => {
+    const saved = saveCalculation(result, values, undefined, 'calc');
+    updateBeforeProduction(saved.id, { label: 'old', result, values });
+    saveCalculation(result, values, undefined, 'calc', 10, 5, saved.id);
+    expect(loadHistory()[0]!.beforeProduction).toBeUndefined();
   });
 
   it('is the author’s copy — not the live version, not a member’s', () => {
