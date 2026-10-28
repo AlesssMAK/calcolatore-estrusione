@@ -1,9 +1,11 @@
 import { calculateSchedule, progressAsOf } from './calculator';
 import { queueStatus } from './queue';
 import { NO_PAUSE, pausesAfterRemoval, samePause } from './blocks';
+import { effectiveValue } from './inherit';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type {
+  Order,
   ProducedEntry,
   ScheduledOrder,
   ScheduleResult,
@@ -42,6 +44,31 @@ export function toCompletedRow(row: ScheduledOrder): ScheduledOrder {
     segments: undefined,
     timePerUnitMin: undefined,
     totalUnits: undefined,
+  };
+}
+
+/** A completed row's order, back in the queue (it wasn't actually done):
+ *  produced fields cleared, and the speed / cavity it ran at written in where
+ *  it inherited them — it usually goes back to the front, where there's
+ *  nothing before it to inherit from. `completed` is the list it came from,
+ *  in production order (an inherited cavity is followed back through it). */
+export function orderFromCompletedRow(
+  row: ScheduledOrder,
+  completed: readonly ScheduledOrder[],
+): Order {
+  const { order } = row;
+  const i = completed.indexOf(row);
+  return {
+    ...order,
+    speedMPerMin:
+      order.speedMPerMin && order.speedMPerMin > 0 ? order.speedMPerMin : row.speedMPerMin,
+    cavity:
+      i >= 0 ? effectiveValue(completed.map((r) => r.order), i, 'cavity') : order.cavity,
+    producedProfiles: [],
+    producedPackages: [],
+    producedSheets: [],
+    producedPallets: [],
+    producedItemLength: [],
   };
 }
 

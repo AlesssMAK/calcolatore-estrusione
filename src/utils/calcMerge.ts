@@ -12,7 +12,12 @@ import type {
   ScheduleSnapshot,
   ScheduledOrder,
 } from '../types';
-import { buildAdvancedCalc, emptyResult, toCompletedRow } from './advance';
+import {
+  buildAdvancedCalc,
+  emptyResult,
+  orderFromCompletedRow,
+  toCompletedRow,
+} from './advance';
 import { calculateSchedule } from './calculator';
 import { producedAt, type CalcDiff, type CalcVersion } from './calcDiff';
 import { queueStatus } from './queue';
@@ -219,15 +224,8 @@ function applyOne(
       // Still running there → back into the queue here, with its progress.
       const row = state.completedRows.find((r) => r.order.id === d.orderId);
       if (!row) return;
+      const o = clone(orderFromCompletedRow(row, state.completedRows));
       state.completedRows = state.completedRows.filter((r) => r !== row);
-      const o: Order = {
-        ...clone(row.order),
-        producedProfiles: [],
-        producedPackages: [],
-        producedSheets: [],
-        producedPallets: [],
-        producedItemLength: [],
-      };
       const counts = sourceProgress.perSize.get(d.orderId);
       const keys = (o.sizes ?? []).map((s, i) => s?.uid ?? `#${i}`);
       if (o.useTotalLength) setProduced(o, 0, counts?.get('m') ?? 0, mode);

@@ -50,6 +50,7 @@ import {
 import { checkProduction, productionStatus } from './lib/productionCheck';
 import {
   buildAdvancedCalc,
+  orderFromCompletedRow,
   toggleTracking,
   type AdvancedCalc,
   type TrackingPatch,
@@ -768,18 +769,12 @@ function CalculatorApp() {
   };
 
   // Bring completed orders back into the form (they weren't actually done).
-  // Their produced fields are cleared so the operator re-enters the real state.
-  // Remounts the form, so unsaved edits to other fields are reset.
+  // Their produced fields are cleared so the operator re-enters the real state;
+  // the speed they ran at comes with them. Remounts the form, so unsaved edits
+  // to other fields are reset.
   const restoreCompleted = (rows: ScheduledOrder[]) => {
     if (rows.length === 0) return;
-    const restoredOrders = rows.map((r) => ({
-      ...r.order,
-      producedProfiles: [],
-      producedPackages: [],
-      producedSheets: [],
-      producedPallets: [],
-      producedItemLength: [],
-    }));
+    const restoredOrders = rows.map((r) => orderFromCompletedRow(r, completedRows));
     setRestoredValues((prev) => ({
       settings:
         prev?.settings ??
