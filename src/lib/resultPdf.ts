@@ -4,7 +4,7 @@ import {
   formatDuration,
   formatShortDateTime,
 } from '../utils/format';
-import { calculateTotalProfiles } from '../utils/calculator';
+import { calculateTotalProfiles, orderSizeList } from '../utils/calculator';
 import { pauseColorHex } from './pauseReasons';
 
 // A translate function (react-i18next's `t`), narrowed to what we use here.
@@ -310,6 +310,23 @@ export async function buildResultPdfBlob(
           rows: sRows,
         };
       });
+    } else if (done) {
+      // A completed order no longer carries its per-size schedule — its sizes
+      // as entered.
+      const sizes = orderSizeList(row.order);
+      if (sizes.length > 1) {
+        model.sizes = sizes.map((s, sIdx) => ({
+          header: `» #${idx + 1}.${sIdx + 1}`,
+          right: '',
+          rows: [
+            [
+              isProfiles ? t('results.col.profiles') : t('results.col.sheets'),
+              `${s.sheets} × ${s.length} mm`,
+            ],
+            [t('results.col.meters'), `${formatLength(s.metersM)} m`],
+          ],
+        }));
+      }
     }
     return model;
   });

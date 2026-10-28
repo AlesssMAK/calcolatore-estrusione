@@ -5,6 +5,7 @@ import {
   calculateProductionMinutes,
   calculateSchedule,
   calculateTotalProfiles,
+  orderSizeList,
   productionMinutesBetween,
   progressAsOf,
   splitDuration,
@@ -61,6 +62,35 @@ describe('calculateOrderLengthM', () => {
         sizes: [{ sheets: 999, length: 9999 }],
       }),
     ).toBe(425.5);
+  });
+});
+
+describe('orderSizeList (sizes of a completed order)', () => {
+  it('lists each size as count × length with its meters', () => {
+    expect(
+      orderSizeList({
+        id: '1',
+        sizes: [
+          { sheets: 200, length: 6000 },
+          { sheets: 150, length: 4000 },
+          { sheets: 10 }, // incomplete → left out
+        ],
+      }),
+    ).toEqual([
+      { sheets: 200, length: 6000, metersM: 1200 },
+      { sheets: 150, length: 4000, metersM: 600 },
+    ]);
+  });
+
+  it('has none for a total-meters order', () => {
+    expect(
+      orderSizeList({
+        id: '1',
+        useTotalLength: true,
+        totalLengthM: 500,
+        sizes: [{ sheets: 10, length: 1000 }],
+      }),
+    ).toEqual([]);
   });
 });
 
