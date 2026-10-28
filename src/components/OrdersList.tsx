@@ -440,8 +440,10 @@ function OrdersList({
                 isDragging ? 'shadow-lg' : ''
               }`}
             >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            {/* Phones: the order's name on its own line, the buttons under it;
+                sm+: side by side. */}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
+              <div className="flex min-w-0 flex-1 basis-full items-center gap-1.5 sm:basis-auto">
                 {canDrag && (
                   <button
                     type="button"
@@ -455,7 +457,7 @@ function OrdersList({
                 )}
                 <OrderNameField idx={idx} mode={mode} t={t} />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2">
                 {onComplete && (
           <button
             type="button"
