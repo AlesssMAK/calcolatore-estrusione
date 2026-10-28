@@ -6,7 +6,7 @@ import type {
   ScheduledOrder,
   ScheduledSizeDetail,
 } from '../types';
-import { calculateTotalProfiles } from '../utils/calculator';
+import { calculateTotalProfiles, orderSizeList } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { buildResultPdfBlob } from '../lib/resultPdf';
 import MarqueeText from './MarqueeText';
@@ -187,6 +187,13 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
     return `${sheets}×${length}`;
   };
 
+  // A completed order no longer carries its per-size schedule — its sizes as
+  // entered (when there are several: a single one is in the meters column).
+  const doneSizesFor = (row: ScheduledOrder) => {
+    const sizes = !row.sizeDetails && isRowDone(row) ? orderSizeList(row.order) : [];
+    return sizes.length > 1 ? sizes : [];
+  };
+
   const profilesCountFor = (row: ScheduledOrder): number | undefined =>
     isProfiles ? calculateTotalProfiles(row.order) : undefined;
 
@@ -303,6 +310,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
             const profilesCount = profilesCountFor(row);
             const perItemMin = perItemMinFor(row);
             const done = isRowDone(row);
+            const doneSizes = doneSizesFor(row);
             const pause = pauseShown(row, done) && (
               <li>
                 <PauseStrip row={row} now={now} />
@@ -552,6 +560,27 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                   </ul>
                 )}
 
+                {doneSizes.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {doneSizes.map((s, sIdx) => (
+                      <li
+                        key={sIdx}
+                        className="flex items-center justify-between gap-2 rounded-md border border-success/20 bg-white px-2 py-1.5 text-xs"
+                      >
+                        <span className="font-semibold text-brand-700">
+                          ↳ #{idx + 1}.{sIdx + 1}
+                        </span>
+                        <span className="font-medium text-ink">
+                          {s.sheets} × {s.length} mm
+                          <span className="ml-1 font-normal text-ink-soft">
+                            · {formatLength(s.metersM)} m
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 {!row.sizeDetails &&
                   (row.producedProfiles !== undefined ||
                     row.producedSheets !== undefined) && (
@@ -641,6 +670,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                   row.sizeDetails.length > 1;
                 const hasSegments =
                   row.segments !== undefined && row.segments.length > 1;
+                const doneSizes = doneSizesFor(row);
                 // When sizes are broken out, hide the aggregate produced
                 // block and show per-size produced inside each sub-row.
                 const showAggregateProduced = hasProduced && !hasSizeBreakdown;
@@ -650,7 +680,8 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                   showAggregateProduced ||
                   hasSizeBreakdown ||
                   hasRowPerUnit ||
-                  hasSegments
+                  hasSegments ||
+                  doneSizes.length > 0
                     ? 'border-b-0'
                     : 'border-b border-neutral-100 last:border-b-0';
                 return (
@@ -762,6 +793,28 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                           </tr>
                         );
                       })}
+                    {doneSizes.map((s, sIdx) => (
+                      <tr
+                        key={`done-size-${sIdx}`}
+                        className={
+                          sIdx === doneSizes.length - 1
+                            ? 'border-b border-neutral-100 bg-success/5 text-xs text-ink-soft last:border-b-0'
+                            : 'border-b-0 bg-success/5 text-xs text-ink-soft'
+                        }
+                      >
+                        <td className="py-1.5 pr-3 pl-4 font-medium whitespace-nowrap">
+                          ↳ #{idx + 1}.{sIdx + 1}
+                        </td>
+                        {isProfiles && <td className="py-1.5 pr-3">{s.sheets}</td>}
+                        <td className="py-1.5 pr-3">
+                          {formatLength(s.metersM)} m
+                          <span className="ml-1 text-ink-soft">
+                            ({s.sheets}×{s.length})
+                          </span>
+                        </td>
+                        <td colSpan={isProfiles ? 6 : 5} />
+                      </tr>
+                    ))}
                     {hasSizeBreakdown &&
                       row.sizeDetails!.map((sd, sIdx) => {
                         const isLastSub =

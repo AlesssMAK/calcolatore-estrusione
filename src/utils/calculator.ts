@@ -141,6 +141,22 @@ export function calculateOrderLengthM(order: Order): number {
   throw new Error('order needs sizes[], totalLengthM, or sheets+sheetLengthMm');
 }
 
+/** An order's sizes as entered (count × length, and the meters they make) —
+ *  what a completed row, which no longer carries its per-size schedule, still
+ *  shows. Empty for total-meters orders. */
+export function orderSizeList(
+  order: Order,
+): { sheets: number; length: number; metersM: number }[] {
+  if (order.useTotalLength) return [];
+  return (order.sizes ?? [])
+    .filter((s) => (s.sheets ?? 0) > 0 && (s.length ?? 0) > 0)
+    .map((s) => ({
+      sheets: s.sheets!,
+      length: s.length!,
+      metersM: (s.sheets! * s.length!) / 1000,
+    }));
+}
+
 export function calculateProductionMinutes(
   order: Order,
   speedMPerMin: number,
