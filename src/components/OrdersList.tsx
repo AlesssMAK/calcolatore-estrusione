@@ -1452,6 +1452,9 @@ function OrderNameField({
     setDraftState(d);
   };
   const inputRef = useRef<HTMLInputElement>(null);
+  // A tap on the field while it's already being edited opens / closes the list
+  // (the first tap opens it via focus).
+  const tapWhileFocusedRef = useRef(false);
 
   // Close on click outside (also handles taps on mobile via mousedown).
   useEffect(() => {
@@ -1585,6 +1588,14 @@ function OrderNameField({
             onFocus={() => {
               setDraft('');
               if (filtered.length > 0) setDropdownOpen(true);
+            }}
+            onPointerDown={() => {
+              tapWhileFocusedRef.current = document.activeElement === inputRef.current;
+            }}
+            onClick={() => {
+              if (tapWhileFocusedRef.current) {
+                setDropdownOpen((o) => !o && filtered.length > 0);
+              }
             }}
             onChange={(e) => {
               setDraft(e.target.value);
