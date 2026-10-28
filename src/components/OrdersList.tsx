@@ -440,10 +440,11 @@ function OrdersList({
                 isDragging ? 'shadow-lg' : ''
               }`}
             >
-            {/* Phones: the order's name on its own line, the buttons under it;
-                sm+: side by side. */}
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
-              <div className="flex min-w-0 flex-1 basis-full items-center gap-1.5 sm:basis-auto">
+            {/* Name and buttons side by side; on phones, while the name field
+                is open (being edited, or opened still empty), it gets the
+                whole line and the buttons go under it. */}
+            <div className="group/head mb-2 flex items-center justify-between gap-2 max-sm:has-[input:focus]:flex-wrap max-sm:has-[input:placeholder-shown]:flex-wrap">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 max-sm:group-has-[input:focus]/head:basis-full max-sm:group-has-[input:placeholder-shown]/head:basis-full">
                 {canDrag && (
                   <button
                     type="button"
