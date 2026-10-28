@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAdvancedCalc, toggleTracking } from './advance';
+import { buildAdvancedCalc, orderFromCompletedRow, toggleTracking } from './advance';
 import { calculateSchedule } from './calculator';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
@@ -196,6 +196,43 @@ describe('buildAdvancedCalc', () => {
     expect(adv!.values.orders[0]!.id).toBe('b');
     expect(adv!.values.orders[0]!.speedMPerMin).toBe(1);
     expect(adv!.result.rows).toHaveLength(1);
+  });
+});
+
+describe('orderFromCompletedRow ("Ripristina")', () => {
+  const start = localDate(2026, 4, 11, 6); // Mon 06:00
+  const values = {
+    settings: { startMode: 'manual', startAt: start.toISOString(), gapMode: 'continuous' },
+    orders: [
+      { id: 'a', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1.2, cavity: 2 },
+      { id: 'b', sheets: 60, sheetLengthMm: 1000 }, // inherits 1.2 m/min × 2
+      { id: 'c', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1.5 }, // still ×2
+      { id: 'd', useTotalLength: true, totalLengthM: 100_000 }, // still running
+    ],
+  } as unknown as FormValues;
+  const entry: SavedCalculation = {
+    id: 'x',
+    ts: start.getTime(),
+    label: 't',
+    result: calculateSchedule(values.settings, values.orders, { now: start }),
+    values,
+    snapshot: { warmupMinutes: 0, shutdownMinutes: 0, schedule: null },
+  };
+  const { completedRows } = buildAdvancedCalc(entry, localDate(2026, 4, 11, 12))!;
+
+  it('comes back with the speed and cavity it ran at, not empty', () => {
+    expect(completedRows.map((r) => r.order.id)).toEqual(['a', 'b', 'c']);
+    const b = orderFromCompletedRow(completedRows[1]!, completedRows);
+    expect(b.speedMPerMin).toBe(1.2);
+    expect(b.cavity).toBe(2);
+    const c = orderFromCompletedRow(completedRows[2]!, completedRows);
+    expect(c.speedMPerMin).toBe(1.5);
+    expect(c.cavity).toBe(2);
+  });
+
+  it('keeps its own values and clears what was produced', () => {
+    const a = orderFromCompletedRow(completedRows[0]!, completedRows);
+    expect(a).toMatchObject({ speedMPerMin: 1.2, cavity: 2, producedProfiles: [] });
   });
 });
 
