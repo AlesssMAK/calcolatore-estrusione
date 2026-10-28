@@ -1412,7 +1412,7 @@ function OrderNameField({
   t: TFunction;
 }) {
   'use no memo';
-  const { register, control, setValue, getValues } = useFormContext<FormValues>();
+  const { control, setValue, getValues } = useFormContext<FormValues>();
   const value = useWatch({
     control,
     name: `orders.${idx}.productName`,
@@ -1438,6 +1438,18 @@ function OrderNameField({
   const [fullScreen, setFullScreen] = useState(false);
   // "Cambio Prodotto": the product change just picked, asking for its stop.
   const [change, setChange] = useState<ProductChangeSides | null>(null);
+  // Changing the product: the field opens empty, the current one (inherited
+  // or not) shown as a grey hint — left untouched, the order keeps it; what's
+  // typed replaces it. null = not editing. Mirrored in a ref: a pick from the
+  // list ends the editing and blurs the input in the same event, before a
+  // re-render.
+  const [draft, setDraftState] = useState<string | null>(null);
+  const draftRef = useRef<string | null>(null);
+  const setDraft = (d: string | null) => {
+    draftRef.current = d;
+    setDraftState(d);
+  };
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Close on click outside (also handles taps on mobile via mousedown).
   useEffect(() => {
@@ -1470,8 +1482,8 @@ function OrderNameField({
     };
   }, [dropdownOpen, isPhone]);
 
-  // Filter visible suggestions by what's currently in the input.
-  const query = (typeof value === 'string' ? value : '').toLowerCase().trim();
+  // Filter visible suggestions by what's typed (nothing yet → all of them).
+  const query = (draft ?? '').toLowerCase().trim();
   const suggestions = useMemo(
     () =>
       query === ''
@@ -1522,7 +1534,27 @@ function OrderNameField({
     }
   };
 
-  const reg = register(`orders.${idx}.productName`);
+  // Done typing (blur / Enter / closing the full-screen list): nothing typed →
+  // the product stays; a catalog product's name → that product, with its
+  // parameters; anything else → just the new name.
+  const commitDraft = () => {
+    const typed = draftRef.current?.trim();
+    setDraft(null);
+    if (!typed) return;
+    const p = filtered.find((x) => sameProduct(x.name, typed));
+    if (p) pickProduct(p);
+    else {
+      setValue(`orders.${idx}.productName`, typed, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  };
+  const pickFromList = (p: (typeof filtered)[number]) => {
+    setDraft(null);
+    pickProduct(p);
+    inputRef.current?.blur();
+  };
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1540,25 +1572,39 @@ function OrderNameField({
       {showInput && (
         <div ref={wrapperRef} className="relative min-w-0 flex-1">
           <input
+            ref={inputRef}
             type="text"
+            name={`orders.${idx}.productName`}
             autoComplete="off"
             autoFocus={open && !hasValue}
-            placeholder={t('orders.productName')}
+            value={draft ?? (typeof value === 'string' ? value : '')}
+            placeholder={hasValue ? value : t('orders.productName')}
             className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
-            {...reg}
             onFocus={() => {
+              setDraft('');
               if (filtered.length > 0) setDropdownOpen(true);
             }}
             onChange={(e) => {
-              reg.onChange(e);
+              setDraft(e.target.value);
               if (filtered.length > 0) setDropdownOpen(true);
             }}
+            onBlur={() => {
+              // Moving on to the full-screen list isn't done typing.
+              if (!fullScreen) commitDraft();
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setDropdownOpen(false);
+              if (e.key === 'Escape') {
+                setDraft(null);
+                setDropdownOpen(false);
+              }
+              if (e.key === 'Enter') commitDraft();
             }}
           />
           {dropdownOpen && suggestions.length > 0 && (
             <div
+              // Keep the focus (and what's typed) in the input while a
+              // suggestion / the full-screen button is pressed.
+              onMouseDown={(e) => e.preventDefault()}
               // Phone: span the whole screen width (fixed, pinned under the
               // input) so long product names fit; sm+: as wide as the input.
               style={isPhone && dropTop !== null ? { top: dropTop } : undefined}
@@ -1577,7 +1623,7 @@ function OrderNameField({
                   <li key={p.id}>
                     <button
                       type="button"
-                      onClick={() => pickProduct(p)}
+                      onClick={() => pickFromList(p)}
                       className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs text-ink transition hover:bg-brand-50 hover:text-brand-700 sm:text-sm"
                     >
                       <MarqueeText text={p.name} />
@@ -1591,7 +1637,10 @@ function OrderNameField({
               {/* Phone-only: always-visible button to open the full-screen picker. */}
               <button
                 type="button"
-                onClick={() => setFullScreen(true)}
+                onClick={() => {
+                  setDraft(draftRef.current ?? '');
+                  setFullScreen(true);
+                }}
                 className="flex w-full items-center justify-center gap-1 border-t border-neutral-100 px-3 py-2 text-xs font-medium text-brand-700 transition hover:bg-brand-50 sm:hidden"
               >
                 ⤢ {t('orders.expandList')}
@@ -1610,7 +1659,11 @@ function OrderNameField({
               </span>
               <button
                 type="button"
-                onClick={() => setFullScreen(false)}
+                onClick={() => {
+                  setFullScreen(false);
+                  setDropdownOpen(false);
+                  commitDraft();
+                }}
                 aria-label={t('actions.close')}
                 className="rounded-md px-3 py-1.5 text-lg leading-none text-ink-soft transition hover:bg-neutral-100"
               >
@@ -1622,14 +1675,9 @@ function OrderNameField({
                 type="text"
                 autoFocus
                 autoComplete="off"
-                value={typeof value === 'string' ? value : ''}
-                placeholder={t('orders.productName')}
-                onChange={(e) =>
-                  setValue(`orders.${idx}.productName`, e.target.value, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  })
-                }
+                value={draft ?? ''}
+                placeholder={hasValue ? value : t('orders.productName')}
+                onChange={(e) => setDraft(e.target.value)}
                 className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none"
               />
             </div>
@@ -1639,7 +1687,7 @@ function OrderNameField({
                   <button
                     type="button"
                     onClick={() => {
-                      pickProduct(p);
+                      pickFromList(p);
                       setFullScreen(false);
                       setDropdownOpen(false);
                     }}
