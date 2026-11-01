@@ -1,10 +1,14 @@
 // Blocks of orders. A pause after an order ("Pausa Dopo") closes a block: the
 // orders up to it are one product type, the ones after it the next. Rules
 // (agreed with the user):
-//  - orders move freely inside their block, never alone into another one;
+//  - orders move freely inside their block; into another block too, taking
+//    that block's parameters (after a confirmation) — a block left empty
+//    disappears with its closing pause;
 //  - a whole block can move among the blocks;
 //  - pauses belong to the boundaries, not to the blocks: after any move the
 //    pause between block k and k+1 is still the same one;
+//  - new orders (`unplaced`) wait under the blocks, at the end of the queue,
+//    until dragged into one;
 //  - a custom size queue only re-arranges sizes within a block.
 // A block's closing pause is stored on its last order (gapEnabled /
 // gapAfterMin / gapReason), so every move re-seats the pauses on the new last
@@ -107,6 +111,55 @@ export function moveInBlock(
   const list = blocks[b];
   blocks[b] = arrayMove(list, list.indexOf(from), list.indexOf(to));
   return arrange(blocks, boundary);
+}
+
+/** How many orders are placed in blocks: the new ones not placed yet
+ *  (`unplaced`) are always the last ones. */
+export function placedCount(orders: ReadonlyArray<Pick<Order, 'unplaced'> | undefined>): number {
+  const i = orders.findIndex((o) => o?.unplaced);
+  return i === -1 ? orders.length : i;
+}
+
+/**
+ * Move an order (of a block, or a new one not placed yet) into a block, next
+ * to `to` — before it, or after it with `after`. A block left empty disappears
+ * with its closing pause; the new orders not placed stay at the end. Null when
+ * `to` isn't in a block.
+ */
+export function moveToBlock(
+  orders: (BlockOrder & Pick<Order, 'unplaced'>)[],
+  from: number,
+  to: number,
+  after: boolean,
+  gapMode?: GapMode,
+): Rearrangement | null {
+  const placed = placedCount(orders);
+  if (from === to || to >= placed) return null;
+  const { blocks, boundary } = split(orders.slice(0, placed), gapMode);
+  const lists = blocks.map((list) => list.filter((i) => i !== from));
+  const dst = lists.findIndex((list) => list.includes(to));
+  lists[dst].splice(lists[dst].indexOf(to) + (after ? 1 : 0), 0, from);
+  const kept = lists.map((list) => list.length > 0);
+  const r = arrange(
+    lists.filter((_, k) => kept[k]),
+    boundary.filter((_, k) => kept[k]),
+  );
+  for (let i = placed; i < orders.length; i++) {
+    if (i === from) continue;
+    r.order.push(i);
+    r.pauses.push(pauseOf(orders[i], gapMode));
+  }
+  return r;
+}
+
+/** For each order, the ids of the orders in its block (itself included), in
+ *  queue order — what a completed row keeps to come back into its block. */
+export function blockMateIds(
+  orders: (BlockOrder & Pick<Order, 'id'>)[],
+  gapMode?: GapMode,
+): string[][] {
+  const idx = blockIndexes(orders, gapMode);
+  return orders.map((_, i) => orders.filter((__, j) => idx[j] === idx[i]).map((o) => o.id));
 }
 
 /** Move a whole block among the blocks; the pauses stay on the boundaries. */

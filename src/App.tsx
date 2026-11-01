@@ -50,7 +50,7 @@ import {
 import { checkProduction, productionStatus } from './lib/productionCheck';
 import {
   buildAdvancedCalc,
-  orderFromCompletedRow,
+  restoreIntoBlocks,
   toggleTracking,
   type AdvancedCalc,
   type TrackingPatch,
@@ -770,19 +770,25 @@ function CalculatorApp() {
 
   // Bring completed orders back into the form (they weren't actually done).
   // Their produced fields are cleared so the operator re-enters the real state;
-  // the speed they ran at comes with them. Remounts the form, so unsaved edits
-  // to other fields are reset.
+  // the speed they ran at comes with them. Each goes back into its own block
+  // (a finished block comes back first in the queue). Remounts the form, so
+  // unsaved edits to other fields are reset.
   const restoreCompleted = (rows: ScheduledOrder[]) => {
     if (rows.length === 0) return;
-    const restoredOrders = rows.map((r) => orderFromCompletedRow(r, completedRows));
-    setRestoredValues((prev) => ({
-      settings:
+    setRestoredValues((prev) => {
+      const settings =
         prev?.settings ??
-        ({ startMode: 'now', gapMode: 'continuous' } as FormValues['settings']),
-      // Restored orders were produced before the active ones, so they go back
-      // to the front of the queue, not the end.
-      orders: [...restoredOrders, ...(prev?.orders ?? [])],
-    }));
+        ({ startMode: 'now', gapMode: 'continuous' } as FormValues['settings']);
+      return {
+        settings,
+        orders: restoreIntoBlocks(
+          prev?.orders ?? [],
+          rows,
+          completedRows,
+          settings.gapMode,
+        ) as FormValues['orders'],
+      };
+    });
     const restoredIds = new Set(rows.map((r) => r.order.id));
     setCompletedRows((prev) => prev.filter((r) => !restoredIds.has(r.order.id)));
     setMountState('unsaved'); // not saved until the next "Calcola"

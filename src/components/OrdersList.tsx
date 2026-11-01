@@ -28,6 +28,7 @@ import {
   useSensors,
   type CollisionDetection,
   type DragEndEvent,
+  type DragMoveEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -52,10 +53,13 @@ import {
   isGapEnabled,
   moveBlock,
   moveInBlock,
+  moveToBlock,
   NO_PAUSE,
+  placedCount,
   samePause,
   type Rearrangement,
 } from '../utils/blocks';
+import MoveToBlockModal, { type BlockParams } from './MoveToBlockModal';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { StopIcon } from './ActionIcons';
 import FieldError from './FieldError';
@@ -170,13 +174,15 @@ function OrdersList({
   const watchedOrders = useWatch({ control, name: 'orders' });
 
   // Blocks: the orders between two pauses (see utils/blocks). A block's id is
-  // its first order's field key, so it stays stable while it moves.
-  const blockOf = blockIndexes(
-    fields.map((_, i) => watchedOrders?.[i] ?? {}),
-    gapMode,
-  );
+  // its first order's field key, so it stays stable while it moves. New orders
+  // not placed in a block yet (always the last ones) wait in a zone under the
+  // blocks — unless nothing is placed, then they simply are the queue.
+  const allOrders = fields.map((_, i) => watchedOrders?.[i] ?? {});
+  const placedN = placedCount(allOrders) || fields.length;
+  const blockOf = blockIndexes(allOrders.slice(0, placedN), gapMode);
   const blocks: number[][] = [];
   blockOf.forEach((b, i) => (blocks[b] ??= []).push(i));
+  const freeIdx = fields.map((_, i) => i).slice(placedN);
   const multiBlock = blocks.length > 1;
   const blockKey = (list: number[]) => `block:${fields[list[0]].id}`;
   // Different products next to each other with no pause (always inside a
@@ -207,16 +213,17 @@ function OrdersList({
       shouldDirty: true,
     });
   };
-  const blockOfField = new Map(fields.map((f, i) => [f.id, blockOf[i]]));
+  const indexOfField = (id: unknown) => fields.findIndex((f) => f.id === String(id));
+  const isFree = (id: unknown) => indexOfField(id) >= placedN;
 
   // A dragged block lands among blocks only; a dragged order among the orders
-  // of its own block only (they never move alone into another block).
+  // — of any block (it then takes that block's parameters), but among the new
+  // ones only when it's new itself.
   const sameGroup = (activeId: unknown, id: unknown) => {
     const a = String(activeId);
     const b = String(id);
-    return a.startsWith('block:')
-      ? b.startsWith('block:')
-      : !b.startsWith('block:') && blockOfField.get(b) === blockOfField.get(a);
+    if (a.startsWith('block:')) return b.startsWith('block:');
+    return !b.startsWith('block:') && (!isFree(b) || isFree(a));
   };
   const collision: CollisionDetection = (args) =>
     closestCenter({
@@ -251,8 +258,14 @@ function OrdersList({
 
   // Apply a re-arrangement with field-array moves (keeps each order's field
   // key → its expanded / registered state), then re-seat the pauses on the
-  // blocks' new last orders.
-  const applyArrangement = (r: Rearrangement, before: FormValues['orders']) => {
+  // blocks' new last orders. An order moved into a block (`moved`) takes that
+  // block's parameters; every other order keeps the speed / cavity it ran at
+  // (written in where it inherited them from an order that moved).
+  const applyArrangement = (
+    r: Rearrangement,
+    before: FormValues['orders'],
+    moved?: { id: string; params: BlockParams },
+  ) => {
     const cur = before.map((_, i) => i);
     r.order.forEach((oldIdx, i) => {
       const pos = cur.indexOf(oldIdx);
@@ -269,24 +282,138 @@ function OrdersList({
       setValue(`orders.${i}.gapAfterMin`, next.gapAfterMin, opts);
       setValue(`orders.${i}.gapReason`, next.gapReason, opts);
     });
+    const now = getValues('orders').map((o) => ({ ...o }));
+    if (moved) {
+      const at = now.findIndex((o) => o.id === moved.id);
+      const { productName, speedMPerMin, cavity } = moved.params;
+      setValue(`orders.${at}.unplaced`, undefined, opts);
+      if (productName?.trim()) setValue(`orders.${at}.productName`, productName, opts);
+      if (speedMPerMin !== undefined) {
+        setValue(`orders.${at}.speedMPerMin`, speedMPerMin, opts);
+        now[at].speedMPerMin = speedMPerMin;
+      }
+      if (cavity !== undefined) {
+        setValue(`orders.${at}.cavity`, cavity, opts);
+        now[at].cavity = cavity;
+      }
+    }
+    for (const key of ['speedMPerMin', 'cavity'] as const) {
+      const was = new Map(before.map((o, i) => [o.id, effectiveValue(before, i, key)]));
+      now.forEach((o, i) => {
+        const v = was.get(o.id);
+        if (o.id === moved?.id || v === undefined) return;
+        if (effectiveValue(now, i, key) === v) return;
+        setValue(`orders.${i}.${key}`, v, opts);
+        now[i][key] = v;
+      });
+    }
+  };
+
+  // Into a block (from another one, or a new order), next to `to`: it takes
+  // the block's parameters from its neighbour there — the order above it, or
+  // below when it goes first.
+  const planMove = (from: number, to: number, after: boolean) => {
+    const before = getValues('orders');
+    const r = moveToBlock(before, from, to, after, gapMode);
+    if (!r) return null;
+    const at = r.order.indexOf(from);
+    const nb = at > 0 && !r.pauses[at - 1] ? r.order[at - 1] : r.order[at + 1];
+    const params: BlockParams = {
+      productName: before[nb]?.productName,
+      speedMPerMin: effectiveValue(before, nb, 'speedMPerMin'),
+      cavity: effectiveValue(before, nb, 'cavity'),
+    };
+    return { r, before, params };
+  };
+  const placeInBlock = (from: number, to: number, after: boolean) => {
+    const plan = planMove(from, to, after);
+    if (!plan) return;
+    applyArrangement(plan.r, plan.before, {
+      id: plan.before[from].id,
+      params: plan.params,
+    });
+  };
+
+  // Moving an order into another block waits for a confirmation (it takes
+  // that block's parameters). Kept by field ids — the form can't change meanwhile.
+  const [pendingMove, setPendingMove] = useState<{
+    fromId: string;
+    toId: string;
+    after: boolean;
+  } | null>(null);
+  const pending = (() => {
+    if (!pendingMove) return null;
+    const from = indexOfField(pendingMove.fromId);
+    const to = indexOfField(pendingMove.toId);
+    const plan = from >= 0 && to >= 0 ? planMove(from, to, pendingMove.after) : null;
+    if (!plan) return null;
+    const name = watchedOrders?.[from]?.productName?.trim();
+    const src = blocks[blockOf[from]];
+    return {
+      from,
+      to,
+      order: `#${from + 1}${name ? ` ${name}` : ''}`,
+      block: blockOf[to] + 1,
+      params: plan.params,
+      emptied:
+        src?.length === 1
+          ? {
+              n: blockOf[from] + 1,
+              withPause: isGapEnabled(watchedOrders?.[from], { gapMode }),
+            }
+          : null,
+      after: pendingMove.after,
+    };
+  })();
+
+  // Where a dragged order would land in another block: a line above / below
+  // the order it's over.
+  const [dropHint, setDropHint] = useState<{ id: string; after: boolean } | null>(null);
+  const isBelow = (e: DragMoveEvent | DragEndEvent) => {
+    const r = e.active.rect.current.translated;
+    const o = e.over?.rect;
+    return !!r && !!o && r.top + r.height / 2 > o.top + o.height / 2;
+  };
+  const crossBlock = (from: number, to: number) =>
+    to >= 0 && to < placedN && (from >= placedN || blockOf[from] !== blockOf[to]);
+  const handleDragMove = (e: DragMoveEvent) => {
+    const a = String(e.active.id);
+    const o = e.over ? String(e.over.id) : null;
+    const hint =
+      o && !a.startsWith('block:') && crossBlock(indexOfField(a), indexOfField(o))
+        ? { id: o, after: isBelow(e) }
+        : null;
+    setDropHint((h) => (h?.id === hint?.id && h?.after === hint?.after ? h : hint));
   };
 
   const handleDragEnd = (e: DragEndEvent) => {
+    setDropHint(null);
     const { active, over } = e;
     if (!over || active.id === over.id) return;
     const a = String(active.id);
     const o = String(over.id);
     const before = getValues('orders');
-    const keys = blocks.map(blockKey);
-    const r = a.startsWith('block:')
-      ? moveBlock(before, keys.indexOf(a), keys.indexOf(o), gapMode)
-      : moveInBlock(
-          before,
-          fields.findIndex((f) => f.id === a),
-          fields.findIndex((f) => f.id === o),
-          gapMode,
-        );
-    if (r) applyArrangement(r, before);
+    if (a.startsWith('block:')) {
+      const keys = blocks.map(blockKey);
+      const r = moveBlock(before.slice(0, placedN), keys.indexOf(a), keys.indexOf(o), gapMode);
+      if (r) applyArrangement(r, before);
+      return;
+    }
+    const from = indexOfField(a);
+    const to = indexOfField(o);
+    if (from >= placedN && to >= placedN) {
+      move(from, to); // among the new orders
+      return;
+    }
+    if (to >= placedN) return;
+    if (!crossBlock(from, to)) {
+      const r = moveInBlock(before.slice(0, placedN), from, to, gapMode);
+      if (r) applyArrangement(r, before);
+      return;
+    }
+    // A new order just goes in; one from another block asks first.
+    if (from >= placedN) placeInBlock(from, to, isBelow(e));
+    else setPendingMove({ fromId: a, toId: o, after: isBelow(e) });
   };
 
   const rootError =
@@ -302,15 +429,30 @@ function OrdersList({
     const last = watchedOrders?.[watchedOrders.length - 1];
     pendingFocusIdx.current = fields.length; // index the new order will take
     append(
-      makeEmptyOrder(
-        mode,
-        Boolean(last?.useTotalLength),
-        last?.productName ?? '',
-      ),
+      {
+        ...makeEmptyOrder(
+          mode,
+          Boolean(last?.useTotalLength),
+          last?.productName ?? '',
+        ),
+        // Split into blocks → it waits under them, to drag into one.
+        ...(multiBlock || freeIdx.length > 0 ? { unplaced: true } : {}),
+      },
       // Not RHF's own focus: it lands on the order's first field — the
       // (inherited) product name — and pops its suggestion list open.
       { shouldFocus: false },
     );
+  };
+
+  // Removing the last order placed in a block: the new ones simply become the
+  // queue.
+  const removeOrder = (idx: number) => {
+    remove(idx);
+    const left = getValues('orders') ?? [];
+    if (placedCount(left) > 0) return;
+    left.forEach((o, i) => {
+      if (o.unplaced) setValue(`orders.${i}.unplaced`, undefined);
+    });
   };
 
   // Focus the new order's quantity once it's on screen. A just-added order must
@@ -524,7 +666,7 @@ function OrdersList({
         </button>
         <button
           type="button"
-          onClick={() => remove(idx)}
+          onClick={() => removeOrder(idx)}
           disabled={fields.length <= 1}
           className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
           aria-label={t('orders.remove')}
@@ -644,7 +786,9 @@ function OrdersList({
       <DndContext
         sensors={sensors}
         collisionDetection={collision}
+        onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setDropHint(null)}
       >
         {/* Blocks (orders between two pauses) are sortable as a whole; their
             orders only within the block. The pause cards sit between blocks
@@ -665,7 +809,13 @@ function OrdersList({
                   <div className="space-y-3">
                     {list.map((i) => (
                       <Fragment key={fields[i].id}>
-                        {renderOrder(fields[i], i, list.length > 1)}
+                        {dropHint?.id === fields[i].id && !dropHint.after && <DropLine />}
+                        {renderOrder(
+                          fields[i],
+                          i,
+                          list.length > 1 || multiBlock || freeIdx.length > 0,
+                        )}
+                        {dropHint?.id === fields[i].id && dropHint.after && <DropLine />}
                         {changeAt.has(i) && <ProductChangeStrip {...sidesAt(i)} />}
                       </Fragment>
                     ))}
@@ -720,9 +870,52 @@ function OrdersList({
                 </Fragment>
               );
             })}
+            {/* New orders not placed in a block yet: dragged into one, they
+                take its parameters; left here, they run at the end. */}
+            {freeIdx.length > 0 && (
+              <SortableContext
+                items={freeIdx.map((i) => fields[i].id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2 rounded-xl border border-dashed border-brand-300 bg-brand-50/40 p-2 sm:space-y-3 sm:p-3">
+                  <p className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
+                    <span className="font-semibold tracking-wide text-ink-soft uppercase">
+                      {t('orders.freeZone')}
+                    </span>
+                    <span className="text-ink-soft">· {t('orders.freeZoneHint')}</span>
+                  </p>
+                  {freeIdx.map((i) => (
+                    <Fragment key={fields[i].id}>
+                      {renderOrder(fields[i], i, true)}
+                      {changeAt.has(i) && <ProductChangeStrip {...sidesAt(i)} />}
+                      {isGapEnabled(watchedOrders?.[i], { gapMode }) && (
+                        <PauseCard
+                          idx={i}
+                          isLast={i === fields.length - 1}
+                          onRemove={() => removePause(i)}
+                          kept={pauseKept === i ? sidesAt(i) : null}
+                          clearKept={setPauseKept}
+                        />
+                      )}
+                    </Fragment>
+                  ))}
+                </div>
+              </SortableContext>
+            )}
           </div>
         </SortableContext>
       </DndContext>
+
+      {pending && (
+        <MoveToBlockModal
+          order={pending.order}
+          block={pending.block}
+          params={pending.params}
+          emptied={pending.emptied}
+          onConfirm={() => placeInBlock(pending.from, pending.to, pending.after)}
+          onClose={() => setPendingMove(null)}
+        />
+      )}
 
       {showBottomButton && (
         <div className="mt-3 flex justify-end sm:mt-4">
@@ -1725,6 +1918,11 @@ function OrderNameField({
       {change && <ProductChangeModal change={change} onClose={() => setChange(null)} />}
     </div>
   );
+}
+
+/** Where a dragged order lands in another block. */
+function DropLine() {
+  return <div aria-hidden className="h-1 rounded-full bg-brand-500" />;
 }
 
 // ProducedSizedArray was removed — sizes-mode advanced rows are now grouped

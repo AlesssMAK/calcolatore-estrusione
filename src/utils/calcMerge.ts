@@ -16,7 +16,7 @@ import {
   buildAdvancedCalc,
   emptyResult,
   orderFromCompletedRow,
-  toCompletedRow,
+  splitCompleted,
 } from './advance';
 import { calculateSchedule } from './calculator';
 import { producedAt, type CalcDiff, type CalcVersion } from './calcDiff';
@@ -293,13 +293,19 @@ export function settleDiffs(
           now,
         })
       : emptyResult(now, target.result);
-  const done = result.rows.map(
-    (r) => r.productionMinutes >= 0.5 && r.remainingMinutes < 0.5,
-  );
-  if (done.some(Boolean)) {
-    state.completedRows.push(...result.rows.filter((_, i) => done[i]).map(toCompletedRow));
-    values.orders = values.orders.filter((_, i) => !done[i]);
-    result = { ...result, rows: result.rows.filter((_, i) => !done[i]) };
+  if (values.orders.length > 0) {
+    const split = splitCompleted(values.orders, result, values.settings.gapMode, (orders) =>
+      calculateSchedule(values.settings, orders, {
+        mode,
+        schedule: schedule.schedule ?? undefined,
+        warmupMinutes: schedule.warmupMinutes,
+        shutdownMinutes: schedule.shutdownMinutes,
+        now,
+      }),
+    );
+    state.completedRows.push(...split.completed);
+    values.orders = split.orders;
+    result = split.result;
   }
   if (
     values.settings.queue &&
