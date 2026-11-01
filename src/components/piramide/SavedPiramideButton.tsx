@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMenuPlacement } from '../../hooks/useMenuPlacement';
 import {
   loadPiramideHistory,
   removePiramideEntry,
@@ -36,6 +37,8 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
     loadPiramideHistory(),
   );
   const rootRef = useRef<HTMLDivElement>(null);
+  // Its list stays on screen: below, or above when there's no room.
+  const place = useMenuPlacement(rootRef, open);
 
   useEffect(() => {
     setItems(loadPiramideHistory());
@@ -66,7 +69,10 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
     <div ref={rootRef} className="relative order-2 w-full sm:order-1 sm:w-auto">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) place.measure();
+          setOpen((v) => !v);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
@@ -84,7 +90,8 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
         <div
           role="listbox"
           aria-label={t('piramide.saved.title')}
-          className="absolute right-0 z-30 mt-2 max-h-[60vh] w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
+          style={{ maxHeight: place.maxHeight }}
+          className={`absolute right-0 z-30 ${place.up ? 'bottom-full mb-2' : 'mt-2'} w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg`}
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
             {t('piramide.saved.title')}

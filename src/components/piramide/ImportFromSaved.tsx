@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMenuPlacement } from '../../hooks/useMenuPlacement';
 import type { TFunction } from 'i18next';
 import { isViewOnly, loadHistory } from '../../lib/calcHistory';
 import { ImportIcon } from '../ActionIcons';
@@ -86,6 +87,8 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
   const [groups, setGroups] = useState<CalcGroup[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  // Its list stays on screen: below, or above when there's no room.
+  const place = useMenuPlacement(ref, open, 288);
   const lang = i18n.resolvedLanguage ?? 'it';
 
   // Re-read the history each time the panel opens (fresh saves show up); always
@@ -112,7 +115,10 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) place.measure();
+          setOpen((v) => !v);
+        }}
         aria-label={t('piramide.import.button')}
         title={t('piramide.import.button')}
         className={toolBtnCls()}
@@ -121,7 +127,10 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
         <span className="hidden sm:inline">{t('piramide.import.button')}</span>
       </button>
       {open && (
-        <div className="absolute left-0 z-20 mt-1 max-h-72 w-[min(18rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg">
+        <div
+          style={{ maxHeight: place.maxHeight }}
+          className={`absolute left-0 z-20 ${place.up ? 'bottom-full mb-1' : 'mt-1'} w-[min(18rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg`}
+        >
           {groups.length === 0 ? (
             <p className="px-3 py-2 text-sm text-ink-soft">
               {t('piramide.import.empty')}

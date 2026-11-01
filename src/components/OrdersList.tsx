@@ -60,6 +60,7 @@ import {
   type Rearrangement,
 } from '../utils/blocks';
 import MoveToBlockModal, { type BlockParams } from './MoveToBlockModal';
+import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { StopIcon } from './ActionIcons';
 import FieldError from './FieldError';
@@ -1662,24 +1663,38 @@ function OrderNameField({
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, [dropdownOpen]);
 
-  // Phone: the dropdown is fixed to the viewport at full width, so track the
-  // input's bottom edge while it's open (scroll / resize / keyboard).
+  // The list stays on screen: under the field, or above it when there's no
+  // room (screen bottom, keyboard). Phone: fixed to the viewport at full
+  // width, so it follows the field while open (scroll / resize / keyboard).
   const isPhone = useMediaQuery('(max-width: 639px)');
-  const [dropTop, setDropTop] = useState<number | null>(null);
+  const [drop, setDrop] = useState<{
+    up: boolean;
+    maxHeight: number;
+    top: number;
+    bottom: number;
+  } | null>(null);
   useLayoutEffect(() => {
-    if (!dropdownOpen || !isPhone) return;
+    if (!dropdownOpen) return;
     const place = () => {
-      const r = wrapperRef.current?.getBoundingClientRect();
-      if (r) setDropTop(r.bottom + 4);
+      const el = wrapperRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setDrop({
+        ...placeMenu(el, 320),
+        top: r.bottom + 4,
+        bottom: document.documentElement.clientHeight - r.top + 4,
+      });
     };
     place();
     window.addEventListener('scroll', place, true);
     window.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('resize', place);
     return () => {
       window.removeEventListener('scroll', place, true);
       window.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('resize', place);
     };
-  }, [dropdownOpen, isPhone]);
+  }, [dropdownOpen]);
 
   // Filter visible suggestions by what's typed (nothing yet → all of them).
   const query = (draft ?? '').toLowerCase().trim();
@@ -1814,17 +1829,31 @@ function OrderNameField({
               onMouseDown={(e) => e.preventDefault()}
               // Phone: span the whole screen width (fixed, pinned under the
               // input) so long product names fit; sm+: as wide as the input.
-              style={isPhone && dropTop !== null ? { top: dropTop } : undefined}
+              style={
+                isPhone && drop
+                  ? drop.up
+                    ? { bottom: drop.bottom }
+                    : { top: drop.top }
+                  : undefined
+              }
               // z-50 on phone: above the pinned floating action bar (z-40).
               className={`overflow-hidden border border-neutral-200 bg-white shadow-lg ${
                 isPhone
                   ? 'fixed inset-x-0 z-50 rounded-none border-x-0'
-                  : 'absolute top-full right-0 left-0 z-30 mt-1 rounded-md'
+                  : `absolute right-0 left-0 z-30 rounded-md ${
+                      drop?.up ? 'bottom-full mb-1' : 'top-full mt-1'
+                    }`
               }`}
             >
               <ul
                 role="listbox"
-                className="max-h-60 overflow-y-auto py-1"
+                // (the phone's ⤢ button takes ~40px under it)
+                style={{
+                  maxHeight: drop
+                    ? Math.max(120, drop.maxHeight - (isPhone ? 40 : 0))
+                    : 240,
+                }}
+                className="overflow-y-auto py-1"
               >
                 {suggestions.map((p) => (
                   <li key={p.id}>
