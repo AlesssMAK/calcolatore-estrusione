@@ -1,10 +1,19 @@
 import { calculateSchedule, progressAsOf } from './calculator';
 import { queueStatus } from './queue';
-import { NO_PAUSE, pausesAfterRemoval, samePause } from './blocks';
+import {
+  blockMateIds,
+  blockRanges,
+  NO_PAUSE,
+  pauseOf,
+  pausesAfterRemoval,
+  placedCount,
+  samePause,
+} from './blocks';
 import { effectiveValue } from './inherit';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type {
+  GapMode,
   Order,
   ProducedEntry,
   ScheduledOrder,
@@ -25,11 +34,16 @@ export interface AdvancedCalc {
 /** Turn a scheduled order into a clean "completed" row: keep its identity and
  *  time window (start / end / duration / meters) but drop produced/remaining,
  *  per-size, per-unit and segment data so it renders as a single done row
- *  without confusing "produced 0/total" sub-blocks. */
-export function toCompletedRow(row: ScheduledOrder): ScheduledOrder {
+ *  without confusing "produced 0/total" sub-blocks. `blockOrderIds`: the
+ *  orders of its block, for "Ripristina". */
+export function toCompletedRow(
+  row: ScheduledOrder,
+  blockOrderIds?: string[],
+): ScheduledOrder {
   return {
     ...row,
     completed: true,
+    blockOrderIds,
     producedProfiles: undefined,
     producedPackages: undefined,
     remainingProfiles: undefined,
@@ -70,6 +84,117 @@ export function orderFromCompletedRow(
     producedPallets: [],
     producedItemLength: [],
   };
+}
+
+type BlockOrder = Pick<Order, 'id' | 'gapEnabled' | 'gapAfterMin' | 'gapReason'>;
+
+/** Fully produced according to the computed schedule. */
+const isProduced = (r: ScheduledOrder) =>
+  r.productionMinutes >= 0.5 && r.remainingMinutes < 0.5;
+
+/**
+ * Like a "Calcola": the orders fully produced in `result` leave the queue as
+ * completed rows, each remembering its block (for "Ripristina"). A block's
+ * closing pause stays with its last order still in the queue — when it moves
+ * there, the rest is rescheduled with `reschedule`.
+ */
+export function splitCompleted<O extends BlockOrder>(
+  orders: O[],
+  result: ScheduleResult,
+  gapMode: GapMode | undefined,
+  reschedule: (orders: O[]) => ScheduleResult,
+): { orders: O[]; result: ScheduleResult; completed: ScheduledOrder[] } {
+  const done = result.rows.map(isProduced);
+  if (!done.some(Boolean)) return { orders, result, completed: [] };
+  const mates = blockMateIds(orders, gapMode);
+  const completed = result.rows.flatMap((r, i) =>
+    done[i] ? [toCompletedRow(r, mates[i])] : [],
+  );
+  const pauses = pausesAfterRemoval(orders, (i) => !done[i], gapMode);
+  let moved = false;
+  const kept = orders.flatMap((o, i) => {
+    if (done[i]) return [];
+    const pause = pauses.get(i) ?? null;
+    if (samePause(o, pause, gapMode)) return [o];
+    moved = true;
+    return [{ ...o, ...(pause ?? NO_PAUSE) }];
+  });
+  return {
+    orders: kept,
+    result: moved
+      ? reschedule(kept)
+      : { ...result, rows: result.rows.filter((_, i) => !done[i]) },
+    completed,
+  };
+}
+
+/**
+ * "Ripristina": completed rows go back into the queue, each into its own block
+ * — next to the orders it was in a block with, in its place among them. A
+ * block finished entirely comes back first in the queue, with its closing
+ * pause. Rows completed before blocks were remembered go to the front, as they
+ * always did. New orders not placed in a block stay at the end.
+ */
+export function restoreIntoBlocks(
+  active: Order[],
+  rows: readonly ScheduledOrder[],
+  completed: readonly ScheduledOrder[],
+  gapMode?: GapMode,
+): Order[] {
+  const placed = placedCount(active);
+  const ranges = blockRanges(active.slice(0, placed), gapMode);
+  const blocks = ranges.map(({ start, end }) => active.slice(start, end + 1));
+  const boundary = ranges.map(({ end }) => pauseOf(active[end], gapMode));
+  const find = (id: string) => {
+    for (let b = 0; b < blocks.length; b++) {
+      const pos = blocks[b].findIndex((o) => o.id === id);
+      if (pos >= 0) return { b, pos };
+    }
+    return null;
+  };
+  // The last completed first: the ones before it then find it in its block.
+  for (const row of [...rows].reverse()) {
+    const order = orderFromCompletedRow(row, completed);
+    const ids = row.blockOrderIds;
+    if (ids) {
+      const me = ids.indexOf(order.id);
+      // Before the first of its block-mates that came after it, else after
+      // the last one that came before it.
+      const at =
+        ids.slice(me + 1).map(find).find(Boolean) ??
+        ids
+          .slice(0, Math.max(me, 0))
+          .reverse()
+          .map((id) => {
+            const f = find(id);
+            return f && { b: f.b, pos: f.pos + 1 };
+          })
+          .find(Boolean);
+      if (at) {
+        blocks[at.b].splice(at.pos, 0, order);
+        continue;
+      }
+    }
+    // Its block is gone (or wasn't remembered): first in the queue, with the
+    // block's closing pause.
+    const pause =
+      pauseOf(order, gapMode) ??
+      (ids
+        ? completed
+            .filter((r) => ids.includes(r.order.id))
+            .map((r) => pauseOf(r.order, gapMode))
+            .find(Boolean) ?? null
+        : null);
+    blocks.unshift([order]);
+    boundary.unshift(pause);
+  }
+  const out = blocks.flatMap((list, k) =>
+    list.map((o, j) => {
+      const pause = j === list.length - 1 ? (boundary[k] ?? null) : null;
+      return samePause(o, pause, gapMode) ? o : { ...o, ...(pause ?? NO_PAUSE) };
+    }),
+  );
+  return [...out, ...active.slice(placed)];
 }
 
 /** An empty schedule (used when every order is already completed). */
@@ -157,6 +282,7 @@ export function buildAdvancedCalc(
   // first) keeps its closing pause on the last order still in the form.
   const gapMode = values.settings.gapMode;
   const pauses = pausesAfterRemoval(values.orders, (i) => !progress.orders[i]?.done, gapMode);
+  const mates = blockMateIds(values.orders, gapMode);
 
   values.orders.forEach((order, i) => {
     const p = progress.orders[i];
@@ -164,7 +290,7 @@ export function buildAdvancedCalc(
     // Finished before now → completed row (historical times), out of the form.
     if (p?.done) {
       const row = result.rows[i];
-      if (row) completedRows.push(toCompletedRow(row));
+      if (row) completedRows.push(toCompletedRow(row, mates[i]));
       return;
     }
 

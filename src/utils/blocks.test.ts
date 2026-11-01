@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   blockIndexes,
+  blockMateIds,
   blockRanges,
   moveBlock,
   moveInBlock,
+  moveToBlock,
   pausesAfterRemoval,
+  placedCount,
   type PauseFields,
 } from './blocks';
 import type { Order } from '../types';
@@ -75,6 +78,55 @@ describe('moveBlock', () => {
     const r = moveBlock(o, 1, 0)!;
     expect(ids(o, r.order)).toEqual(['B', 'A']);
     expect(r.pauses).toEqual([cambio, pulizia]);
+  });
+});
+
+describe('moveToBlock', () => {
+  it('moves an order into another block, after / before the one it lands on', () => {
+    const o = list();
+    const r = moveToBlock(o, 3, 0, true)!; // C1 after A1
+    expect(ids(o, r.order)).toEqual(['A1', 'C1', 'A2', 'B1', 'C2']);
+    expect(r.pauses).toEqual([null, null, cambio, pulizia, null]);
+    const up = moveToBlock(o, 0, 3, false)!; // A1 before C1
+    expect(ids(o, up.order)).toEqual(['A2', 'B1', 'A1', 'C1', 'C2']);
+    expect(up.pauses).toEqual([cambio, pulizia, null, null, null]);
+  });
+
+  it('as the last of a block it takes over the block pause', () => {
+    const o = list();
+    const r = moveToBlock(o, 0, 1, true)!; // A1 after A2 (works in its own block too)
+    expect(ids(o, r.order)).toEqual(['A2', 'A1', 'B1', 'C1', 'C2']);
+    expect(r.pauses).toEqual([null, cambio, pulizia, null, null]);
+  });
+
+  it('a block left empty disappears with its closing pause', () => {
+    const o = list();
+    const r = moveToBlock(o, 2, 4, true)!; // B1 (alone) into C
+    expect(ids(o, r.order)).toEqual(['A1', 'A2', 'C1', 'C2', 'B1']);
+    // [A1 A2] ⏸cambio [C1 C2 B1] — pulizia went with block B
+    expect(r.pauses).toEqual([null, cambio, null, null, null]);
+  });
+
+  it('a new order not placed yet goes into a block; the others stay at the end', () => {
+    const o: Order[] = [...list(), { id: 'N1', unplaced: true }, { id: 'N2', unplaced: true }];
+    expect(placedCount(o)).toBe(5);
+    const r = moveToBlock(o, 5, 2, false)!; // N1 before B1
+    expect(ids(o, r.order)).toEqual(['A1', 'A2', 'N1', 'B1', 'C1', 'C2', 'N2']);
+    expect(r.pauses).toEqual([null, cambio, null, pulizia, null, null, null]);
+    // …but never among the new ones
+    expect(moveToBlock(o, 0, 6, false)).toBeNull();
+  });
+});
+
+describe('blockMateIds', () => {
+  it('lists the orders of each one’s block', () => {
+    expect(blockMateIds(list())).toEqual([
+      ['A1', 'A2'],
+      ['A1', 'A2'],
+      ['B1'],
+      ['C1', 'C2'],
+      ['C1', 'C2'],
+    ]);
   });
 });
 

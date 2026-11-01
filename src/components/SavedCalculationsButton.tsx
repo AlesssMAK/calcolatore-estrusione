@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   isViewOnly,
@@ -15,6 +15,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { checkProduction, productionStatus } from '../lib/productionCheck';
 import type { TFunction } from 'i18next';
 import { SaveIcon } from './ActionIcons';
+import { fixedMenuStyle, useMenuPlacement } from '../hooks/useMenuPlacement';
 import {
   floatBadgeCls,
   floatBtnCls,
@@ -78,8 +79,30 @@ function SavedCalculationsButton({
     loadOwn(retentionDays),
   );
   const rootRef = useRef<HTMLDivElement>(null);
-  // Which entry's company-publish menu is open (id), or null.
+  // The full button's menu stays on screen: below it, or above when there's
+  // no room (the pinned buttons' menus always open upward).
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const place = useMenuPlacement(anchorRef, open && !placement);
+  // Which entry's company-publish menu is open (id), or null — pinned next to
+  // its 🏭 button.
   const [publishMenuId, setPublishMenuId] = useState<string | null>(null);
+  const [publishMenuStyle, setPublishMenuStyle] = useState<CSSProperties>();
+  const publishAnchor = useRef<HTMLElement | null>(null);
+  // …following its button while the list / page scrolls.
+  useEffect(() => {
+    if (!publishMenuId) return;
+    const follow = () => {
+      if (publishAnchor.current) {
+        setPublishMenuStyle(fixedMenuStyle(publishAnchor.current, 220));
+      }
+    };
+    window.addEventListener('scroll', follow, true);
+    window.addEventListener('resize', follow);
+    return () => {
+      window.removeEventListener('scroll', follow, true);
+      window.removeEventListener('resize', follow);
+    };
+  }, [publishMenuId]);
 
   // Refresh whenever the dropdown opens, or the parent bumps the key after a
   // fresh save. Keeps the list in sync without prop-drilling the whole array.
@@ -150,8 +173,12 @@ function SavedCalculationsButton({
         </button>
       ) : (
         <button
+          ref={anchorRef}
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            if (!open) place.measure();
+            setOpen((v) => !v);
+          }}
           aria-haspopup="listbox"
           aria-expanded={open}
           className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
@@ -173,8 +200,9 @@ function SavedCalculationsButton({
           className={
             placement
               ? floatMenuCls(placement)
-              : 'absolute right-0 z-30 mt-2 max-h-[60vh] w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg'
+              : `absolute right-0 z-30 ${place.up ? 'bottom-full mb-2' : 'mt-2'} w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg`
           }
+          style={placement ? undefined : { maxHeight: place.maxHeight }}
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
             {t('saved.title')}
@@ -271,11 +299,13 @@ function SavedCalculationsButton({
                     <div className="relative shrink-0">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={(e) => {
+                          publishAnchor.current = e.currentTarget;
+                          setPublishMenuStyle(fixedMenuStyle(e.currentTarget, 220));
                           setPublishMenuId((cur) =>
                             cur === it.id ? null : it.id,
-                          )
-                        }
+                          );
+                        }}
                         aria-label={t('company.publish')}
                         title={t('company.publish')}
                         className={`rounded p-1.5 transition ${
@@ -289,7 +319,8 @@ function SavedCalculationsButton({
                       {publishMenuId === it.id && (
                         <div
                           role="menu"
-                          className="absolute right-0 z-40 mt-1 w-[min(15rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-neutral-200 bg-white p-1 text-left shadow-lg"
+                          style={publishMenuStyle}
+                          className="z-50 w-[min(15rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 text-left shadow-lg"
                         >
                           <button
                             type="button"

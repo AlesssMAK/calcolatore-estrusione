@@ -6,6 +6,7 @@ import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
 import { FactoryIcon, PauseIcon, PlayIcon } from './ActionIcons';
 import PauseNowNote from './PauseNowNote';
+import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { pauseAt } from '../utils/pauseAt';
 import {
   floatBadgeCls,
@@ -66,6 +67,10 @@ function CompanyResultsButton({
   // Shared-row ids this device authored (has the edit token) → deletable here.
   const [ownedIds, setOwnedIds] = useState<Set<string>>(() => new Set());
   const rootRef = useRef<HTMLDivElement>(null);
+  // The full button's menu stays on screen: below it, or above when there's
+  // no room (the pinned buttons' menus always open upward).
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const place = useMenuPlacement(anchorRef, open && !placement);
   const lang = i18n.resolvedLanguage ?? 'it';
   // The row whose ⏸ / ▶ is being saved (its button waits meanwhile).
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -141,8 +146,12 @@ function CompanyResultsButton({
         </button>
       ) : (
         <button
+          ref={anchorRef}
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            if (!open) place.measure();
+            setOpen((v) => !v);
+          }}
           aria-haspopup="listbox"
           aria-expanded={open}
           className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
@@ -164,8 +173,9 @@ function CompanyResultsButton({
           className={
             placement
               ? floatMenuCls(placement)
-              : 'absolute right-0 z-30 mt-2 max-h-[60vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg'
+              : `absolute right-0 z-30 ${place.up ? 'bottom-full mb-2' : 'mt-2'} w-[min(22rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg`
           }
+          style={placement ? undefined : { maxHeight: place.maxHeight }}
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
             {t('company.results')}

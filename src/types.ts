@@ -64,6 +64,10 @@ export interface Order {
    *  it even if the admin later edits or deletes the reason. None → a plain
    *  pause. */
   gapReason?: PauseReasonSnapshot;
+  /** A new order not yet placed in a block (the queue is split into blocks):
+   *  shown under them, to drag into one; until then it runs at the end of the
+   *  queue. Such orders are always the last ones. */
+  unplaced?: boolean;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
   producedSheets?: ProducedEntry[];
@@ -263,6 +267,10 @@ export interface ScheduledOrder {
    *  shown in the results as a completed row (with its historical times) but
    *  removed from the editable form. */
   completed?: boolean;
+  /** (Completed row) ids of the orders that were in its block, itself
+   *  included, in queue order — so "Ripristina" puts it back into that block.
+   *  Missing on rows completed before it was kept. */
+  blockOrderIds?: string[];
 }
 
 export interface ScheduleResult {

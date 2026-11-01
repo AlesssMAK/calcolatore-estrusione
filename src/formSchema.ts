@@ -65,6 +65,8 @@ const orderSchema = z.object({
       defaultMin: z.number().nullable().optional(),
     })
     .optional(),
+  // A new order not yet placed in a block (see Order.unplaced).
+  unplaced: z.boolean().optional(),
   producedProfiles: producedArray,
   producedPackages: producedArray,
   producedSheets: producedArray,

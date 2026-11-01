@@ -107,6 +107,8 @@ function FloatingActions({
       <div
         aria-hidden={!visible}
         inert={!visible}
+        // Menus elsewhere keep clear of the pinned phone bar (useMenuPlacement).
+        data-float-bar={p === 'bar' ? '' : undefined}
         className={`flex gap-2 transition-opacity duration-200 ${
           p === 'bar' ? '' : 'flex-col'
         } ${

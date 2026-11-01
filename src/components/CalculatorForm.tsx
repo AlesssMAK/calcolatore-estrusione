@@ -43,7 +43,7 @@ import {
   type SeqStep,
 } from '../utils/queue';
 import { clearDraft, draftKey, saveDraft } from '../lib/formDraft';
-import { toCompletedRow } from '../utils/advance';
+import { splitCompleted } from '../utils/advance';
 import {
   deriveLabel,
   saveCalculation,
@@ -302,12 +302,14 @@ function CalculatorForm({
     stayInPlaceRef.current = false;
     // A company's settings (schedule + buffers) are the source of truth when a
     // company link is active; otherwise fall back to the local settings.
-    const schedule = calculateSchedule(submitted.settings, submitted.orders, {
-      mode,
-      schedule: company ? catalogSettings.schedule : undefined,
-      warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
-      shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
-    });
+    const scheduleOf = (orders: FormValues['orders']) =>
+      calculateSchedule(submitted.settings, orders, {
+        mode,
+        schedule: company ? catalogSettings.schedule : undefined,
+        warmupMinutes: company ? catalogSettings.warmupMinutes : undefined,
+        shutdownMinutes: company ? catalogSettings.shutdownMinutes : undefined,
+      });
+    const schedule = scheduleOf(submitted.orders);
     // A custom queue whose re-arranged sizes are all produced no longer changes
     // anything (what's left runs in form order) → it switches itself off.
     let values = submitted;
@@ -321,21 +323,17 @@ function CalculatorForm({
     }
     // Split fully-produced orders out of the editable queue: they become
     // completed rows (shown done in the results, at their last-working-moment
-    // time) and leave the form. Rows map 1:1 to orders, so filter by index.
-    const isDone = schedule.rows.map(
-      (r) => r.productionMinutes >= 0.5 && r.remainingMinutes < 0.5,
+    // time) and leave the form; a block's pause stays with its last order left.
+    const split = splitCompleted(
+      values.orders,
+      schedule,
+      values.settings.gapMode,
+      scheduleOf,
     );
-    const newlyCompleted = schedule.rows
-      .filter((_, i) => isDone[i])
-      .map(toCompletedRow);
+    const newlyCompleted = split.completed;
     const outValues: FormValues =
-      newlyCompleted.length > 0
-        ? { ...values, orders: values.orders.filter((_, i) => !isDone[i]) }
-        : values;
-    const outSchedule: ScheduleResult =
-      newlyCompleted.length > 0
-        ? { ...schedule, rows: schedule.rows.filter((_, i) => !isDone[i]) }
-        : schedule;
+      newlyCompleted.length > 0 ? { ...values, orders: split.orders } : values;
+    const outSchedule: ScheduleResult = split.result;
     // Snapshot the *effective* schedule + buffers so the saved calc can be
     // advanced to "now" / recalculated later without depending on (possibly
     // changed) company settings. Mirrors what calculateSchedule just used.

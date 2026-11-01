@@ -15,6 +15,7 @@ import { numericSetValueAs } from '../utils/numeric';
 import FieldError from './FieldError';
 import { inputBase } from './formStyles';
 import MarqueeText from './MarqueeText';
+import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { PauseKeptNote, type ProductChangeSides } from './ProductChange';
 
 // Pause slots (minutes): 30-min steps up to 12 h.
@@ -173,6 +174,8 @@ function ReasonPicker({
   'use no memo';
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Its list stays on screen: below, or above when there's no room.
+  const place = useMenuPlacement(wrapperRef, open, 240);
 
   useEffect(() => {
     if (!open) return;
@@ -235,7 +238,10 @@ function ReasonPicker({
     <div ref={wrapperRef} className="relative min-w-0 flex-1">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) place.measure();
+          setOpen((o) => !o);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t('orders.pauseReason')}
@@ -256,7 +262,8 @@ function ReasonPicker({
         <ul
           role="listbox"
           aria-label={t('orders.pauseReason')}
-          className="absolute top-full right-0 left-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+          style={{ maxHeight: place.maxHeight }}
+          className={`absolute right-0 left-0 z-30 ${place.up ? 'bottom-full mb-1' : 'top-full mt-1'} overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg`}
         >
           {option('free', t('orders.pauseFree'), null, undefined, !reason, () => choose(null))}
           {reason &&
@@ -278,6 +285,8 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
   const value = useWatch({ control, name: `orders.${idx}.gapAfterMin` });
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Its list stays on screen: below, or above when there's no room.
+  const place = useMenuPlacement(wrapperRef, open, 240);
 
   useEffect(() => {
     if (!open) return;
@@ -318,7 +327,10 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
       />
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) place.measure();
+          setOpen((o) => !o);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         title={t('orders.pauseSlots')}
@@ -330,7 +342,8 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
       {open && (
         <ul
           role="listbox"
-          className="absolute top-full left-0 z-30 mt-1 max-h-60 w-44 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+          style={{ maxHeight: place.maxHeight }}
+          className={`absolute left-0 z-30 ${place.up ? 'bottom-full mb-1' : 'top-full mt-1'} w-44 overflow-y-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg`}
         >
           {PAUSE_SLOTS.map((m) => (
             <li key={m}>

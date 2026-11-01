@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { buildAdvancedCalc, orderFromCompletedRow, toggleTracking } from './advance';
+import {
+  buildAdvancedCalc,
+  orderFromCompletedRow,
+  restoreIntoBlocks,
+  splitCompleted,
+  toggleTracking,
+} from './advance';
 import { calculateSchedule } from './calculator';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
-import type { ScheduleSnapshot } from '../types';
+import type { Order, ScheduledOrder, ScheduleSnapshot } from '../types';
 
 const localDate = (y: number, m: number, d: number, h = 0, min = 0) =>
   new Date(y, m, d, h, min, 0, 0);
@@ -196,6 +202,86 @@ describe('buildAdvancedCalc', () => {
     expect(adv!.values.orders[0]!.id).toBe('b');
     expect(adv!.values.orders[0]!.speedMPerMin).toBe(1);
     expect(adv!.result.rows).toHaveLength(1);
+  });
+});
+
+describe('splitCompleted (a "Calcola" with produced orders)', () => {
+  const cambio = { gapEnabled: true, gapAfterMin: 60 };
+  // [A1 A2] ⏸ [B1]; A2 fully produced (✓) before A1
+  const orders = [
+    { id: 'A1', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1 },
+    { id: 'A2', sheets: 60, sheetLengthMm: 1000, ...cambio, producedSheets: [{ value: 60 }] },
+    { id: 'B1', sheets: 60, sheetLengthMm: 1000 },
+  ] as unknown as Order[];
+  const settings = {
+    startMode: 'manual',
+    startAt: localDate(2026, 4, 11, 6).toISOString(),
+    gapMode: 'continuous',
+  } as unknown as FormValues['settings'];
+  const schedule = (o: Order[]) =>
+    calculateSchedule(settings, o, { now: localDate(2026, 4, 11, 6) });
+
+  it('completed rows remember their block; the block pause stays with the order left', () => {
+    const split = splitCompleted(orders, schedule(orders), 'continuous', schedule);
+    expect(split.completed.map((r) => [r.order.id, r.blockOrderIds])).toEqual([
+      ['A2', ['A1', 'A2']],
+    ]);
+    expect(split.orders.map((o) => [o.id, !!o.gapEnabled, o.gapAfterMin])).toEqual([
+      ['A1', true, 60],
+      ['B1', false, undefined],
+    ]);
+    // rescheduled: B1 waits for the pause after A1
+    const [a1, b1] = split.result.rows;
+    expect(b1!.start.getTime() - a1!.end.getTime()).toBe(60 * 60_000);
+  });
+});
+
+describe('restoreIntoBlocks ("Ripristina")', () => {
+  const pause = { gapEnabled: true, gapAfterMin: 30 };
+  const row = (order: Partial<Order> & { id: string }, blockOrderIds?: string[]) =>
+    ({ order, speedMPerMin: 1, completed: true, blockOrderIds }) as unknown as ScheduledOrder;
+  const ids = (o: Order[]) => o.map((x) => `${x.id}${x.gapEnabled ? '⏸' : ''}`);
+
+  it('back into its own block, in its place, even when another block runs first', () => {
+    // active: [B1 ⏸] [C1 C3]; C2 was ✓'d out of turn, between C1 and C3
+    const active = [{ id: 'B1', ...pause }, { id: 'C1' }, { id: 'C3' }] as Order[];
+    const c2 = row({ id: 'C2' }, ['C1', 'C2', 'C3']);
+    expect(ids(restoreIntoBlocks(active, [c2], [c2]))).toEqual(['B1⏸', 'C1', 'C2', 'C3']);
+  });
+
+  it('a finished block comes back first, with its pause', () => {
+    const active = [{ id: 'B1' }] as Order[];
+    const a1 = row({ id: 'A1' }, ['A1', 'A2']);
+    const a2 = row({ id: 'A2', ...pause }, ['A1', 'A2']);
+    const completed = [a1, a2];
+    // one at a time (the last completed first), then the other joins it
+    const once = restoreIntoBlocks(active, [a2], completed);
+    expect(ids(once)).toEqual(['A2⏸', 'B1']);
+    expect(ids(restoreIntoBlocks(once, [a1], [a1]))).toEqual(['A1', 'A2⏸', 'B1']);
+    // or all at once
+    expect(ids(restoreIntoBlocks(active, completed, completed))).toEqual(['A1', 'A2⏸', 'B1']);
+  });
+
+  it('the pause of a finished block is found on a block-mate', () => {
+    // A1 held the pause when it was completed last; restoring A2 alone
+    const a2 = row({ id: 'A2' }, ['A1', 'A2']);
+    const a1 = row({ id: 'A1', ...pause }, ['A1', 'A2']);
+    const out = restoreIntoBlocks([{ id: 'B1' }] as Order[], [a2], [a2, a1]);
+    expect(ids(out)).toEqual(['A2⏸', 'B1']);
+  });
+
+  it('joining a block it never held the pause of; rows from before go to the front', () => {
+    const active = [{ id: 'A1', ...pause }, { id: 'B1' }] as Order[];
+    const a2 = row({ id: 'A2', ...pause }, ['A1', 'A2']); // was the block's last
+    expect(ids(restoreIntoBlocks(active, [a2], [a2]))).toEqual(['A1', 'A2⏸', 'B1']);
+    const legacy = row({ id: 'X' });
+    expect(ids(restoreIntoBlocks(active, [legacy], [legacy]))).toEqual(['X', 'A1⏸', 'B1']);
+  });
+
+  it('new orders not placed in a block stay at the end', () => {
+    const active = [{ id: 'A1' }, { id: 'N', unplaced: true }] as Order[];
+    const a2 = row({ id: 'A2' }, ['A1', 'A2']);
+    expect(restoreIntoBlocks(active, [a2], [a2]).map((o) => o.id)).toEqual(['A1', 'A2', 'N']);
   });
 });
 
