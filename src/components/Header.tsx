@@ -6,7 +6,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import { useCatalog } from '../contexts/CatalogContext';
 import { clearDraft } from '../lib/formDraft';
 import { loadProductionStart, saveProductionStart } from '../lib/productionView';
-import { FactoryIcon } from './ActionIcons';
+import { CalcIcon, FactoryIcon } from './ActionIcons';
 
 interface Props {
   /** Heading text. Defaults to the app title (calculator). */
@@ -95,7 +95,8 @@ const pillCls =
 
 /** "Produzione" next to "Listino": a switch that makes the Produzione page the
  *  app's start page — on, the page opens (now and at every launch); off, back
- *  to the calculator. On the calculator while it's on: the way back to it. */
+ *  to the calculator (on the page it reads "Calcolatore"). On the calculator
+ *  while it's on: the way back to it. */
 function ProductionSwitch({ where }: { where: 'calculator' | 'page' }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -120,7 +121,7 @@ function ProductionSwitch({ where }: { where: 'calculator' | 'page' }) {
       type="button"
       role="switch"
       aria-checked={on}
-      title={t('production.switchTitle')}
+      title={t(on ? 'production.switchOffTitle' : 'production.switchTitle')}
       onClick={() => {
         saveProductionStart(!on);
         navigate(on ? `/${search}` : `/produzione${search}`);
@@ -131,8 +132,9 @@ function ProductionSwitch({ where }: { where: 'calculator' | 'page' }) {
           : 'border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink'
       }`}
     >
-      <FactoryIcon className="h-3.5 w-3.5" />
-      {t('production.title')}
+      {/* On the page it names where a tap takes you: the calculator. */}
+      {on ? <CalcIcon className="h-3.5 w-3.5" /> : <FactoryIcon className="h-3.5 w-3.5" />}
+      {t(on ? 'production.toCalculator' : 'production.title')}
       <span
         aria-hidden
         className={`relative inline-block h-4 w-7 shrink-0 rounded-full transition ${
