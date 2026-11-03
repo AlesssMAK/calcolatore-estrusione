@@ -51,6 +51,7 @@ import {
 import {
   blockIndexes,
   isGapEnabled,
+  leaveBlock,
   moveBlock,
   moveInBlock,
   moveToBlock,
@@ -60,6 +61,8 @@ import {
   type Rearrangement,
 } from '../utils/blocks';
 import MoveToBlockModal, { type BlockParams } from './MoveToBlockModal';
+import BlockProductModal from './BlockProductModal';
+import type { CatalogProduct } from '../lib/catalog';
 import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { StopIcon } from './ActionIcons';
@@ -78,8 +81,10 @@ import {
 } from './ProductChange';
 import {
   isProductChange,
+  planRename,
   productChangesWithoutPause,
   sameProduct,
+  type RenamePlan,
 } from '../utils/productChange';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import type { OcrRow } from '../lib/ocr';
@@ -119,6 +124,14 @@ interface Props {
   /** "Annulla Piramide" on an order whose sizes came back from Piramide. */
   onRevertPiramide?: (orderIdx: number) => void;
 }
+
+/** A product picked / typed for an order: a catalog one carries its parameters. */
+interface NewProduct {
+  name: string;
+  product?: CatalogProduct;
+}
+/** New values for an order; a listed key set to undefined clears it. */
+type OrderPatch = { productName?: string } & Partial<Record<InheritedKey, number | undefined>>;
 
 function OrdersList({
   mode,
@@ -264,9 +277,11 @@ function OrdersList({
   // (written in where it inherited them from an order that moved).
   const applyArrangement = (
     r: Rearrangement,
-    before: FormValues['orders'],
+    live: FormValues['orders'],
     moved?: { id: string; params: BlockParams },
   ) => {
+    // A copy: setValue writes into the very order objects the form holds.
+    const before = live.map((o) => ({ ...o }));
     const cur = before.map((_, i) => i);
     r.order.forEach((oldIdx, i) => {
       const pos = cur.indexOf(oldIdx);
@@ -366,6 +381,142 @@ function OrdersList({
       after: pendingMove.after,
     };
   })();
+
+  // A new product for an order (its name field) — see planRename: the first
+  // order of a block shared with others asks whether the whole block changes;
+  // any other one leaves its block. Every product change stops the line, so
+  // "Cambio Prodotto" then asks for the stop where there's none yet.
+  const [change, setChange] = useState<ProductChangeSides | null>(null);
+  const askStop = (at: number[]) => {
+    const orders = getValues('orders') ?? [];
+    const open = productChangesWithoutPause(orders, getValues('settings.gapMode'));
+    const i = at.find((k) => open.includes(k));
+    if (i !== undefined) {
+      setChange({
+        idx: i,
+        from: orders[i].productName ?? '',
+        to: orders[i + 1].productName ?? '',
+      });
+    }
+  };
+  // A catalog product's speed, and its cavity (profiles, when it has one).
+  const catalogParams = ({ product }: NewProduct): OrderPatch => ({
+    ...(product ? { speedMPerMin: product.speed_m_per_min } : {}),
+    ...(mode === 'profiles' && product?.cavity != null && product.cavity > 0
+      ? { cavity: product.cavity }
+      : {}),
+  });
+  // Write new values on some orders; every other order keeps the speed /
+  // cavity it ran at (written in where it inherited a changed one).
+  const writeOrders = (live: FormValues['orders'], patch: Map<number, OrderPatch>) => {
+    const opts = { shouldDirty: true, shouldValidate: true };
+    // Copies: setValue writes into the very order objects the form holds.
+    const before = live.map((o) => ({ ...o }));
+    const now = live.map((o) => ({ ...o }));
+    const keys = ['speedMPerMin', 'cavity'] as const;
+    patch.forEach((p, i) => {
+      if (p.productName !== undefined) setValue(`orders.${i}.productName`, p.productName, opts);
+      for (const key of keys) {
+        if (!(key in p)) continue;
+        setValue(`orders.${i}.${key}`, p[key], opts);
+        now[i][key] = p[key];
+      }
+    });
+    for (const key of keys) {
+      now.forEach((_, i) => {
+        if (key in (patch.get(i) ?? {})) return;
+        const v = effectiveValue(before, i, key);
+        if (v === undefined || effectiveValue(now, i, key) === v) return;
+        setValue(`orders.${i}.${key}`, v, opts);
+        now[i][key] = v;
+      });
+    }
+  };
+  // An order that moved away: bring it into view.
+  const reveal = (id: string) => {
+    window.requestAnimationFrame(() => {
+      const i = (getValues('orders') ?? []).findIndex((o) => o.id === id);
+      document
+        .querySelector(`[name="orders.${i}.productName"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+  // Just this order changes; the speed / cavity it changes carry down to the
+  // orders that follow it (a typed name that isn't in the catalog: the name).
+  const renamePlain = (idx: number, np: NewProduct) => {
+    const before = getValues('orders') ?? [];
+    const changed = !sameProduct(before[idx]?.productName, np.name);
+    const prevSpeed = effectiveValue(before, idx, 'speedMPerMin');
+    const prevCavity = effectiveValue(before, idx, 'cavity');
+    const opts = { shouldDirty: true, shouldValidate: true };
+    setValue(`orders.${idx}.productName`, np.name, opts);
+    if (!np.product) return;
+    const { speedMPerMin, cavity } = catalogParams(np);
+    setValue(`orders.${idx}.speedMPerMin`, speedMPerMin, opts);
+    // A product without a cavity keeps the order's (inherited) one.
+    if (cavity !== undefined) setValue(`orders.${idx}.cavity`, cavity, opts);
+    carryDown(getValues, setValue, idx, 'speedMPerMin', prevSpeed);
+    carryDown(getValues, setValue, idx, 'cavity', prevCavity);
+    if (changed) askStop([idx - 1, idx]);
+  };
+  // The whole block: the new product on every order, its speed / cavity on
+  // the first one and inherited by the others.
+  const renameBlock = (members: number[], np: NewProduct) => {
+    const params = catalogParams(np);
+    const patch = new Map<number, OrderPatch>();
+    members.forEach((i, k) => {
+      const p: OrderPatch = { productName: np.name };
+      for (const key of ['speedMPerMin', 'cavity'] as const) {
+        if (key in params) p[key] = k === 0 ? params[key] : undefined;
+      }
+      patch.set(i, p);
+    });
+    writeOrders(getValues('orders'), patch);
+    askStop([members[0] - 1, members[members.length - 1]]);
+  };
+  // Into the block ending at `to` (same product), last — with its parameters.
+  const joinBlock = (idx: number, np: NewProduct, to: number) => {
+    const before = getValues('orders');
+    const r = moveToBlock(before, idx, to, true, gapMode);
+    if (!r) return;
+    applyArrangement(r, before, {
+      id: before[idx].id,
+      params: {
+        productName: np.name,
+        speedMPerMin: effectiveValue(before, to, 'speedMPerMin'),
+        cavity: effectiveValue(before, to, 'cavity'),
+      },
+    });
+    reveal(before[idx].id);
+  };
+  // A block of its own: the first order of a block stays where it is, any
+  // other one goes right after its block.
+  const renameOut = (idx: number, np: NewProduct, stay: boolean) => {
+    let before = getValues('orders');
+    let at = idx;
+    if (!stay) {
+      const r = leaveBlock(before, idx, gapMode);
+      if (!r) return renamePlain(idx, np);
+      applyArrangement(r, before);
+      at = r.order.indexOf(idx);
+      before = getValues('orders');
+    }
+    writeOrders(before, new Map([[at, { productName: np.name, ...catalogParams(np) }]]));
+    askStop([at - 1, at]);
+    if (!stay) reveal(before[at].id);
+  };
+  const [pendingRename, setPendingRename] = useState<{
+    idx: number;
+    np: NewProduct;
+    plan: Extract<RenamePlan, { kind: 'ask' }>;
+  } | null>(null);
+  const renameOrder = (idx: number, np: NewProduct) => {
+    const plan = planRename(getValues('orders') ?? [], idx, np.name, gapMode);
+    if (plan.kind === 'ask') setPendingRename({ idx, np, plan });
+    else if (plan.kind === 'join') joinBlock(idx, np, plan.to);
+    else if (plan.kind === 'leave') renameOut(idx, np, false);
+    else renamePlain(idx, np);
+  };
 
   // Where a dragged order would land in another block: a line above / below
   // the order it's over.
@@ -599,7 +750,7 @@ function OrdersList({
                     ⠿
                   </button>
                 )}
-                <OrderNameField idx={idx} mode={mode} t={t} />
+                <OrderNameField idx={idx} mode={mode} t={t} onRename={renameOrder} />
               </div>
               <div className="ml-auto flex items-center gap-2">
                 {onComplete && (
@@ -917,6 +1068,28 @@ function OrdersList({
           onClose={() => setPendingMove(null)}
         />
       )}
+
+      {pendingRename && (
+        <BlockProductModal
+          block={pendingRename.plan.block + 1}
+          order={`#${pendingRename.idx + 1}`}
+          from={watchedOrders?.[pendingRename.idx]?.productName ?? ''}
+          to={pendingRename.np.name}
+          members={`#${pendingRename.plan.members[0] + 1}–#${
+            pendingRename.plan.members[pendingRename.plan.members.length - 1] + 1
+          }`}
+          params={catalogParams(pendingRename.np)}
+          join={pendingRename.plan.join !== null ? blockOf[pendingRename.plan.join] + 1 : null}
+          onAll={() => renameBlock(pendingRename.plan.members, pendingRename.np)}
+          onOne={() => {
+            const { idx, np, plan } = pendingRename;
+            if (plan.join !== null) joinBlock(idx, np, plan.join);
+            else renameOut(idx, np, true);
+          }}
+          onClose={() => setPendingRename(null)}
+        />
+      )}
+      {change && <ProductChangeModal change={change} onClose={() => setChange(null)} />}
 
       {showBottomButton && (
         <div className="mt-3 flex justify-end sm:mt-4">
@@ -1603,13 +1776,16 @@ function OrderNameField({
   idx,
   mode,
   t,
+  onRename,
 }: {
   idx: number;
   mode: CalculatorMode;
   t: TFunction;
+  /** A new product for the order (what it does to its block: the list). */
+  onRename: (idx: number, np: NewProduct) => void;
 }) {
   'use no memo';
-  const { control, setValue, getValues } = useFormContext<FormValues>();
+  const { control } = useFormContext<FormValues>();
   const value = useWatch({
     control,
     name: `orders.${idx}.productName`,
@@ -1633,8 +1809,6 @@ function OrderNameField({
   // Phone-only: expand the suggestion list into a full-screen picker so long
   // product names are fully readable. Toggled by a button under the list.
   const [fullScreen, setFullScreen] = useState(false);
-  // "Cambio Prodotto": the product change just picked, asking for its stop.
-  const [change, setChange] = useState<ProductChangeSides | null>(null);
   // Changing the product: the field opens empty, the current one (inherited
   // or not) shown as a grey hint — left untouched, the order keeps it; what's
   // typed replaces it. null = not editing. Mirrored in a ref: a pick from the
@@ -1707,45 +1881,8 @@ function OrderNameField({
   );
 
   const pickProduct = (p: (typeof filtered)[number]) => {
-    // The speed / cavity it changes carry down to the orders that follow.
-    const before = getValues('orders') ?? [];
-    const changed = !sameProduct(before[idx]?.productName, p.name);
-    const prevSpeed = effectiveValue(before, idx, 'speedMPerMin');
-    const prevCavity = effectiveValue(before, idx, 'cavity');
-    setValue(`orders.${idx}.productName`, p.name, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    setValue(`orders.${idx}.speedMPerMin`, p.speed_m_per_min, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    // Auto-fill cavity for profiles when the product has one configured.
-    // Setting undefined when the catalog entry has no cavity keeps the
-    // user's previous value (inheritance) instead of forcing it back to 1.
-    if (mode === 'profiles' && p.cavity != null && p.cavity > 0) {
-      setValue(`orders.${idx}.cavity`, p.cavity, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }
-    carryDown(getValues, setValue, idx, 'speedMPerMin', prevSpeed);
-    carryDown(getValues, setValue, idx, 'cavity', prevCavity);
     setDropdownOpen(false);
-    // Every product change stops the line: next to a different product with
-    // no pause between (the order before, else the one after) → ask which stop.
-    if (changed) {
-      const orders = getValues('orders') ?? [];
-      const open = productChangesWithoutPause(orders, getValues('settings.gapMode'));
-      const at = open.includes(idx - 1) ? idx - 1 : open.includes(idx) ? idx : null;
-      if (at !== null) {
-        setChange({
-          idx: at,
-          from: orders[at].productName ?? '',
-          to: orders[at + 1].productName ?? '',
-        });
-      }
-    }
+    onRename(idx, { name: p.name, product: p });
   };
 
   // Done typing (blur / Enter / closing the full-screen list): nothing typed →
@@ -1757,12 +1894,7 @@ function OrderNameField({
     if (!typed) return;
     const p = filtered.find((x) => sameProduct(x.name, typed));
     if (p) pickProduct(p);
-    else {
-      setValue(`orders.${idx}.productName`, typed, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }
+    else onRename(idx, { name: typed });
   };
   const pickFromList = (p: (typeof filtered)[number]) => {
     setDraft(null);
@@ -1819,7 +1951,12 @@ function OrderNameField({
                 setDraft(null);
                 setDropdownOpen(false);
               }
-              if (e.key === 'Enter') commitDraft();
+              if (e.key === 'Enter') {
+                // Enter only confirms the product — no "Calcola" (the form's
+                // own submit) while a change may still ask about its block.
+                e.preventDefault();
+                commitDraft();
+              }
             }}
           />
           {dropdownOpen && suggestions.length > 0 && (
@@ -1944,7 +2081,6 @@ function OrderNameField({
           document.body,
         )}
 
-      {change && <ProductChangeModal change={change} onClose={() => setChange(null)} />}
     </div>
   );
 }

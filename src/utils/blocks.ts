@@ -152,6 +152,34 @@ export function moveToBlock(
   return r;
 }
 
+/**
+ * An order leaves its block (it now makes another product) for a block of its
+ * own right after it. The pause closing the block stays on the boundary to the
+ * next one — now after the order that left — and the two get no pause between
+ * them yet (the product change asks for one). Null when the order isn't in a
+ * block or is alone in it.
+ */
+export function leaveBlock(
+  orders: (BlockOrder & Pick<Order, 'unplaced'>)[],
+  from: number,
+  gapMode?: GapMode,
+): Rearrangement | null {
+  const placed = placedCount(orders);
+  if (from >= placed) return null;
+  const { blocks, boundary } = split(orders.slice(0, placed), gapMode);
+  const k = blocks.findIndex((list) => list.includes(from));
+  if (k < 0 || blocks[k].length < 2) return null;
+  const r = arrange(
+    [...blocks.slice(0, k), blocks[k].filter((i) => i !== from), [from], ...blocks.slice(k + 1)],
+    [...boundary.slice(0, k), null, boundary[k], ...boundary.slice(k + 1)],
+  );
+  for (let i = placed; i < orders.length; i++) {
+    r.order.push(i);
+    r.pauses.push(pauseOf(orders[i], gapMode));
+  }
+  return r;
+}
+
 /** For each order, the ids of the orders in its block (itself included), in
  *  queue order — what a completed row keeps to come back into its block. */
 export function blockMateIds(

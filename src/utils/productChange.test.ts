@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isProductChange, productChangesWithoutPause, sameProduct } from './productChange';
+import {
+  isProductChange,
+  planRename,
+  productChangesWithoutPause,
+  sameProduct,
+} from './productChange';
 
 const o = (productName: string, gapEnabled = false) => ({ productName, gapEnabled });
 
@@ -44,5 +49,51 @@ describe('sameProduct', () => {
     expect(sameProduct('PC 16', ' pc 16')).toBe(true);
     expect(sameProduct('PC 16', 'PC 10')).toBe(false);
     expect(sameProduct(undefined, '')).toBe(true);
+  });
+});
+
+describe('planRename', () => {
+  // [Onda Onda Onda] ⏸ [Compact Compact] ⏸ [Onda]
+  const q = () => [
+    o('Onda'),
+    o('Onda'),
+    o('Onda', true),
+    o('Compact'),
+    o('Compact', true),
+    o('Onda'),
+  ];
+
+  it("the block's first order asks — with where it would go otherwise", () => {
+    expect(planRename(q(), 0, 'Compact')).toEqual({
+      kind: 'ask',
+      block: 0,
+      members: [0, 1, 2],
+      join: 4, // the Compact block ends at #5
+    });
+    expect(planRename(q(), 3, 'Pc 10')).toEqual({
+      kind: 'ask',
+      block: 1,
+      members: [3, 4],
+      join: null,
+    });
+  });
+
+  it('another order leaves: into a block making that product, else its own', () => {
+    expect(planRename(q(), 1, ' compact ')).toEqual({ kind: 'join', to: 4 });
+    expect(planRename(q(), 4, 'Onda')).toEqual({ kind: 'join', to: 2 }); // the first Onda block
+    expect(planRename(q(), 1, 'Pc 10')).toEqual({ kind: 'leave' });
+  });
+
+  it('just changes: alone in its block, the same product, no product before, not placed', () => {
+    expect(planRename(q(), 5, 'Compact')).toEqual({ kind: 'plain' });
+    expect(planRename(q(), 0, 'ONDA')).toEqual({ kind: 'plain' });
+    expect(planRename([o(''), o('')], 0, 'Onda')).toEqual({ kind: 'plain' });
+    expect(planRename([o('Onda'), { productName: 'Onda', unplaced: true }], 1, 'X')).toEqual({
+      kind: 'plain',
+    });
+  });
+
+  it("an order getting its block's product back just changes", () => {
+    expect(planRename([o('Onda'), o('Compact')], 1, 'Onda')).toEqual({ kind: 'plain' });
   });
 });
