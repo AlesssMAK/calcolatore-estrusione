@@ -4,6 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import PauseNowNote from '../components/PauseNowNote';
 import { StatusChip } from '../components/CompanyReportModal';
+import ReportFilters from '../components/ReportFilters';
+import { useReportMoment } from '../hooks/useReportMoment';
+import FloatingScrollTop from '../components/ScrollTopButton';
 import { useCatalog } from '../contexts/CatalogContext';
 import { loadCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { markLaunchDone, saveProductionStart, stashCompanyOpen } from '../lib/productionView';
@@ -20,17 +23,21 @@ const REFRESH_MS = 60_000;
  * like "Calcolo Avanzato") every size of the order: how many, how far, when it
  * ends. Counts follow the published schedule as time passes; the list is read
  * again every minute and when the app comes back to the screen. Paused /
- * "Calcolo Fisso" results are static plans → left out, as in the Report.
+ * "Calcolo Fisso" results are static plans → left out, as in the Report —
+ * whose filters it has too: the same view at the line's closing, or at a
+ * chosen day + time.
  */
 export default function ProduzionePage() {
-  const { t, i18n } = useTranslation();
-  const lang = i18n.resolvedLanguage ?? 'it';
+  const { t } = useTranslation();
   const { company, loading } = useCatalog();
   const navigate = useNavigate();
   const { search } = useLocation();
   const [calcs, setCalcs] = useState<CompanyCalc[] | null>(null);
   const [now, setNow] = useState(() => new Date());
-  const [readAt, setReadAt] = useState<Date | null>(null);
+  // Now, the line's next closing, or a chosen day + time — as in the Report.
+  const moment = useReportMoment(now);
+  const { mode, closing, atMs } = moment;
+  const live = mode === 'current';
   // Calcs whose sizes are unfolded (by id).
   const [open, setOpen] = useState<Set<string>>(() => new Set());
 
@@ -50,9 +57,7 @@ export default function ProduzionePage() {
         // Offline / error → keep showing the last list.
         if (cancelled || !list) return;
         setCalcs(list);
-        const at = new Date();
-        setNow(at);
-        setReadAt(at);
+        setNow(new Date());
       });
     };
     read();
@@ -67,21 +72,25 @@ export default function ProduzionePage() {
     };
   }, [company]);
 
-  // In production now (on the line, the line stopped, or a pause between
-  // blocks); the order ending soonest first.
-  const rows = useMemo(
-    () =>
-      (calcs ?? [])
-        .filter((c) => !c.payload.values?.settings.frozen)
-        .map((calc) => ({ calc, stage: stageAt(calc.payload, now) }))
-        .filter(({ stage }) => stage.status !== 'done' && stage.status !== 'notStarted')
-        .sort(
-          (a, b) =>
-            (a.stage.orderEnd ?? a.stage.calcEnd).getTime() -
-            (b.stage.orderEnd ?? b.stage.calcEnd).getTime(),
-        ),
-    [calcs, now],
-  );
+  // In production at that moment (on the line, the line stopped, or a pause
+  // between blocks), the order ending soonest first; then — looking ahead —
+  // the ones finished between now and then, by when they end.
+  const rows = useMemo(() => {
+    if (Number.isNaN(atMs)) return [];
+    const at = new Date(atMs);
+    const done = (s: ReportStage) => (s.status === 'done' ? 1 : 0);
+    const time = (s: ReportStage) =>
+      (s.status === 'done' ? s.calcEnd : (s.orderEnd ?? s.calcEnd)).getTime();
+    return (calcs ?? [])
+      .filter((c) => !c.payload.values?.settings.frozen)
+      .map((calc) => ({ calc, stage: stageAt(calc.payload, at) }))
+      .filter(
+        ({ stage }) =>
+          stage.status !== 'notStarted' &&
+          (stage.status !== 'done' || (!live && stage.calcEnd.getTime() > now.getTime())),
+      )
+      .sort((a, b) => done(a.stage) - done(b.stage) || time(a.stage) - time(b.stage));
+  }, [calcs, atMs, now, live]);
 
   const openInCalculator = (calc: CompanyCalc) => {
     stashCompanyOpen(calc);
@@ -99,21 +108,9 @@ export default function ProduzionePage() {
     <div className="min-h-full bg-surface-alt">
       <Header title={t('production.title')} production="page" />
 
-      <main className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-8">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-ink sm:text-lg">
-            <span
-              className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-500"
-              aria-hidden
-            />
-            {t('production.heading')}
-          </h2>
-          {readAt && (
-            <span className="text-xs text-ink-soft">
-              {t('production.live', { time: formatDateParts(readAt, lang).time })}
-            </span>
-          )}
-        </div>
+      {/* Phone: room at the bottom for the pinned scroll-to-top. */}
+      <main className="mx-auto max-w-3xl px-3 pt-4 pb-16 sm:px-4 sm:py-8">
+        {company && <ReportFilters moment={moment} className="mb-3" />}
 
         {!company ? (
           <div className="rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft">
@@ -140,7 +137,9 @@ export default function ProduzionePage() {
           <p className="py-6 text-center text-sm text-ink-soft">{t('report.loading')}</p>
         ) : rows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft">
-            {t('production.empty')}
+            {mode === 'closing' && !closing
+              ? t('report.noClosing')
+              : t(live ? 'production.empty' : 'report.empty')}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -149,8 +148,9 @@ export default function ProduzionePage() {
                 key={calc.id}
                 calc={calc}
                 stage={stage}
-                sizes={stageSizes(calc.payload, stage, now)}
-                now={now}
+                sizes={stageSizes(calc.payload, stage, new Date(atMs))}
+                at={new Date(atMs)}
+                live={live}
                 sizesOpen={open.has(calc.id)}
                 onToggleSizes={() => toggle(calc.id)}
                 onOpen={() => openInCalculator(calc)}
@@ -159,6 +159,7 @@ export default function ProduzionePage() {
           </ul>
         )}
       </main>
+      <FloatingScrollTop />
     </div>
   );
 }
@@ -167,7 +168,8 @@ function ProductionCard({
   calc,
   stage,
   sizes,
-  now,
+  at,
+  live,
   sizesOpen,
   onToggleSizes,
   onOpen,
@@ -175,14 +177,18 @@ function ProductionCard({
   calc: CompanyCalc;
   stage: ReportStage;
   sizes: StageSize[];
-  now: Date;
+  /** The moment shown. */
+  at: Date;
+  /** It's now ("In Corso") — what's on the line blinks. */
+  live: boolean;
   sizesOpen: boolean;
   onToggleSizes: () => void;
   onOpen: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? 'it';
-  const running = stage.status === 'running';
+  const running = live && stage.status === 'running';
+  const done = stage.status === 'done';
   const unit =
     stage.unit === 'meters'
       ? 'm'
@@ -216,7 +222,7 @@ function ProductionCard({
       </button>
 
       <div className="px-3 pt-1.5 pb-3 sm:px-4">
-        {stage.pause && <PauseNowNote pause={stage.pause} now={now} className="mb-1.5" />}
+        {stage.pause && <PauseNowNote pause={stage.pause} now={at} className="mb-1.5" />}
 
         {stage.orderNo !== undefined && (
           <span className="flex min-w-0 items-center gap-2 text-sm">
@@ -230,27 +236,29 @@ function ProductionCard({
         )}
 
         {/* The size on the line: how far, and (several sizes) when it ends. */}
-        <div
-          className={`mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs ${
-            running ? 'active-blink' : ''
-          }`}
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <span className="text-ink-soft">
-              {stage.sizeLength !== undefined && <>{stage.sizeLength} mm · </>}
-              <strong className={`text-ink ${running ? 'num-blink' : ''}`}>
-                {stage.produced ?? 0}
-              </strong>
-              {stage.total !== undefined && <> / {stage.total}</>} {unit}
-            </span>
-            {multiSize && stage.stepEnd && (
-              <span className="flex items-baseline gap-1.5">
-                <span className="text-ink-soft">{t('production.sizeEnd')}</span>
-                <strong className="text-brand-700">{dateTime(stage.stepEnd)}</strong>
+        {!done && (
+          <div
+            className={`mt-2 rounded-md border border-brand-200 bg-brand-50 p-2 text-xs ${
+              running ? 'active-blink' : ''
+            }`}
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="text-ink-soft">
+                {stage.sizeLength !== undefined && <>{stage.sizeLength} mm · </>}
+                <strong className={`text-ink ${running ? 'num-blink' : ''}`}>
+                  {stage.produced ?? 0}
+                </strong>
+                {stage.total !== undefined && <> / {stage.total}</>} {unit}
               </span>
-            )}
+              {multiSize && stage.stepEnd && (
+                <span className="flex items-baseline gap-1.5">
+                  <span className="text-ink-soft">{t('production.sizeEnd')}</span>
+                  <strong className="text-brand-700">{dateTime(stage.stepEnd)}</strong>
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {multiSize && (
           <div className="pt-2">
@@ -316,18 +324,29 @@ function ProductionCard({
           </div>
         )}
 
-        <div className="mt-2.5 flex items-baseline justify-between gap-3 border-t border-neutral-100 pt-2">
+        {/* Finished by then (looking ahead): when it ends, as in the Report. */}
+        <div
+          className={`flex items-baseline justify-between gap-3 ${
+            done ? 'mt-1' : 'mt-2.5 border-t border-neutral-100 pt-2'
+          }`}
+        >
           <span className="shrink-0 text-xs tracking-wide text-ink-soft uppercase">
-            {t('report.orderEnd')}
+            {t(done ? 'report.ended' : 'report.orderEnd')}
           </span>
-          <span className="min-w-0 text-right text-sm font-semibold text-brand-700">
-            {dateTime(stage.orderEnd ?? stage.calcEnd)}
+          <span
+            className={`min-w-0 text-right text-sm font-semibold ${
+              done ? 'text-success' : 'text-brand-700'
+            }`}
+          >
+            {dateTime(done ? stage.calcEnd : (stage.orderEnd ?? stage.calcEnd))}
           </span>
         </div>
-        <div className="mt-0.5 flex items-baseline justify-between gap-3 text-xs text-ink-soft">
-          <span className="shrink-0">{t('production.calcEnd')}</span>
-          <span className="min-w-0 text-right">{dateTime(stage.calcEnd)}</span>
-        </div>
+        {!done && (
+          <div className="mt-0.5 flex items-baseline justify-between gap-3 text-xs text-ink-soft">
+            <span className="shrink-0">{t('production.calcEnd')}</span>
+            <span className="min-w-0 text-right">{dateTime(stage.calcEnd)}</span>
+          </div>
+        )}
       </div>
     </li>
   );

@@ -312,12 +312,11 @@
   },
   "production": {
     "title": "Producción",
-    "heading": "En Producción Ahora",
-    "live": "En tiempo real · actualizado a las {{time}}",
     "empty": "Ningún cálculo en producción en este momento.",
     "noCompany": "Abre el enlace de tu empresa para ver la producción.",
     "toCalculator": "Calculadora",
     "switchTitle": "Abrir la app en la página Producción",
+    "switchOffTitle": "Volver a la calculadora: la app ya no se abrirá en Producción",
     "open": "Abrir en la calculadora",
     "sizes": "Medidas ({{n}})",
     "sizeEnd": "Fin medida",
