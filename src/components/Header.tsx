@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLongPress } from '../hooks/useLongPress';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useCatalog } from '../contexts/CatalogContext';
 import { clearDraft } from '../lib/formDraft';
+import { loadProductionStart, saveProductionStart } from '../lib/productionView';
+import { FactoryIcon } from './ActionIcons';
 
 interface Props {
   /** Heading text. Defaults to the app title (calculator). */
@@ -12,9 +15,12 @@ interface Props {
    *  own back-target. Always opens in the SAME tab — clicking the logo on the
    *  calculator reloads it instead of spawning a new tab. */
   homeHref?: string;
+  /** The "Produzione" switch next to "Listino": on the calculator, or on the
+   *  Produzione page itself. Omit → none. */
+  production?: 'calculator' | 'page';
 }
 
-function Header({ title, homeHref }: Props) {
+function Header({ title, homeHref, production }: Props) {
   const { t } = useTranslation();
   const { company, loading, error } = useCatalog();
   const heading = title ?? t('app.title');
@@ -61,23 +67,85 @@ function Header({ title, homeHref }: Props) {
         </div>
       </div>
       {(company || loading || error) && (
-        <div className="mx-auto max-w-6xl px-3 pb-2 sm:px-4">
-          {company && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-              <span aria-hidden>🏷</span>
-              <span className="text-ink-soft">Listino:</span>
-              <span className="font-semibold text-brand-700">{company.name}</span>
-            </span>
-          )}
-          {!company && loading && (
-            <span className="text-xs text-ink-soft">Caricamento listino…</span>
-          )}
-          {error && !company && (
-            <span className="text-xs font-medium text-danger">⚠ {error}</span>
-          )}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 pb-2 sm:px-4">
+          <div className="min-w-0">
+            {company && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+                <span aria-hidden>🏷</span>
+                <span className="text-ink-soft">Listino:</span>
+                <span className="font-semibold text-brand-700">{company.name}</span>
+              </span>
+            )}
+            {!company && loading && (
+              <span className="text-xs text-ink-soft">Caricamento listino…</span>
+            )}
+            {error && !company && (
+              <span className="text-xs font-medium text-danger">⚠ {error}</span>
+            )}
+          </div>
+          {company && production && <ProductionSwitch where={production} />}
         </div>
       )}
     </header>
+  );
+}
+
+const pillCls =
+  'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm transition';
+
+/** "Produzione" next to "Listino": a switch that makes the Produzione page the
+ *  app's start page — on, the page opens (now and at every launch); off, back
+ *  to the calculator. On the calculator while it's on: the way back to it. */
+function ProductionSwitch({ where }: { where: 'calculator' | 'page' }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const [startsThere] = useState(loadProductionStart);
+  const on = where === 'page';
+  if (!on && startsThere) {
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(`/produzione${search}`)}
+        className={`${pillCls} border-brand-300 bg-brand-50 text-brand-700 hover:border-brand-500`}
+      >
+        <span aria-hidden>←</span>
+        <FactoryIcon className="h-3.5 w-3.5" />
+        {t('production.title')}
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      title={t('production.switchTitle')}
+      onClick={() => {
+        saveProductionStart(!on);
+        navigate(on ? `/${search}` : `/produzione${search}`);
+      }}
+      className={`${pillCls} ${
+        on
+          ? 'border-brand-300 bg-brand-50 text-brand-700 hover:border-brand-500'
+          : 'border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink'
+      }`}
+    >
+      <FactoryIcon className="h-3.5 w-3.5" />
+      {t('production.title')}
+      <span
+        aria-hidden
+        className={`relative inline-block h-4 w-7 shrink-0 rounded-full transition ${
+          on ? 'bg-brand-600' : 'bg-neutral-300'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${
+            on ? 'left-3.5' : 'left-0.5'
+          }`}
+        />
+      </span>
+    </button>
   );
 }
 

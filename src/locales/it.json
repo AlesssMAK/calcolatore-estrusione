@@ -310,6 +310,19 @@
     "republish": "Ripubblica",
     "republished": "Ripubblicato in Produzione."
   },
+  "production": {
+    "title": "Produzione",
+    "heading": "In Produzione Ora",
+    "live": "In tempo reale · aggiornato alle {{time}}",
+    "empty": "Nessun calcolo in produzione in questo momento.",
+    "noCompany": "Apri il link della tua azienda per vedere la produzione.",
+    "toCalculator": "Calcolatore",
+    "switchTitle": "Apri l'app sulla pagina Produzione",
+    "open": "Apri nel calcolatore",
+    "sizes": "Misure ({{n}})",
+    "sizeEnd": "Fine misura",
+    "calcEnd": "Fine coda"
+  },
   "report": {
     "title": "Report",
     "open": "Report",

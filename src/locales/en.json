@@ -310,6 +310,19 @@
     "republish": "Republish",
     "republished": "Republished to Production."
   },
+  "production": {
+    "title": "Production",
+    "heading": "In Production Now",
+    "live": "Live · updated at {{time}}",
+    "empty": "No calculation in production right now.",
+    "noCompany": "Open your company's link to see production.",
+    "toCalculator": "Calculator",
+    "switchTitle": "Open the app on the Production page",
+    "open": "Open in the calculator",
+    "sizes": "Sizes ({{n}})",
+    "sizeEnd": "Size ends",
+    "calcEnd": "Queue ends"
+  },
   "report": {
     "title": "Report",
     "open": "Report",

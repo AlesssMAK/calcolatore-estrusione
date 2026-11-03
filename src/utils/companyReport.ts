@@ -26,6 +26,11 @@ export interface ReportStage {
   unit: 'pieces' | 'meters';
   /** When this step starts (useful while not started / waiting). */
   stepStart?: Date;
+  /** When this step ends: the size's end on a multi-size order. */
+  stepEnd?: Date;
+  /** Which row of the published result, and which of its sizes. */
+  orderIdx?: number;
+  sizeIdx?: number;
   /** A pause between blocks running at that moment (status "waiting"); the
    *  order fields then describe what comes after it. */
   pause?: RunningPause;
@@ -128,7 +133,49 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
     total,
     unit: unitOf(step.orderIdx),
     stepStart: step.start,
+    stepEnd: step.end,
+    orderIdx: step.orderIdx,
+    sizeIdx: step.sizeIdx,
     calcEnd: result.endAt,
     ...(pause ? { pause } : {}),
   };
+}
+
+/** One size of the order on the line, for the Produzione page. */
+export interface StageSize {
+  /** Its number within the order (0-based, as in the form). */
+  idx: number;
+  sheets: number;
+  length: number;
+  /** Pieces made by then. */
+  produced: number;
+  end: Date;
+  /** Finished · the one on the line (or next up) · still to come. */
+  state: 'done' | 'active' | 'next';
+}
+
+/** The sizes of the order a stage is on (multi-size orders only), in the
+ *  order they run, with how much of each is made by `at` and when it ends. */
+export function stageSizes(p: SharedPayload, stage: ReportStage, at: Date): StageSize[] {
+  if (stage.orderIdx === undefined) return [];
+  const row = p.result.rows[stage.orderIdx];
+  const sizes = row?.sizeDetails;
+  if (!row || !sizes || sizes.length < 2) return [];
+  const made =
+    progressAsOf(p.result, at, payloadSnapshot(p)).orders[stage.orderIdx]
+      ?.producedCountPerSize ?? [];
+  const t = at.getTime();
+  const list = sizes.map((sd, idx): StageSize => {
+    const done = sd.remainingMinutes < 0.5 || sd.end.getTime() <= t;
+    return {
+      idx,
+      sheets: sd.sheets,
+      length: sd.length,
+      produced: done ? sd.sheets : Math.min(sd.sheets, made[idx] ?? 0),
+      end: sd.end,
+      state: done ? 'done' : idx === stage.sizeIdx ? 'active' : 'next',
+    };
+  });
+  // (a custom queue may run them in another order than the form's)
+  return list.sort((a, b) => sizes[a.idx].start.getTime() - sizes[b.idx].start.getTime());
 }

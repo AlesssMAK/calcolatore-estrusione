@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateSchedule, isWorkingAt, nextClosing } from './calculator';
-import { stageAt } from './companyReport';
+import { stageAt, stageSizes } from './companyReport';
 import type { SharedPayload } from '../lib/sharedCalc';
 import type { FormValues } from '../formSchema';
 import type { GlobalSettings, Order, WeekdayKey, WeekSchedule } from '../types';
@@ -96,6 +96,22 @@ describe('stage of a published calc at a moment', () => {
 
   it('after the end: done', () => {
     expect(stageAt(payload, at(13, 7)).status).toBe('done');
+  });
+});
+
+describe('stageSizes — the sizes of the order on the line', () => {
+  it('how much of each is made and when it ends; the one on the line is active', () => {
+    const mid = stageAt(payload, at(12, 21));
+    expect(mid.stepEnd).toEqual(at(12, 21, 30));
+    expect(stageSizes(payload, mid, at(12, 21))).toEqual([
+      { idx: 0, sheets: 60, length: 1000, produced: 30, end: at(12, 21, 30), state: 'active' },
+      { idx: 1, sheets: 30, length: 2000, produced: 0, end: at(13, 6, 30), state: 'next' },
+    ]);
+    const next = stageAt(payload, at(13, 6, 10));
+    expect(stageSizes(payload, next, at(13, 6, 10))).toMatchObject([
+      { idx: 0, produced: 60, state: 'done' },
+      { idx: 1, produced: 20, state: 'active' },
+    ]);
   });
 });
 
