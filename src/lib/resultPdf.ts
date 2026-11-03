@@ -1,4 +1,9 @@
-import type { CalculatorMode, ScheduleResult, ScheduledOrder } from '../types';
+import type {
+  CalculatorMode,
+  ScheduleResult,
+  ScheduledOrder,
+  ScheduledSizeDetail,
+} from '../types';
 import {
   formatDateTime,
   formatDuration,
@@ -17,6 +22,9 @@ interface BuildOpts {
   t: T;
   /** Active company name, printed under the title (branding for the recipient). */
   companyName?: string;
+  /** Only what's left to make: finished orders and sizes are left out, an
+   *  order in production shows what's produced and what remains. */
+  remainingOnly?: boolean;
 }
 
 type RGB = [number, number, number];
@@ -54,6 +62,20 @@ function isRowDone(row: ScheduledOrder): boolean {
   );
 }
 
+const isSizeDone = (sd: ScheduledSizeDetail): boolean =>
+  sd.productionMinutes >= 0.5 && sd.remainingMinutes < 0.5;
+
+/** Is anything of the result already made (a finished order or size, or an
+ *  order part-way)? Then a PDF of only what's left differs from the full one. */
+export function hasProgress(result: ScheduleResult): boolean {
+  return result.rows.some(
+    (r) =>
+      isRowDone(r) ||
+      r.remainingMinutes < r.productionMinutes - 0.5 ||
+      (r.sizeDetails ?? []).some(isSizeDone),
+  );
+}
+
 // --- Card model: one order flattened into the same fields the mobile card shows.
 interface Sub {
   header: string;
@@ -76,6 +98,8 @@ interface CardModel {
   sizes?: Sub[];
   /** The pause after this order (closing its block), drawn as a strip below. */
   pause?: { label: string; when?: string; hex: string };
+  /** Only the pause strip (a finished order's pause still ahead). */
+  pauseOnly?: boolean;
 }
 
 /**
@@ -90,7 +114,7 @@ export async function buildResultPdfBlob(
   result: ScheduleResult,
   opts: BuildOpts,
 ): Promise<Blob> {
-  const { mode, lang, units, t, companyName } = opts;
+  const { mode, lang, units, t, companyName, remainingOnly = false } = opts;
   const isProfiles = mode === 'profiles';
   const dur = (min: number) => formatDuration(min, units);
 
@@ -152,6 +176,13 @@ export async function buildResultPdfBlob(
     doc.setFontSize(9);
     setText(SOFT);
     doc.text(companyName, margin, y);
+    y += 5;
+  }
+  if (remainingOnly) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    setText(AMBER_INK);
+    doc.text(t('results.pdfRemaining'), margin, y);
     y += 5;
   }
   y += 3;
@@ -219,9 +250,58 @@ export async function buildResultPdfBlob(
   doc.text(t('results.breakdown').toUpperCase(), margin, y + 2);
   y += 6;
 
+  // What's made / left of an order or size part-way through ("only what's
+  // left"); nothing while none of it is made.
+  const progressRows = (
+    produced: number | undefined,
+    total: number | undefined,
+    remaining: number | undefined,
+    unit = '',
+  ): [string, string][] =>
+    produced === undefined || produced <= 0
+      ? []
+      : [
+          [t('results.produced'), `${produced}${total !== undefined ? ` / ${total}` : ''}${unit}`],
+          [t('results.remaining'), `${remaining ?? Math.max(0, (total ?? 0) - produced)}${unit}`],
+        ];
+  const rowProgress = (row: ScheduledOrder): [string, string][] => {
+    if (row.order.useTotalLength) {
+      const m = (v: number | undefined) =>
+        v === undefined ? undefined : Number(formatLength(v));
+      return progressRows(
+        m(row.producedLengthM),
+        m(row.totalLengthM),
+        m(row.remainingLengthM),
+        ' m',
+      );
+    }
+    return isProfiles
+      ? progressRows(row.producedProfiles, row.totalProfiles, row.remainingProfiles)
+      : progressRows(row.producedSheets, row.totalSheets, row.remainingSheets);
+  };
+
   // --- Build card models --------------------------------------------------
-  const cards: CardModel[] = result.rows.map((row, idx) => {
+  const pauseOf = (row: ScheduledOrder): CardModel['pause'] => {
+    const reason = row.order.gapReason;
+    return {
+      label: `${reason?.name ?? t('results.pause')} · ${dur(row.gapAfterMin)}`,
+      when:
+        row.gapStart && row.gapEnd
+          ? `${formatShortDateTime(row.gapStart, lang)} – ${formatShortDateTime(row.gapEnd, lang)}`
+          : undefined,
+      hex: pauseColorHex(reason?.color ?? 'grey'),
+    };
+  };
+  const now = Date.now();
+  const cards: CardModel[] = result.rows.flatMap((row, idx): CardModel[] => {
     const done = isRowDone(row);
+    if (remainingOnly && done) {
+      // A finished order is left out — its pause too, unless it's still ahead.
+      return row.gapAfterMin > 0 && (row.gapEnd?.getTime() ?? 0) > now
+        ? [{ headerLeft: '', done, headerRight: '', rows: [], pause: pauseOf(row), pauseOnly: true }]
+        : [];
+    }
+    const multiSize = !!row.sizeDetails && row.sizeDetails.length > 1;
     const suffix = sizeSuffix(row);
     const rows: [string, string][] = [];
     if (isProfiles) {
@@ -248,6 +328,8 @@ export async function buildResultPdfBlob(
         row.packages != null ? String(row.packages) : '—',
       ]);
     }
+    // (a multi-size order shows it per size)
+    if (remainingOnly && !multiSize) rows.push(...rowProgress(row));
     rows.push([t('results.col.start'), formatShortDateTime(row.start, lang)]);
     rows.push([t('results.col.end'), formatShortDateTime(row.end, lang)]);
 
@@ -260,17 +342,7 @@ export async function buildResultPdfBlob(
       rows,
     };
 
-    if (row.gapAfterMin > 0) {
-      const reason = row.order.gapReason;
-      model.pause = {
-        label: `${reason?.name ?? t('results.pause')} · ${dur(row.gapAfterMin)}`,
-        when:
-          row.gapStart && row.gapEnd
-            ? `${formatShortDateTime(row.gapStart, lang)} – ${formatShortDateTime(row.gapEnd, lang)}`
-            : undefined,
-        hex: pauseColorHex(reason?.color ?? 'grey'),
-      };
-    }
+    if (row.gapAfterMin > 0) model.pause = pauseOf(row);
 
     if (row.segments && row.segments.length > 1) {
       model.segTitle = t('results.splitParts', { n: row.segments.length });
@@ -287,8 +359,9 @@ export async function buildResultPdfBlob(
       }));
     }
 
-    if (row.sizeDetails && row.sizeDetails.length > 1) {
-      model.sizes = row.sizeDetails.map((sd, sIdx) => {
+    if (row.sizeDetails && multiSize) {
+      model.sizes = row.sizeDetails.flatMap((sd, sIdx) => {
+        if (remainingOnly && isSizeDone(sd)) return [];
         const sRows: [string, string][] = [
           [
             isProfiles ? t('results.col.profiles') : t('results.col.sheets'),
@@ -302,13 +375,22 @@ export async function buildResultPdfBlob(
             `${sd.packages}${sd.perPackage !== undefined ? ` (× ${sd.perPackage})` : ''}`,
           ]);
         }
+        if (remainingOnly) {
+          sRows.push(
+            ...(isProfiles
+              ? progressRows(sd.producedProfiles, sd.sheets, sd.remainingProfiles)
+              : progressRows(sd.producedSheetsAtSize, sd.sheets, sd.remainingSheetsAtSize)),
+          );
+        }
         sRows.push([t('results.col.start'), formatShortDateTime(sd.start, lang)]);
         sRows.push([t('results.col.end'), formatShortDateTime(sd.end, lang)]);
-        return {
-          header: `» #${idx + 1}.${sIdx + 1}`,
-          right: dur(sd.remainingMinutes),
-          rows: sRows,
-        };
+        return [
+          {
+            header: `» #${idx + 1}.${sIdx + 1}`,
+            right: dur(sd.remainingMinutes),
+            rows: sRows,
+          },
+        ];
       });
     } else if (done) {
       // A completed order no longer carries its per-size schedule — its sizes
@@ -328,7 +410,7 @@ export async function buildResultPdfBlob(
         }));
       }
     }
-    return model;
+    return [model];
   });
 
   // --- Measure + draw one card -------------------------------------------
@@ -355,6 +437,10 @@ export async function buildResultPdfBlob(
   };
 
   const drawCard = (m: CardModel) => {
+    if (m.pauseOnly) {
+      if (m.pause) drawPause(m.pause);
+      return;
+    }
     const h = cardHeight(m);
     ensure(h + 4);
     const x = margin;

@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   CalculatorMode,
@@ -8,7 +8,8 @@ import type {
 } from '../types';
 import { calculateTotalProfiles, orderSizeList } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
-import { buildResultPdfBlob } from '../lib/resultPdf';
+import { buildResultPdfBlob, hasProgress } from '../lib/resultPdf';
+import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import MarqueeText from './MarqueeText';
 import PauseStrip from './PauseStrip';
 import UnitsTimeline from './UnitsTimeline';
@@ -79,6 +80,28 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
   const { t, i18n } = useTranslation();
   const { company } = useCatalog();
   const [exporting, setExporting] = useState(false);
+  // Something of it already made → "Condividi" first asks what to share: every
+  // order, or only what's left to make.
+  const askWhat = hasProgress(result) && result.rows.some((r) => !isRowDone(r));
+  const [shareMenu, setShareMenu] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
+  const shareBtnRef = useRef<HTMLButtonElement>(null);
+  const sharePlace = useMenuPlacement(shareBtnRef, shareMenu, 160);
+  useEffect(() => {
+    if (!shareMenu) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!shareRef.current?.contains(e.target as Node)) setShareMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShareMenu(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [shareMenu]);
   // Completed orders are collapsed into one block by default, so the active
   // part of the queue is what stands out. Toggle to reveal them.
   const [showCompleted, setShowCompleted] = useState(false);
@@ -99,7 +122,8 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
   // A PDF (unlike the old PNG) stays sharp at any zoom and is small even for
   // very large results, which was the whole point of switching away from an
   // image screenshot.
-  const exportAsPdf = async () => {
+  const exportAsPdf = async (remainingOnly = false) => {
+    setShareMenu(false);
     setExporting(true);
     try {
       const lang = i18n.resolvedLanguage ?? 'it';
@@ -113,6 +137,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
         },
         t,
         companyName: company?.name,
+        remainingOnly,
       });
 
       const slug = (result.productName || 'risultato')
@@ -240,14 +265,58 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
           >
             🖨 {t('actions.print')}
           </button>
-          <button
-            type="button"
-            onClick={() => void exportAsPdf()}
-            disabled={exporting}
-            className="rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-500 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            📄 {exporting ? t('actions.exporting') : t('actions.shareResult')}
-          </button>
+          <div ref={shareRef} className="relative">
+            <button
+              ref={shareBtnRef}
+              type="button"
+              onClick={() => {
+                if (!askWhat) {
+                  void exportAsPdf();
+                  return;
+                }
+                if (!shareMenu) sharePlace.measure();
+                setShareMenu((v) => !v);
+              }}
+              disabled={exporting}
+              aria-haspopup={askWhat ? 'menu' : undefined}
+              aria-expanded={askWhat ? shareMenu : undefined}
+              className="rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-500 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              📄 {exporting ? t('actions.exporting') : t('actions.shareResult')}
+            </button>
+            {shareMenu && (
+              <div
+                role="menu"
+                aria-label={t('actions.shareWhat')}
+                className={`absolute right-0 z-30 ${
+                  sharePlace.up ? 'bottom-full mb-2' : 'mt-2'
+                } w-60 max-w-[calc(100vw-1.5rem)] overflow-auto rounded-lg border border-neutral-200 bg-white p-1 shadow-lg`}
+                style={{ maxHeight: sharePlace.maxHeight }}
+              >
+                <div className="px-2 pt-1 pb-1.5 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                  {t('actions.shareWhat')}
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void exportAsPdf()}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-ink transition hover:bg-brand-50"
+                >
+                  <span aria-hidden>📋</span>
+                  {t('actions.shareAll')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void exportAsPdf(true)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-ink transition hover:bg-brand-50"
+                >
+                  <span aria-hidden>⏳</span>
+                  {t('actions.shareRemaining')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
