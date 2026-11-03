@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
@@ -58,6 +58,8 @@ import {
 import { buildEmptyDefaults, loadWeekendPref, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
 import { popOpenSaved, takePiramidePending } from './lib/piramidePending';
+import { launchOnProduction, takeCompanyOpen } from './lib/productionView';
+import ProduzionePage from './pages/ProduzionePage';
 import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -1326,6 +1328,12 @@ function CalculatorApp() {
   // so does coming back from Piramide after it updated an order: that calc
   // opens (with the update applied, see onRestore).
   useEffect(() => {
+    // A calc picked on the Produzione page: open it as from the 🏭 list.
+    const fromProduction = takeCompanyOpen();
+    if (fromProduction) {
+      openCompanyCalc(fromProduction);
+      return;
+    }
     const openId = popOpenSaved();
     try {
       // An explicit "Usa nel calcolatore" wins over reopening the origin calc
@@ -1417,7 +1425,7 @@ function CalculatorApp() {
 
   return (
     <div className="min-h-full bg-surface-alt">
-      <Header />
+      <Header production="calculator" />
 
       <main
         className={`mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-8 ${
@@ -1716,6 +1724,14 @@ function PiramideRoute() {
   return <PiramidePage />;
 }
 
+// The Produzione page as the start page (its switch on): the app launching on
+// the calculator's address shows the page first.
+function CalculatorRoute() {
+  const { search } = useLocation();
+  if (launchOnProduction()) return <Navigate to={`/produzione${search}`} replace />;
+  return <CalculatorApp />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -1725,7 +1741,8 @@ function App() {
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/piramide" element={<PiramideRoute />} />
-            <Route path="*" element={<CalculatorApp />} />
+            <Route path="/produzione" element={<ProduzionePage />} />
+            <Route path="*" element={<CalculatorRoute />} />
           </Routes>
         </CatalogProvider>
       </AuthProvider>

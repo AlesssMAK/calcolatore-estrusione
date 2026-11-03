@@ -316,7 +316,7 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
   );
 }
 
-function StatusChip({
+export function StatusChip({
   status,
   label,
 }: {

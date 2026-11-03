@@ -6,6 +6,7 @@ import {
   moveBlock,
   moveInBlock,
   moveToBlock,
+  leaveBlock,
   pausesAfterRemoval,
   placedCount,
   type PauseFields,
@@ -145,5 +146,28 @@ describe('pausesAfterRemoval', () => {
     const p = pausesAfterRemoval(o, (i) => i >= 2);
     expect([...p.keys()]).toEqual([2, 3, 4]);
     expect(p.get(2)).toEqual(pulizia);
+  });
+});
+
+describe('leaveBlock', () => {
+  it('an order leaves for a block of its own right after its block', () => {
+    const o = [...list(), { id: 'C3' }];
+    const r = leaveBlock(o, 4)!; // C2 out of [C1 C2 C3]
+    expect(ids(o, r.order)).toEqual(['A1', 'A2', 'B1', 'C1', 'C3', 'C2']);
+    expect(r.pauses).toEqual([null, cambio, pulizia, null, null, null]);
+  });
+
+  it('the block pause stays on the boundary — now after the order that left', () => {
+    const o = list();
+    const r = leaveBlock(o, 0)!; // A1 out of [A1 A2] ⏸cambio
+    expect(ids(o, r.order)).toEqual(['A2', 'A1', 'B1', 'C1', 'C2']);
+    // [A2] (no pause yet) [A1] ⏸cambio [B1] ⏸pulizia [C1 C2]
+    expect(r.pauses).toEqual([null, cambio, pulizia, null, null]);
+  });
+
+  it('nothing for an order alone in its block or not placed yet', () => {
+    const o: Order[] = [...list(), { id: 'N1', unplaced: true }];
+    expect(leaveBlock(o, 2)).toBeNull();
+    expect(leaveBlock(o, 5)).toBeNull();
   });
 });
