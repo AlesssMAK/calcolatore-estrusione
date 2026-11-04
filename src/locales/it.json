@@ -320,7 +320,9 @@
     "open": "Apri nel calcolatore",
     "sizes": "Misure ({{n}})",
     "sizeEnd": "Fine misura",
-    "calcEnd": "Fine coda"
+    "calcEnd": "Fine coda",
+    "saveFailed": "Modifica non salvata: controlla la connessione e riprova.",
+    "changed": "Il calcolo è appena cambiato: controlla il valore e riprova."
   },
   "report": {
     "title": "Report",

@@ -47,6 +47,7 @@ import {
   type SavedCalculation,
   type SyncMeta,
 } from './lib/calcHistory';
+import { currentSchedule, saveCompanyPatch } from './lib/companyEdit';
 import { checkProduction, productionStatus } from './lib/productionCheck';
 import {
   buildAdvancedCalc,
@@ -55,7 +56,7 @@ import {
   type AdvancedCalc,
   type TrackingPatch,
 } from './utils/advance';
-import { buildEmptyDefaults, loadWeekendPref, makeEmptyOrder } from './utils/defaults';
+import { buildEmptyDefaults, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
 import { popOpenSaved, takePiramidePending } from './lib/piramidePending';
 import { launchOnProduction, takeCompanyOpen } from './lib/productionView';
@@ -471,30 +472,9 @@ function CalculatorApp() {
     }
   };
 
-  // The *current* effective schedule to advance / recompute a saved calc on:
-  // current weekend shift (machine pref), plus the live company 7-day schedule +
-  // buffers when a company link is active (else the calc's own). This is what
-  // makes a calc saved with weekends off count weekend hours once they're
-  // turned on (the reported "process doesn't move" case).
-  const currentScheduleFor = (entry: SavedCalculation): ScheduleSnapshot => ({
-    weekend: loadWeekendPref(),
-    schedule:
-      (company ? settings.schedule : undefined) ??
-      entry.snapshot?.schedule ??
-      null,
-    warmupMinutes:
-      (company ? settings.warmupMinutes : entry.values?.settings.warmupMinutes) ??
-      entry.snapshot?.warmupMinutes ??
-      0,
-    shutdownMinutes:
-      (company
-        ? settings.shutdownMinutes
-        : entry.values?.settings.shutdownMinutes) ??
-      entry.snapshot?.shutdownMinutes ??
-      0,
-    // Computed 24/7 ("Senza limiti orari") → keep advancing it 24/7.
-    noLimits: !!entry.values?.settings.noLimits,
-  });
+  // The *current* effective schedule to advance / recompute a saved calc on.
+  const currentScheduleFor = (entry: SavedCalculation): ScheduleSnapshot =>
+    currentSchedule(entry, company ? settings : null);
 
   // A company calc published "view only", opened on a device that can't edit
   // it (no edit token, not editable by the company): read-only view.
@@ -1049,34 +1029,15 @@ function CalculatorApp() {
     } catch (err) {
       console.error('Failed to pause / start company calc', c.id, err);
     }
-    if (!patch?.values) return null;
-    const payload: SharedPayload = {
-      v: 1,
-      mode: p.mode,
-      values: patch.values,
-      result: patch.result,
-      completedRows: patch.completedRows,
-      label: p.label,
-      snapshot: patch.snapshot,
-    };
-    const token = local?.sync?.token;
-    const version = token
-      ? await updateSharedCalc(c.id, token, payload)
-      : c.isEditable
-        ? await updateCompanyCalc(c.id, payload)
-        : null;
-    if (version == null) return null;
-    // Keep this device's copy in step — a member's copy follows; the author's
-    // original only notes the new Produzione version — and refresh the live
-    // version on screen.
-    if (local?.sync && isOriginal(local.sync)) {
-      noteProduction(local.id, { version, payload, seenAt: Date.now() });
-    } else if (local?.sync) {
-      const updated = updateCalculation(local.id, patch, settings.savedRetentionDays);
-      const sync: SyncMeta = { ...local.sync, version };
-      updateSyncMeta(local.id, sync, settings.savedRetentionDays);
+    if (!patch) return null;
+    const saved = await saveCompanyPatch(c, patch, settings.savedRetentionDays);
+    if (!saved) return null;
+    // Follow it on screen: the list and banner of Salvati, the copy or the
+    // live version being shown.
+    setProductionRev((r) => r + 1);
+    if (saved.copy) {
       setSavedRefreshKey((k) => k + 1);
-      if (updated && editingId === local.id) doRestore({ ...updated, sync }, false, false);
+      if (editingId === saved.copy.id) doRestore(saved.copy, false, false);
     }
     if (syncMeta?.live && syncMeta.id === c.id) {
       doRestore(
@@ -1085,13 +1046,13 @@ function CalculatorApp() {
           ts: Date.now(),
           label: p.label ?? deriveLabel(p.result),
           ...patch,
-          sync: { ...syncMeta, version },
+          sync: { ...syncMeta, version: saved.calc.version },
         },
         false,
         false,
       );
     }
-    return { ...c, payload, version };
+    return saved.calc;
   };
 
   // "Confronta": the original on screen against the version in Produzione.

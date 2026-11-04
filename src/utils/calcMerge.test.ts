@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diffCalcs, type CalcDiff, type CalcVersion } from './calcDiff';
-import { settleDiffs } from './calcMerge';
+import { setProducedNow, settleDiffs } from './calcMerge';
 import { calculateSchedule } from './calculator';
 import type { FormValues } from '../formSchema';
 import type { Order, ScheduleSnapshot } from '../types';
@@ -121,5 +121,61 @@ describe('settling differences', () => {
     const merged = settleDiffs(orig, version(prodOrders), diffs, 'production', schedule, now);
     expect(diffCalcs(merged, orig, now).filter((d) => d.group === 'progress')).toEqual([]);
     expect(merged.values.orders[1]!.sizes![0]!.sheets).toBe(40);
+  });
+});
+
+describe('the produced count set outside the form', () => {
+  const recomputed = (order: string, size: number, n: number, now: Date) =>
+    setProducedNow(version(base()), order, size, n, schedule, now)!;
+
+  it('keeps what was produced so far, sets the count, recomputes from now', () => {
+    // 06:30 → "a" has 30 of its 60 × 1000 mm by the schedule; really 50.
+    const next = recomputed('a', 0, 50, at(6, 30));
+    expect(next.values.orders[0]!.producedSheets).toContainEqual({ sizeIndex: 0, value: 50 });
+    expect(next.result.startAt).toEqual(at(6, 30));
+    // 10 left of the first size (10 min) + the second (60 min) from 06:30.
+    expect(next.result.rows[0]!.end).toEqual(at(7, 40));
+    expect(next.snapshot).toBe(schedule);
+  });
+
+  it('a lower count than the schedule pushes the end later', () => {
+    const next = recomputed('a', 0, 10, at(6, 30));
+    expect(next.result.rows[0]!.end).toEqual(at(8, 20));
+  });
+
+  it('counts a later size too, the others keep theirs', () => {
+    // 07:30 → first size done, the second halfway: 15 of 30.
+    const next = recomputed('a', 1, 20, at(7, 30));
+    const made = next.values.orders[0]!.producedSheets!;
+    expect(made).toContainEqual({ sizeIndex: 0, value: 60 });
+    expect(made).toContainEqual({ sizeIndex: 1, value: 20 });
+  });
+
+  it('the last piece of an order: it leaves the queue, the next one starts', () => {
+    const start = version(base());
+    const firstDone = setProducedNow(start, 'a', 0, 60, schedule, at(6, 30))!;
+    const next = setProducedNow(firstDone, 'a', 1, 30, schedule, at(6, 40))!;
+    expect(next.values.orders.map((o) => o.id)).toEqual(['b']);
+    expect(next.completedRows?.map((r) => r.order.id)).toEqual(['a']);
+    expect(next.result.rows[0]!.start).toEqual(at(6, 40));
+  });
+
+  it('every order finished: nothing left in the queue', () => {
+    const one = version([base()[1]!]);
+    const next = setProducedNow(one, 'b', 0, 60, schedule, at(6, 30))!;
+    expect(next.values.orders).toEqual([]);
+    expect(next.result.rows).toEqual([]);
+    expect(next.completedRows?.map((r) => r.order.id)).toEqual(['b']);
+  });
+
+  it('an order finished by the time it is saved: nothing to set', () => {
+    expect(setProducedNow(version(base()), 'a', 0, 50, schedule, at(8, 10))).toBeNull();
+  });
+
+  it('does not touch the version it starts from', () => {
+    const start = version(base());
+    const before = structuredClone(start.values);
+    setProducedNow(start, 'a', 0, 50, schedule, at(6, 30));
+    expect(start.values).toEqual(before);
   });
 });

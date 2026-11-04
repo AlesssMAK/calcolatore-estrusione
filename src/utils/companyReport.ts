@@ -14,7 +14,8 @@ export type StageStatus = 'running' | 'stopped' | 'waiting' | 'notStarted' | 'do
 export interface ReportStage {
   status: StageStatus;
   /** The order at that moment (the current one, or the next to start) — its
-   *  form number, product name and end. Absent when done. */
+   *  number in the results table (completed orders count, so it stays the same
+   *  when they leave the queue), product name and end. Absent when done. */
   orderNo?: number;
   productName?: string;
   orderEnd?: Date;
@@ -98,6 +99,11 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
   // A pause between blocks — the block before it may already be among the
   // completed orders (then the rest starts after the pause, not "not started").
   const pause = current ? null : pauseAt([...(p.completedRows ?? []), ...result.rows], at);
+  // Recomputed with the line off: the rest starts when it's back on, but the
+  // calc did start.
+  const started =
+    (p.completedRows?.length ?? 0) > 0 ||
+    result.rows.some((r) => r.remainingMinutes < r.productionMinutes - 0.5);
   const status: StageStatus = current
     ? isWorkingAt(at, snapshot)
       ? 'running'
@@ -105,7 +111,9 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
     : pause
       ? 'waiting'
       : t < steps[0].start.getTime()
-        ? 'notStarted'
+        ? started
+          ? 'stopped'
+          : 'notStarted'
         : 'waiting';
 
   const row = result.rows[step.orderIdx];
@@ -125,7 +133,7 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
   }
   return {
     status,
-    orderNo: step.orderIdx + 1,
+    orderNo: (p.completedRows?.length ?? 0) + step.orderIdx + 1,
     productName: row.order.productName?.trim() || undefined,
     orderEnd: row.end,
     sizeLength,
