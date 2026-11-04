@@ -175,3 +175,36 @@ describe('stageAt — a pause between blocks', () => {
     expect(stageAt(p, at(12, 11, 10)).status).toBe('running');
   });
 });
+
+describe('a calc recomputed partway through', () => {
+  // 20 of the 60 × 1000 mm made, recomputed at night: the rest starts when the
+  // line is back on Tuesday at 06:00.
+  const made = [{ ...orders[0]!, producedSheets: [{ sizeIndex: 0, value: 20 }] }] as Order[];
+  const night = { ...settings, startMode: 'now', startAt: '' } as GlobalSettings;
+  const p: SharedPayload = {
+    ...payload,
+    values: { settings: night, orders: made } as unknown as FormValues,
+    result: calculateSchedule(night, made, {
+      mode: 'sheets',
+      schedule,
+      warmupMinutes: 0,
+      shutdownMinutes: 0,
+      now: at(12, 23),
+    }),
+  };
+
+  it('with the line off it is stopped, not "not started", with its count', () => {
+    const st = stageAt(p, at(12, 23, 30));
+    expect(st.status).toBe('stopped');
+    expect(st).toMatchObject({ sizeLength: 1000, produced: 20, total: 60 });
+  });
+
+  it('then runs when the line is back', () => {
+    expect(stageAt(p, at(13, 6, 10)).status).toBe('running');
+  });
+
+  it('is numbered as in the results table: completed orders count', () => {
+    const done = payload.result.rows[0]!;
+    expect(stageAt({ ...p, completedRows: [done, done] }, at(13, 6, 10)).orderNo).toBe(3);
+  });
+});

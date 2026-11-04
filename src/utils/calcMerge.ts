@@ -249,16 +249,8 @@ export function settleDiffs(
   now: Date = new Date(),
 ): CalcVersion {
   const mode = target.result.mode;
-  // 1. Bring the target to now (a "Calcolo fisso" stays as it is).
-  const adv = buildAdvancedCalc(
-    { id: 'merge', ts: 0, label: '', ...target },
-    now,
-    schedule,
-  );
-  const state: State = clone({
-    values: adv?.values ?? target.values,
-    completedRows: adv?.completedRows ?? target.completedRows ?? [],
-  });
+  // 1. Bring the target to now.
+  const state = stateNow(target, schedule, now);
   // 2. Apply — removals, then the new orders of orders / sizes, then the
   //    additions (placed after their neighbour in that order), then fields and
   //    progress.
@@ -280,8 +272,53 @@ export function settleDiffs(
   for (const d of [...diffs].sort((a, b) => rank(a) - rank(b))) {
     applyOne(state, d, from, source, sourceProgress, mode);
   }
-  // 3. Recompute from now, like a "Calcola": finished orders become completed
-  //    rows, a custom queue that no longer changes anything switches off.
+  // 3. Recompute from now.
+  return recomputeNow(state, target, schedule, now);
+}
+
+/**
+ * The produced count of one size set where the calc isn't open in the form
+ * (the Produzione page): brought to `now`, the count set, recomputed from now
+ * on `schedule` — what the active-order modal does. Null when the order isn't
+ * in the queue any more.
+ */
+export function setProducedNow(
+  target: CalcVersion,
+  orderId: string,
+  sizeIdx: number,
+  produced: number,
+  schedule: ScheduleSnapshot,
+  now: Date = new Date(),
+): CalcVersion | null {
+  const state = stateNow(target, schedule, now);
+  const order = state.values.orders.find((o) => o.id === orderId);
+  if (!order) return null;
+  setProduced(order, sizeIdx, produced, target.result.mode);
+  return recomputeNow(state, target, schedule, now);
+}
+
+/** A working copy of `target` as of now (a "Calcolo fisso" stays as it is). */
+function stateNow(target: CalcVersion, schedule: ScheduleSnapshot, now: Date): State {
+  const adv = buildAdvancedCalc(
+    { id: 'merge', ts: 0, label: '', ...target },
+    now,
+    schedule,
+  );
+  return clone({
+    values: adv?.values ?? target.values,
+    completedRows: adv?.completedRows ?? target.completedRows ?? [],
+  });
+}
+
+/** Recompute from now, like a "Calcola": finished orders become completed rows,
+ *  a custom queue that no longer changes anything switches off. */
+function recomputeNow(
+  state: State,
+  target: CalcVersion,
+  schedule: ScheduleSnapshot,
+  now: Date,
+): CalcVersion {
+  const mode = target.result.mode;
   const { values } = state;
   let result =
     values.orders.length > 0

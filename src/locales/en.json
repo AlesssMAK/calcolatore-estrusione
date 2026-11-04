@@ -320,7 +320,9 @@
     "open": "Open in the calculator",
     "sizes": "Sizes ({{n}})",
     "sizeEnd": "Size ends",
-    "calcEnd": "Queue ends"
+    "calcEnd": "Queue ends",
+    "saveFailed": "Not saved: check your connection and try again.",
+    "changed": "This calculation has just changed: check the value and try again."
   },
   "report": {
     "title": "Report",
