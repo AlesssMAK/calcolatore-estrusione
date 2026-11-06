@@ -75,6 +75,8 @@
     "gapAfter": "Pausa Después (min)",
     "profilesPerPackage": "Perfiles por Paquete",
     "productName": "Nombre del Producto",
+    "orderNumber": "Número de Pedido",
+    "orderNumberShort": "Ped.",
     "addSize": "Añadir Medida",
     "removeSize": "Eliminar Medida",
     "scan": {

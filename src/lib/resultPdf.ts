@@ -333,9 +333,11 @@ export async function buildResultPdfBlob(
     rows.push([t('results.col.start'), formatShortDateTime(row.start, lang)]);
     rows.push([t('results.col.end'), formatShortDateTime(row.end, lang)]);
 
+    const orderNumber = row.order.orderNumber?.trim();
     const model: CardModel = {
       headerLeft:
         `#${idx + 1}` +
+        (orderNumber ? `  ${t('orders.orderNumberShort')} ${orderNumber}` : '') +
         (row.order.productName ? `  ${row.order.productName}` : ''),
       done,
       headerRight: dur(row.remainingMinutes),

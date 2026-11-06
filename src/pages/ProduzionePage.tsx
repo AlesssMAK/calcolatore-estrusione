@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
+import OrderNumberTag from '../components/OrderNumberTag';
 import Header from '../components/Header';
 import PauseNowNote from '../components/PauseNowNote';
 import ProducedEditor from '../components/ProducedEditor';
@@ -347,6 +348,7 @@ function ProductionCard({
             <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
               #{stage.orderNo}
             </span>
+            <OrderNumberTag value={stage.orderNumber} />
             {stage.productName && (
               <span className="min-w-0 truncate text-ink">{stage.productName}</span>
             )}

@@ -42,6 +42,9 @@ export interface PauseReasonSnapshot {
 export interface Order {
   id: string;
   productName?: string;
+  /** The order's own number, typed by hand (free text). Only shown — the
+   *  schedule ignores it, and a new order doesn't inherit it. */
+  orderNumber?: string;
   useTotalLength?: boolean;
   totalLengthM?: number;
   sizes?: OrderSize[];

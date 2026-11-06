@@ -77,3 +77,14 @@ describe('result PDF', () => {
     expect(left).toContain('#2');
   });
 });
+
+describe('result PDF, order number', () => {
+  it('goes next to the #N', async () => {
+    const text = await pdfText([{ ...fresh[0], orderNumber: ' ORD-77 ' }, fresh[1]], false);
+    expect(text).toContain('orders.orderNumberShort ORD-77');
+  });
+
+  it('adds nothing when the order has none', async () => {
+    expect(await pdfText(fresh, false)).not.toContain('orders.orderNumberShort');
+  });
+});

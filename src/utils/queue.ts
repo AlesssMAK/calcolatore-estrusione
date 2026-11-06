@@ -112,17 +112,20 @@ export function stepDone(result: ScheduleResult, s: SeqStep): boolean {
   return !!sd && sd.productionMinutes > 0 && sd.remainingMinutes < 0.5;
 }
 
-/** Display bits of a step: order number (1-based, form order), its product
- *  name, and the size ("6000 mm × 50", or "600 m" for total-meters). */
+/** Display bits of a step: order number (1-based, form order), its own typed
+ *  number, its product name, and the size ("6000 mm × 50", or "600 m" for
+ *  total-meters). */
 export function stepInfo(
   orders: Order[],
   s: SeqStep,
-): { orderNo: number; name?: string; size: string } {
+): { orderNo: number; orderNumber?: string; name?: string; size: string } {
   const order = orders[s.orderIdx];
   const name = order?.productName?.trim() || undefined;
+  const orderNumber = order?.orderNumber?.trim() || undefined;
   if (!order || order.useTotalLength) {
     return {
       orderNo: s.orderIdx + 1,
+      orderNumber,
       name,
       size: `${order?.totalLengthM ?? '—'} m`,
     };
@@ -130,6 +133,7 @@ export function stepInfo(
   const size = order.sizes?.[s.sizeIdx ?? 0];
   return {
     orderNo: s.orderIdx + 1,
+    orderNumber,
     name,
     size: `${size?.length ?? '—'} mm × ${size?.sheets ?? '—'}`,
   };

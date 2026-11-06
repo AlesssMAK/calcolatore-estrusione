@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
+import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
 import ProducedEditor from './ProducedEditor';
 import type { RunningPause } from '../utils/pauseAt';
@@ -7,6 +8,8 @@ import type { RunningPause } from '../utils/pauseAt';
 export interface ActiveModalInfo {
   /** Number of the order in production (the form's "#N"). */
   orderNo: number;
+  /** Its own typed number, when it has one. */
+  orderNumber?: string;
   /** Its product name, when it has one. */
   productName?: string;
   /** The active size, e.g. "6000 mm". */
@@ -135,6 +138,7 @@ function ActiveOrderModal({
                 <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
                   #{info.orderNo}
                 </span>
+                <OrderNumberTag value={info.orderNumber} />
                 {info.productName && (
                   <span className="min-w-0 truncate">{info.productName}</span>
                 )}

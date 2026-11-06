@@ -47,6 +47,7 @@ const producedArray = z
 const orderSchema = z.object({
   id: z.string(),
   productName: z.string().optional(),
+  orderNumber: z.string().optional(),
   useTotalLength: z.boolean().optional(),
   totalLengthM: z.number().positive('positive').optional(),
   sizes: z.array(sizeSchema).optional(),

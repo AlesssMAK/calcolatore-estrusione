@@ -37,6 +37,7 @@ export type SettingKey = 'productName' | 'noLimits' | 'frozen' | 'queue';
 /** Order fields compared (speed / cavity as they run — inherited or own). */
 export type OrderField =
   | 'productName'
+  | 'orderNumber'
   | 'speedMPerMin'
   | 'cavity'
   | 'gapEnabled'
@@ -98,6 +99,7 @@ export type CalcDiff =
 
 const ORDER_FIELDS: OrderField[] = [
   'productName',
+  'orderNumber',
   'speedMPerMin',
   'cavity',
   'gapEnabled',

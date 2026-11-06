@@ -75,6 +75,8 @@
     "gapAfter": "Gap After (min)",
     "profilesPerPackage": "Profiles per Package",
     "productName": "Product Name",
+    "orderNumber": "Order Number",
+    "orderNumberShort": "Ord.",
     "addSize": "Add Size",
     "removeSize": "Remove Size",
     "scan": {

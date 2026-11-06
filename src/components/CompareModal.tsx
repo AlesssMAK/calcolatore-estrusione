@@ -300,6 +300,7 @@ function makeFormatter(
 
   const fieldTitle: Record<string, string> = {
     productName: t('orders.productName'),
+    orderNumber: t('orders.orderNumber'),
     speedMPerMin: t('orders.speed'),
     cavity: t('orders.cavity'),
     gapEnabled: t('orders.togglePause'),
