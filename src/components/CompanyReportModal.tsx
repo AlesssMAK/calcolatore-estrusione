@@ -4,6 +4,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { stageAt, type ReportStage } from '../utils/companyReport';
 import { formatDateParts } from '../utils/format';
+import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
 import ReportFilters from './ReportFilters';
 import { useReportMoment } from '../hooks/useReportMoment';
@@ -159,6 +160,7 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                           <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
                             #{stage.orderNo}
                           </span>
+                          <OrderNumberTag value={stage.orderNumber} />
                           {stage.productName && (
                             <span className="min-w-0 truncate text-ink">
                               {stage.productName}

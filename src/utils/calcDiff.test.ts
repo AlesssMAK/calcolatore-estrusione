@@ -159,3 +159,19 @@ describe('Avanzamento (progress)', () => {
     expect(planDiffCount(d)).toBe(0);
   });
 });
+
+describe('order number', () => {
+  it('a changed one is a plan difference', () => {
+    const prod = base();
+    prod[0]!.orderNumber = 'ORD-77';
+    const d = diffCalcs(version(base()), version(prod), at(5));
+    expect(d).toEqual([
+      expect.objectContaining({
+        kind: 'orderField',
+        orderId: 'a',
+        field: 'orderNumber',
+        production: 'ORD-77',
+      }),
+    ]);
+  });
+});

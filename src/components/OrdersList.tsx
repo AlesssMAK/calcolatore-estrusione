@@ -35,6 +35,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import OrderNumberTag from './OrderNumberTag';
 import SortableItem from './SortableItem';
 import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
@@ -574,12 +575,17 @@ function OrdersList({
   // After a new order mounts, move focus to its quantity input (Lastre/Profili
   // pz, or the total-length field) instead of the product-name combobox — the
   // name is inherited and stays filled, but the operator's next action is
-  // almost always entering the quantity.
+  // almost always entering the quantity. While the queue carries order numbers
+  // the next action is typing this one's, so its number field opens instead.
   const pendingFocusIdx = useRef<number | null>(null);
+  const [numberFocusIdx, setNumberFocusIdx] = useState<number | null>(null);
 
   const appendOrder = () => {
     const last = watchedOrders?.[watchedOrders.length - 1];
     pendingFocusIdx.current = fields.length; // index the new order will take
+    setNumberFocusIdx(
+      watchedOrders?.some((o) => o?.orderNumber?.trim()) ? fields.length : null,
+    );
     append(
       {
         ...makeEmptyOrder(
@@ -607,17 +613,20 @@ function OrdersList({
     });
   };
 
-  // Focus the new order's quantity once it's on screen. A just-added order must
-  // render expanded, not collapsed to a summary (the default for non-active
-  // orders once a saved calc is open) — then its quantity field only exists
-  // from the next render, so this waits for it.
+  // Focus the new order's first field once it's on screen. A just-added order
+  // must render expanded, not collapsed to a summary (the default for non-active
+  // orders once a saved calc is open) — then that field only exists from the
+  // next render, so this waits for it.
   useEffect(() => {
     const idx = pendingFocusIdx.current;
     if (idx === null) return;
-    const qty = document.getElementById(`qty-${idx}`);
-    if (qty) {
+    const target = document.getElementById(
+      numberFocusIdx === idx ? `order-number-${idx}` : `qty-${idx}`,
+    );
+    if (target) {
       pendingFocusIdx.current = null;
-      qty.focus();
+      setNumberFocusIdx(null);
+      target.focus();
       return;
     }
     const id = fields[idx]?.id;
@@ -625,8 +634,9 @@ function OrdersList({
       setExpandedOrders((s) => new Set(s).add(id));
     } else {
       pendingFocusIdx.current = null; // expanded, yet no field — give up
+      setNumberFocusIdx(null);
     }
-  }, [fields, expandedOrders]);
+  }, [fields, expandedOrders, numberFocusIdx]);
 
   const topButtonRef = useRef<HTMLButtonElement>(null);
   const [showBottomButton, setShowBottomButton] = useState(false);
@@ -786,6 +796,7 @@ function OrdersList({
                   <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
                     #{idx + 1}
                   </span>
+                  <OrderNumberTag value={wo?.orderNumber} />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                     {oName || t('orders.order', { n: idx + 1 })}
                   </span>
@@ -827,7 +838,13 @@ function OrdersList({
                     ⠿
                   </button>
                 )}
-                <OrderNameField idx={idx} mode={mode} t={t} onRename={renameOrder} />
+                <OrderNameField
+                  idx={idx}
+                  mode={mode}
+                  t={t}
+                  onRename={renameOrder}
+                  openNumber={numberFocusIdx === idx}
+                />
               </div>
             </div>
 
@@ -1795,23 +1812,34 @@ function OrderNameField({
   mode,
   t,
   onRename,
+  openNumber,
 }: {
   idx: number;
   mode: CalculatorMode;
   t: TFunction;
   /** A new product for the order (what it does to its block: the list). */
   onRename: (idx: number, np: NewProduct) => void;
+  /** Mount with the order-number field open (a new order in a numbered queue). */
+  openNumber: boolean;
 }) {
   'use no memo';
-  const { control } = useFormContext<FormValues>();
+  const { control, register } = useFormContext<FormValues>();
   const value = useWatch({
     control,
     name: `orders.${idx}.productName`,
     defaultValue: '',
   });
   const hasValue = typeof value === 'string' && value.length > 0;
-  const [open, setOpen] = useState(false);
-  const showInput = open || hasValue;
+  const orderNumber = useWatch({
+    control,
+    name: `orders.${idx}.orderNumber`,
+    defaultValue: '',
+  });
+  const hasNumber = typeof orderNumber === 'string' && orderNumber.length > 0;
+  // "#N" opens the order-number field; with it on screen the product name
+  // takes the line below.
+  const [open, setOpen] = useState(openNumber);
+  const showNumber = open || hasNumber;
   const { products } = useCatalog();
   // Filter catalog suggestions by active tab (sheets vs profiles).
   const filtered = useMemo(
@@ -1921,26 +1949,49 @@ function OrderNameField({
   };
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        title={t('orders.productName')}
-        // The "#N" badge stays in the read-only view (the name input itself
+        title={t('orders.orderNumber')}
+        aria-expanded={showNumber}
+        // The "#N" badge stays in the read-only view (the inputs themselves
         // can't be edited there).
         data-view
         className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm"
       >
         #{idx + 1}
       </button>
-      {showInput && (
-        <div ref={wrapperRef} className="relative min-w-0 flex-1">
+      {showNumber && (
+        <input
+          id={`order-number-${idx}`}
+          type="text"
+          autoComplete="off"
+          autoFocus={open && !hasNumber}
+          placeholder={t('orders.orderNumber')}
+          aria-label={t('orders.orderNumber')}
+          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
+          {...register(`orders.${idx}.orderNumber`)}
+          // Keeps the field while its last character is deleted.
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              // On to the quantity, not "Calcola" (the form's own submit).
+              e.preventDefault();
+              document.getElementById(`qty-${idx}`)?.focus();
+            }
+          }}
+        />
+      )}
+      <div
+        ref={wrapperRef}
+        className={`relative min-w-0 ${showNumber ? 'basis-full' : 'flex-1'}`}
+      >
           <input
             ref={inputRef}
             type="text"
             name={`orders.${idx}.productName`}
             autoComplete="off"
-            autoFocus={open && !hasValue}
             value={draft ?? (typeof value === 'string' ? value : '')}
             placeholder={hasValue ? value : t('orders.productName')}
             className="w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
@@ -2038,8 +2089,7 @@ function OrderNameField({
               </button>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {fullScreen &&
         createPortal(

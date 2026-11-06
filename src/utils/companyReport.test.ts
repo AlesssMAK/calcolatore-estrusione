@@ -208,3 +208,24 @@ describe('a calc recomputed partway through', () => {
     expect(stageAt({ ...p, completedRows: [done, done] }, at(13, 6, 10)).orderNo).toBe(3);
   });
 });
+
+describe('order number in the report', () => {
+  const numbered = {
+    ...payload,
+    result: {
+      ...payload.result,
+      rows: payload.result.rows.map((r) => ({
+        ...r,
+        order: { ...r.order, orderNumber: ' ORD-77 ' },
+      })),
+    },
+  };
+
+  it("is on the stage of the order it's on", () => {
+    expect(stageAt(numbered, at(12, 21)).orderNumber).toBe('ORD-77');
+  });
+
+  it('is absent when the order has none', () => {
+    expect(stageAt(payload, at(12, 21)).orderNumber).toBeUndefined();
+  });
+});

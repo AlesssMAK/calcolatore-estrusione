@@ -17,6 +17,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import OrderNumberTag from './OrderNumberTag';
 import SortableItem from './SortableItem';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
@@ -185,6 +186,7 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
                             <span className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
                               #{info.orderNo}
                             </span>
+                            <OrderNumberTag value={info.orderNumber} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium text-ink">
                                 {info.size}

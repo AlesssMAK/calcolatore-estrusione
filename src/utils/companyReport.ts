@@ -17,6 +17,7 @@ export interface ReportStage {
    *  number in the results table (completed orders count, so it stays the same
    *  when they leave the queue), product name and end. Absent when done. */
   orderNo?: number;
+  orderNumber?: string;
   productName?: string;
   orderEnd?: Date;
   /** The size (mm) being / next produced — absent for a total-meters order. */
@@ -134,6 +135,7 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
   return {
     status,
     orderNo: (p.completedRows?.length ?? 0) + step.orderIdx + 1,
+    orderNumber: row.order.orderNumber?.trim() || undefined,
     productName: row.order.productName?.trim() || undefined,
     orderEnd: row.end,
     sizeLength,

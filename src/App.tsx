@@ -149,6 +149,7 @@ function computeActive(
     return {
       info: {
         orderNo: i + 1,
+        orderNumber: row.order?.orderNumber?.trim() || undefined,
         productName: row.order?.productName?.trim() || undefined,
         sizeLabel: length ? `${length} mm` : '—',
         produced,

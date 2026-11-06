@@ -10,6 +10,7 @@ import { calculateTotalProfiles, orderSizeList } from '../utils/calculator';
 import { useCatalog } from '../contexts/CatalogContext';
 import { buildResultPdfBlob, hasProgress } from '../lib/resultPdf';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
+import OrderNumberTag from './OrderNumberTag';
 import MarqueeText from './MarqueeText';
 import PauseStrip from './PauseStrip';
 import UnitsTimeline from './UnitsTimeline';
@@ -402,6 +403,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                     <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
                       #{idx + 1}
                     </span>
+                    <OrderNumberTag value={row.order.orderNumber} />
                     {row.order.productName && (
                       <MarqueeText
                         text={row.order.productName}
@@ -760,6 +762,10 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                     >
                       <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
                         #{idx + 1}
+                        <OrderNumberTag
+                          value={row.order.orderNumber}
+                          className="ml-2"
+                        />
                         {row.order.productName && (
                           <span className="ml-2 font-medium text-ink">
                             {row.order.productName}

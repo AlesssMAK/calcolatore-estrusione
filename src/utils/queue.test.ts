@@ -5,6 +5,7 @@ import {
   prioritizeStep,
   queueStatus,
   resolveSequence,
+  stepInfo,
   toQueue,
 } from './queue';
 import type { GlobalSettings, Order, QueueItem } from '../types';
@@ -197,5 +198,22 @@ describe('queueStatus with "now"', () => {
     expect(queueStatus(Q, orders, r, at(8, 30)).next).toEqual({ orderIdx: 0, sizeIdx: 0 });
     // Before the start it's still the next one.
     expect(queueStatus(Q, orders, r, at(7)).next).toEqual({ orderIdx: 1, sizeIdx: 0 });
+  });
+});
+
+describe('stepInfo', () => {
+  const step = { orderIdx: 0, sizeIdx: 0 };
+  const sized = { id: 'a', sizes: [{ sheets: 50, length: 6000 }] } as Order;
+
+  it("carries the order's own number, trimmed", () => {
+    expect(stepInfo([{ ...sized, orderNumber: ' ORD-77 ' }], step).orderNumber).toBe('ORD-77');
+    expect(
+      stepInfo([{ id: 'b', useTotalLength: true, totalLengthM: 600, orderNumber: 'B1' }], step)
+        .orderNumber,
+    ).toBe('B1');
+  });
+
+  it('leaves it out when blank', () => {
+    expect(stepInfo([{ ...sized, orderNumber: '  ' }], step).orderNumber).toBeUndefined();
   });
 });
