@@ -1660,7 +1660,11 @@ function CalculatorApp() {
             </Link>
           )}
           <a
-            href="/installa.html"
+            href={
+              company
+                ? `/installa.html?company=${encodeURIComponent(company.slug)}`
+                : '/installa.html'
+            }
             target="_blank"
             rel="noopener"
             className="font-medium text-brand-700 transition hover:text-brand-800"

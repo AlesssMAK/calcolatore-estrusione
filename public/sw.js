@@ -5,7 +5,7 @@
  * Strategy:
  *  - navigations: network-first, fall back to the cached app shell offline;
  *  - same-origin static assets (hashed JS/CSS, icons): stale-while-revalidate;
- *  - everything else (e.g. Supabase API, Google Fonts): straight to network.
+ *  - everything else (e.g. Supabase API, Google Fonts, /api): straight to network.
  */
 const CACHE = 'ec-cache-v1';
 const SHELL = ['/', '/index.html'];
@@ -54,7 +54,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Same-origin assets: serve from cache immediately, refresh in background.
-  if (sameOrigin) {
+  if (sameOrigin && !url.pathname.startsWith('/api/')) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
         const cached = await cache.match(request);
