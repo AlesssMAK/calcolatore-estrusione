@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLongPress } from '../hooks/useLongPress';
+import CompanyConnect from './CompanyConnect';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useCatalog } from '../contexts/CatalogContext';
 import { clearDraft } from '../lib/formDraft';
+import { isInstalledApp } from '../lib/installedCompany';
 import { loadProductionStart, saveProductionStart } from '../lib/productionView';
 import { CalcIcon, FactoryIcon } from './ActionIcons';
 
@@ -34,6 +36,8 @@ function Header({ title, homeHref, production }: Props) {
   // logo for ~2 s. A normal tap still goes home.
   const navigate = useNavigate();
   const adminPress = useLongPress(() => navigate('/admin'));
+  // The installed app can't be given a company link: it gets one here.
+  const canConnect = !company && !loading && isInstalledApp();
 
   return (
     <header className="no-print border-b border-neutral-200 bg-white">
@@ -66,9 +70,9 @@ function Header({ title, homeHref, production }: Props) {
           <LanguageSwitcher />
         </div>
       </div>
-      {(company || loading || error) && (
+      {(company || loading || error || canConnect) && (
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 pb-2 sm:px-4">
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {company && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
                 <span aria-hidden>🏷</span>
@@ -81,6 +85,11 @@ function Header({ title, homeHref, production }: Props) {
             )}
             {error && !company && (
               <span className="text-xs font-medium text-danger">⚠ {error}</span>
+            )}
+            {canConnect && (
+              <CompanyConnect
+                className={`${pillCls} border-brand-300 bg-brand-50 text-brand-700 hover:border-brand-500`}
+              />
             )}
           </div>
           {company && production && <ProductionSwitch where={production} />}

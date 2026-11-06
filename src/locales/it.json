@@ -278,6 +278,11 @@
     "afterPause": "Dopo la pausa"
   },
   "company": {
+    "connect": "Collega Azienda",
+    "connectHint": "Incolla il link della tua azienda o scrivi il suo codice. Basta farlo una volta: l'app lo ricorda.",
+    "connectField": "Link o codice azienda",
+    "connectFailed": "Azienda non trovata. Controlla il link e la connessione.",
+    "connectConfirm": "Collega",
     "results": "Produzione",
     "empty": "Nessun risultato condiviso.",
     "publish": "Pubblica in Produzione",
