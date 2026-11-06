@@ -683,6 +683,86 @@ function OrdersList({
       idx !== activeLoc.orderIdx &&
       !expandedOrders.has(field.id);
 
+    // Order-level actions — rendered in the speed row (OrderFields `actions`),
+    // so the header holds only the order name.
+    const headActions = (
+      <>
+        {onComplete && (
+          <button
+            type="button"
+            onClick={() => {
+              const id = watchedOrders?.[idx]?.id;
+              if (id) onComplete(id);
+            }}
+            title={t('orders.completeOrder')}
+            className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
+          >
+            ✓{' '}
+            <span className="hidden sm:inline">
+              {t('orders.completeOrder')}
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() =>
+            setValue(
+              `orders.${idx}.useTotalLength`,
+              !watchedOrders?.[idx]?.useTotalLength,
+              { shouldValidate: true },
+            )
+          }
+          aria-pressed={Boolean(watchedOrders?.[idx]?.useTotalLength)}
+          title={t('orders.toggleTotalLength')}
+          className={
+            watchedOrders?.[idx]?.useTotalLength
+              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+          }
+        >
+          Σ{' '}
+          <span className="hidden sm:inline">
+            {t('orders.toggleTotalLength')}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            gapOn
+              ? removePause(idx)
+              : setValue(`orders.${idx}.gapEnabled`, true, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+          }
+          aria-pressed={gapOn}
+          title={t('orders.togglePause')}
+          className={
+            gapOn
+              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
+              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+          }
+        >
+          ⏸{' '}
+          <span className="hidden sm:inline">
+            {t('orders.togglePause')}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => removeOrder(idx)}
+          disabled={fields.length <= 1}
+          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+          aria-label={t('orders.remove')}
+        >
+          🗑{' '}
+          <span className="hidden sm:inline">
+            {t('orders.remove')}
+          </span>
+        </button>
+      </>
+    );
+
     return (
       <SortableItem key={field.id} id={field.id}>
         {({ setNodeRef, style, handleProps, isDragging }) =>
@@ -734,11 +814,8 @@ function OrdersList({
                 isDragging ? 'shadow-lg' : ''
               }`}
             >
-            {/* Name and buttons side by side; on phones, while the name field
-                is open (being edited, or opened still empty), it gets the
-                whole line and the buttons go under it. */}
-            <div className="group/head mb-2 flex items-center justify-between gap-2 max-sm:has-[input:focus]:flex-wrap max-sm:has-[input:placeholder-shown]:flex-wrap">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5 max-sm:group-has-[input:focus]/head:basis-full max-sm:group-has-[input:placeholder-shown]/head:basis-full">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 {canDrag && (
                   <button
                     type="button"
@@ -752,86 +829,10 @@ function OrdersList({
                 )}
                 <OrderNameField idx={idx} mode={mode} t={t} onRename={renameOrder} />
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                {onComplete && (
-          <button
-            type="button"
-            onClick={() => {
-              const id = watchedOrders?.[idx]?.id;
-              if (id) onComplete(id);
-            }}
-            title={t('orders.completeOrder')}
-            className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
-          >
-            ✓{' '}
-            <span className="hidden sm:inline">
-              {t('orders.completeOrder')}
-            </span>
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() =>
-            setValue(
-              `orders.${idx}.useTotalLength`,
-              !watchedOrders?.[idx]?.useTotalLength,
-              { shouldValidate: true },
-            )
-          }
-          aria-pressed={Boolean(
-            watchedOrders?.[idx]?.useTotalLength,
-          )}
-          title={t('orders.toggleTotalLength')}
-          className={
-            watchedOrders?.[idx]?.useTotalLength
-              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
-          }
-        >
-          Σ{' '}
-          <span className="hidden sm:inline">
-            {t('orders.toggleTotalLength')}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            gapOn
-              ? removePause(idx)
-              : setValue(`orders.${idx}.gapEnabled`, true, {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                })
-          }
-          aria-pressed={gapOn}
-          title={t('orders.togglePause')}
-          className={
-            gapOn
-              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
-          }
-        >
-          ⏸{' '}
-          <span className="hidden sm:inline">
-            {t('orders.togglePause')}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => removeOrder(idx)}
-          disabled={fields.length <= 1}
-          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
-          aria-label={t('orders.remove')}
-        >
-          🗑{' '}
-          <span className="hidden sm:inline">
-            {t('orders.remove')}
-          </span>
-        </button>
-      </div>
-    </div>
+            </div>
 
             <OrderFields
+              actions={headActions}
               idx={idx}
               rowErr={rowErr}
               mode={mode}
@@ -1126,6 +1127,9 @@ interface FieldsProps {
   editingId?: string;
   /** "Annulla Piramide": back to the sizes from before Piramide. */
   onRevertPiramide?: () => void;
+  /** Order-level action buttons (✓ Σ ⏸ 🗑) rendered at the end of the speed
+   *  row, so the header keeps only the order name. */
+  actions?: ReactNode;
 }
 
 function OrderFields({
@@ -1139,6 +1143,7 @@ function OrderFields({
   activeSizeIdx,
   editingId,
   onRevertPiramide,
+  actions,
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -1180,7 +1185,7 @@ function OrderFields({
     <div className="space-y-2">
       <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
         {isFirst ? (
-          <div className="min-w-0 flex-1 basis-0 sm:min-w-[140px]">
+          <div className="w-28 shrink-0 sm:w-32">
             <label className={labelBase}>{t('orders.speed')}</label>
             <input
               type="number"
@@ -1208,6 +1213,7 @@ function OrderFields({
             fieldPath={`orders.${idx}.speedMPerMin`}
             icon="⚡"
             label={t('orders.speed')}
+            expandedClassName="w-28 shrink-0 sm:w-32"
             inheritLabel={t('orders.optionalInherit')}
             chain={speedChain}
             placeholder={inheritedHint('speedMPerMin')}
@@ -1258,6 +1264,11 @@ function OrderFields({
                 : undefined
             }
           />
+        )}
+        {actions && (
+          <div className="ml-auto flex items-center gap-2 self-end">
+            {actions}
+          </div>
         )}
       </div>
 
@@ -1462,13 +1473,20 @@ function CollapsibleInheritField({
         onClick={() => setOpen(true)}
         title={titleText}
         aria-label={titleText}
-        className={`flex shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft shadow-sm transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700 ${
-          compact ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-9 w-9'
+        // Beside the order's actions (speed row) it's sized like them; the size
+        // row keeps that row's square.
+        className={`flex shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft transition hover:border-brand-400 hover:text-ink ${
+          compact
+            ? 'h-8 w-8 shadow-sm sm:h-9 sm:w-9'
+            : 'px-2.5 py-1 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-sm'
         }`}
       >
         {/* leading-none + block strip the emoji line-height so it sits dead
             centre instead of riding the text baseline. */}
-        <span aria-hidden className="block text-base leading-none">
+        <span
+          aria-hidden
+          className={compact ? 'block text-base leading-none' : 'block'}
+        >
           {icon}
         </span>
       </button>
