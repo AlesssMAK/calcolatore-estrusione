@@ -91,6 +91,7 @@
     @media (max-width: 680px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: clamp(1.1rem, 3vw, 1.5rem); box-shadow: var(--shadow); display: flex; flex-direction: column; break-inside: avoid; }
+    .card.wide { grid-column: 1 / -1; }
     .card-head { display: flex; align-items: center; gap: .8rem; margin-bottom: 1.05rem; }
     .devicon { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-line); }
     .devicon svg { width: 24px; height: 24px; }
@@ -104,6 +105,7 @@
     ol.steps b { font-weight: 600; }
     ol.steps .k { font-weight: 600; color: var(--accent); white-space: nowrap; }
     ol.steps .muted { color: var(--ink-soft); }
+    ol.steps code { font-family: 'Bricolage Grotesque', monospace; font-weight: 600; color: var(--accent); font-size: .9em; overflow-wrap: anywhere; }
 
     .notes { margin-top: 2.2rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: .9rem; }
     @media (max-width: 680px) { .notes { grid-template-columns: 1fr; } }
@@ -209,6 +211,7 @@
           <li>Tocca <span class="k">Condividi</span> — il quadrato con la freccia verso l'alto.</li>
           <li>Scorri l'elenco e tocca <span class="k">Aggiungi a Home</span>.</li>
           <li>Tocca <span class="k">Aggiungi</span> in alto a destra. L'icona appare nella schermata Home e si apre a schermo intero.</li>
+          <li>Apri l'app e <b>collega la tua azienda</b>: i passi sono qui sotto.</li>
         </ol>
       </section>
 
@@ -223,12 +226,25 @@
           <li>L'app compare nel <b>Dock</b> e si apre in una finestra propria.</li>
         </ol>
       </section>
+
+      <section class="card wide">
+        <div class="card-head">
+          <span class="devicon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg></span>
+          <div><h2>Collega la tua azienda</h2><span class="browser">Serve se l'app si apre senza il listino prodotti: su iPhone e iPad capita sempre</span></div>
+        </div>
+        <ol class="steps">
+          <li>Apri l'app installata, con internet attivo.</li>
+          <li>In alto tocca <span class="k">Collega Azienda</span>. <span class="muted">(se vedi già «Listino» con il nome della tua azienda, hai finito)</span></li>
+          <li>Incolla il <b>link della tua azienda</b> (<code>…/?company=nome</code>) oppure scrivi il suo <b>codice</b> (<code>nome</code>), poi tocca <span class="k">Collega</span>. <span class="muted">(li ricevi dalla tua azienda)</span></li>
+          <li>In alto compare <b>Listino</b> con il nome della tua azienda. L'app lo ricorda: basta farlo una volta.</li>
+        </ol>
+      </section>
     </div>
 
     <div class="notes">
       <div class="note">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>
-        <div><h3>Per le aziende</h3><p>Installa dal <b>link della tua azienda</b> (<code>…/?company=nome</code>) per avere già il tuo listino prodotti. Se su iPhone l'app si apre senza listino, tocca <b>Collega Azienda</b> in alto e incolla il link: basta farlo una volta.</p></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>
+        <div><h3>App già installata</h3><p>Se si apre senza listino, <b>non cancellarla</b>: potresti perdere i calcoli salvati. Chiudila del tutto, riaprila e collega la tua azienda.</p></div>
       </div>
       <div class="note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.6-2h6.8L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.2"/></svg>
