@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { loadInstalledCompany } from './installedCompany';
 import type { WeekendDay, WeekdayKey, WeekSchedule } from '../types';
 import { normalizePauseReasons, type PauseReason } from './pauseReasons';
 export type { WeekdayKey, WeekSchedule } from '../types';
@@ -128,13 +129,18 @@ export function sortProductsNaturally(items: CatalogProduct[]): CatalogProduct[]
   });
 }
 
-// URL-only: the catalog is loaded only when ?company=<slug> is present in
-// the URL. Nothing is persisted in LocalStorage, so the default link
+// URL-only on the site: the catalog is loaded only when ?company=<slug> is
+// present in the URL. Nothing is persisted for it, so the default link
 // (calc.app/) is always a clean calculator. Companies share their full
 // `?company=...` link with their employees as a bookmark.
-export function readSlugFromUrl(): string | null {
+// The installed app has no address bar: the company it was connected to comes
+// first there (lib/installedCompany).
+export function activeCompanySlug(): string | null {
   if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get('company');
+  return (
+    loadInstalledCompany() ??
+    new URLSearchParams(window.location.search).get('company')
+  );
 }
 
 export async function fetchCompanyBySlug(slug: string): Promise<Company | null> {

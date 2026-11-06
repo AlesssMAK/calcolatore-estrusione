@@ -278,6 +278,11 @@
     "afterPause": "After the pause"
   },
   "company": {
+    "connect": "Connect Company",
+    "connectHint": "Paste your company's link or type its code. You only do this once: the app remembers it.",
+    "connectField": "Company link or code",
+    "connectFailed": "Company not found. Check the link and your connection.",
+    "connectConfirm": "Connect",
     "results": "Production",
     "empty": "No shared results.",
     "publish": "Publish to Production",

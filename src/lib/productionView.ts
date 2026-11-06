@@ -1,5 +1,5 @@
 import type { CompanyCalc } from './sharedCalc';
-import { readSlugFromUrl } from './catalog';
+import { activeCompanySlug } from './catalog';
 
 // The Produzione page as the app's start page — a per-device switch (next to
 // "Listino") — and the company calc it hands to the calculator to open.
@@ -29,7 +29,7 @@ export function saveProductionStart(on: boolean): void {
 const launchesOnProduction =
   typeof window !== 'undefined' &&
   window.location.pathname === '/' &&
-  readSlugFromUrl() !== null &&
+  activeCompanySlug() !== null &&
   loadProductionStart();
 let launchDone = false;
 

@@ -278,6 +278,11 @@
     "afterPause": "Después de la pausa"
   },
   "company": {
+    "connect": "Vincular Empresa",
+    "connectHint": "Pega el enlace de tu empresa o escribe su código. Solo hace falta una vez: la app lo recuerda.",
+    "connectField": "Enlace o código de la empresa",
+    "connectFailed": "Empresa no encontrada. Comprueba el enlace y la conexión.",
+    "connectConfirm": "Vincular",
     "results": "Producción",
     "empty": "Ningún resultado compartido.",
     "publish": "Publicar en Producción",
