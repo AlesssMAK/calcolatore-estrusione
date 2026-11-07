@@ -153,6 +153,8 @@
   "actions": {
     "calculate": "Calcular",
     "reset": "Nuevo Cálculo",
+    "results": "Resultados",
+    "backToCalc": "Cálculo",
     "scrollTop": "Volver Arriba",
     "print": "Imprimir",
     "copy": "Copiar",
@@ -216,7 +218,6 @@
       "start": "Inicio",
       "end": "Fin"
     },
-    "empty": "Introduce los pedidos y pulsa «Calcular».",
     "produced": "Producidos",
     "remaining": "Pendientes",
     "pdfRemaining": "Solo pedidos por completar",

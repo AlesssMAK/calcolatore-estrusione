@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import Header from './components/Header';
 import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
@@ -166,8 +174,14 @@ function computeActive(
   return null;
 }
 
+// The results have a page of their own, served by this same mounted calculator:
+// the form stays alive (hidden) behind it, as "✓ Completa" there goes through it.
+const RESULTS_PATH = '/risultati';
+
 function CalculatorApp() {
   const { t, i18n } = useTranslation();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const { settings, company } = useCatalog();
   // Keep the active company link on the Piramide navigation, so a reload of
   // /piramide doesn't lose ?company= and bounce back to the calculator.
@@ -265,13 +279,37 @@ function CalculatorApp() {
   ): ScheduleResult =>
     completed.length > 0 ? { ...r, rows: [...completed, ...r.rows] } : r;
 
-  const scrollToResults = () => {
+  const scrollToTop = () => {
     window.requestAnimationFrame(() => {
-      document
-        .getElementById('results')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   };
+
+  const onResultsPage = pathname === RESULTS_PATH && !!result;
+  // Where the form was left, to come back to it.
+  const formScrollRef = useRef<number | null>(null);
+  const openResults = () => {
+    if (pathname === RESULTS_PATH) return;
+    formScrollRef.current = window.scrollY;
+    navigate({ pathname: RESULTS_PATH, search });
+  };
+  const showForm = () => {
+    if (pathname === RESULTS_PATH) navigate(-1);
+  };
+  useLayoutEffect(() => {
+    if (onResultsPage) {
+      window.scrollTo(0, 0);
+    } else if (formScrollRef.current !== null) {
+      window.scrollTo(0, formScrollRef.current);
+      formScrollRef.current = null;
+    }
+  }, [onResultsPage]);
+  // Nothing to show there (a reload: the result lives in memory) → the form.
+  useEffect(() => {
+    if (pathname === RESULTS_PATH && !result) {
+      navigate({ pathname: '/', search }, { replace: true });
+    }
+  }, [pathname, search, result, navigate]);
 
   const clearRestored = () => {
     setRestoredEntry(null);
@@ -624,7 +662,7 @@ function CalculatorApp() {
     );
     if (showModal) setActiveModal(active);
     setFormKey((k) => k + 1);
-    if (scroll) scrollToResults();
+    if (scroll) scrollToTop();
   };
 
   // Pull the latest server version of a synced entry; if newer than the local
@@ -736,7 +774,7 @@ function CalculatorApp() {
     setResult(restoredEntry.result);
     setCompletedRows([]);
     setFormKey((k) => k + 1);
-    scrollToResults();
+    scrollToTop();
   };
 
   const viewAdvanced = () => {
@@ -748,7 +786,7 @@ function CalculatorApp() {
     setResult(advancedCalc.result);
     setCompletedRows(advancedCalc.completedRows);
     setFormKey((k) => k + 1);
-    scrollToResults();
+    scrollToTop();
   };
 
   // Bring completed orders back into the form (they weren't actually done).
@@ -1380,7 +1418,6 @@ function CalculatorApp() {
     setRestoredValues(values);
     setMountState('unsaved');
     setFormKey((k) => k + 1);
-    scrollToResults();
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1394,168 +1431,181 @@ function CalculatorApp() {
           viewFrozen ? 'calc-frozen' : ''
         }`}
       >
-        <Tabs
-          value={mode}
-          onChange={onModeChange}
-          modes={settings.modes}
-          showPiramide={settings.showPiramide}
-          piramideHref={piramideHref}
-          settingsOpen={settingsOpen}
-          onToggleSettings={() => setSettingsOpen((v) => !v)}
-        />
-
-        {/* A tracked calc (Salvati / Produzione): the form shows when each
-            size and order ends, from the result on screen. */}
-        <TrackedResultContext.Provider value={fromSaved ? result : null}>
-          <CalculatorForm
-            key={`${formKey}:${mode}`}
-            mode={mode}
+        <div hidden={onResultsPage}>
+          <Tabs
+            value={mode}
+            onChange={onModeChange}
+            modes={settings.modes}
+            showPiramide={settings.showPiramide}
+            piramideHref={piramideHref}
             settingsOpen={settingsOpen}
-            onSettingsErrors={() => setSettingsOpen(true)}
-            onResult={onFormResult}
-            onRequestReset={onReset}
-            onSaved={(id) => {
-              setEditingId(id);
-              setSavedRefreshKey((k) => k + 1);
-            }}
-            onRestore={onRestore}
-            onToggleTracking={onToggleTracking}
-            savedRefreshKey={savedRefreshKey}
-            initialValues={restoredValues}
-            // The live Produzione version isn't a saved entry of this device.
-            editingId={syncMeta?.live ? undefined : editingId}
-            completedRows={completedRows}
-            hasCompleted={completedRows.length > 0}
-            canComplete={fromSaved}
-            activeLoc={activeLoc}
-            onPublish={
-              isSupabaseConfigured && company ? publishToCompany : undefined
-            }
-            onOpenCompany={
-              isSupabaseConfigured && company ? openCompanyCalc : undefined
-            }
-            onDeleteCompany={
-              isSupabaseConfigured && company ? deleteCompanyCalc : undefined
-            }
-            onOpenReport={
-              isSupabaseConfigured && company ? () => setReportOpen(true) : undefined
-            }
-            onToggleCompanyRunning={
-              isSupabaseConfigured && company ? toggleCompanyRunning : undefined
-            }
-            onProductionChecked={() => setProductionRev((r) => r + 1)}
-            readOnly={readOnly}
-            onAddToSaved={addToSaved}
-            // The live Produzione version (opened from the list) isn't kept in
-            // Salvati — its "Calcola" only goes to the shared document.
-            persist={!syncMeta?.live}
-            mountState={mountState}
-            onRecompute={remountAndRecompute}
-            registerComplete={(fn) => {
-              completeRef.current = fn;
-            }}
-            registerSetProduced={(fn) => {
-              setProducedRef.current = fn;
-            }}
+            onToggleSettings={() => setSettingsOpen((v) => !v)}
           />
-        </TrackedResultContext.Provider>
 
-        <div id="results" className="mt-5 sm:mt-6">
-          {result && syncMeta?.published && (
-            <div className="no-print mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
-              {/* Phones: the text on its own, the buttons full width under it;
-                  sm+: the buttons beside the text. */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
-                <span className="flex min-w-0 basis-full items-start gap-2 font-medium sm:flex-1 sm:basis-0">
-                  <span aria-hidden>🏭</span>
-                  <span>
-                    {syncMeta.live
-                      ? t('company.liveBanner')
-                      : isOriginal(syncMeta)
-                        ? originalStatus?.gone
-                          ? t('company.gone')
-                          : t('company.originalBanner')
-                        : t('company.broadcasting')}
+          {/* A tracked calc (Salvati / Produzione): the form shows when each
+              size and order ends, from the result on screen. */}
+          <TrackedResultContext.Provider value={fromSaved ? result : null}>
+            <CalculatorForm
+              key={`${formKey}:${mode}`}
+              mode={mode}
+              settingsOpen={settingsOpen}
+              onSettingsErrors={() => setSettingsOpen(true)}
+              onResult={onFormResult}
+              onRequestReset={onReset}
+              hasResult={!!result}
+              resultsOpen={onResultsPage}
+              onOpenResults={openResults}
+              onShowForm={showForm}
+              onSaved={(id) => {
+                setEditingId(id);
+                setSavedRefreshKey((k) => k + 1);
+              }}
+              onRestore={onRestore}
+              onToggleTracking={onToggleTracking}
+              savedRefreshKey={savedRefreshKey}
+              initialValues={restoredValues}
+              // The live Produzione version isn't a saved entry of this device.
+              editingId={syncMeta?.live ? undefined : editingId}
+              completedRows={completedRows}
+              hasCompleted={completedRows.length > 0}
+              canComplete={fromSaved}
+              activeLoc={activeLoc}
+              onPublish={
+                isSupabaseConfigured && company ? publishToCompany : undefined
+              }
+              onOpenCompany={
+                isSupabaseConfigured && company ? openCompanyCalc : undefined
+              }
+              onDeleteCompany={
+                isSupabaseConfigured && company ? deleteCompanyCalc : undefined
+              }
+              onOpenReport={
+                isSupabaseConfigured && company ? () => setReportOpen(true) : undefined
+              }
+              onToggleCompanyRunning={
+                isSupabaseConfigured && company ? toggleCompanyRunning : undefined
+              }
+              onProductionChecked={() => setProductionRev((r) => r + 1)}
+              readOnly={readOnly}
+              onAddToSaved={addToSaved}
+              // The live Produzione version (opened from the list) isn't kept in
+              // Salvati — its "Calcola" only goes to the shared document.
+              persist={!syncMeta?.live}
+              mountState={mountState}
+              onRecompute={remountAndRecompute}
+              registerComplete={(fn) => {
+                completeRef.current = fn;
+              }}
+              registerSetProduced={(fn) => {
+                setProducedRef.current = fn;
+              }}
+            />
+          </TrackedResultContext.Provider>
+        </div>
+
+        {onResultsPage && result && (
+          <div id="results">
+            <button
+              type="button"
+              onClick={showForm}
+              className="no-print mb-4 inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+            >
+              ← {t('actions.backToCalc')}
+            </button>
+            {syncMeta?.published && (
+              <div className="no-print mb-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
+                {/* Phones: the text on its own, the buttons full width under it;
+                    sm+: the buttons beside the text. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+                  <span className="flex min-w-0 basis-full items-start gap-2 font-medium sm:flex-1 sm:basis-0">
+                    <span aria-hidden>🏭</span>
+                    <span>
+                      {syncMeta.live
+                        ? t('company.liveBanner')
+                        : isOriginal(syncMeta)
+                          ? originalStatus?.gone
+                            ? t('company.gone')
+                            : t('company.originalBanner')
+                          : t('company.broadcasting')}
+                    </span>
                   </span>
-                </span>
-                {isOriginal(syncMeta) && originalStatus?.gone && (
-                  <button
-                    type="button"
-                    onClick={() => void republish()}
-                    className="w-full shrink-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:w-auto sm:py-1.5"
-                  >
-                    {t('company.republish')}
-                  </button>
-                )}
-                {isOriginal(syncMeta) && !originalStatus?.gone && (
-                  <span className="grid w-full shrink-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
+                  {isOriginal(syncMeta) && originalStatus?.gone && (
                     <button
                       type="button"
-                      onClick={() => void openCompare()}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:py-1.5"
+                      onClick={() => void republish()}
+                      className="w-full shrink-0 rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:w-auto sm:py-1.5"
                     >
-                      {t('company.compare')}
-                      {originalStatus && originalStatus.diffs > 0 && (
-                        <span
-                          className="rounded bg-amber-100 px-1 text-[11px] font-semibold text-amber-800"
-                          title={t('company.diffBadge', { count: originalStatus.diffs })}
-                        >
-                          ⚠ {originalStatus.diffs}
-                        </span>
-                      )}
+                      {t('company.republish')}
                     </button>
+                  )}
+                  {isOriginal(syncMeta) && !originalStatus?.gone && (
+                    <span className="grid w-full shrink-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => void openCompare()}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:py-1.5"
+                      >
+                        {t('company.compare')}
+                        {originalStatus && originalStatus.diffs > 0 && (
+                          <span
+                            className="rounded bg-amber-100 px-1 text-[11px] font-semibold text-amber-800"
+                            title={t('company.diffBadge', { count: originalStatus.diffs })}
+                          >
+                            ⚠ {originalStatus.diffs}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void sendToProduction()}
+                        disabled={sending}
+                        className="rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:py-1.5"
+                      >
+                        {t('company.send')}
+                      </button>
+                    </span>
+                  )}
+                  {isOriginal(syncMeta) && originalEntry?.beforeProduction && (
                     <button
                       type="button"
-                      onClick={() => void sendToProduction()}
-                      disabled={sending}
-                      className="rounded-md border border-brand-300 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 sm:py-1.5"
+                      onClick={revertToOwnVersion}
+                      title={t('company.ownVersionHint')}
+                      className="w-full shrink-0 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto sm:py-1.5"
                     >
-                      {t('company.send')}
+                      ↺ {t('company.ownVersion')}
                     </button>
-                  </span>
-                )}
-                {isOriginal(syncMeta) && originalEntry?.beforeProduction && (
-                  <button
-                    type="button"
-                    onClick={revertToOwnVersion}
-                    title={t('company.ownVersionHint')}
-                    className="w-full shrink-0 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto sm:py-1.5"
-                  >
-                    ↺ {t('company.ownVersion')}
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-          {/* Opened from Azienda, published view-only, and this device can't
-              edit it → read-only; editing happens on a copy in Salvati. */}
-          {result && readOnly && (
-            <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
-              <span aria-hidden>👁</span>
-              <span>{t('company.readOnlyBanner')}</span>
-            </div>
-          )}
-          {result && restoredEntry && advancedCalc && (
-            <AdvanceBanner
-              showOriginal={showOriginal}
-              ts={restoredEntry.ts}
-              onViewOriginal={viewOriginal}
-              onViewAdvanced={viewAdvanced}
-            />
-          )}
-          {result && completedRows.length > 0 && !readOnly && (
-            <RestoreCompletedButton
-              count={completedRows.length}
-              onRestoreOne={restoreOneCompleted}
-              onRestoreAll={restoreAllCompleted}
-            />
-          )}
-          {result && restoreAdvanceError && (
-            <div className="no-print mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-              {t('results.advanceFailed')}
-            </div>
-          )}
-          {result ? (
+            )}
+            {/* Opened from Azienda, published view-only, and this device can't
+                edit it → read-only; editing happens on a copy in Salvati. */}
+            {readOnly && (
+              <div className="no-print mb-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
+                <span aria-hidden>👁</span>
+                <span>{t('company.readOnlyBanner')}</span>
+              </div>
+            )}
+            {restoredEntry && advancedCalc && (
+              <AdvanceBanner
+                showOriginal={showOriginal}
+                ts={restoredEntry.ts}
+                onViewOriginal={viewOriginal}
+                onViewAdvanced={viewAdvanced}
+              />
+            )}
+            {completedRows.length > 0 && !readOnly && (
+              <RestoreCompletedButton
+                count={completedRows.length}
+                onRestoreOne={restoreOneCompleted}
+                onRestoreAll={restoreAllCompleted}
+              />
+            )}
+            {restoreAdvanceError && (
+              <div className="no-print mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                {t('results.advanceFailed')}
+              </div>
+            )}
             <ErrorBoundary
               key={formKey}
               fallback={(error) => (
@@ -1585,12 +1635,8 @@ function CalculatorApp() {
                 }
               />
             </ErrorBoundary>
-          ) : (
-            <div className="no-print rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft sm:p-6">
-              {t('results.empty')}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       {activeModal && (

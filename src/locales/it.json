@@ -153,6 +153,8 @@
   "actions": {
     "calculate": "Calcola",
     "reset": "Nuovo Calcolo",
+    "results": "Risultati",
+    "backToCalc": "Calcolo",
     "scrollTop": "Torna Su",
     "print": "Stampa",
     "copy": "Copia",
@@ -216,7 +218,6 @@
       "start": "Inizio",
       "end": "Fine"
     },
-    "empty": "Inserisci gli ordini e premi «Calcola».",
     "produced": "Prodotti",
     "remaining": "Rimanenti",
     "pdfRemaining": "Solo ordini da completare",

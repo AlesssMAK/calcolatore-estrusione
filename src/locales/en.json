@@ -153,6 +153,8 @@
   "actions": {
     "calculate": "Calculate",
     "reset": "New Calculation",
+    "results": "Results",
+    "backToCalc": "Calculation",
     "scrollTop": "Back to Top",
     "print": "Print",
     "copy": "Copy",
@@ -216,7 +218,6 @@
       "start": "Start",
       "end": "End"
     },
-    "empty": "Enter orders and click «Calculate».",
     "produced": "Produced",
     "remaining": "Remaining",
     "pdfRemaining": "Only orders still to complete",

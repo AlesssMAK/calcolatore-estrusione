@@ -96,9 +96,13 @@ const isProduced = (r: ScheduledOrder) =>
  * Like a "Calcola": the orders fully produced in `result` leave the queue as
  * completed rows, each remembering its block (for "Ripristina"). A block's
  * closing pause stays with its last order still in the queue — when it moves
- * there, the rest is rescheduled with `reschedule`.
+ * there, the rest is rescheduled with `reschedule`. An order that inherited its
+ * speed / cavity from one that left gets it written in (the first in the queue
+ * has nothing before it to inherit from); the others keep inheriting.
  */
-export function splitCompleted<O extends BlockOrder>(
+export function splitCompleted<
+  O extends BlockOrder & Pick<Order, 'speedMPerMin' | 'cavity'>,
+>(
   orders: O[],
   result: ScheduleResult,
   gapMode: GapMode | undefined,
@@ -112,12 +116,25 @@ export function splitCompleted<O extends BlockOrder>(
   );
   const pauses = pausesAfterRemoval(orders, (i) => !done[i], gapMode);
   let moved = false;
-  const kept = orders.flatMap((o, i) => {
-    if (done[i]) return [];
+  const kept: O[] = [];
+  orders.forEach((o, i) => {
+    if (done[i]) return;
     const pause = pauses.get(i) ?? null;
-    if (samePause(o, pause, gapMode)) return [o];
-    moved = true;
-    return [{ ...o, ...(pause ?? NO_PAUSE) }];
+    let order = o;
+    if (!samePause(o, pause, gapMode)) {
+      moved = true;
+      order = { ...order, ...(pause ?? NO_PAUSE) };
+    }
+    const last = kept.length - 1;
+    const speed = effectiveValue(orders, i, 'speedMPerMin');
+    if (speed !== effectiveValue(kept, last, 'speedMPerMin')) {
+      order = { ...order, speedMPerMin: speed };
+    }
+    const cavity = effectiveValue(orders, i, 'cavity');
+    if (cavity !== effectiveValue(kept, last, 'cavity')) {
+      order = { ...order, cavity };
+    }
+    kept.push(order);
   });
   return {
     orders: kept,

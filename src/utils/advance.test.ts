@@ -234,6 +234,34 @@ describe('splitCompleted (a "Calcola" with produced orders)', () => {
     const [a1, b1] = split.result.rows;
     expect(b1!.start.getTime() - a1!.end.getTime()).toBe(60 * 60_000);
   });
+
+  describe('the speed of an order that left', () => {
+    const inherits = [
+      { id: 'A', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 1.8, cavity: 2, producedSheets: [{ value: 60 }] },
+      { id: 'B', sheets: 60, sheetLengthMm: 1000 },
+      { id: 'C', sheets: 60, sheetLengthMm: 1000 },
+      { id: 'D', sheets: 60, sheetLengthMm: 1000, speedMPerMin: 3 },
+    ] as unknown as Order[];
+    const kept = () =>
+      splitCompleted(inherits, schedule(inherits), 'continuous', schedule).orders;
+
+    it('is written on the new first order: it has nothing to inherit from', () => {
+      expect(kept()[0]).toMatchObject({ id: 'B', speedMPerMin: 1.8, cavity: 2 });
+    });
+
+    it('the others keep inheriting, or keep their own', () => {
+      expect(kept()[1]!.speedMPerMin).toBeUndefined();
+      expect(kept()[1]!.cavity).toBeUndefined();
+      expect(kept()[2]!.speedMPerMin).toBe(3);
+    });
+
+    it('nothing left the queue: nothing changes', () => {
+      const none = inherits.map((o, i) =>
+        i === 0 ? { ...o, producedSheets: [] } : o,
+      ) as Order[];
+      expect(splitCompleted(none, schedule(none), 'continuous', schedule).orders).toBe(none);
+    });
+  });
 });
 
 describe('restoreIntoBlocks ("Ripristina")', () => {
