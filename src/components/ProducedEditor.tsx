@@ -25,12 +25,11 @@ export default function ProducedEditor({
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState(String(produced));
-  // Focus + select the count right away — without scrolling the page behind
+  // Focus the count right away — without scrolling the page behind
   // (autoFocus would).
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
-    inputRef.current?.select();
   }, []);
   const n = Number(text);
   const valid = text.trim() !== '' && Number.isFinite(n) && n >= 0;
