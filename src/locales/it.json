@@ -90,6 +90,7 @@
     "revertPiramideHint": "Ripristina le misure dell’ordine di prima della Piramide",
     "toggleTotalLength": "Metri Totali",
     "togglePause": "Pausa Dopo",
+    "pauseShort": "Pausa",
     "pauseSlots": "Scegli Durata",
     "pauseReason": "Causale della Pausa",
     "pauseFree": "Altro (pausa libera)",

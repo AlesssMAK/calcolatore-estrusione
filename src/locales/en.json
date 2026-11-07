@@ -90,6 +90,7 @@
     "revertPiramideHint": "Restore the order’s sizes from before the Pyramid",
     "toggleTotalLength": "Total Meters",
     "togglePause": "Pause After",
+    "pauseShort": "Pause",
     "pauseSlots": "Choose Duration",
     "pauseReason": "Pause Reason",
     "pauseFree": "Other (free pause)",

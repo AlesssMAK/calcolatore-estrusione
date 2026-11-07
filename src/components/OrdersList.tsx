@@ -708,9 +708,7 @@ function OrdersList({
             className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
           >
             ✓{' '}
-            <span className="hidden sm:inline">
-              {t('orders.completeOrder')}
-            </span>
+            <span className="hidden sm:inline">{t('orders.complete')}</span>
           </button>
         )}
         <button
@@ -754,9 +752,7 @@ function OrdersList({
           }
         >
           ⏸{' '}
-          <span className="hidden sm:inline">
-            {t('orders.togglePause')}
-          </span>
+          <span className="hidden sm:inline">{t('orders.pauseShort')}</span>
         </button>
         <button
           type="button"
@@ -1202,9 +1198,10 @@ function OrderFields({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-end gap-2 pb-5 sm:gap-3">
+      {/* The fields give way down to min-w-16; only then the actions wrap. */}
+      <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
         {isFirst ? (
-          <div className="min-w-0 flex-1">
+          <div className="min-w-16 flex-1">
             <label className={labelBase}>{t('orders.speed')}</label>
             <input
               type="number"
@@ -1232,7 +1229,6 @@ function OrderFields({
             fieldPath={`orders.${idx}.speedMPerMin`}
             icon="⚡"
             label={t('orders.speed')}
-            expandedClassName="min-w-0 flex-1"
             inheritLabel={t('orders.optionalInherit')}
             chain={speedChain}
             placeholder={inheritedHint('speedMPerMin')}
@@ -1445,7 +1441,7 @@ function CollapsibleInheritField({
   errorMessage,
   placeholder,
   compact,
-  expandedClassName = 'min-w-0 flex-1 basis-0 sm:min-w-[140px]',
+  expandedClassName = 'min-w-16 flex-1',
   chain,
 }: {
   fieldPath:
