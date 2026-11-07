@@ -1162,6 +1162,10 @@ function OrderFields({
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
+  // Where the speed row's collapsed 📦 / 🔢 go: in with the order's actions, so
+  // all the buttons move as one.
+  const [packSlot, setPackSlot] = useState<HTMLElement | null>(null);
+  const [cavitySlot, setCavitySlot] = useState<HTMLElement | null>(null);
   // Piramide layout schema carried on this order (from a round-trip / import).
   const piramideSchema = useWatch({
     control,
@@ -1198,8 +1202,8 @@ function OrderFields({
 
   return (
     <div className="space-y-2">
-      {/* The fields give way down to min-w-16; only then the actions wrap, on
-          a row above the speed (reversed: "start" here is the row's bottom). */}
+      {/* The fields give way down to min-w-16; only then all the buttons wrap,
+          on a row above the speed (reversed: "start" here is the row's bottom). */}
       <div className="flex flex-wrap-reverse items-start gap-2 pb-5 sm:gap-3">
         {isFirst ? (
           <div className="min-w-16 flex-1">
@@ -1253,6 +1257,7 @@ function OrderFields({
             fieldPath={`orders.${idx}.sizes.0.profilesPerPackage`}
             icon="📦"
             label={t('orders.profilesPerPackage')}
+            slot={packSlot}
             inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
             errorMessage={
               rowErr?.sizes?.[0]?.profilesPerPackage?.message
@@ -1269,6 +1274,7 @@ function OrderFields({
             fieldPath={`orders.${idx}.cavity`}
             icon="🔢"
             label={t('orders.cavity')}
+            slot={cavitySlot}
             // Like the speed: from the 2nd order on it inherits when empty.
             inheritLabel={isFirst ? undefined : t('orders.optionalInherit')}
             inputProps={{ min: '1', step: '1', inputMode: 'numeric' }}
@@ -1282,7 +1288,9 @@ function OrderFields({
           />
         )}
         {actions && (
-          <div className="ml-auto flex shrink-0 items-center gap-2 self-start">
+          <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 self-start">
+            <span ref={setPackSlot} className="contents" />
+            <span ref={setCavitySlot} className="contents" />
             {actions}
           </div>
         )}
@@ -1444,6 +1452,7 @@ function CollapsibleInheritField({
   compact,
   expandedClassName = 'min-w-16 flex-1',
   chain,
+  slot,
 }: {
   fieldPath:
     | `orders.${number}.speedMPerMin`
@@ -1470,6 +1479,8 @@ function CollapsibleInheritField({
   expandedClassName?: string;
   /** An inherited value (speed / cavity): a change carries down the queue. */
   chain?: InheritChain;
+  /** Where the collapsed button goes, when not in the field's own place. */
+  slot?: HTMLElement | null;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -1483,7 +1494,7 @@ function CollapsibleInheritField({
     : label;
 
   if (!showInput) {
-    return (
+    const button = (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -1501,6 +1512,7 @@ function CollapsibleInheritField({
         </span>
       </button>
     );
+    return slot ? createPortal(button, slot) : button;
   }
 
   const reg = register(fieldPath, { setValueAs: numericSetValueAs });
