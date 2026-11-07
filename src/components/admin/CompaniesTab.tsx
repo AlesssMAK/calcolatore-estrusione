@@ -332,6 +332,7 @@ function CompaniesTab() {
                 hint="almeno 8 caratteri, condividila col cliente in modo sicuro"
               >
                 <input
+                  data-keep-value
                   type="text"
                   required
                   minLength={8}

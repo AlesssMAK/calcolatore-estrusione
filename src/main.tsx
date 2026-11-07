@@ -8,6 +8,9 @@ import 'react-datepicker/dist/react-datepicker.css';
 import './index.css';
 import './i18n';
 import App from './App.tsx';
+import { installClearOnFocus } from './utils/clearOnFocus';
+
+installClearOnFocus();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1990,6 +1990,7 @@ function OrderNameField({
           <input
             ref={inputRef}
             type="text"
+            data-keep-value
             name={`orders.${idx}.productName`}
             autoComplete="off"
             value={draft ?? (typeof value === 'string' ? value : '')}
@@ -2114,6 +2115,7 @@ function OrderNameField({
             <div className="border-b border-neutral-100 p-3">
               <input
                 type="text"
+                data-keep-value
                 autoFocus
                 autoComplete="off"
                 value={draft ?? ''}
