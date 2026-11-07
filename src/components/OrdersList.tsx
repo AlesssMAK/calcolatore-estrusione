@@ -105,6 +105,10 @@ import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/f
 const sizeInputBase =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 
+/** A button beside a field: a square of the field's height. */
+const squareBtnBase =
+  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+
 type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
 
 interface Props {
@@ -706,7 +710,7 @@ function OrdersList({
             }}
             title={t('orders.completeOrder')}
             aria-label={t('orders.completeOrder')}
-            className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
+            className={`${squareBtnBase} border-success/40 bg-success/10 font-semibold text-success hover:bg-success/20`}
           >
             ✓
           </button>
@@ -725,8 +729,8 @@ function OrdersList({
           aria-label={t('orders.toggleTotalLength')}
           className={
             watchedOrders?.[idx]?.useTotalLength
-              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+              ? `${squareBtnBase} border-brand-600 bg-brand-600 font-semibold text-white`
+              : `${squareBtnBase} border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink`
           }
         >
           Σ
@@ -746,8 +750,8 @@ function OrdersList({
           aria-label={t('orders.togglePause')}
           className={
             gapOn
-              ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
-              : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
+              ? `${squareBtnBase} border-brand-600 bg-brand-600 font-semibold text-white`
+              : `${squareBtnBase} border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink`
           }
         >
           ⏸
@@ -756,7 +760,7 @@ function OrdersList({
           type="button"
           onClick={() => removeOrder(idx)}
           disabled={fields.length <= 1}
-          className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+          className={`${squareBtnBase} border-neutral-300 bg-white text-ink-soft hover:border-danger hover:text-danger`}
           title={t('orders.remove')}
           aria-label={t('orders.remove')}
         >
@@ -1485,20 +1489,14 @@ function CollapsibleInheritField({
         onClick={() => setOpen(true)}
         title={titleText}
         aria-label={titleText}
-        // Beside the order's actions (speed row) it's sized like them; the size
-        // row keeps that row's square.
-        className={`flex shrink-0 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft transition hover:border-brand-400 hover:text-ink ${
-          compact
-            ? 'h-8 w-8 self-end shadow-sm sm:h-9 sm:w-9'
-            : 'self-start px-2.5 py-1 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-sm'
+        // (the speed row wraps upward: its bottom is "start")
+        className={`${squareBtnBase} border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink ${
+          compact ? 'self-end' : 'self-start'
         }`}
       >
         {/* leading-none + block strip the emoji line-height so it sits dead
             centre instead of riding the text baseline. */}
-        <span
-          aria-hidden
-          className={compact ? 'block text-base leading-none' : 'block'}
-        >
+        <span aria-hidden className="block text-base leading-none">
           {icon}
         </span>
       </button>
@@ -2178,8 +2176,7 @@ function arrayPositionsForSize(
 
 const sizeBlockInputCls =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
-const sizeBlockBtnBase =
-  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+const sizeBlockBtnBase = `${squareBtnBase} bg-white`;
 
 function SizeBlockHeader({
   sizeIdx,
