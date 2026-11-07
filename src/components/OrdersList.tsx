@@ -2287,18 +2287,19 @@ function OrderEndNote({
   if (!row || row.remainingMinutes < 0.5) return null;
   const end = formatDateParts(row.end, i18n.resolvedLanguage ?? 'it');
   return (
-    <div className="mt-2 space-y-0.5 border-t border-neutral-200 pt-2 text-xs">
-      <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+    // One line each, whatever the screen: the type gives way on a narrow one.
+    <div className="mt-2 space-y-0.5 border-t border-neutral-200 pt-2 text-[clamp(10px,3vw,12px)] whitespace-nowrap">
+      <p className="flex items-baseline justify-between gap-x-2">
         <span className="tracking-wide text-ink-soft uppercase">
           {t('orders.orderEnds')}
         </span>
-        <span className="num-blink flex flex-wrap justify-end gap-x-1.5">
-          <span className="whitespace-nowrap">{end.date}</span>
-          <span className="whitespace-nowrap">{end.time}</span>
+        <span className="num-blink flex gap-x-1.5">
+          <span>{end.date}</span>
+          <span>{end.time}</span>
         </span>
       </p>
       {withDuration && (
-        <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+        <p className="flex items-baseline justify-between gap-x-2">
           <span className="tracking-wide text-ink-soft uppercase">
             {t('results.timeToFinish')}
           </span>
