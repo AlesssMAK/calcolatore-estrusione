@@ -4,7 +4,7 @@ import SavedCalculationsButton from './SavedCalculationsButton';
 import CompanyResultsButton from './CompanyResultsButton';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type { CompanyCalc } from '../lib/sharedCalc';
-import { CalcIcon, ResetIcon, SaveIcon } from './ActionIcons';
+import { CalcIcon, ResetIcon, ResultsIcon, SaveIcon } from './ActionIcons';
 import { floatBtnCls, type FloatPlacement } from './floatStyles';
 import { ScrollTopButton } from './ScrollTopButton';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -22,6 +22,9 @@ interface Props {
    *  ("Aggiungi ai Salvati") instead of calculating. */
   onAddToSaved?: () => void;
   onReset: () => void;
+  onOpenResults: () => void;
+  /** Mirrors the form's "Risultati": inactive until there's a result. */
+  resultsDisabled: boolean;
   onRestore?: (entry: SavedCalculation) => void;
   onToggleTracking?: (entry: SavedCalculation) => void;
   savedRefreshKey?: number;
@@ -37,7 +40,7 @@ interface Props {
 }
 
 /** Pinned, icon-only copy of the form actions (Calcola / Nuovo / Salvati /
- *  Azienda) + scroll-to-top: a bottom bar on phones, a vertical rail on the
+ *  Azienda / Risultati) + scroll-to-top: a bottom bar on phones, a vertical rail on the
  *  right on wider screens. */
 function FloatingActions({
   visible,
@@ -46,6 +49,8 @@ function FloatingActions({
   calcDisabled,
   onAddToSaved,
   onReset,
+  onOpenResults,
+  resultsDisabled,
   onRestore,
   onToggleTracking,
   savedRefreshKey,
@@ -139,6 +144,16 @@ function FloatingActions({
             onToggleRunning={onToggleCompanyRunning}
           />
         )}
+        <button
+          type="button"
+          onClick={onOpenResults}
+          disabled={resultsDisabled}
+          title={t('actions.results')}
+          aria-label={t('actions.results')}
+          className={`${floatBtnCls()} disabled:pointer-events-none disabled:opacity-50`}
+        >
+          <ResultsIcon />
+        </button>
       </div>
       <ScrollTopButton placement={p} />
     </div>,

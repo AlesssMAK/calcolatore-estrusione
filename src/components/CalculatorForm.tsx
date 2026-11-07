@@ -139,6 +139,13 @@ interface Props {
   mountState?: FormMountState;
   /** Remount the form with these values and recompute + save them at once. */
   onRecompute?: (values: FormValues) => void;
+  /** There's a result to look at → "Risultati" is active. */
+  hasResult: boolean;
+  /** The results page is on screen, this form hidden behind it. */
+  resultsOpen: boolean;
+  onOpenResults: () => void;
+  /** Back from the results page, when the form has something to show. */
+  onShowForm: () => void;
   /** "Calcola" saves to Salvati (default). False for a calc kept elsewhere —
    *  the live Produzione version — which is never stored on this device. */
   persist?: boolean;
@@ -173,6 +180,10 @@ function CalculatorForm({
   mountState = 'saved',
   onRecompute,
   persist = true,
+  hasResult,
+  resultsOpen,
+  onOpenResults,
+  onShowForm,
 }: Props) {
   'use no memo';
   const { t } = useTranslation();
@@ -381,12 +392,7 @@ function CalculatorForm({
     savedKeyRef.current = draftKey(methods.getValues());
     clearDraft();
     // "✓ Completa" recomputes in place — the user stays where they tapped.
-    if (stayInPlace) return;
-    window.requestAnimationFrame(() => {
-      document
-        .getElementById('results')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    if (!stayInPlace) onOpenResults();
   };
 
   const onInvalid = (errors: FieldErrors<FormValues>) => {
@@ -394,14 +400,19 @@ function CalculatorForm({
       onSettingsErrors();
     }
     showError(t('validation.fillRequired'));
-    window.requestAnimationFrame(() => {
+    // (from the results page the form first has to come back: a frame later)
+    onShowForm();
+    const scrollToError = () => {
       const firstError = document.querySelector(
         '[aria-invalid="true"], .text-danger',
       );
       if (firstError instanceof HTMLElement) {
         firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    });
+    };
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(scrollToError),
+    );
   };
 
   // Mark an order (or a single size of it) as fully produced, then recompute
@@ -740,6 +751,15 @@ function CalculatorForm({
           >
             ↺ {t('actions.reset')}
           </button>
+          <button
+            type="button"
+            onClick={onOpenResults}
+            disabled={!hasResult}
+            className="order-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+          >
+            <span aria-hidden>📊</span>
+            <span>{t('actions.results')}</span>
+          </button>
         </div>
       </form>
 
@@ -753,12 +773,14 @@ function CalculatorForm({
       )}
 
       <FloatingActions
-        visible={showFloating}
+        visible={showFloating && !resultsOpen}
         formId={FORM_ID}
         onCalculate={armCalculate}
         calcDisabled={noOrders}
         onAddToSaved={readOnly ? onAddToSaved : undefined}
         onReset={onRequestReset}
+        onOpenResults={onOpenResults}
+        resultsDisabled={!hasResult}
         onRestore={onRestore}
         onToggleTracking={onToggleTracking}
         savedRefreshKey={savedRefreshKey}
