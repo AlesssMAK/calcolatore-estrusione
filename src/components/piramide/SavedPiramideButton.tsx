@@ -38,7 +38,7 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
   );
   const rootRef = useRef<HTMLDivElement>(null);
   // Its list stays on screen: below, or above when there's no room.
-  const place = useMenuPlacement(rootRef, open);
+  const place = useMenuPlacement(rootRef, open, 480, 320);
 
   useEffect(() => {
     setItems(loadPiramideHistory());
@@ -90,7 +90,7 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
         <div
           role="listbox"
           aria-label={t('piramide.saved.title')}
-          style={{ maxHeight: place.maxHeight }}
+          style={{ maxHeight: place.maxHeight, right: -place.shift }}
           className={`absolute right-0 z-30 ${place.up ? 'bottom-full mb-2' : 'mt-2'} w-[min(20rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg`}
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
