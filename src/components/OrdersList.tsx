@@ -780,13 +780,14 @@ function OrdersList({
             <div
               ref={setNodeRef}
               style={style}
-              className="rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
+              // The whole card opens it, the end note under the button too.
+              onClick={() =>
+                setExpandedOrders((s) => new Set(s).add(field.id))
+              }
+              className="cursor-pointer rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4"
             >
               <button
                 type="button"
-                onClick={() =>
-                  setExpandedOrders((s) => new Set(s).add(field.id))
-                }
                 // Viewing control — kept in the read-only view.
                 data-view
                 title={t('orders.expandOrder')}
@@ -816,6 +817,7 @@ function OrdersList({
                   </span>
                 )}
               </button>
+              <OrderEndNote idx={idx} t={t} withDuration />
             </div>
           ) : (
             <div
@@ -2275,8 +2277,17 @@ function SizeEndNote({
   );
 }
 
-// Tracked calc: when the whole order will be finished, at the end of its card.
-function OrderEndNote({ idx, t }: { idx: number; t: TFunction }) {
+// Tracked calc: when the whole order will be finished, at the end of its card —
+// on a collapsed card also how long that still takes.
+function OrderEndNote({
+  idx,
+  t,
+  withDuration,
+}: {
+  idx: number;
+  t: TFunction;
+  withDuration?: boolean;
+}) {
   'use no memo';
   const { i18n } = useTranslation();
   const result = useTrackedResult();
@@ -2286,15 +2297,31 @@ function OrderEndNote({ idx, t }: { idx: number; t: TFunction }) {
   if (!row || row.remainingMinutes < 0.5) return null;
   const end = formatDateParts(row.end, i18n.resolvedLanguage ?? 'it');
   return (
-    <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-2 border-t border-neutral-200 pt-2 text-xs">
-      <span className="tracking-wide text-ink-soft uppercase">
-        {t('orders.orderEnds')}
-      </span>
-      <span className="num-blink flex flex-wrap justify-end gap-x-1.5">
-        <span className="whitespace-nowrap">{end.date}</span>
-        <span className="whitespace-nowrap">{end.time}</span>
-      </span>
-    </p>
+    <div className="mt-2 space-y-0.5 border-t border-neutral-200 pt-2 text-xs">
+      <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+        <span className="tracking-wide text-ink-soft uppercase">
+          {t('orders.orderEnds')}
+        </span>
+        <span className="num-blink flex flex-wrap justify-end gap-x-1.5">
+          <span className="whitespace-nowrap">{end.date}</span>
+          <span className="whitespace-nowrap">{end.time}</span>
+        </span>
+      </p>
+      {withDuration && (
+        <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+          <span className="tracking-wide text-ink-soft uppercase">
+            {t('results.timeToFinish')}
+          </span>
+          <span className="font-semibold text-ink">
+            {formatDuration(row.remainingMinutes, {
+              day: t('units.day'),
+              hour: t('units.hour'),
+              minute: t('units.minute'),
+            })}
+          </span>
+        </p>
+      )}
+    </div>
   );
 }
 
