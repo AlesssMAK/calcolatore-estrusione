@@ -1202,9 +1202,9 @@ function OrderFields({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
+      <div className="flex items-end gap-2 pb-5 sm:gap-3">
         {isFirst ? (
-          <div className="w-28 shrink-0 sm:w-32">
+          <div className="min-w-0 flex-1">
             <label className={labelBase}>{t('orders.speed')}</label>
             <input
               type="number"
@@ -1232,7 +1232,7 @@ function OrderFields({
             fieldPath={`orders.${idx}.speedMPerMin`}
             icon="⚡"
             label={t('orders.speed')}
-            expandedClassName="w-28 shrink-0 sm:w-32"
+            expandedClassName="min-w-0 flex-1"
             inheritLabel={t('orders.optionalInherit')}
             chain={speedChain}
             placeholder={inheritedHint('speedMPerMin')}
@@ -1285,7 +1285,7 @@ function OrderFields({
           />
         )}
         {actions && (
-          <div className="ml-auto flex items-center gap-2 self-end">
+          <div className="ml-auto flex shrink-0 items-center gap-2 self-end">
             {actions}
           </div>
         )}
