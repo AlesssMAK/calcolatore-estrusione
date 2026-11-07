@@ -1194,8 +1194,9 @@ function OrderFields({
 
   return (
     <div className="space-y-2">
-      {/* The fields give way down to min-w-16; only then the actions wrap. */}
-      <div className="flex flex-wrap items-end gap-2 pb-5 sm:gap-3">
+      {/* The fields give way down to min-w-16; only then the actions wrap, on
+          a row above the speed (reversed: "start" here is the row's bottom). */}
+      <div className="flex flex-wrap-reverse items-start gap-2 pb-5 sm:gap-3">
         {isFirst ? (
           <div className="min-w-16 flex-1">
             <label className={labelBase}>{t('orders.speed')}</label>
@@ -1277,7 +1278,7 @@ function OrderFields({
           />
         )}
         {actions && (
-          <div className="ml-auto flex shrink-0 items-center gap-2 self-end">
+          <div className="ml-auto flex shrink-0 items-center gap-2 self-start">
             {actions}
           </div>
         )}
@@ -1486,10 +1487,10 @@ function CollapsibleInheritField({
         aria-label={titleText}
         // Beside the order's actions (speed row) it's sized like them; the size
         // row keeps that row's square.
-        className={`flex shrink-0 items-center justify-center self-end rounded-md border border-neutral-300 bg-white text-ink-soft transition hover:border-brand-400 hover:text-ink ${
+        className={`flex shrink-0 items-center justify-center rounded-md border border-neutral-300 bg-white text-ink-soft transition hover:border-brand-400 hover:text-ink ${
           compact
-            ? 'h-8 w-8 shadow-sm sm:h-9 sm:w-9'
-            : 'px-2.5 py-1 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-sm'
+            ? 'h-8 w-8 self-end shadow-sm sm:h-9 sm:w-9'
+            : 'self-start px-2.5 py-1 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-sm'
         }`}
       >
         {/* leading-none + block strip the emoji line-height so it sits dead
