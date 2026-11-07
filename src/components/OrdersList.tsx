@@ -705,10 +705,10 @@ function OrdersList({
               if (id) onComplete(id);
             }}
             title={t('orders.completeOrder')}
+            aria-label={t('orders.completeOrder')}
             className="rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success shadow-sm transition hover:bg-success/20 sm:px-3 sm:py-1.5 sm:text-sm"
           >
-            ✓{' '}
-            <span className="hidden sm:inline">{t('orders.complete')}</span>
+            ✓
           </button>
         )}
         <button
@@ -722,16 +722,14 @@ function OrdersList({
           }
           aria-pressed={Boolean(watchedOrders?.[idx]?.useTotalLength)}
           title={t('orders.toggleTotalLength')}
+          aria-label={t('orders.toggleTotalLength')}
           className={
             watchedOrders?.[idx]?.useTotalLength
               ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
               : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
           }
         >
-          Σ{' '}
-          <span className="hidden sm:inline">
-            {t('orders.toggleTotalLength')}
-          </span>
+          Σ
         </button>
         <button
           type="button"
@@ -745,26 +743,24 @@ function OrdersList({
           }
           aria-pressed={gapOn}
           title={t('orders.togglePause')}
+          aria-label={t('orders.togglePause')}
           className={
             gapOn
               ? 'rounded-md border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition sm:px-3 sm:py-1.5 sm:text-sm'
               : 'rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-brand-400 hover:text-ink sm:px-3 sm:py-1.5 sm:text-sm'
           }
         >
-          ⏸{' '}
-          <span className="hidden sm:inline">{t('orders.pauseShort')}</span>
+          ⏸
         </button>
         <button
           type="button"
           onClick={() => removeOrder(idx)}
           disabled={fields.length <= 1}
           className="rounded-md border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-sm"
+          title={t('orders.remove')}
           aria-label={t('orders.remove')}
         >
-          🗑{' '}
-          <span className="hidden sm:inline">
-            {t('orders.remove')}
-          </span>
+          🗑
         </button>
       </>
     );

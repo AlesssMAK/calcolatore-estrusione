@@ -70,7 +70,7 @@ function CompanyResultsButton({
   // The full button's menu stays on screen: below it, or above when there's
   // no room (the pinned buttons' menus always open upward).
   const anchorRef = useRef<HTMLButtonElement>(null);
-  const place = useMenuPlacement(anchorRef, open && !placement);
+  const place = useMenuPlacement(anchorRef, open && !placement, 480, 352);
   const lang = i18n.resolvedLanguage ?? 'it';
   // The row whose ⏸ / ▶ is being saved (its button waits meanwhile).
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -175,7 +175,11 @@ function CompanyResultsButton({
               ? floatMenuCls(placement)
               : `absolute right-0 z-30 ${place.up ? 'bottom-full mb-2' : 'mt-2'} w-[min(22rem,calc(100vw-1.5rem))] overflow-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg`
           }
-          style={placement ? undefined : { maxHeight: place.maxHeight }}
+          style={
+            placement
+              ? undefined
+              : { maxHeight: place.maxHeight, right: -place.shift }
+          }
         >
           <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
             {t('company.results')}

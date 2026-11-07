@@ -1,4 +1,10 @@
-import { useEffect, useState, type CSSProperties, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 
 /** Room a menu wants below its anchor before it rather opens above (px). */
 const ROOM = 240;
@@ -10,6 +16,9 @@ export interface MenuPlace {
   up: boolean;
   /** Height the menu can take without leaving the screen (px). */
   maxHeight: number;
+  /** How far a right-aligned menu moves right to keep its left edge on screen,
+   *  when its anchor sits near the left of the screen (px). */
+  shift: number;
 }
 
 /** Bottom of the usable screen: the visible viewport (phone keyboard), above
@@ -24,14 +33,25 @@ function screenBottom(): number {
 }
 
 /** Where a menu anchored to `el` fits: below it, or above when there's not
- *  enough room below and more above. `wanted` caps its height. */
-export function placeMenu(el: HTMLElement | null, wanted: number): MenuPlace {
-  if (!el) return { up: false, maxHeight: wanted };
+ *  enough room below and more above. `wanted` caps its height; `width`, of a
+ *  right-aligned menu, is its width on a wide screen (a narrow one caps it at
+ *  the screen less 1.5rem, like its `w-[min(…,calc(100vw-1.5rem))]`). */
+export function placeMenu(
+  el: HTMLElement | null,
+  wanted: number,
+  width = 0,
+): MenuPlace {
+  if (!el) return { up: false, maxHeight: wanted, shift: 0 };
   const r = el.getBoundingClientRect();
   const below = screenBottom() - r.bottom - EDGE;
   const above = r.top - EDGE;
   const up = below < Math.min(wanted, ROOM) && above > below;
-  return { up, maxHeight: Math.max(120, Math.min(wanted, up ? above : below)) };
+  const shown = Math.min(width, window.innerWidth - 24);
+  return {
+    up,
+    maxHeight: Math.max(120, Math.min(wanted, up ? above : below)),
+    shift: width ? Math.max(0, shown + EDGE - r.right) : 0,
+  };
 }
 
 /** A small menu pinned next to `el` (fixed, so a scrolling list around it
@@ -52,25 +72,31 @@ export function fixedMenuStyle(el: HTMLElement, wanted: number): CSSProperties {
 /**
  * Keep a drop-down on screen, like the menus of the pinned action buttons:
  * below its anchor when there's room, else above it, its height capped to the
- * room it has. `measure()` places it as it opens; while open, scrolling /
- * resizing places it again.
+ * room it has; with a `width`, moved right when it would leave by the left.
+ * `measure()` places it as it opens; while open, scrolling / resizing places it
+ * again.
  */
 export function useMenuPlacement(
   anchor: RefObject<HTMLElement | null>,
   open: boolean,
   wanted = 480,
+  width = 0,
 ): MenuPlace & { measure: () => void } {
-  const [place, setPlace] = useState<MenuPlace>({ up: false, maxHeight: wanted });
-  const measure = () => {
-    const next = placeMenu(anchor.current, wanted);
-    setPlace((p) => (p.up === next.up && p.maxHeight === next.maxHeight ? p : next));
-  };
+  const [place, setPlace] = useState<MenuPlace>({
+    up: false,
+    maxHeight: wanted,
+    shift: 0,
+  });
+  const update = useCallback(() => {
+    const next = placeMenu(anchor.current, wanted, width);
+    setPlace((p) =>
+      p.up === next.up && p.maxHeight === next.maxHeight && p.shift === next.shift
+        ? p
+        : next,
+    );
+  }, [anchor, wanted, width]);
   useEffect(() => {
     if (!open) return;
-    const update = () => {
-      const next = placeMenu(anchor.current, wanted);
-      setPlace((p) => (p.up === next.up && p.maxHeight === next.maxHeight ? p : next));
-    };
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
     window.visualViewport?.addEventListener('resize', update);
@@ -79,6 +105,6 @@ export function useMenuPlacement(
       window.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('resize', update);
     };
-  }, [open, anchor, wanted]);
-  return { ...place, measure };
+  }, [open, update]);
+  return { ...place, measure: update };
 }
