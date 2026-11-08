@@ -1203,8 +1203,11 @@ function OrderFields({
   return (
     <div className="space-y-2">
       {/* The fields give way down to min-w-16; only then all the buttons wrap,
-          on a row above the speed (reversed: "start" here is the row's bottom). */}
-      <div className="flex flex-wrap-reverse items-start gap-2 pb-5 sm:gap-3">
+          on a row above the speed (reversed: "start" here is the row's bottom).
+          Alone on that row they're centered (justify-around); beside the
+          speed they're at the right: a field (flex-1) leaves no free space,
+          the collapsed ⚡ takes it with mr-auto. */}
+      <div className="flex flex-wrap-reverse items-start justify-around gap-2 pb-5 sm:gap-3">
         {isFirst ? (
           <div className="min-w-16 flex-1">
             <label className={labelBase}>{t('orders.speed')}</label>
@@ -1234,6 +1237,7 @@ function OrderFields({
             fieldPath={`orders.${idx}.speedMPerMin`}
             icon="⚡"
             label={t('orders.speed')}
+            buttonClassName="mr-auto"
             inheritLabel={t('orders.optionalInherit')}
             chain={speedChain}
             placeholder={inheritedHint('speedMPerMin')}
@@ -1288,9 +1292,7 @@ function OrderFields({
           />
         )}
         {actions && (
-          // Beside the speed (flex-1) the auto margins get nothing; alone on
-          // the row above, they center the buttons.
-          <div className="mx-auto flex max-w-full shrink-0 flex-wrap items-center justify-center gap-2 self-start">
+          <div className="flex max-w-full shrink-0 flex-wrap items-center justify-center gap-2 self-start">
             <span ref={setPackSlot} className="contents" />
             <span ref={setCavitySlot} className="contents" />
             {actions}
@@ -1455,6 +1457,7 @@ function CollapsibleInheritField({
   expandedClassName = 'min-w-16 flex-1',
   chain,
   slot,
+  buttonClassName = '',
 }: {
   fieldPath:
     | `orders.${number}.speedMPerMin`
@@ -1483,6 +1486,8 @@ function CollapsibleInheritField({
   chain?: InheritChain;
   /** Where the collapsed button goes, when not in the field's own place. */
   slot?: HTMLElement | null;
+  /** Extra classes of the collapsed button (its place in the row). */
+  buttonClassName?: string;
 }) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
@@ -1505,7 +1510,7 @@ function CollapsibleInheritField({
         // (the speed row wraps upward: its bottom is "start")
         className={`${squareBtnBase} border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink ${
           compact ? 'self-end' : 'self-start'
-        }`}
+        } ${buttonClassName}`}
       >
         {/* leading-none + block strip the emoji line-height so it sits dead
             centre instead of riding the text baseline. */}
