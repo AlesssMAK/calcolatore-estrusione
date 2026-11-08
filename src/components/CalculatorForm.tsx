@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useFitsInRow } from '../hooks/useFitsInRow';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -250,6 +251,9 @@ function CalculatorForm({
     obs.observe(node);
     return () => obs.disconnect();
   }, []);
+  // The buttons stand in a row only while they all fit at their own width
+  // (gap-3); otherwise a full-width column, as on a phone — never squeezed.
+  const actionsInRow = useFitsInRow(actionsRef, 12);
 
   // Autosave a crash-safety draft as the form changes (debounced) — only for
   // unfinished work: while the form differs from its saved state (what it was
@@ -703,7 +707,8 @@ function CalculatorForm({
 
         <div
           ref={actionsRef}
-          className="no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3"
+          data-row={actionsInRow || undefined}
+          className="group/actions no-print flex flex-col gap-2 data-row:flex-row data-row:items-center data-row:justify-end data-row:gap-3"
         >
           {onRestore && (
             <SavedCalculationsButton
@@ -729,7 +734,7 @@ function CalculatorForm({
             <button
               type="button"
               onClick={onAddToSaved}
-              className="order-1 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:order-3 sm:w-auto sm:py-2.5"
+              className="order-1 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none group-data-row/actions:order-3 group-data-row/actions:w-auto group-data-row/actions:py-2.5"
             >
               <SaveIcon className="h-4 w-4" />
               {t('company.addToSaved')}
@@ -739,7 +744,7 @@ function CalculatorForm({
               type="submit"
               onClick={armCalculate}
               disabled={noOrders}
-              className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-white sm:order-3 sm:w-auto sm:py-2.5"
+              className="order-1 w-full rounded-md bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:ring-2 focus:ring-brand-200 focus:outline-none disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-white group-data-row/actions:order-3 group-data-row/actions:w-auto group-data-row/actions:py-2.5"
             >
               {t('actions.calculate')} →
             </button>
@@ -747,7 +752,7 @@ function CalculatorForm({
           <button
             type="button"
             onClick={onRequestReset}
-            className="order-2 w-full rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:order-1 sm:w-auto"
+            className="order-2 w-full rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 group-data-row/actions:order-1 group-data-row/actions:w-auto"
           >
             ↺ {t('actions.reset')}
           </button>
@@ -756,7 +761,7 @@ function CalculatorForm({
             onClick={onOpenResults}
             disabled={!hasResult}
             // Last on a phone; first in the row, so Calcola stays at the right.
-            className="order-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:pointer-events-none disabled:opacity-50 sm:order-first sm:w-auto"
+            className="order-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:pointer-events-none disabled:opacity-50 group-data-row/actions:order-first group-data-row/actions:w-auto"
           >
             <span aria-hidden>📊</span>
             <span>{t('actions.results')}</span>

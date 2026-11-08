@@ -123,12 +123,14 @@ function CompanyResultsButton({
   return (
     <div
       ref={rootRef}
+      // In the form's buttons (group/actions): full width in a column, its own
+      // width once they stand in a row (data-row).
       className={
         placement === 'bar'
           ? 'contents'
           : placement === 'rail'
             ? 'relative'
-            : 'relative order-3 w-full sm:order-0 sm:w-auto'
+            : 'relative order-3 w-full group-data-row/actions:order-0 group-data-row/actions:w-auto'
       }
     >
       {placement ? (
@@ -154,7 +156,7 @@ function CompanyResultsButton({
           }}
           aria-haspopup="listbox"
           aria-expanded={open}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 sm:w-auto"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 group-data-row/actions:w-auto"
         >
           <span aria-hidden>🏭</span>
           <span>{t('company.results')}</span>

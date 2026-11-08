@@ -71,6 +71,7 @@
     "profiles": "Profiles (pcs)",
     "sheetLength": "Sheet Length (mm)",
     "profileLength": "Profile Length (mm)",
+    "length": "Length (mm)",
     "speed": "Speed (m/min)",
     "gapAfter": "Gap After (min)",
     "profilesPerPackage": "Profiles per Package",
