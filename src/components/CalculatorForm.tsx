@@ -150,6 +150,10 @@ interface Props {
   /** "Calcola" saves to Salvati (default). False for a calc kept elsewhere —
    *  the live Produzione version — which is never stored on this device. */
   persist?: boolean;
+  /** The jump to an order's result (a tap on its open card), when it has one. */
+  openResultFor?: (orderId: string) => (() => void) | undefined;
+  /** An order to open, coming from its result. */
+  revealOrder?: { id: string; n: number } | null;
 }
 
 function CalculatorForm({
@@ -170,6 +174,8 @@ function CalculatorForm({
   registerComplete,
   registerSetProduced,
   activeLoc,
+  openResultFor,
+  revealOrder,
   onPublish,
   onOpenCompany,
   onDeleteCompany,
@@ -212,7 +218,7 @@ function CalculatorForm({
   // nothing to compute: "Calcola" stays visible but inactive until one is added.
   const orders = useWatch({ control: methods.control, name: 'orders' });
   const noOrders = (orders?.length ?? 0) === 0;
-  // ⏭ / ⏹ only make sense with 2+ production steps (sizes / orders).
+  // ▶ / ⏹ only make sense with 2+ production steps (sizes / orders).
   const canPrioritize = naturalSequence(orders ?? []).length > 1;
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -469,7 +475,7 @@ function CalculatorForm({
     })();
   };
 
-  // Recompute in place (no scroll) — after a queue change from the editor / ⏭.
+  // Recompute in place (no scroll) — after a queue change from the editor / ▶.
   const recomputeInPlace = () => {
     keepCompletedRef.current = !!hasCompleted;
     stayInPlaceRef.current = true;
@@ -504,7 +510,7 @@ function CalculatorForm({
     if (liveSchedule(methods.getValues(), mode)) recomputeInPlace();
   };
 
-  // ⏭ "Senza coda": produce this size next — right after the one in production
+  // ▶ "Senza coda": produce this size next — right after the one in production
   // (that one finishes first), or first when nothing has started yet.
   const prioritizeSize = (orderIdx: number, sizeIdx: number) => {
     const values = methods.getValues();
@@ -685,7 +691,7 @@ function CalculatorForm({
           <OrdersList
             mode={mode}
             onComplete={canComplete && !readOnly ? completeItem : undefined}
-            // ⏭ belongs to production tracking — only on a calc reopened from
+            // ▶ belongs to production tracking — only on a calc reopened from
             // Salvati / Azienda, not while filling a fresh form.
             onPrioritize={
               canComplete && canPrioritize && !readOnly
@@ -702,6 +708,8 @@ function CalculatorForm({
             onRevertPiramide={
               onRecompute && !readOnly ? revertOrderPiramide : undefined
             }
+            openResultFor={openResultFor}
+            revealOrder={revealOrder}
           />
         </div>
 

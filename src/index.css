@@ -412,3 +412,28 @@ textarea[aria-invalid='true']::placeholder {
     display: none;
   }
 }
+
+/* An order's card and its result jump to each other on a tap
+   (utils/tapToJump): the pointer on the result's rows, a little room above
+   where it lands, a short flash of what it landed on. */
+[data-result-order] {
+  cursor: pointer;
+}
+[data-result-order],
+[data-order-card] {
+  scroll-margin-top: 12px;
+}
+@keyframes jump-flash {
+  0%,
+  35% {
+    background-color: var(--color-brand-100);
+  }
+}
+.jump-flash {
+  animation: jump-flash 1.4s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jump-flash {
+    animation: none;
+  }
+}

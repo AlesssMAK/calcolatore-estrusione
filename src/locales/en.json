@@ -141,6 +141,7 @@
     "expandList": "Expand to full screen",
     "order": "Order {{n}}",
     "expandOrder": "Expand order",
+    "openResult": "Tap to see its result",
     "complete": "Complete",
     "completeOrder": "Complete Order",
     "completeSize": "Complete Size",
@@ -207,6 +208,7 @@
     "totalDuration": "Total Duration",
     "totalPackages": "Total Packages",
     "breakdown": "Per-order Breakdown",
+    "openOrder": "Tap to open the order in the calculator",
     "col": {
       "number": "#",
       "sheets": "Sheets",

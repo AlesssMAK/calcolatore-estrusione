@@ -141,6 +141,7 @@
     "expandList": "Expandir a pantalla completa",
     "order": "Pedido {{n}}",
     "expandOrder": "Expandir pedido",
+    "openResult": "Toca para ver el resultado",
     "complete": "Completar",
     "completeOrder": "Completar Pedido",
     "completeSize": "Completar Medida",
@@ -207,6 +208,7 @@
     "totalDuration": "Duración Total",
     "totalPackages": "Paquetes Totales",
     "breakdown": "Desglose por Pedido",
+    "openOrder": "Toca para abrir el pedido en el cálculo",
     "col": {
       "number": "#",
       "sheets": "Láminas",

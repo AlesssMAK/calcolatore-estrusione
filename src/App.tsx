@@ -19,6 +19,7 @@ import CompanyReportModal from './components/CompanyReportModal';
 import CompareModal from './components/CompareModal';
 import type { CalcDiff, CalcVersion } from './utils/calcDiff';
 import { settleDiffs, type DiffSide } from './utils/calcMerge';
+import { revealJump } from './utils/tapToJump';
 import { TrackedResultContext } from './contexts/trackedResult';
 import ErrorBoundary from './components/ErrorBoundary';
 import ActiveOrderModal, {
@@ -292,18 +293,56 @@ function CalculatorApp() {
   const openResults = () => {
     if (pathname === RESULTS_PATH) return;
     formScrollRef.current = window.scrollY;
+    // Coming back, the form's place is set here (formScrollRef, or the order
+    // tapped in the results) — not by the browser, whose restoring comes
+    // after it and would undo it. (Set on this entry: the results' inherits.)
+    window.history.scrollRestoration = 'manual';
     navigate({ pathname: RESULTS_PATH, search });
   };
   const showForm = () => {
     if (pathname === RESULTS_PATH) navigate(-1);
   };
+  // An order's card in the form and its result jump to each other (a tap):
+  // where to land once the page has switched.
+  const jumpRef = useRef<{ to: 'form' | 'results'; id: string } | null>(null);
+  // The order to open in the form (collapsed in a tracked calc).
+  const [revealOrder, setRevealOrder] = useState<{
+    id: string;
+    n: number;
+  } | null>(null);
+  const openResultFor = result
+    ? (orderId: string) =>
+        result.rows.some((r) => r.order.id === orderId)
+          ? () => {
+              jumpRef.current = { to: 'results', id: orderId };
+              openResults();
+            }
+          : undefined
+    : undefined;
+  const openOrderInForm = (orderId: string) => {
+    setRevealOrder((r) => ({ id: orderId, n: (r?.n ?? 0) + 1 }));
+    jumpRef.current = { to: 'form', id: orderId };
+    showForm();
+  };
   useLayoutEffect(() => {
+    const jump = jumpRef.current;
+    jumpRef.current = null;
+    const at = (attr: string) =>
+      jump ? `[${attr}="${CSS.escape(jump.id)}"]` : '';
     if (onResultsPage) {
       window.scrollTo(0, 0);
+      if (jump?.to === 'results') revealJump(at('data-result-order'));
+    } else if (
+      jump?.to === 'form' &&
+      revealJump(at('data-order-card'))
+    ) {
+      formScrollRef.current = null;
     } else if (formScrollRef.current !== null) {
       window.scrollTo(0, formScrollRef.current);
       formScrollRef.current = null;
     }
+    // Back on the form: the browser restores scroll again (other pages).
+    if (!onResultsPage) window.history.scrollRestoration = 'auto';
   }, [onResultsPage]);
   // Nothing to show there (a reload: the result lives in memory) → the form.
   useEffect(() => {
@@ -1500,6 +1539,8 @@ function CalculatorApp() {
               registerSetProduced={(fn) => {
                 setProducedRef.current = fn;
               }}
+              openResultFor={openResultFor}
+              revealOrder={revealOrder}
             />
           </TrackedResultContext.Provider>
         </div>
@@ -1634,6 +1675,7 @@ function CalculatorApp() {
                         completeRef.current?.(orderId, sizeIdx)
                     : undefined
                 }
+                onOpenOrder={openOrderInForm}
               />
             </ErrorBoundary>
           </div>

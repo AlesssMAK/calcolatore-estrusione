@@ -4,7 +4,7 @@ import type { CalculatorMode, ScheduleResult } from '../types';
 
 /**
  * Best-effort schedule of the form as it is right now — read by the custom
- * queue UI (banner / editor / ⏭) for which sizes are done or in production.
+ * queue UI (banner / editor / ▶) for which sizes are done or in production.
  * Times ignore the company schedule (only done / started state is used). Null
  * while the form can't be computed yet (no orders, missing speed…).
  */

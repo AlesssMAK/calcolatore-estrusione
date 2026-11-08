@@ -66,11 +66,12 @@ import BlockProductModal from './BlockProductModal';
 import type { CatalogProduct } from '../lib/catalog';
 import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { PalletIcon, StopIcon } from './ActionIcons';
+import { PalletIcon, PlayIcon, StopIcon } from './ActionIcons';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { errorAttrs } from '../utils/errorBubble';
+import { isJumpTap, notePress } from '../utils/tapToJump';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
 import { inputBase, labelBase } from './formStyles';
@@ -119,7 +120,7 @@ interface Props {
   /** When set (tracking a saved/shared calc), renders per-order and per-size
    *  "✓ Completa" buttons that mark that order / size fully produced. */
   onComplete?: (orderId: string, sizeIdx?: number) => void;
-  /** ⏭ per size: produce it next, out of the queue (custom production order). */
+  /** ▶ per size: produce it next, out of the queue (custom production order). */
   onPrioritize?: (orderIdx: number, sizeIdx: number) => void;
   /** ⏹ in the active size's Calcolo Avanzato: stop it, pick what really runs. */
   onStopActive?: () => void;
@@ -131,6 +132,10 @@ interface Props {
   editingId?: string;
   /** "Annulla Piramide" on an order whose sizes came back from Piramide. */
   onRevertPiramide?: (orderIdx: number) => void;
+  /** The jump to an order's result (a tap on its open card), when it has one. */
+  openResultFor?: (orderId: string) => (() => void) | undefined;
+  /** An order to open, coming from its result (`n`: each jump anew). */
+  revealOrder?: { id: string; n: number } | null;
 }
 
 /** A product picked / typed for an order: a catalog one carries its parameters. */
@@ -149,6 +154,8 @@ function OrdersList({
   activeLoc,
   editingId,
   onRevertPiramide,
+  openResultFor,
+  revealOrder,
 }: Props) {
   'use no memo';
   // Orders the user manually expanded from their collapsed summary.
@@ -175,6 +182,18 @@ function OrdersList({
     control,
     name: 'orders',
   });
+
+  // Coming from an order's result: that order opens (as if tapped).
+  const [prevReveal, setPrevReveal] = useState(revealOrder);
+  if (prevReveal !== revealOrder) {
+    setPrevReveal(revealOrder);
+    const at = revealOrder
+      ? getValues('orders').findIndex((o) => o?.id === revealOrder.id)
+      : -1;
+    if (at >= 0 && fields[at]) {
+      setExpandedOrders((s) => new Set(s).add(fields[at].id));
+    }
+  }
 
   // Global product-name field, toggled from the "Ordini in Coda" header (moved
   // here from the settings panel). Open when explicitly shown or already filled.
@@ -693,6 +712,7 @@ function OrdersList({
       !!activeLoc &&
       idx !== activeLoc.orderIdx &&
       !expandedOrders.has(field.id);
+    const jumpToResult = wo?.id ? openResultFor?.(wo.id) : undefined;
 
     // Order-level actions — rendered in the speed row (OrderFields `actions`),
     // so the header holds only the order name.
@@ -817,9 +837,20 @@ function OrdersList({
             <div
               ref={setNodeRef}
               style={style}
+              data-order-card={wo?.id}
+              // A tap on the card itself (not a field or a button): its result.
+              onPointerDownCapture={jumpToResult ? notePress : undefined}
+              onClick={
+                jumpToResult
+                  ? (e) => {
+                      if (isJumpTap(e)) jumpToResult();
+                    }
+                  : undefined
+              }
+              title={jumpToResult ? t('orders.openResult') : undefined}
               className={`rounded-lg border border-neutral-200 bg-surface-alt p-3 sm:p-4 ${
                 isDragging ? 'shadow-lg' : ''
-              }`}
+              } ${jumpToResult ? 'cursor-pointer' : ''}`}
             >
             <div className="mb-2 flex items-center gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -859,7 +890,7 @@ function OrdersList({
                   : undefined
               }
               onPrioritizeSize={
-                // ⏭ only within the block in production: another block is
+                // ▶ only within the block in production: another block is
                 // past a pause and can't jump ahead of it.
                 onPrioritize &&
                 (!activeLoc || blockOf[idx] === blockOf[activeLoc.orderIdx])
@@ -1129,7 +1160,7 @@ interface FieldsProps {
   t: TFunction;
   /** Mark a single size fully produced (bound to this order's id). */
   onCompleteSize?: (sizeIdx: number) => void;
-  /** ⏭ produce this size next, out of the queue (bound to this order). */
+  /** ▶ produce this size next, out of the queue (bound to this order). */
   onPrioritizeSize?: (sizeIdx: number) => void;
   /** ⏹ stop the size in production (set only on the active order). */
   onStopActive?: () => void;
@@ -1579,7 +1610,7 @@ function AdvancedSection({
   activeSizeIdx?: number | null;
   /** ✓ mark one size fully produced (multi-size orders). */
   onCompleteSize?: (sizeIdx: number) => void;
-  /** ⏭ produce this size next, out of the queue. */
+  /** ▶ produce this size next, out of the queue. */
   onPrioritizeSize?: (sizeIdx: number) => void;
   /** ⏹ "Ferma produzione" — set on the order holding the size in production
    *  (saved view): stop it and pick what's really running now. */
@@ -1671,15 +1702,17 @@ function AdvancedSection({
     perPackageEntered && packagesEntered;
   const packagePathBlockedByProfiles = profilesEntered;
 
-  // Per-size actions (✓ / ⏭ / ⏹) in each size block's header. ✓ only for
+  // Per-size actions (✓ / ▶ / ⏹) in each size block's header. ✓ only for
   // multi-size orders (single-size: "Completa Ordine" in the order header), ⏹
   // only on the size in production. Undefined when there's nothing to show.
   const sizeActions = (sIdx: number, totalSizes: number): ReactNode => {
     const complete =
       onCompleteSize && totalSizes > 1 ? () => onCompleteSize(sIdx) : undefined;
-    const prioritize = onPrioritizeSize
-      ? () => onPrioritizeSize(sIdx)
-      : undefined;
+    // ▶ not on the size in production: it's running already — ⏹ there.
+    const prioritize =
+      onPrioritizeSize && sIdx !== activeSizeIdx
+        ? () => onPrioritizeSize(sIdx)
+        : undefined;
     const stop = onStop && sIdx === activeSizeIdx ? onStop : undefined;
     if (!complete && !prioritize && !stop) return undefined;
     return (
@@ -2231,7 +2264,7 @@ const sizeBlockBtnBase = `${squareBtnBase} bg-white`;
 const advLabelCls =
   'block text-[9px] leading-tight font-medium tracking-wide text-ink-soft uppercase sm:text-[10px]';
 
-/** "#N" of the size (several sizes) and its actions (✓ / ⏭ / ⏹). */
+/** "#N" of the size (several sizes) and its actions (✓ / ▶ / ⏹). */
 function SizeBlockHeader({
   sizeIdx,
   totalSizes,
@@ -2239,7 +2272,7 @@ function SizeBlockHeader({
 }: {
   sizeIdx: number;
   totalSizes: number;
-  /** Per-size action buttons (✓ / ⏭ / ⏹), right of the "#N" badge. */
+  /** Per-size action buttons (✓ / ▶ / ⏹), right of the "#N" badge. */
   actions?: ReactNode;
 }) {
   if (totalSizes <= 1 && !actions) return null;
@@ -2408,7 +2441,7 @@ interface AdvRate {
  * here (lastre per bancale) and the produced total (bancali / pacchi).
  * Wide screen: one line per entry — count | rate | total | − +. Phone, with a
  * rate: the count on its line with − +, the rate and the total on the line
- * below; the folded rate's button joins the size's buttons up top (✓ ⏭ ⏹ of
+ * below; the folded rate's button joins the size's buttons up top (✓ ▶ ⏹ of
  * a tracked calc) — without them (a new calc) it sits beside the count.
  */
 function AdvBlockLayout({
@@ -3187,7 +3220,7 @@ function BatchRowsArray({
 }
 
 // Per-size actions in its Calcolo Avanzato block — square icon buttons of one
-// size: ✓ completa misura, ⏭ senza coda, ⏹ ferma produzione (active size).
+// size: ✓ completa misura, ▶ senza coda, ⏹ ferma produzione (active size).
 function SizeActions({
   onComplete,
   onPrioritize,
@@ -3232,7 +3265,7 @@ function SizeActions({
   );
 }
 
-// ⏭ "Senza coda" — produce this size next (custom production queue).
+// ▶ "Senza coda" — produce this size next (custom production queue).
 function PrioritizeButton({
   onClick,
   label,
@@ -3246,9 +3279,9 @@ function PrioritizeButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-sm shadow-sm transition hover:border-amber-500 hover:bg-amber-100 sm:h-9 sm:w-9 sm:text-base"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-amber-700 shadow-sm transition hover:border-amber-500 hover:bg-amber-100 sm:h-9 sm:w-9"
     >
-      ⏭
+      <PlayIcon className="h-3.5 w-3.5 fill-current sm:h-4 sm:w-4" />
     </button>
   );
 }
@@ -3516,7 +3549,7 @@ function SizesFieldArray({
               const sizeErr = orderErr?.sizes?.[sIdx];
               const showPerPackage = isProfiles && sizeFields.length > 1;
               const canReorder = sizeFields.length > 1;
-              // Per-size actions (✓ / ⏭ / ⏹) live in the size's Calcolo
+              // Per-size actions (✓ / ▶ / ⏹) live in the size's Calcolo
               // Avanzato block — the row keeps just − / +. Profiles: the
               // per-pacco field is a 📦 button in a fixed narrow column (rows
               // stay aligned); expanded, it drops to its own line below the row

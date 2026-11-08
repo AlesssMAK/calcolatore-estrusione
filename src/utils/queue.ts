@@ -212,7 +212,7 @@ export function interruptWith(
 }
 
 /**
- * ⏭ "Senza coda": move one size so it's produced next — right after the step
+ * ▶ "Senza coda": move one size so it's produced next — right after the step
  * now in production (it finishes first), or first when nothing has started.
  * Returns the new sequence.
  */

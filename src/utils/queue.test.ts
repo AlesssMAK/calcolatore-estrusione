@@ -162,14 +162,14 @@ describe('resolveSequence / prioritizeStep', () => {
     ]);
   });
 
-  it('⏭ puts a size first when nothing has started', () => {
+  it('▶ puts a size first when nothing has started', () => {
     const orders = makeOrders();
     const r = calculateSchedule(settings(), orders, { now: at(8) });
     const seq = prioritizeStep(undefined, orders, r, { orderIdx: 1, sizeIdx: 1 });
     expect(toQueue(seq, orders).map((q) => q.sizeUid)).toEqual(['b2', 'a1', 'a2', 'b1']);
   });
 
-  it('⏭ puts a size right after the one in production', () => {
+  it('▶ puts a size right after the one in production', () => {
     const orders = makeOrders({ A: [30] }); // A1 in production
     const r = calculateSchedule(settings(), orders, { now: at(8) });
     const seq = prioritizeStep(undefined, orders, r, { orderIdx: 1, sizeIdx: 1 });
