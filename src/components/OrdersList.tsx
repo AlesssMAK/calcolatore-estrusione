@@ -66,7 +66,7 @@ import BlockProductModal from './BlockProductModal';
 import type { CatalogProduct } from '../lib/catalog';
 import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { StopIcon } from './ActionIcons';
+import { PalletIcon, StopIcon } from './ActionIcons';
 import FieldError from './FieldError';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
@@ -1795,8 +1795,9 @@ function AdvancedSection({
                   totalDisabled={
                     packagePathBlockedByProfiles || !perPackageEntered
                   }
-                  showTotal={(perPaccoPerSize[sIdx] ?? 0) > 0}
+                  inheritedRate={perPaccoPerSize[sIdx]}
                   countLabel={t('orders.advanced.profilesProduced')}
+                  rateLabel={t('orders.profilesPerPackage')}
                   totalLabel={t('orders.advanced.packagesProduced')}
                   t={t}
                 />
@@ -2259,20 +2260,40 @@ function SizeBlockHeader({
   );
 }
 
-/** The rate (lastre per bancale / profili per pacco) folded to a 📦 button
- *  while it's empty — a tap opens its field. */
-function RateButton({ title, onOpen }: { title: string; onOpen: () => void }) {
+/** Profili per pacco's button: a pack (as in the size row). */
+const PACK_ICON = (
+  <span aria-hidden className="block text-sm leading-none sm:text-base">
+    📦
+  </span>
+);
+
+/** The rate (lastre per bancale / profili per pacco) folded to a button while
+ *  it's empty — a tap opens its field. `small`: among the size's buttons up
+ *  top, on a phone. */
+function RateButton({
+  title,
+  icon,
+  onOpen,
+  small,
+}: {
+  title: string;
+  icon: ReactNode;
+  onOpen: () => void;
+  small?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onOpen}
       title={title}
       aria-label={title}
-      className={`${squareBtnBase} border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink`}
+      className={`${
+        small
+          ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border shadow-sm transition'
+          : squareBtnBase
+      } border-neutral-300 bg-white text-ink-soft hover:border-brand-400 hover:text-ink`}
     >
-      <span aria-hidden className="block text-base leading-none">
-        📦
-      </span>
+      {icon}
     </button>
   );
 }
@@ -2371,6 +2392,209 @@ function OrderEndNote({
   );
 }
 
+/**
+ * A size's Calcolo Avanzato entries: produced count, the rate (lastre per
+ * bancale / profili per pacco) and the produced total (bancali / pacchi).
+ * Wide screen: one line per entry — count | rate | total | − +. Phone: the
+ * count on its line with − +, the rate and the total on the line below; the
+ * folded rate's 📦 joins the size's buttons up top.
+ */
+function AdvBlockLayout({
+  isPhone,
+  sizeIdx,
+  totalSizes,
+  actions,
+  rows,
+  labels,
+  disabled,
+  rateOpen,
+  showTotal,
+  rateTitle,
+  rateIcon,
+  rateOnEveryRow,
+  onOpenRate,
+  renderCount,
+  renderRate,
+  renderTotal,
+  onRemove,
+  onAdd,
+  t,
+}: {
+  isPhone: boolean;
+  sizeIdx: number;
+  totalSizes: number;
+  actions?: ReactNode;
+  /** The entries' array positions (null: not seeded yet). */
+  rows: (number | null)[];
+  labels: { count: string; rate: string; total: string };
+  disabled: { count: boolean; rate: boolean; total: boolean };
+  /** The rate field is shown (else its 📦 button). */
+  rateOpen: boolean;
+  showTotal: boolean;
+  rateTitle: string;
+  /** What the folded rate's button shows. */
+  rateIcon: ReactNode;
+  /** One rate per entry (lastre) — else one per size, on the first. */
+  rateOnEveryRow: boolean;
+  onOpenRate: (rowIdx: number) => void;
+  renderCount: (arrayPos: number) => ReactNode;
+  renderRate: (arrayPos: number, rowIdx: number) => ReactNode;
+  renderTotal: (arrayPos: number) => ReactNode;
+  onRemove: (rowIdx: number) => void;
+  onAdd: () => void;
+  t: TFunction;
+}) {
+  const off = (
+    <input
+      type="number"
+      disabled
+      className={`${sizeBlockInputCls} opacity-40`}
+      placeholder="—"
+    />
+  );
+  const nameCls = (d: boolean) =>
+    `${advLabelCls} self-end ${d ? 'opacity-40' : ''}`;
+  const hasRate = (rowIdx: number) => rateOnEveryRow || rowIdx === 0;
+  const rateCell = (arrayPos: number | null, rowIdx: number) =>
+    !hasRate(rowIdx) ? <span /> : arrayPos === null ? off : renderRate(arrayPos, rowIdx);
+  const rowButtons = (rowIdx: number, arrayPos: number | null) => (
+    <>
+      <button
+        type="button"
+        onClick={() => onRemove(rowIdx)}
+        disabled={rows.length <= 1 || arrayPos === null}
+        className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
+        aria-label={t('orders.removeSize')}
+        title={t('orders.removeSize')}
+      >
+        −
+      </button>
+      <button
+        type="button"
+        onClick={onAdd}
+        className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
+        aria-label={t('orders.addSize')}
+        title={t('orders.addSize')}
+      >
+        +
+      </button>
+    </>
+  );
+
+  if (!isPhone) {
+    // One grid for the names and the rows: a name stays over its field.
+    const cols = [
+      'minmax(0,1fr)',
+      rateOpen ? 'minmax(0,1fr)' : 'auto',
+      ...(showTotal ? ['minmax(0,1fr)'] : []),
+      'auto',
+      'auto',
+    ].join(' ');
+    return (
+      <>
+        <SizeBlockHeader
+          sizeIdx={sizeIdx}
+          totalSizes={totalSizes}
+          actions={actions}
+        />
+        <div
+          className="grid items-center gap-x-2 gap-y-1.5"
+          style={{ gridTemplateColumns: cols }}
+        >
+          <span className={nameCls(disabled.count)}>{labels.count}</span>
+          <span className={nameCls(disabled.rate)}>
+            {rateOpen ? labels.rate : ''}
+          </span>
+          {showTotal && (
+            <span className={nameCls(disabled.total)}>{labels.total}</span>
+          )}
+          <span />
+          <span />
+          {rows.map((arrayPos, rowIdx) => (
+            <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
+              {arrayPos === null ? off : renderCount(arrayPos)}
+              {rateOpen ? (
+                rateCell(arrayPos, rowIdx)
+              ) : hasRate(rowIdx) ? (
+                <RateButton
+                  title={rateTitle}
+                  icon={rateIcon}
+                  onOpen={() => onOpenRate(rowIdx)}
+                />
+              ) : (
+                <span />
+              )}
+              {showTotal && (arrayPos === null ? off : renderTotal(arrayPos))}
+              {rowButtons(rowIdx, arrayPos)}
+            </Fragment>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  // Phone: count | − + on one line; rate | total on the line below it.
+  const lineTwo = rateOpen || showTotal;
+  return (
+    <>
+      <SizeBlockHeader
+        sizeIdx={sizeIdx}
+        totalSizes={totalSizes}
+        actions={
+          !rateOpen || actions ? (
+            <div className="flex items-center gap-1.5">
+              {!rateOpen && (
+                <RateButton
+                  small
+                  title={rateTitle}
+                  icon={rateIcon}
+                  onOpen={() => onOpenRate(0)}
+                />
+              )}
+              {actions}
+            </div>
+          ) : undefined
+        }
+      />
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 gap-y-1.5">
+        <span className={`${nameCls(disabled.count)} col-span-2`}>
+          {labels.count}
+        </span>
+        <span />
+        <span />
+        {rows.map((arrayPos, rowIdx) => (
+          <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
+            <div className="col-span-2 min-w-0">
+              {arrayPos === null ? off : renderCount(arrayPos)}
+            </div>
+            {rowButtons(rowIdx, arrayPos)}
+            {lineTwo && rowIdx === 0 && (
+              <>
+                <span className={nameCls(disabled.rate)}>
+                  {rateOpen ? labels.rate : ''}
+                </span>
+                <span className={nameCls(disabled.total)}>
+                  {showTotal ? labels.total : ''}
+                </span>
+                <span />
+                <span />
+              </>
+            )}
+            {lineTwo && (
+              <>
+                {rateOpen ? rateCell(arrayPos, rowIdx) : <span />}
+                {showTotal ? (arrayPos === null ? off : renderTotal(arrayPos)) : <span />}
+                <span />
+                <span />
+              </>
+            )}
+          </Fragment>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function SizeAdvancedBlockListi({
   orderIdx,
   sizeIdx,
@@ -2403,6 +2627,7 @@ function SizeAdvancedBlockListi({
 }) {
   'use no memo';
   const { register, control, getValues } = useFormContext<FormValues>();
+  const isPhone = useMediaQuery('(max-width: 639px)');
   const sheets = useFieldArray({
     control,
     name: `orders.${orderIdx}.producedSheets`,
@@ -2457,16 +2682,16 @@ function SizeAdvancedBlockListi({
     totals.remove(arrayPos);
   };
 
-  // Lastre per bancale folds to a 📦 button while no row of the size has its
-  // own; opened (or filled), every row shows the field. Bancali prodotti only
-  // once a rate is in force here (its own, or the previous size's).
+  // Lastre per bancale folds to a 📦 button while no entry of the size has
+  // its own; opened (or filled), every entry shows the field. Bancali
+  // prodotti only once a rate is in force here (its own, or the previous
+  // size's).
   const hasOwnRate = (all: { value?: number }[] | undefined) =>
     positions.some((p) => (all?.[p]?.value ?? 0) > 0);
   const ownRate = hasOwnRate(watchedRates);
   const [rateOpened, setRateOpened] = useState(false);
   const [focusRow, setFocusRow] = useState<number | null>(null);
   const rateOpen = rateOpened || ownRate;
-  const showTotal = (inheritedRate ?? 0) > 0;
   const rateTitle =
     !ownRate && inheritedRate
       ? `${rateLabel} (${t('orders.optionalInherit')}: ${inheritedRate})`
@@ -2478,152 +2703,83 @@ function SizeAdvancedBlockListi({
     }
   };
 
-  // One grid for the names and the rows: a name stays over its field.
-  const cols = [
-    'minmax(0,1fr)',
-    rateOpen ? 'minmax(0,1fr)' : 'auto',
-    ...(showTotal ? ['minmax(0,1fr)'] : []),
-    'auto',
-    'auto',
-  ].join(' ');
-  const nameCls = (disabled: boolean) =>
-    `${advLabelCls} self-end ${disabled ? 'opacity-40' : ''}`;
   return (
     <div>
-      <SizeBlockHeader
+      <AdvBlockLayout
+        isPhone={isPhone}
         sizeIdx={sizeIdx}
         totalSizes={totalSizes}
         actions={actions}
-      />
-      <div
-        className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
-        style={{ gridTemplateColumns: cols }}
-      >
-        <span className={nameCls(countDisabled)}>{countLabel}</span>
-        <span className={nameCls(rateDisabled)}>{rateOpen ? rateLabel : ''}</span>
-        {showTotal && (
-          <span className={nameCls(totalDisabled)}>{totalLabel}</span>
+        rows={rows}
+        labels={{ count: countLabel, rate: rateLabel, total: totalLabel }}
+        disabled={{
+          count: countDisabled,
+          rate: rateDisabled,
+          total: totalDisabled,
+        }}
+        rateOpen={rateOpen}
+        showTotal={(inheritedRate ?? 0) > 0}
+        rateTitle={rateTitle}
+        rateIcon={<PalletIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
+        rateOnEveryRow
+        onOpenRate={(rowIdx) => {
+          setFocusRow(rowIdx);
+          setRateOpened(true);
+        }}
+        renderCount={(p) => (
+          <input
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            disabled={countDisabled}
+            // Produced count blinks (empty field has no text → still).
+            className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+            {...register(`orders.${orderIdx}.producedSheets.${p}.value`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
         )}
-        <span />
-        <span />
-        {rows.map((arrayPos, rowIdx) => {
-          const rateReg =
-            arrayPos === null
-              ? null
-              : register(`orders.${orderIdx}.sheetsPerPallet.${arrayPos}.value`, {
-                  setValueAs: numericSetValueAs,
-                });
+        renderRate={(p, rowIdx) => {
+          const reg = register(`orders.${orderIdx}.sheetsPerPallet.${p}.value`, {
+            setValueAs: numericSetValueAs,
+          });
           return (
-            <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
-              {arrayPos === null || !rateReg ? (
-                <>
-                  <input
-                    type="number"
-                    disabled
-                    className={`${sizeBlockInputCls} opacity-40`}
-                    placeholder="—"
-                  />
-                  {rateOpen ? (
-                    <input
-                      type="number"
-                      disabled
-                      className={`${sizeBlockInputCls} opacity-40`}
-                      placeholder="—"
-                    />
-                  ) : (
-                    <span />
-                  )}
-                  {showTotal && (
-                    <input
-                      type="number"
-                      disabled
-                      className={`${sizeBlockInputCls} opacity-40`}
-                      placeholder="—"
-                    />
-                  )}
-                </>
-              ) : (
-                <>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    inputMode="numeric"
-                    disabled={countDisabled}
-                    // Produced count blinks (empty field has no text → still).
-                    className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-                    {...register(
-                      `orders.${orderIdx}.producedSheets.${arrayPos}.value`,
-                      { setValueAs: numericSetValueAs },
-                    )}
-                  />
-                  {rateOpen ? (
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      disabled={rateDisabled}
-                      autoFocus={focusRow === rowIdx}
-                      placeholder={
-                        inheritedRate ? String(inheritedRate) : undefined
-                      }
-                      title={rateTitle}
-                      className={`${sizeBlockInputCls} ${rateDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-                      {...rateReg}
-                      onBlur={(e) => {
-                        void rateReg.onBlur(e);
-                        foldRate();
-                      }}
-                    />
-                  ) : (
-                    <RateButton
-                      title={rateTitle}
-                      onOpen={() => {
-                        setFocusRow(rowIdx);
-                        setRateOpened(true);
-                      }}
-                    />
-                  )}
-                  {showTotal && (
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      inputMode="numeric"
-                      disabled={totalDisabled}
-                      className={`${sizeBlockInputCls} ${totalDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-                      {...register(
-                        `orders.${orderIdx}.producedPallets.${arrayPos}.value`,
-                        { setValueAs: numericSetValueAs },
-                      )}
-                    />
-                  )}
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => removeAll(rowIdx)}
-                disabled={rows.length <= 1 || arrayPos === null}
-                className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
-                aria-label={t('orders.removeSize')}
-                title={t('orders.removeSize')}
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={appendAll}
-                className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
-                aria-label={t('orders.addSize')}
-                title={t('orders.addSize')}
-              >
-                +
-              </button>
-            </Fragment>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              disabled={rateDisabled}
+              autoFocus={focusRow === rowIdx}
+              placeholder={inheritedRate ? String(inheritedRate) : undefined}
+              title={rateTitle}
+              className={`${sizeBlockInputCls} ${rateDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+              {...reg}
+              onBlur={(e) => {
+                void reg.onBlur(e);
+                foldRate();
+              }}
+            />
           );
-        })}
-      </div>
+        }}
+        renderTotal={(p) => (
+          <input
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            disabled={totalDisabled}
+            className={`${sizeBlockInputCls} ${totalDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+            {...register(`orders.${orderIdx}.producedPallets.${p}.value`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+        )}
+        onRemove={removeAll}
+        onAdd={appendAll}
+        t={t}
+      />
       <SizeEndNote orderIdx={orderIdx} sizeIdx={sizeIdx} mode="sheets" t={t} />
     </div>
   );
@@ -2635,8 +2791,9 @@ function SizeAdvancedBlockProfili({
   totalSizes,
   countDisabled,
   totalDisabled,
-  showTotal,
+  inheritedRate,
   countLabel,
+  rateLabel,
   totalLabel,
   t,
   actions,
@@ -2646,16 +2803,20 @@ function SizeAdvancedBlockProfili({
   totalSizes: number;
   countDisabled: boolean;
   totalDisabled: boolean;
-  /** Pacchi prodotti only once a per-pacco is in force for this size. */
-  showTotal: boolean;
+  /** The profili-per-pacco in force for this size (its own, else the previous
+   *  size's) — greyed in its empty field; pacchi prodotti only once set. */
+  inheritedRate?: number;
   countLabel: string;
+  rateLabel: string;
   totalLabel: string;
   t: TFunction;
   /** Per-size action buttons shown in the block header. */
   actions?: ReactNode;
 }) {
   'use no memo';
-  const { register, control } = useFormContext<FormValues>();
+  const { register, control, getValues, setValue } =
+    useFormContext<FormValues>();
+  const isPhone = useMediaQuery('(max-width: 639px)');
   const counts = useFieldArray({
     control,
     name: `orders.${orderIdx}.producedProfiles`,
@@ -2698,103 +2859,89 @@ function SizeAdvancedBlockProfili({
     totals.remove(arrayPos);
   };
 
-  // One grid for the names and the rows: a name stays over its field.
-  const cols = [
-    'minmax(0,1fr)',
-    ...(showTotal ? ['minmax(0,1fr)'] : []),
-    'auto',
-    'auto',
-  ].join(' ');
-  const nameCls = (disabled: boolean) =>
-    `${advLabelCls} self-end ${disabled ? 'opacity-40' : ''}`;
+  // Profili per pacco is the size's own value — the same one as the 📦 of
+  // its size row (one per size: on the first entry). Here too it folds to a
+  // 📦 button while empty. A controlled field (setValue): that one is
+  // registered by the size row.
+  const ratePath = `orders.${orderIdx}.sizes.${sizeIdx}.profilesPerPackage` as const;
+  const rate = useWatch({ control, name: ratePath });
+  const ownRate = Number(rate) > 0;
+  const [rateOpened, setRateOpened] = useState(false);
+  const rateOpen = rateOpened || ownRate;
+  const rateTitle =
+    !ownRate && inheritedRate
+      ? `${rateLabel} (${t('orders.optionalInherit')}: ${inheritedRate})`
+      : rateLabel;
+
   return (
     <div>
-      <SizeBlockHeader
+      <AdvBlockLayout
+        isPhone={isPhone}
         sizeIdx={sizeIdx}
         totalSizes={totalSizes}
         actions={actions}
-      />
-      <div
-        className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
-        style={{ gridTemplateColumns: cols }}
-      >
-        <span className={nameCls(countDisabled)}>{countLabel}</span>
-        {showTotal && (
-          <span className={nameCls(totalDisabled)}>{totalLabel}</span>
+        rows={rows}
+        labels={{ count: countLabel, rate: rateLabel, total: totalLabel }}
+        disabled={{ count: countDisabled, rate: false, total: totalDisabled }}
+        rateOpen={rateOpen}
+        showTotal={(inheritedRate ?? 0) > 0}
+        rateTitle={rateTitle}
+        rateIcon={PACK_ICON}
+        rateOnEveryRow={false}
+        onOpenRate={() => setRateOpened(true)}
+        renderCount={(p) => (
+          <input
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            disabled={countDisabled}
+            className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+            {...register(`orders.${orderIdx}.producedProfiles.${p}.value`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
         )}
-        <span />
-        <span />
-        {rows.map((arrayPos, rowIdx) => (
-          <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
-            {arrayPos === null ? (
-              <>
-                <input
-                  type="number"
-                  disabled
-                  className={`${sizeBlockInputCls} opacity-40`}
-                  placeholder="—"
-                />
-                {showTotal && (
-                  <input
-                    type="number"
-                    disabled
-                    className={`${sizeBlockInputCls} opacity-40`}
-                    placeholder="—"
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  inputMode="numeric"
-                  disabled={countDisabled}
-                  className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-                  {...register(
-                    `orders.${orderIdx}.producedProfiles.${arrayPos}.value`,
-                    { setValueAs: numericSetValueAs },
-                  )}
-                />
-                {showTotal && (
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    inputMode="numeric"
-                    disabled={totalDisabled}
-                    className={`${sizeBlockInputCls} ${totalDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-                    {...register(
-                      `orders.${orderIdx}.producedPackages.${arrayPos}.value`,
-                      { setValueAs: numericSetValueAs },
-                    )}
-                  />
-                )}
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => removeAll(rowIdx)}
-              disabled={rows.length <= 1 || arrayPos === null}
-              className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
-              aria-label={t('orders.removeSize')}
-              title={t('orders.removeSize')}
-            >
-              −
-            </button>
-            <button
-              type="button"
-              onClick={appendAll}
-              className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
-              aria-label={t('orders.addSize')}
-              title={t('orders.addSize')}
-            >
-              +
-            </button>
-          </Fragment>
-        ))}
-      </div>
+        renderRate={() => (
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            autoFocus={rateOpened && !ownRate}
+            value={rate ?? ''}
+            placeholder={inheritedRate ? String(inheritedRate) : undefined}
+            title={rateTitle}
+            className={sizeBlockInputCls}
+            onChange={(e) =>
+              setValue(ratePath, numericSetValueAs(e.target.value), {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            // Left empty → folded again.
+            onBlur={() => {
+              if (!(Number(getValues(ratePath)) > 0)) setRateOpened(false);
+            }}
+          />
+        )}
+        renderTotal={(p) => (
+          <input
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            disabled={totalDisabled}
+            className={`${sizeBlockInputCls} ${totalDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+            {...register(`orders.${orderIdx}.producedPackages.${p}.value`, {
+              setValueAs: numericSetValueAs,
+            })}
+          />
+        )}
+        onRemove={removeAll}
+        onAdd={appendAll}
+        t={t}
+      />
       <SizeEndNote orderIdx={orderIdx} sizeIdx={sizeIdx} mode="profiles" t={t} />
     </div>
   );
@@ -2902,6 +3049,13 @@ function BatchRowsArray({
 }) {
   'use no memo';
   const { control, getValues } = useFormContext<FormValues>();
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  const rateIcon =
+    rateFieldName === 'sheetsPerPallet' ? (
+      <PalletIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+    ) : (
+      PACK_ICON
+    );
 
   const counts = useFieldArray({
     control,
@@ -2974,6 +3128,15 @@ function BatchRowsArray({
                 #{sIdx + 1}
               </span>
               <div className="flex items-center gap-1">
+                {isPhone && !rateOpen && (
+                  // Phone: the folded rate up here, with the row's − / +.
+                  <RateButton
+                    small
+                    title={rateLabel}
+                    icon={rateIcon}
+                    onOpen={() => setOpenRates((s) => new Set(s).add(sIdx))}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => removeAll(sIdx)}
@@ -3026,10 +3189,11 @@ function BatchRowsArray({
                     onBlur={() => foldRate(sIdx)}
                   />
                 </BatchField>
-              ) : (
+              ) : isPhone ? null : (
                 <div>
                   <RateButton
                     title={rateLabel}
+                    icon={rateIcon}
                     onOpen={() =>
                       setOpenRates((s) => new Set(s).add(sIdx))
                     }
@@ -3069,13 +3233,14 @@ function SizeActions({
   t: TFunction;
 }) {
   if (!onComplete && !onPrioritize && !onStop) return null;
+  // Smaller on a phone (28px), as wide screens' fields (36px) on sm+.
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
       {onComplete && (
         <button
           type="button"
           onClick={onComplete}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success/10 text-base font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9"
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-success/40 bg-success/10 text-sm font-bold text-success shadow-sm transition hover:bg-success/20 sm:h-9 sm:w-9 sm:text-base"
           aria-label={t('orders.completeSize')}
           title={t('orders.completeSize')}
         >
@@ -3089,11 +3254,11 @@ function SizeActions({
         <button
           type="button"
           onClick={onStop}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-danger/40 bg-danger/10 text-danger shadow-sm transition hover:bg-danger/20 sm:h-9 sm:w-9"
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-danger/40 bg-danger/10 text-danger shadow-sm transition hover:bg-danger/20 sm:h-9 sm:w-9"
           aria-label={t('orders.stopActive')}
           title={t('orders.stopActive')}
         >
-          <StopIcon className="h-4 w-4" />
+          <StopIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </button>
       )}
     </div>
@@ -3114,7 +3279,7 @@ function PrioritizeButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-base shadow-sm transition hover:border-amber-500 hover:bg-amber-100 sm:h-9 sm:w-9"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-sm shadow-sm transition hover:border-amber-500 hover:bg-amber-100 sm:h-9 sm:w-9 sm:text-base"
     >
       ⏭
     </button>
