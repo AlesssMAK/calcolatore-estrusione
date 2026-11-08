@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BrowserRouter,
@@ -302,6 +309,17 @@ function CalculatorApp() {
   const showForm = () => {
     if (pathname === RESULTS_PATH) navigate(-1);
   };
+  // The results page's own "← Calcolo" off screen → a pinned one shows.
+  const [backInView, setBackInView] = useState(true);
+  const backObsRef = useRef<IntersectionObserver | null>(null);
+  const backRef = useCallback((node: HTMLButtonElement | null) => {
+    backObsRef.current?.disconnect();
+    backObsRef.current = null;
+    if (!node) return;
+    const obs = new IntersectionObserver(([e]) => setBackInView(e.isIntersecting));
+    obs.observe(node);
+    backObsRef.current = obs;
+  }, []);
   // An order's card in the form and its result jump to each other (a tap):
   // where to land once the page has switched.
   const jumpRef = useRef<{ to: 'form' | 'results'; id: string } | null>(null);
@@ -1541,6 +1559,11 @@ function CalculatorApp() {
               }}
               openResultFor={openResultFor}
               revealOrder={revealOrder}
+              resultsBack={
+                onResultsPage
+                  ? { visible: !backInView, onClick: showForm }
+                  : undefined
+              }
             />
           </TrackedResultContext.Provider>
         </div>
@@ -1548,6 +1571,7 @@ function CalculatorApp() {
         {onResultsPage && result && (
           <div id="results">
             <button
+              ref={backRef}
               type="button"
               onClick={showForm}
               className="no-print mb-4 inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
