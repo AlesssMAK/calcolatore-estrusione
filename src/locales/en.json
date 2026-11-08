@@ -23,6 +23,7 @@
     },
     "startAt": "Start Date and Time",
     "startAtPastWarning": "The start date is in the past.",
+    "time": "Time",
     "toggle": {
       "manualStart": "Set Time",
       "productName": "Calculation Name",
@@ -344,8 +345,6 @@
     "currentHint": "When the order in progress of each calculation ends.",
     "closingAt": "Status when the line closes:",
     "noClosing": "The line runs 24/7: there is no closing.",
-    "day": "Day",
-    "hour": "Time",
     "orderEnd": "Order ends",
     "starts": "Starts",
     "ended": "Ended",

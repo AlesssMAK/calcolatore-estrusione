@@ -1,16 +1,11 @@
 import { useFormContext, useWatch, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import DatePicker, { registerLocale } from 'react-datepicker';
-import { it as itLocale } from 'date-fns/locale/it';
-import { es as esLocale } from 'date-fns/locale/es';
-import { enUS as enLocale } from 'date-fns/locale/en-US';
 import type { FormValues } from '../formSchema';
 import type { WeekendDay } from '../types';
-import FieldError from './FieldError';
 import { saveWeekendPref } from '../utils/defaults';
 import { isContinuous } from '../utils/calculator';
 import { useEffect, useState } from 'react';
-import { useMediaQuery } from '../hooks/useMediaQuery';
+import DateTimePicker from './DateTimePicker';
 import QueueEditor from './QueueEditor';
 import type { CalculatorMode } from '../types';
 import {
@@ -41,10 +36,6 @@ const fmtDur = (min: number) => {
 };
 const selectCls =
   'rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
-
-registerLocale('it', itLocale);
-registerLocale('es', esLocale);
-registerLocale('en', enLocale);
 
 const inputBase =
   'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
@@ -174,7 +165,7 @@ function GlobalSettingsPanel({
   onApplyQueue: (seq: SeqStep[]) => void;
 }) {
   'use no memo';
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [now] = useState(() => Date.now());
   const {
     setValue,
@@ -205,6 +196,9 @@ function GlobalSettingsPanel({
     typeof startAt === 'string' &&
     startAt.length > 0 &&
     new Date(startAt).getTime() < now;
+  const startAtError = errors.settings?.startAt?.message
+    ? t(`validation.${errors.settings.startAt.message}`)
+    : undefined;
 
   const toggleManualStart = () => {
     if (startMode === 'now') {
@@ -277,33 +271,7 @@ function GlobalSettingsPanel({
     return h >= d.start && h < d.end;
   };
 
-  const lang = (i18n.resolvedLanguage ?? 'it') as 'it' | 'en' | 'es';
-  const isMobile = useMediaQuery('(max-width: 480px)');
   const minDate = new Date();
-  const [calendarOpen, setCalendarOpen] = useState(false);
-
-  useEffect(() => {
-    if (!calendarOpen || !isMobile) return;
-    const scrollY = window.scrollY;
-    const body = document.body;
-    const prev = {
-      position: body.style.position,
-      top: body.style.top,
-      width: body.style.width,
-      overflow: body.style.overflow,
-    };
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-    return () => {
-      body.style.position = prev.position;
-      body.style.top = prev.top;
-      body.style.width = prev.width;
-      body.style.overflow = prev.overflow;
-      window.scrollTo(0, scrollY);
-    };
-  }, [calendarOpen, isMobile]);
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm sm:p-5">
@@ -427,7 +395,12 @@ function GlobalSettingsPanel({
       )}
 
       {startMode === 'manual' && (
-        <div className="mt-3 pb-5 sm:mt-4">
+        <div
+          className="mt-3 sm:mt-4"
+          // The date picker's own input can't carry it: the bubble reads the
+          // message here (utils/errorBubble).
+          data-error={startAtError}
+        >
           <label className={labelBase} htmlFor="startAt">
             {t('settings.startAt')}
           </label>
@@ -435,37 +408,18 @@ function GlobalSettingsPanel({
             control={control}
             name="settings.startAt"
             render={({ field }) => (
-              <DatePicker
+              <DateTimePicker
                 id="startAt"
                 selected={field.value ? new Date(field.value) : null}
-                onChange={(d: Date | null) =>
-                  field.onChange(d ? d.toISOString() : '')
-                }
-                showTimeSelect
-                timeIntervals={15}
-                dateFormat="dd/MM/yyyy HH:mm"
-                timeFormat="HH:mm"
-                locale={lang}
-                placeholderText={t('settings.startAt')}
+                onChange={(d) => field.onChange(d ? d.toISOString() : '')}
+                placeholder={t('settings.startAt')}
+                invalid={!!startAtError}
                 minDate={minDate}
                 filterDate={isDatePickable}
                 filterTime={isTimePickable}
-                withPortal={isMobile}
-                onCalendarOpen={() => setCalendarOpen(true)}
-                onCalendarClose={() => setCalendarOpen(false)}
                 className={`${inputBase} mt-1`}
-                wrapperClassName="block w-full sm:max-w-xs"
-                popperPlacement="bottom-start"
-                calendarClassName="rdp-mobile-stack"
               />
             )}
-          />
-          <FieldError
-            message={
-              errors.settings?.startAt?.message
-                ? t(`validation.${errors.settings.startAt.message}`)
-                : undefined
-            }
           />
           {isStartAtInPast && (
             <p className="mt-1 text-xs font-medium text-amber-700">

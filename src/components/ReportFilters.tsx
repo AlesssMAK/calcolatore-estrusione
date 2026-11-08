@@ -1,14 +1,13 @@
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 import { slotLabel, type ReportMode, type ReportMoment } from '../hooks/useReportMoment';
 import { formatDateParts } from '../utils/format';
+import DateTimePicker from './DateTimePicker';
 
 const MODES: ReportMode[] = ['current', 'closing', 'at'];
 
-// 30-minute slots of a day, as minutes from midnight.
-const SLOTS = Array.from({ length: 48 }, (_, i) => i * 30);
-
-const selectCls =
-  'h-9 rounded-md border border-neutral-300 bg-white px-2 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
+const fieldCls =
+  'h-9 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
 
 /** "In Corso / Alla Chiusura / Data e Ora" tabs, with what each looks at. */
 export default function ReportFilters({
@@ -64,34 +63,24 @@ export default function ReportFilters({
         </p>
       )}
       {mode === 'at' && (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="min-w-0 flex-1">
-            <span className="block text-xs font-medium tracking-wide text-ink-soft uppercase">
-              {t('report.day')}
-            </span>
-            <input
-              type="date"
-              value={day}
-              onChange={(e) => e.target.value && setDay(e.target.value)}
-              className={`${selectCls} mt-1 w-full min-w-0`}
-            />
+        // The calendar of the start time (Data e Ora di Inizio): day and
+        // time in one, the times every half hour.
+        <div>
+          <label htmlFor="report-at" className="sr-only">
+            {t('report.tabs.at')}
           </label>
-          <label className="shrink-0">
-            <span className="block text-xs font-medium tracking-wide text-ink-soft uppercase">
-              {t('report.hour')}
-            </span>
-            <select
-              value={slot}
-              onChange={(e) => setSlot(Number(e.target.value))}
-              className={`${selectCls} mt-1`}
-            >
-              {SLOTS.map((m) => (
-                <option key={m} value={m}>
-                  {slotLabel(m)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <DateTimePicker
+            id="report-at"
+            selected={new Date(`${day}T${slotLabel(slot)}`)}
+            onChange={(d) => {
+              if (!d) return;
+              setDay(format(d, 'yyyy-MM-dd'));
+              const m = d.getHours() * 60 + d.getMinutes();
+              setSlot(Math.min(23 * 60 + 30, Math.round(m / 30) * 30));
+            }}
+            timeIntervals={30}
+            className={fieldCls}
+          />
         </div>
       )}
     </div>
