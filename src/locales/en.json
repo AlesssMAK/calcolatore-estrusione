@@ -129,6 +129,7 @@
     "cavity": "Cavities",
     "cavityHint": "optional — multiplies the speed",
     "advancedToggle": "Advanced Calculation",
+    "advancedSizeToggle": "Advanced",
     "advanced": {
       "profilesProduced": "Profiles Produced",
       "packagesProduced": "Packages Produced",

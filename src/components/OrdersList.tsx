@@ -1368,22 +1368,20 @@ function OrderFields({
           />
         </>
       ) : (
-        // Order matters: sizes → advanced → scanner. AdvancedSection is passed
-        // in so it renders between the size rows and the photo-scanner block
-        // (more convenient reach on mobile), while the scanner stays coupled to
-        // the sizes field-array state where its replace() lives.
+        // Each size's Calcolo Avanzato sits under its own row.
         <SizesFieldArray
           orderIdx={idx}
           mode={mode}
           t={t}
           activeSizeIdx={activeSizeIdx}
           editingId={editingId}
-          afterSizes={(visibleSizeIdxs) => (
-            <AdvancedSection
-              idx={idx}
+          sizeAdvanced={(sIdx, totalSizes) => (
+            <SizeAdvancedPanel
+              orderIdx={idx}
+              sizeIdx={sIdx}
+              totalSizes={totalSizes}
               mode={mode}
               t={t}
-              visibleSizeIdxs={visibleSizeIdxs}
               activeSizeIdx={activeSizeIdx}
               onCompleteSize={onCompleteSize}
               onPrioritizeSize={onPrioritizeSize}
@@ -1590,43 +1588,22 @@ function CollapsibleInheritField({
   );
 }
 
-function AdvancedSection({
-  idx,
-  mode,
-  t,
-  visibleSizeIdxs,
-  activeSizeIdx,
-  onCompleteSize,
-  onPrioritizeSize,
-  onStop,
-}: {
-  idx: number;
-  mode: CalculatorMode;
-  t: TFunction;
-  /** When set (active order in a saved view), only these sizes' blocks are
-   *  shown — the active size plus any the user manually expanded. Null → all. */
-  visibleSizeIdxs?: Set<number> | null;
-  /** The size in production on this (active) order — gets the ⏹ button. */
-  activeSizeIdx?: number | null;
-  /** ✓ mark one size fully produced (multi-size orders). */
-  onCompleteSize?: (sizeIdx: number) => void;
-  /** ▶ produce this size next, out of the queue. */
-  onPrioritizeSize?: (sizeIdx: number) => void;
-  /** ⏹ "Ferma produzione" — set on the order holding the size in production
-   *  (saved view): stop it and pick what's really running now. */
-  onStop?: () => void;
-}) {
-  'use no memo';
-  const { control, getValues } = useFormContext<FormValues>();
-
-  const useTotalLength = useWatch({
-    control,
-    name: `orders.${idx}.useTotalLength`,
-    defaultValue: false,
-  });
-
-  const isProfiles = mode === 'profiles';
-
+/**
+ * What an order's Calcolo Avanzato fields share — the produced counts of all
+ * its sizes together decide which way of counting is open:
+ * The 'rate × count' path (perPallet × pallets, perPackage × packages) is
+ * *fully active* only when both rate AND count are filled. The direct path
+ * (sheets / profiles) is blocked just in that combined state — knowing the
+ * rate alone is fine: the user often types in produced sheets/profiles and
+ * reads pallets/pacchi as a derived value. Conversely, a stale count after the
+ * rate is cleared keeps its own input disabled (gated by !rateEntered) and
+ * stops contributing, so it must not keep the direct path locked either.
+ * NB: the *rate* input (sheetsPerPallet / profilesPerPackage) is never
+ * disabled — it also drives the total pallet/package count, so the user must
+ * be able to type it alongside a direct produced-sheets/profiles value.
+ */
+function useAdvancedFlags(idx: number) {
+  const { control } = useFormContext<FormValues>();
   const sumOf = (arr: { value?: number }[] | undefined) =>
     (arr ?? []).reduce((sum, e) => sum + (e?.value ?? 0), 0);
 
@@ -1669,64 +1646,6 @@ function AdvancedSection({
   const perPalletEntered = sumOf(watchedPerPallet) > 0;
   const palletsEntered = sumOf(watchedPallets) > 0;
 
-  // Produced values already present at mount → a restored / advanced calc.
-  // Read synchronously via getValues (reliable at mount, unlike useWatch's
-  // first render) so the advanced section auto-opens and the produced block is
-  // highlighted, making the time-based auto-fill obvious.
-  const [hadProducedAtMount] = useState(() => {
-    const o = getValues(`orders.${idx}`);
-    const sum = (a?: { value?: number }[]) =>
-      (a ?? []).reduce((s, e) => s + (e?.value ?? 0), 0);
-    return (
-      sum(o?.producedProfiles) > 0 ||
-      sum(o?.producedPackages) > 0 ||
-      sum(o?.producedSheets) > 0 ||
-      sum(o?.producedPallets) > 0
-    );
-  });
-  const [expanded, setExpanded] = useState(hadProducedAtMount);
-  // The 'rate × count' path (perPallet × pallets, perPackage × packages)
-  // is *fully active* only when both rate AND count are filled. The
-  // direct path (sheets / profiles) is blocked just in that combined
-  // state — knowing the rate alone is fine: the user often types in
-  // produced sheets/profiles and reads pallets/pacchi as a derived
-  // value. Conversely, a stale count after the rate is cleared keeps
-  // its own input disabled (gated by !rateEntered) and stops
-  // contributing, so it must not keep the direct path locked either.
-  // NB: the *rate* input (sheetsPerPallet / profilesPerPackage) is never
-  // disabled — it also drives the total pallet/package count, so the user
-  // must be able to type it alongside a direct produced-sheets/profiles value.
-  const sheetsBlockedByPalletPath = perPalletEntered && palletsEntered;
-  const palletPathBlockedBySheets = sheetsEntered;
-  const profilesBlockedByPackagePath =
-    perPackageEntered && packagesEntered;
-  const packagePathBlockedByProfiles = profilesEntered;
-
-  // Per-size actions (✓ / ▶ / ⏹) in each size block's header. ✓ only for
-  // multi-size orders (single-size: "Completa Ordine" in the order header), ⏹
-  // only on the size in production. Undefined when there's nothing to show.
-  const sizeActions = (sIdx: number, totalSizes: number): ReactNode => {
-    const complete =
-      onCompleteSize && totalSizes > 1 ? () => onCompleteSize(sIdx) : undefined;
-    // ▶ not on the size in production: it's running already — ⏹ there.
-    const prioritize =
-      onPrioritizeSize && sIdx !== activeSizeIdx
-        ? () => onPrioritizeSize(sIdx)
-        : undefined;
-    const stop = onStop && sIdx === activeSizeIdx ? onStop : undefined;
-    if (!complete && !prioritize && !stop) return undefined;
-    return (
-      <SizeActions
-        onComplete={complete}
-        onPrioritize={prioritize}
-        onStop={stop}
-        t={t}
-      />
-    );
-  };
-  // Total-meters orders are a single production step (no size blocks).
-  const orderActions = useTotalLength ? sizeActions(0, 1) : undefined;
-
   // Lastre per bancale per size: own (first filled entry of the size), else
   // the previous size's of this order (never across orders) — shown greyed in
   // an empty rate field so the inherited value can be seen and overridden.
@@ -1744,11 +1663,136 @@ function AdvancedSection({
     perPaccoPerSize[i] = own > 0 ? own : perPaccoPerSize[i - 1];
   });
 
+  return {
+    perPackageEntered,
+    perPalletEntered,
+    sheetsBlockedByPalletPath: perPalletEntered && palletsEntered,
+    palletPathBlockedBySheets: sheetsEntered,
+    profilesBlockedByPackagePath: perPackageEntered && packagesEntered,
+    packagePathBlockedByProfiles: profilesEntered,
+    ratePerSize,
+    perPaccoPerSize,
+  };
+}
+
+/** Did this size (null: the whole order) have produced counts when the form
+ *  mounted — a tracked calc filled them from the time gone by. */
+function producedAtMount(
+  order: FormValues['orders'][number] | undefined,
+  sizeIdx: number | null,
+): boolean {
+  const sum = (a?: { value?: number; sizeIndex?: number }[]) =>
+    (a ?? []).reduce(
+      (s, e, p) =>
+        sizeIdx === null || (e?.sizeIndex ?? p) === sizeIdx
+          ? s + (e?.value ?? 0)
+          : s,
+      0,
+    );
+  return (
+    sum(order?.producedProfiles) > 0 ||
+    sum(order?.producedPackages) > 0 ||
+    sum(order?.producedSheets) > 0 ||
+    sum(order?.producedPallets) > 0
+  );
+}
+
+/** A size's buttons in its Calcolo Avanzato: ✓ only for multi-size orders
+ *  (single-size: "Completa Ordine" in the order header), ▶ not on the size in
+ *  production (it runs already), ⏹ only there. Undefined: nothing to show. */
+function sizeActionsFor({
+  sizeIdx,
+  totalSizes,
+  activeSizeIdx,
+  onCompleteSize,
+  onPrioritizeSize,
+  onStop,
+  t,
+}: {
+  sizeIdx: number;
+  totalSizes: number;
+  activeSizeIdx?: number | null;
+  onCompleteSize?: (sizeIdx: number) => void;
+  onPrioritizeSize?: (sizeIdx: number) => void;
+  onStop?: () => void;
+  t: TFunction;
+}): ReactNode {
+  const complete =
+    onCompleteSize && totalSizes > 1 ? () => onCompleteSize(sizeIdx) : undefined;
+  const prioritize =
+    onPrioritizeSize && sizeIdx !== activeSizeIdx
+      ? () => onPrioritizeSize(sizeIdx)
+      : undefined;
+  const stop = onStop && sizeIdx === activeSizeIdx ? onStop : undefined;
+  if (!complete && !prioritize && !stop) return undefined;
+  return (
+    <SizeActions
+      onComplete={complete}
+      onPrioritize={prioritize}
+      onStop={stop}
+      t={t}
+    />
+  );
+}
+
+/** The amber note over Calcolo Avanzato counts a tracked calc filled in. */
+function AutoFilledNote({ t, action }: { t: TFunction; action?: ReactNode }) {
+  return (
+    <div className="mb-2 flex items-start justify-between gap-2">
+      <p className="text-[11px] font-medium text-amber-700">
+        ↳ {t('orders.advanced.autoFilledNote')}
+      </p>
+      {action}
+    </div>
+  );
+}
+
+/** Calcolo Avanzato of a total-meters order (Σ): no sizes, so one section for
+ *  the order, under its Metri Totali. */
+function AdvancedSection({
+  idx,
+  mode,
+  t,
+  activeSizeIdx,
+  onPrioritizeSize,
+  onStop,
+}: {
+  idx: number;
+  mode: CalculatorMode;
+  t: TFunction;
+  /** The order's step in production (0) — gets the ⏹ button. */
+  activeSizeIdx?: number | null;
+  /** ▶ produce it next, out of the queue. */
+  onPrioritizeSize?: (sizeIdx: number) => void;
+  /** ⏹ "Ferma produzione" — set on the order in production (saved view):
+   *  stop it and pick what's really running now. */
+  onStop?: () => void;
+}) {
+  'use no memo';
+  const { getValues } = useFormContext<FormValues>();
+  const f = useAdvancedFlags(idx);
+  const isProfiles = mode === 'profiles';
+  // Produced values at mount → a tracked calc: opens by itself, framed amber
+  // so the time-based fill is obvious.
+  const [hadProducedAtMount] = useState(() =>
+    producedAtMount(getValues(`orders.${idx}`), null),
+  );
+  const [expanded, setExpanded] = useState(hadProducedAtMount);
+  // A single production step: its buttons up top.
+  const orderActions = sizeActionsFor({
+    sizeIdx: 0,
+    totalSizes: 1,
+    activeSizeIdx,
+    onPrioritizeSize,
+    onStop,
+    t,
+  });
+
   return (
     <div className="pt-2">
       <button
         type="button"
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}
         data-view
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition hover:text-brand-800 sm:text-sm"
@@ -1759,100 +1803,163 @@ function AdvancedSection({
       {expanded && (
         <div
           className={`mt-2 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
-            useTotalLength ? '' : 'space-y-3'
-          } ${
-            // Auto-filled "produced so far" (saved calc in production) →
-            // the amber frame pulses to catch the eye.
             hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
           }`}
         >
-          {(hadProducedAtMount || (useTotalLength && orderActions)) && (
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <p className="text-[11px] font-medium text-amber-700">
-                {hadProducedAtMount && <>↳ {t('orders.advanced.autoFilledNote')}</>}
-              </p>
-              {/* Total-meters orders have no size blocks → actions up here. */}
-              {useTotalLength && orderActions}
-            </div>
-          )}
-          {useTotalLength ? (
-            isProfiles ? (
-              <BatchRowsArray
-                orderIdx={idx}
-                countFieldName="producedProfiles"
-                rateFieldName="profilesPerPackage"
-                totalFieldName="producedPackages"
-                countLabel={t('orders.advanced.profilesProduced')}
-                lengthLabel={t('orders.profileLength')}
-                rateLabel={t('orders.profilesPerPackage')}
-                totalLabel={t('orders.advanced.packagesProduced')}
-                countDisabled={profilesBlockedByPackagePath}
-                rateDisabled={false}
-                totalDisabled={
-                  packagePathBlockedByProfiles || !perPackageEntered
-                }
-                t={t}
-              />
-            ) : (
-              <BatchRowsArray
-                orderIdx={idx}
-                countFieldName="producedSheets"
-                rateFieldName="sheetsPerPallet"
-                totalFieldName="producedPallets"
-                countLabel={t('orders.advanced.sheetsProduced')}
-                lengthLabel={t('orders.sheetLength')}
-                rateLabel={t('orders.advanced.sheetsPerPallet')}
-                totalLabel={t('orders.advanced.palletsProduced')}
-                countDisabled={sheetsBlockedByPalletPath}
-                rateDisabled={false}
-                totalDisabled={
-                  palletPathBlockedBySheets || !perPalletEntered
-                }
-                t={t}
-              />
-            )
+          {hadProducedAtMount ? (
+            <AutoFilledNote t={t} action={orderActions} />
           ) : (
-            (watchedSizes ?? [{}]).map((_, sIdx) =>
-              visibleSizeIdxs && !visibleSizeIdxs.has(sIdx) ? null : isProfiles ? (
-                <SizeAdvancedBlockProfili
-                  // Keyed by the size's stable uid so a block (and its seeded row)
-                  // follows its size through insert / remove / reorder.
-                  key={watchedSizes?.[sIdx]?.uid ?? sIdx}
-                  orderIdx={idx}
-                  sizeIdx={sIdx}
-                  totalSizes={watchedSizes?.length ?? 1}
-                  actions={sizeActions(sIdx, watchedSizes?.length ?? 1)}
-                  countDisabled={profilesBlockedByPackagePath}
-                  totalDisabled={
-                    packagePathBlockedByProfiles || !perPackageEntered
-                  }
-                  showTotal={(perPaccoPerSize[sIdx] ?? 0) > 0}
-                  countLabel={t('orders.advanced.profilesProduced')}
-                  totalLabel={t('orders.advanced.packagesProduced')}
-                  t={t}
-                />
-              ) : (
-                <SizeAdvancedBlockListi
-                  // Keyed by the size's stable uid so a block (and its seeded row)
-                  // follows its size through insert / remove / reorder.
-                  key={watchedSizes?.[sIdx]?.uid ?? sIdx}
-                  orderIdx={idx}
-                  sizeIdx={sIdx}
-                  totalSizes={watchedSizes?.length ?? 1}
-                  actions={sizeActions(sIdx, watchedSizes?.length ?? 1)}
-                  inheritedRate={ratePerSize[sIdx]}
-                  countDisabled={sheetsBlockedByPalletPath}
-                  rateDisabled={false}
-                  totalDisabled={
-                    palletPathBlockedBySheets || !perPalletEntered
-                  }
-                  countLabel={t('orders.advanced.sheetsProduced')}
-                  rateLabel={t('orders.advanced.sheetsPerPallet')}
-                  totalLabel={t('orders.advanced.palletsProduced')}
-                  t={t}
-                />
-              ),
+            orderActions && (
+              <div className="mb-2 flex justify-end">{orderActions}</div>
             )
+          )}
+          {isProfiles ? (
+            <BatchRowsArray
+              orderIdx={idx}
+              countFieldName="producedProfiles"
+              rateFieldName="profilesPerPackage"
+              totalFieldName="producedPackages"
+              countLabel={t('orders.advanced.profilesProduced')}
+              lengthLabel={t('orders.profileLength')}
+              rateLabel={t('orders.profilesPerPackage')}
+              totalLabel={t('orders.advanced.packagesProduced')}
+              countDisabled={f.profilesBlockedByPackagePath}
+              rateDisabled={false}
+              totalDisabled={
+                f.packagePathBlockedByProfiles || !f.perPackageEntered
+              }
+              t={t}
+            />
+          ) : (
+            <BatchRowsArray
+              orderIdx={idx}
+              countFieldName="producedSheets"
+              rateFieldName="sheetsPerPallet"
+              totalFieldName="producedPallets"
+              countLabel={t('orders.advanced.sheetsProduced')}
+              lengthLabel={t('orders.sheetLength')}
+              rateLabel={t('orders.advanced.sheetsPerPallet')}
+              totalLabel={t('orders.advanced.palletsProduced')}
+              countDisabled={f.sheetsBlockedByPalletPath}
+              rateDisabled={false}
+              totalDisabled={f.palletPathBlockedBySheets || !f.perPalletEntered}
+              t={t}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A size's Calcolo Avanzato, under its own row: a small toggle (not like the
+ * order's links — "Leggi Misure da Foto"), the size's produced counts and
+ * buttons in its panel. Opens by itself on the size in production and on one
+ * a tracked calc filled in (amber, with its note).
+ */
+function SizeAdvancedPanel({
+  orderIdx,
+  sizeIdx,
+  totalSizes,
+  mode,
+  t,
+  activeSizeIdx,
+  onCompleteSize,
+  onPrioritizeSize,
+  onStop,
+}: {
+  orderIdx: number;
+  sizeIdx: number;
+  totalSizes: number;
+  mode: CalculatorMode;
+  t: TFunction;
+  /** The size in production on this (active) order — gets the ⏹ button. */
+  activeSizeIdx?: number | null;
+  /** ✓ mark one size fully produced (multi-size orders). */
+  onCompleteSize?: (sizeIdx: number) => void;
+  /** ▶ produce this size next, out of the queue. */
+  onPrioritizeSize?: (sizeIdx: number) => void;
+  /** ⏹ "Ferma produzione" (the order in production). */
+  onStop?: () => void;
+}) {
+  'use no memo';
+  const { getValues } = useFormContext<FormValues>();
+  const f = useAdvancedFlags(orderIdx);
+  const [hadProducedAtMount] = useState(() =>
+    producedAtMount(getValues(`orders.${orderIdx}`), sizeIdx),
+  );
+  const [open, setOpen] = useState(
+    hadProducedAtMount || sizeIdx === activeSizeIdx,
+  );
+  const actions = sizeActionsFor({
+    sizeIdx,
+    totalSizes,
+    activeSizeIdx,
+    onCompleteSize,
+    onPrioritizeSize,
+    onStop,
+    t,
+  });
+  const uid = getValues(`orders.${orderIdx}.sizes.${sizeIdx}.uid`);
+
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        data-view
+        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] leading-tight font-medium transition sm:text-[11px] ${
+          open
+            ? 'border-brand-200 bg-brand-50 text-brand-700'
+            : 'border-neutral-300 bg-white text-ink-soft hover:border-brand-300 hover:text-brand-700'
+        }`}
+      >
+        <span aria-hidden>{open ? '▾' : '▸'}</span>
+        {t('orders.advancedSizeToggle')}
+      </button>
+      {open && (
+        <div
+          className={`mt-1.5 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
+            hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
+          }`}
+        >
+          {/* Filled in: the size's buttons beside the note, not on a line
+              of their own. */}
+          {hadProducedAtMount && <AutoFilledNote t={t} action={actions} />}
+          {mode === 'profiles' ? (
+            <SizeAdvancedBlockProfili
+              // Keyed by the size's stable uid: a block (and its seeded row)
+              // follows its size through insert / remove / reorder.
+              key={uid ?? sizeIdx}
+              orderIdx={orderIdx}
+              sizeIdx={sizeIdx}
+              actions={hadProducedAtMount ? undefined : actions}
+              countDisabled={f.profilesBlockedByPackagePath}
+              totalDisabled={
+                f.packagePathBlockedByProfiles || !f.perPackageEntered
+              }
+              showTotal={(f.perPaccoPerSize[sizeIdx] ?? 0) > 0}
+              countLabel={t('orders.advanced.profilesProduced')}
+              totalLabel={t('orders.advanced.packagesProduced')}
+              t={t}
+            />
+          ) : (
+            <SizeAdvancedBlockListi
+              key={uid ?? sizeIdx}
+              orderIdx={orderIdx}
+              sizeIdx={sizeIdx}
+              actions={hadProducedAtMount ? undefined : actions}
+              inheritedRate={f.ratePerSize[sizeIdx]}
+              countDisabled={f.sheetsBlockedByPalletPath}
+              rateDisabled={false}
+              totalDisabled={f.palletPathBlockedBySheets || !f.perPalletEntered}
+              countLabel={t('orders.advanced.sheetsProduced')}
+              rateLabel={t('orders.advanced.sheetsPerPallet')}
+              totalLabel={t('orders.advanced.palletsProduced')}
+              t={t}
+            />
           )}
         </div>
       )}
@@ -2264,29 +2371,12 @@ const sizeBlockBtnBase = `${squareBtnBase} bg-white`;
 const advLabelCls =
   'block text-[9px] leading-tight font-medium tracking-wide text-ink-soft uppercase sm:text-[10px]';
 
-/** "#N" of the size (several sizes) and its actions (✓ / ▶ / ⏹). */
-function SizeBlockHeader({
-  sizeIdx,
-  totalSizes,
-  actions,
-}: {
-  sizeIdx: number;
-  totalSizes: number;
-  /** Per-size action buttons (✓ / ▶ / ⏹), right of the "#N" badge. */
-  actions?: ReactNode;
-}) {
-  if (totalSizes <= 1 && !actions) return null;
+/** The size's buttons (✓ / ▶ / ⏹) over its Calcolo Avanzato entries — no
+ *  "#N": the block sits right under its own size row. */
+function SizeBlockHeader({ actions }: { actions?: ReactNode }) {
+  if (!actions) return null;
   return (
-    <div className="mb-1 flex items-center justify-between gap-2">
-      {totalSizes > 1 ? (
-        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-brand-100 px-1.5 text-xs font-bold text-brand-700">
-          #{sizeIdx + 1}
-        </span>
-      ) : (
-        <span />
-      )}
-      {actions}
-    </div>
+    <div className="mb-1 flex items-center justify-end gap-2">{actions}</div>
   );
 }
 
@@ -2447,7 +2537,6 @@ interface AdvRate {
 function AdvBlockLayout({
   isPhone,
   sizeIdx,
-  totalSizes,
   actions,
   rows,
   labels,
@@ -2462,7 +2551,6 @@ function AdvBlockLayout({
 }: {
   isPhone: boolean;
   sizeIdx: number;
-  totalSizes: number;
   actions?: ReactNode;
   /** The entries' array positions (null: not seeded yet). */
   rows: (number | null)[];
@@ -2524,11 +2612,7 @@ function AdvBlockLayout({
     ].join(' ');
     return (
       <>
-        <SizeBlockHeader
-          sizeIdx={sizeIdx}
-          totalSizes={totalSizes}
-          actions={actions}
-        />
+        <SizeBlockHeader actions={actions} />
         <div
           className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
           style={{ gridTemplateColumns: cols }}
@@ -2574,8 +2658,6 @@ function AdvBlockLayout({
   return (
     <>
       <SizeBlockHeader
-        sizeIdx={sizeIdx}
-        totalSizes={totalSizes}
         actions={
           actions ? (
             <div className="flex items-center gap-1.5">
@@ -2643,7 +2725,6 @@ function AdvBlockLayout({
 function SizeAdvancedBlockListi({
   orderIdx,
   sizeIdx,
-  totalSizes,
   countDisabled,
   rateDisabled,
   totalDisabled,
@@ -2656,7 +2737,6 @@ function SizeAdvancedBlockListi({
 }: {
   orderIdx: number;
   sizeIdx: number;
-  totalSizes: number;
   /** The lastre-per-bancale in force for this size (its own, else inherited
    *  from the previous size of the order) — shown greyed in empty rate fields. */
   inheritedRate?: number;
@@ -2753,7 +2833,6 @@ function SizeAdvancedBlockListi({
       <AdvBlockLayout
         isPhone={isPhone}
         sizeIdx={sizeIdx}
-        totalSizes={totalSizes}
         actions={actions}
         rows={rows}
         labels={{ count: countLabel, total: totalLabel }}
@@ -2833,7 +2912,6 @@ function SizeAdvancedBlockListi({
 function SizeAdvancedBlockProfili({
   orderIdx,
   sizeIdx,
-  totalSizes,
   countDisabled,
   totalDisabled,
   showTotal,
@@ -2844,7 +2922,6 @@ function SizeAdvancedBlockProfili({
 }: {
   orderIdx: number;
   sizeIdx: number;
-  totalSizes: number;
   countDisabled: boolean;
   totalDisabled: boolean;
   /** Pacchi prodotti only once a per-pacco is in force for this size — set
@@ -2906,7 +2983,6 @@ function SizeAdvancedBlockProfili({
       <AdvBlockLayout
         isPhone={isPhone}
         sizeIdx={sizeIdx}
-        totalSizes={totalSizes}
         actions={actions}
         rows={rows}
         labels={{ count: countLabel, total: totalLabel }}
@@ -3290,18 +3366,16 @@ function SizesFieldArray({
   orderIdx,
   mode,
   t,
-  afterSizes,
+  sizeAdvanced,
   activeSizeIdx,
   editingId,
 }: {
   orderIdx: number;
   mode: CalculatorMode;
   t: TFunction;
-  /** Rendered between the size rows and the photo-scanner block (used for the
-   *  advanced section, so its order is sizes → advanced → scanner). Receives the
-   *  set of visible size indices (active + manually-expanded) so the advanced
-   *  blocks stay in sync with which size rows are open. Null → all visible. */
-  afterSizes?: (visibleSizeIdxs: Set<number> | null) => ReactNode;
+  /** A size's Calcolo Avanzato, under its row (an open one: a collapsed
+   *  summary has none). */
+  sizeAdvanced?: (sizeIdx: number, totalSizes: number) => ReactNode;
   /** Active order (saved view): the size in production — other sizes collapse
    *  to a summary (click to expand). Null → all sizes shown. */
   activeSizeIdx?: number | null;
@@ -3484,17 +3558,6 @@ function SizesFieldArray({
     ? t('orders.profileLength')
     : t('orders.sheetLength');
 
-  // Which sizes' advanced blocks to show: the active one plus any the user
-  // manually expanded from their collapsed summary — so opening a size row also
-  // reveals its "Calcolo Avanzato". Null (no active size) → show all.
-  const visibleSizeIdxs =
-    activeSizeIdx == null
-      ? null
-      : new Set<number>([
-          activeSizeIdx,
-          ...sizeFields.flatMap((f, i) => (expandedSizes.has(f.id) ? [i] : [])),
-        ]);
-
   // Profili per pacco per size: its own value, else the previous size's of this
   // order (never across orders) — what an empty size inherits; shown greyed in
   // its field so it can be seen and overridden.
@@ -3600,6 +3663,8 @@ function SizesFieldArray({
                       ref={setNodeRef}
                       style={style}
                       id={`size-${orderIdx}-${sIdx}`}
+                    >
+                    <div
                       // The size in production blinks (saved view), framed
                       // without shifting the inputs (-mx-2 + px-2).
                       className={`flex items-end gap-2 ${
@@ -3717,6 +3782,13 @@ function SizesFieldArray({
               </button>
                       </div>
                     </div>
+                    {sizeAdvanced && (
+                      // In line with the fields (past the drag handle).
+                      <div className={canReorder ? 'pl-7' : ''}>
+                        {sizeAdvanced(sIdx, sizeFields.length)}
+                      </div>
+                    )}
+                    </div>
                   )}
                 </SortableItem>
               );
@@ -3725,7 +3797,6 @@ function SizesFieldArray({
         </SortableContext>
       </DndContext>
 
-      {afterSizes?.(visibleSizeIdxs)}
 
       <div className="mt-3 border-t border-neutral-200 pt-3">
         <button
