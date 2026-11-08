@@ -5,6 +5,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { usePauseSetter } from '../hooks/usePauseSetter';
 import { fmtPause, pauseColorHex, type PauseReason } from '../lib/pauseReasons';
 import { inputBase } from './formStyles';
+import MarqueeText from './MarqueeText';
 
 /** The two orders on either side of a product change (form numbers + names). */
 export interface ProductChangeSides {
@@ -13,6 +14,10 @@ export interface ProductChangeSides {
   from: string;
   to: string;
 }
+
+// "#3 Name → #4 Other" as one line of text.
+const sidesText = ({ idx, from, to }: ProductChangeSides) =>
+  `#${idx + 1} ${from.trim()} → #${idx + 2} ${to.trim()}`;
 
 function Sides({ idx, from, to }: ProductChangeSides) {
   return (
@@ -166,9 +171,11 @@ export function ProductChangeStrip(change: ProductChangeSides) {
     <div className="edit-only no-print flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:text-sm">
       <span className="min-w-0 flex-1 basis-48">
         <span className="font-semibold">⚠ {t('orders.productChangeStrip')}</span>
-        <span className="block truncate text-[11px] text-amber-800 sm:text-xs">
-          <Sides {...change} />
-        </span>
+        {/* Long product names scroll. */}
+        <MarqueeText
+          text={sidesText(change)}
+          className="text-[11px] text-amber-800 sm:text-xs"
+        />
       </span>
       <select
         aria-label={t('orders.productChangePick')}

@@ -17,6 +17,7 @@ import { setProducedNow } from '../utils/calcMerge';
 import type { CalcVersion } from '../utils/calcDiff';
 import { stageAt, stageSizes, type ReportStage, type StageSize } from '../utils/companyReport';
 import { formatDateParts, formatShortDateTime } from '../utils/format';
+import MarqueeText from '../components/MarqueeText';
 
 /** How often the times / counts move on, and the list is read again (ms). */
 const TICK_MS = 30_000;
@@ -350,7 +351,8 @@ function ProductionCard({
             </span>
             <OrderNumberTag value={stage.orderNumber} />
             {stage.productName && (
-              <span className="min-w-0 truncate text-ink">{stage.productName}</span>
+              // A long name scrolls.
+              <MarqueeText text={stage.productName} className="text-ink" />
             )}
           </span>
         )}

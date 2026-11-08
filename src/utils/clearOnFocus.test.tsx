@@ -157,6 +157,24 @@ describe('clearOnFocus', () => {
     }
   });
 
+  it('shows the name of a field named by its hint, not the old value', async () => {
+    render(
+      <input
+        aria-label="len"
+        type="number"
+        placeholder="Lunghezza (mm)"
+        defaultValue="6000"
+        data-name-hint
+      />,
+    );
+    await userEvent.click(field('len'));
+    expect(field('len').value).toBe('');
+    expect(field('len').placeholder).toBe('Lunghezza (mm)');
+    await userEvent.tab();
+    expect(field('len').value).toBe('6000');
+    expect(field('len').placeholder).toBe('Lunghezza (mm)');
+  });
+
   it('keeps the hint of an empty field', async () => {
     render(<input aria-label="empty" placeholder="eredita: 1,8" />);
     await userEvent.click(field('empty'));

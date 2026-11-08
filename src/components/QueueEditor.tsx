@@ -31,6 +31,7 @@ import {
   stepInfo,
   type SeqStep,
 } from '../utils/queue';
+import MarqueeText from './MarqueeText';
 
 interface Props {
   mode: CalculatorMode;
@@ -192,9 +193,11 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
                                 {info.size}
                               </span>
                               {info.name && (
-                                <span className="block truncate text-[11px] text-ink-soft">
-                                  {info.name}
-                                </span>
+                                // A long product name scrolls.
+                                <MarqueeText
+                                  text={info.name}
+                                  className="text-[11px] text-ink-soft"
+                                />
                               )}
                             </span>
                             {done && (

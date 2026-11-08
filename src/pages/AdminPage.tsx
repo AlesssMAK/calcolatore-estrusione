@@ -27,6 +27,7 @@ import {
   SettingsIcon,
 } from '../components/ActionIcons';
 import { toolBtnCls, toolIconCls } from '../components/toolButton';
+import MarqueeText from '../components/MarqueeText';
 
 type AdminTab = 'products' | 'companies';
 
@@ -349,7 +350,8 @@ function AdminPage() {
                       className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-ink">{p.name}</p>
+                        {/* A long product name scrolls. */}
+                        <MarqueeText text={p.name} className="text-sm font-medium text-ink" />
                         <p className="mt-0.5 text-xs text-ink-soft">
                           {categoryLabel(p)} ·{' '}
                           <span className="font-semibold text-brand-700">

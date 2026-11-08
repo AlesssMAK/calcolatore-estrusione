@@ -13,6 +13,7 @@ import {
   stepRemaining,
   type SeqStep,
 } from '../utils/queue';
+import MarqueeText from './MarqueeText';
 
 interface Props {
   mode: CalculatorMode;
@@ -115,9 +116,11 @@ function StopPicker({ mode, stopped, onClose, onPick }: Props) {
                           {info.size}
                         </span>
                         {info.name && (
-                          <span className="block truncate text-[11px] text-ink-soft">
-                            {info.name}
-                          </span>
+                          // A long product name scrolls.
+                          <MarqueeText
+                            text={info.name}
+                            className="text-[11px] text-ink-soft"
+                          />
                         )}
                       </span>
                       <span aria-hidden className="shrink-0 text-brand-600">
