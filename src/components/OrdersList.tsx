@@ -1288,7 +1288,9 @@ function OrderFields({
           />
         )}
         {actions && (
-          <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 self-start">
+          // Beside the speed (flex-1) the auto margins get nothing; alone on
+          // the row above, they center the buttons.
+          <div className="mx-auto flex max-w-full shrink-0 flex-wrap items-center justify-center gap-2 self-start">
             <span ref={setPackSlot} className="contents" />
             <span ref={setCavitySlot} className="contents" />
             {actions}
