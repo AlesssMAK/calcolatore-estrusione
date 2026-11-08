@@ -1212,6 +1212,8 @@ function OrderFields({
   const sizesWatched = useWatch({ control, name: `orders.${idx}.sizes` });
   const sizesCount = sizesWatched?.length ?? 0;
   const isProfiles = mode === 'profiles';
+  // A phone names a field by its grey hint; wider, a label above it.
+  const isPhone = useMediaQuery('(max-width: 639px)');
   const showInlinePerPackage =
     isProfiles && !useTotalLength && sizesCount <= 1;
   const isFirst = idx === 0;
@@ -1239,18 +1241,21 @@ function OrderFields({
       <div className="flex flex-wrap-reverse items-start justify-around gap-2 sm:gap-3">
         {isFirst ? (
           <div className="min-w-16 flex-1">
-            {/* No label above: the name is the field's grey hint, and its
-                tooltip on hover — as for the product name. */}
+            {/* Phone: no label above — the name is the field's grey hint (and
+                its tooltip), as for the product name. Wider: the label. */}
+            {!isPhone && (
+              <label className={labelBase}>{t('orders.speed')}</label>
+            )}
             <input
               type="number"
               min="0"
               step="0.1"
               inputMode="decimal"
-              placeholder={t('orders.speed')}
-              data-name-hint
+              placeholder={isPhone ? t('orders.speed') : undefined}
+              data-name-hint={isPhone || undefined}
               title={t('orders.speed')}
               aria-label={t('orders.speed')}
-              className={inputBase}
+              className={isPhone ? inputBase : `${inputBase} mt-1`}
               {...errorAttrs(
                 rowErr?.speedMPerMin?.message
                   ? t(`validation.${rowErr.speedMPerMin.message}`)
@@ -1335,17 +1340,20 @@ function OrderFields({
       {useTotalLength ? (
         <>
           <div>
+            {!isPhone && (
+              <label className={labelBase}>{t('orders.totalLength')}</label>
+            )}
             <input
               id={`qty-${idx}`}
               type="number"
               min="0"
               step="0.01"
               inputMode="decimal"
-              placeholder={t('orders.totalLength')}
-              data-name-hint
+              placeholder={isPhone ? t('orders.totalLength') : undefined}
+              data-name-hint={isPhone || undefined}
               title={t('orders.totalLength')}
               aria-label={t('orders.totalLength')}
-              className={`${inputBase} sm:max-w-xs`}
+              className={`${inputBase} ${isPhone ? '' : 'mt-1'} sm:max-w-xs`}
               {...errorAttrs(
                 rowErr?.totalLengthM?.message
                   ? t(`validation.${rowErr.totalLengthM.message}`)
@@ -1527,6 +1535,8 @@ function CollapsibleInheritField({
   const hasValue = value !== undefined && value !== null;
   const [open, setOpen] = useState(false);
   const showInput = open || hasValue;
+  // A phone names the field by its grey hint; wider, a label above it.
+  const isPhone = useMediaQuery('(max-width: 639px)');
 
   const titleText = inheritLabel
     ? `${label} (${inheritLabel}${placeholder ? `: ${placeholder}` : ''})`
@@ -1557,20 +1567,34 @@ function CollapsibleInheritField({
   const reg = register(fieldPath, { setValueAs: numericSetValueAs });
   return (
     <div className={expandedClassName}>
-      {/* No label above: the grey hint is the value it would inherit, else
-          the field's name — its name too while a value of its own is retyped
-          (data-name-hint); the full description is the tooltip. */}
+      {/* Phone: no label above — the grey hint is the value it would
+          inherit, else the field's name, its name too while a value of its
+          own is retyped (data-name-hint); the full description is the
+          tooltip. Wider: the label (and what it inherits) above, the hint
+          just the inherited value. */}
+      {!isPhone && (
+        <label className={labelBase}>
+          {label}
+          {inheritLabel && (
+            <span className="ml-1 normal-case text-ink-soft">
+              ({inheritLabel})
+            </span>
+          )}
+        </label>
+      )}
       <input
         type="number"
         min={inputProps.min}
         step={inputProps.step}
         inputMode={inputProps.inputMode}
         autoFocus={open && !hasValue}
-        placeholder={hasValue ? label : (placeholder ?? label)}
-        data-name-hint
+        placeholder={
+          isPhone ? (hasValue ? label : (placeholder ?? label)) : placeholder
+        }
+        data-name-hint={isPhone || undefined}
         title={titleText}
         aria-label={titleText}
-        className={compact ? sizeInputBase : inputBase}
+        className={`${compact ? sizeInputBase : inputBase} ${isPhone ? '' : 'mt-1'}`}
         {...errorAttrs(errorMessage)}
         {...reg}
         {...chainHandlers(chain)}
@@ -3551,8 +3575,10 @@ function SizesFieldArray({
       : null;
 
   const isProfiles = mode === 'profiles';
-  // No labels above the size fields: the name is the grey hint (the length
-  // just "Lunghezza (mm)"), the full one is the tooltip.
+  // A phone names a field by its grey hint; wider, a label above it.
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  // Phone: no labels above the size fields — the name is the grey hint (the
+  // length just "Lunghezza (mm)"), the full one the tooltip. Wider: labels.
   const sheetsLabel = isProfiles ? t('orders.profiles') : t('orders.sheets');
   const lengthTitle = isProfiles
     ? t('orders.profileLength')
@@ -3690,17 +3716,18 @@ function SizesFieldArray({
                         className={`grid ${gridCols} min-w-0 flex-1 items-end gap-2 sm:gap-3`}
                       >
                         <div className="min-w-0">
+                {!isPhone && <label className={labelBase}>{sheetsLabel}</label>}
                 <input
                   id={sIdx === 0 ? `qty-${orderIdx}` : undefined}
                   type="number"
                   min="1"
                   step="1"
                   inputMode="numeric"
-                  placeholder={sheetsLabel}
-                  data-name-hint
+                  placeholder={isPhone ? sheetsLabel : undefined}
+                  data-name-hint={isPhone || undefined}
                   title={sheetsLabel}
                   aria-label={sheetsLabel}
-                  className={sizeInputBase}
+                  className={isPhone ? sizeInputBase : `${sizeInputBase} mt-1`}
                   {...errorAttrs(
                     sizeErr?.sheets?.message
                       ? t(`validation.${sizeErr.sheets.message}`)
@@ -3713,16 +3740,17 @@ function SizesFieldArray({
               </div>
 
               <div className="min-w-0">
+                {!isPhone && <label className={labelBase}>{lengthTitle}</label>}
                 <input
                   type="number"
                   min="1"
                   step="1"
                   inputMode="numeric"
-                  placeholder={t('orders.length')}
-                  data-name-hint
+                  placeholder={isPhone ? t('orders.length') : undefined}
+                  data-name-hint={isPhone || undefined}
                   title={lengthTitle}
                   aria-label={lengthTitle}
-                  className={sizeInputBase}
+                  className={isPhone ? sizeInputBase : `${sizeInputBase} mt-1`}
                   {...errorAttrs(
                     sizeErr?.length?.message
                       ? t(`validation.${sizeErr.length.message}`)
