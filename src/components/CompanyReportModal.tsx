@@ -8,6 +8,7 @@ import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
 import ReportFilters from './ReportFilters';
 import { useReportMoment } from '../hooks/useReportMoment';
+import MarqueeText from './MarqueeText';
 
 interface Props {
   onClose: () => void;
@@ -162,9 +163,8 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                           </span>
                           <OrderNumberTag value={stage.orderNumber} />
                           {stage.productName && (
-                            <span className="min-w-0 truncate text-ink">
-                              {stage.productName}
-                            </span>
+                            // A long name scrolls.
+                            <MarqueeText text={stage.productName} className="text-ink" />
                           )}
                         </span>
                         <span className="mt-1 block text-ink-soft">

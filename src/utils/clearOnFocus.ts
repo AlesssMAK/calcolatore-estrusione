@@ -3,6 +3,9 @@
 // untouched, the field gets it back; typed over, the new value replaces it.
 // To really empty a field: type something and delete it.
 //
+// A field whose grey hint is its name (`data-name-hint`: no label above it)
+// keeps that hint instead — what to type there shows until typing starts.
+//
 // One listener for the whole app, so a new field gets this by itself. Opt out
 // with `data-keep-value` (a field with its own handling, a password).
 //
@@ -53,7 +56,7 @@ export function installClearOnFocus(): () => void {
       return;
     }
     cleared = { el, value: el.value, placeholder: el.placeholder };
-    el.placeholder = el.value;
+    if (!el.hasAttribute('data-name-hint')) el.placeholder = el.value;
     setShownValue(el, '');
   };
 

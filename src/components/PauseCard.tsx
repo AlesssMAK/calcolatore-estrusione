@@ -17,6 +17,9 @@ import { inputBase } from './formStyles';
 import MarqueeText from './MarqueeText';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { PauseKeptNote, type ProductChangeSides } from './ProductChange';
+import { useTrackedResult } from '../contexts/trackedResult';
+import { rowForOrder } from '../utils/formTiming';
+import { formatSpan } from '../utils/format';
 
 // Pause slots (minutes): 30-min steps up to 12 h.
 const PAUSE_SLOTS: number[] = [];
@@ -78,6 +81,15 @@ function PauseCard({
   // A fixed duration is already set — its minutes fold away (▸ to change them).
   const foldable = standard != null;
   const showTime = !foldable || expanded || !!err;
+  // Tracked calc (Salvati / Produzione): when the pause runs, from the last
+  // "Calcola" — not once its minutes have been changed since.
+  const result = useTrackedResult();
+  const orderId = useWatch({ control, name: `orders.${idx}.id` });
+  const row = rowForOrder(result, orderId);
+  const span =
+    row?.gapStart && row.gapEnd && row.gapAfterMin === minutes
+      ? formatSpan(row.gapStart, row.gapEnd)
+      : null;
 
   return (
     <div
@@ -146,6 +158,9 @@ function PauseCard({
             </button>
           )}
         </div>
+      )}
+      {span && (
+        <p className="mt-1 text-[11px] text-ink-soft tabular-nums">{span}</p>
       )}
       {isLast && <p className="mt-1 text-[11px] text-ink-soft">{t('orders.pauseNoNext')}</p>}
       {kept && <PauseKeptNote {...kept} />}
