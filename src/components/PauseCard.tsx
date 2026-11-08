@@ -12,7 +12,6 @@ import {
 } from '../lib/pauseReasons';
 import type { PauseReasonSnapshot } from '../types';
 import { numericSetValueAs } from '../utils/numeric';
-import FieldError from './FieldError';
 import { inputBase } from './formStyles';
 import MarqueeText from './MarqueeText';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
@@ -20,6 +19,7 @@ import { PauseKeptNote, type ProductChangeSides } from './ProductChange';
 import { useTrackedResult } from '../contexts/trackedResult';
 import { rowForOrder } from '../utils/formTiming';
 import { formatSpan } from '../utils/format';
+import { errorAttrs } from '../utils/errorBubble';
 
 // Pause slots (minutes): 30-min steps up to 12 h.
 const PAUSE_SLOTS: number[] = [];
@@ -143,7 +143,11 @@ function PauseCard({
       {showTime && (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="w-32 sm:w-36">
-            <PauseField idx={idx} t={t} />
+            <PauseField
+              idx={idx}
+              t={t}
+              error={err ? t(`validation.${err}`) : undefined}
+            />
           </div>
           <span className="text-xs text-ink-soft">
             min{minutes >= 60 ? ` · ${fmtPause(minutes)}` : ''}
@@ -164,7 +168,6 @@ function PauseCard({
       )}
       {isLast && <p className="mt-1 text-[11px] text-ink-soft">{t('orders.pauseNoNext')}</p>}
       {kept && <PauseKeptNote {...kept} />}
-      <FieldError message={err ? t(`validation.${err}`) : undefined} />
     </div>
   );
 }
@@ -294,7 +297,16 @@ function ReasonPicker({
 }
 
 // Minutes: free numeric input + a ▾ list of 30-min slots to pick.
-function PauseField({ idx, t }: { idx: number; t: TFunction }) {
+function PauseField({
+  idx,
+  t,
+  error,
+}: {
+  idx: number;
+  t: TFunction;
+  /** Its error: the field framed red, the message in its bubble. */
+  error?: string;
+}) {
   'use no memo';
   const { register, setValue, control } = useFormContext<FormValues>();
   const value = useWatch({ control, name: `orders.${idx}.gapAfterMin` });
@@ -336,6 +348,7 @@ function PauseField({ idx, t }: { idx: number; t: TFunction }) {
         inputMode="numeric"
         aria-label={t('orders.gapAfter')}
         className={inputBase}
+        {...errorAttrs(error)}
         {...register(`orders.${idx}.gapAfterMin`, {
           setValueAs: numericSetValueAs,
         })}

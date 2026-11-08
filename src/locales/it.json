@@ -23,6 +23,7 @@
     },
     "startAt": "Data e Ora di Inizio",
     "startAtPastWarning": "La data di inizio è nel passato.",
+    "time": "Ora",
     "toggle": {
       "manualStart": "Imposta Orario",
       "productName": "Nome Calcolo",
@@ -344,8 +345,6 @@
     "currentHint": "Quando finisce l’ordine in lavorazione di ogni calcolo.",
     "closingAt": "Stato alla chiusura della linea:",
     "noClosing": "La linea lavora 24/7: non c’è una chiusura.",
-    "day": "Giorno",
-    "hour": "Ora",
     "orderEnd": "Fine ordine",
     "starts": "Inizia",
     "ended": "Finito",

@@ -175,6 +175,25 @@ describe('clearOnFocus', () => {
     expect(field('len').placeholder).toBe('Lunghezza (mm)');
   });
 
+  it('shows a wrong value as the hint, even of a field named by its hint', async () => {
+    render(
+      <input
+        aria-label="speed"
+        type="number"
+        placeholder="Velocità"
+        defaultValue="0"
+        data-name-hint
+        aria-invalid
+      />,
+    );
+    await userEvent.click(field('speed'));
+    expect(field('speed').value).toBe('');
+    expect(field('speed').placeholder).toBe('0');
+    await userEvent.tab();
+    expect(field('speed').value).toBe('0');
+    expect(field('speed').placeholder).toBe('Velocità');
+  });
+
   it('keeps the hint of an empty field', async () => {
     render(<input aria-label="empty" placeholder="eredita: 1,8" />);
     await userEvent.click(field('empty'));

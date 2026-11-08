@@ -408,7 +408,7 @@ function CalculatorForm({
     onShowForm();
     const scrollToError = () => {
       const firstError = document.querySelector(
-        '[aria-invalid="true"], .text-danger',
+        '[aria-invalid="true"], [data-form-error]',
       );
       if (firstError instanceof HTMLElement) {
         firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });

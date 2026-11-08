@@ -87,6 +87,11 @@ button:disabled,
 .react-datepicker__triangle {
   display: none;
 }
+/* Its popup lives at the page's end (portalId): over a modal (the Report),
+   never cut by it. */
+.react-datepicker-popper {
+  z-index: 60;
+}
 
 /* Mobile: portal modal — calendar full screen width, time list below, fixed nav buttons */
 .react-datepicker__portal {
@@ -337,4 +342,73 @@ button:disabled,
 .calc-frozen .num-blink {
   animation: none;
   color: var(--color-brand-700);
+}
+
+/* A field in error (utils/errorBubble): framed red, its grey hint (the
+   field's name) red too — no message under it; the message is the bubble
+   over the field while it has the focus. Unlayered: over the utilities. */
+input[aria-invalid='true'],
+textarea[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: var(--color-danger);
+  background-color: #fff5f5;
+}
+input[aria-invalid='true']:focus,
+textarea[aria-invalid='true']:focus,
+select[aria-invalid='true']:focus {
+  --tw-ring-color: color-mix(in oklab, var(--color-danger) 25%, transparent);
+}
+input[aria-invalid='true']::placeholder,
+textarea[aria-invalid='true']::placeholder {
+  color: color-mix(in oklab, var(--color-danger) 75%, transparent);
+}
+.error-bubble {
+  position: fixed;
+  z-index: 60;
+  max-width: min(16rem, calc(100vw - 16px));
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: var(--color-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+  pointer-events: none;
+  animation: error-bubble-in 0.12s ease-out;
+}
+.error-bubble::after {
+  content: '';
+  position: absolute;
+  left: var(--tip-x, 12px);
+  width: 8px;
+  height: 8px;
+  background-color: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.error-bubble[data-side='top']::after {
+  bottom: -4px;
+}
+.error-bubble[data-side='bottom']::after {
+  top: -4px;
+}
+@media (min-width: 640px) {
+  .error-bubble {
+    font-size: 12px;
+  }
+}
+@keyframes error-bubble-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .error-bubble {
+    animation: none;
+  }
+}
+@media print {
+  .error-bubble {
+    display: none;
+  }
 }

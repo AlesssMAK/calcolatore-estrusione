@@ -67,10 +67,10 @@ import type { CatalogProduct } from '../lib/catalog';
 import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { PalletIcon, StopIcon } from './ActionIcons';
-import FieldError from './FieldError';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
+import { errorAttrs } from '../utils/errorBubble';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
 import { inputBase, labelBase } from './formStyles';
@@ -1205,7 +1205,7 @@ function OrderFields({
           Alone on that row they're centered (justify-around); beside the
           speed they're at the right: a field (flex-1) leaves no free space,
           the collapsed ⚡ takes it with mr-auto. */}
-      <div className="flex flex-wrap-reverse items-start justify-around gap-2 pb-5 sm:gap-3">
+      <div className="flex flex-wrap-reverse items-start justify-around gap-2 sm:gap-3">
         {isFirst ? (
           <div className="min-w-16 flex-1">
             {/* No label above: the name is the field's grey hint, and its
@@ -1220,19 +1220,17 @@ function OrderFields({
               title={t('orders.speed')}
               aria-label={t('orders.speed')}
               className={inputBase}
+              {...errorAttrs(
+                rowErr?.speedMPerMin?.message
+                  ? t(`validation.${rowErr.speedMPerMin.message}`)
+                  : undefined,
+              )}
               {...speedReg}
               {...chainHandlers(speedChain)}
               onBlur={(e) => {
                 void speedReg.onBlur(e);
                 speedChain.commit();
               }}
-            />
-            <FieldError
-              message={
-                rowErr?.speedMPerMin?.message
-                  ? t(`validation.${rowErr.speedMPerMin.message}`)
-                  : undefined
-              }
             />
           </div>
         ) : (
@@ -1305,7 +1303,7 @@ function OrderFields({
 
       {useTotalLength ? (
         <>
-          <div className="pb-5">
+          <div>
             <input
               id={`qty-${idx}`}
               type="number"
@@ -1317,16 +1315,14 @@ function OrderFields({
               title={t('orders.totalLength')}
               aria-label={t('orders.totalLength')}
               className={`${inputBase} sm:max-w-xs`}
+              {...errorAttrs(
+                rowErr?.totalLengthM?.message
+                  ? t(`validation.${rowErr.totalLengthM.message}`)
+                  : undefined,
+              )}
               {...register(`orders.${idx}.totalLengthM`, {
                 setValueAs: numericSetValueAs,
               })}
-            />
-            <FieldError
-              message={
-                rowErr?.totalLengthM?.message
-                  ? t(`validation.${rowErr.totalLengthM.message}`)
-                  : undefined
-              }
             />
           </div>
           {/* Advanced section sits above the (nonexistent) scanner here too,
@@ -1480,6 +1476,7 @@ function CollapsibleInheritField({
     step: string;
     inputMode: 'decimal' | 'numeric';
   };
+  /** Its error, if any: the field framed red, the message in its bubble. */
   errorMessage?: string;
   /** Greyed value shown in the empty input — the one it would inherit, so it
    *  can be seen and overridden. */
@@ -1545,6 +1542,7 @@ function CollapsibleInheritField({
         title={titleText}
         aria-label={titleText}
         className={compact ? sizeInputBase : inputBase}
+        {...errorAttrs(errorMessage)}
         {...reg}
         {...chainHandlers(chain)}
         onBlur={(e) => {
@@ -1557,7 +1555,6 @@ function CollapsibleInheritField({
           if (e.target.value === '') setOpen(false);
         }}
       />
-      <FieldError message={errorMessage} />
     </div>
   );
 }
@@ -3483,7 +3480,10 @@ function SizesFieldArray({
   return (
     <div>
       {sizesRootError && (
-        <p className="mb-2 rounded-md bg-red-50 px-3 py-2 text-sm text-danger">
+        <p
+          data-form-error
+          className="mb-2 rounded-md bg-red-50 px-3 py-2 text-sm text-danger"
+        >
           {t(`orders.${sizesRootError}`, { defaultValue: sizesRootError })}
         </p>
       )}
@@ -3558,12 +3558,12 @@ function SizesFieldArray({
                       // without shifting the inputs (-mx-2 + px-2).
                       className={`flex items-end gap-2 ${
                         sIdx === activeSizeIdx
-                          ? 'active-blink -mx-2 rounded-md border px-2 pt-2'
+                          ? 'active-blink -mx-2 rounded-md border p-2'
                           : ''
                       }`}
                     >
                       {canReorder && (
-                        <div className="flex shrink-0 items-end pb-5">
+                        <div className="flex shrink-0 items-end">
                           <button
                             type="button"
                             {...handleProps}
@@ -3576,7 +3576,7 @@ function SizesFieldArray({
                         </div>
                       )}
                       <div
-                        className={`grid ${gridCols} min-w-0 flex-1 items-end gap-2 pb-5 sm:gap-3`}
+                        className={`grid ${gridCols} min-w-0 flex-1 items-end gap-2 sm:gap-3`}
                       >
                         <div className="min-w-0">
                 <input
@@ -3590,16 +3590,14 @@ function SizesFieldArray({
                   title={sheetsLabel}
                   aria-label={sheetsLabel}
                   className={sizeInputBase}
+                  {...errorAttrs(
+                    sizeErr?.sheets?.message
+                      ? t(`validation.${sizeErr.sheets.message}`)
+                      : undefined,
+                  )}
                   {...register(`orders.${orderIdx}.sizes.${sIdx}.sheets`, {
                     setValueAs: numericSetValueAs,
                   })}
-                />
-                <FieldError
-                  message={
-                    sizeErr?.sheets?.message
-                      ? t(`validation.${sizeErr.sheets.message}`)
-                      : undefined
-                  }
                 />
               </div>
 
@@ -3614,16 +3612,14 @@ function SizesFieldArray({
                   title={lengthTitle}
                   aria-label={lengthTitle}
                   className={sizeInputBase}
+                  {...errorAttrs(
+                    sizeErr?.length?.message
+                      ? t(`validation.${sizeErr.length.message}`)
+                      : undefined,
+                  )}
                   {...register(`orders.${orderIdx}.sizes.${sIdx}.length`, {
                     setValueAs: numericSetValueAs,
                   })}
-                />
-                <FieldError
-                  message={
-                    sizeErr?.length?.message
-                      ? t(`validation.${sizeErr.length.message}`)
-                      : undefined
-                  }
                 />
               </div>
 
