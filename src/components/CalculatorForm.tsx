@@ -755,7 +755,8 @@ function CalculatorForm({
             type="button"
             onClick={onOpenResults}
             disabled={!hasResult}
-            className="order-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            // Last on a phone; first in the row, so Calcola stays at the right.
+            className="order-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 disabled:pointer-events-none disabled:opacity-50 sm:order-first sm:w-auto"
           >
             <span aria-hidden>📊</span>
             <span>{t('actions.results')}</span>

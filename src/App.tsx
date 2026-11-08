@@ -164,6 +164,7 @@ function computeActive(
         total,
         sizeEnd: multi ? formatDateParts(sizes[sizeIdx].end, lang) : undefined,
         otherSizes,
+        orderMinutes: row.remainingMinutes,
         orderEnd: formatDateParts(row.end, lang),
         pause: pauseAt([...completed, ...rows], new Date()) ?? undefined,
       },

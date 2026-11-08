@@ -4,6 +4,7 @@ import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
 import ProducedEditor from './ProducedEditor';
 import type { RunningPause } from '../utils/pauseAt';
+import { formatDuration } from '../utils/format';
 
 export interface ActiveModalInfo {
   /** Number of the order in production (the form's "#N"). */
@@ -18,12 +19,13 @@ export interface ActiveModalInfo {
   produced: number;
   /** Total count at the active size ("produced / total"). */
   total: number;
-  /** When the active size ends (multi-size orders only) — date and time apart,
-   *  so the time can drop to its own line on a narrow screen. */
+  /** When the active size ends (multi-size orders only). */
   sizeEnd?: { date: string; time: string };
   /** The order's other sizes still to come, in the order they run, with when
    *  each ends (short date-time). */
   otherSizes: { label: string; end: string }[];
+  /** The order's production time still to go, as the results show it. */
+  orderMinutes: number;
   /** When the whole order ends. */
   orderEnd: { date: string; time: string };
   /** A pause between blocks running now — then the order above is the one
@@ -131,20 +133,20 @@ function ActiveOrderModal({
 
         <dl className="space-y-2 text-sm">
           <Row
-            label={t('orders.productName')}
+            label={t('orders.orderNumber')}
             value={
-              // "#N" badge as in the form, then the name (if any).
+              // "#N" badge as in the form, then its own number (if any).
               <span className="flex min-w-0 items-center justify-end gap-2">
                 <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
                   #{info.orderNo}
                 </span>
                 <OrderNumberTag value={info.orderNumber} />
-                {info.productName && (
-                  <span className="min-w-0 truncate">{info.productName}</span>
-                )}
               </span>
             }
           />
+          {info.productName && (
+            <Row label={t('orders.productName')} value={info.productName} />
+          )}
           <Row label={t('activeModal.size')} value={info.sizeLabel} />
           {editing && onSaveProduced ? (
             <ProducedEditor
@@ -188,6 +190,7 @@ function ActiveOrderModal({
             <Row
               label={t('activeModal.sizeEnd')}
               value={<DateTime value={info.sizeEnd} />}
+              nowrap
             />
           )}
           {info.otherSizes.length > 0 && (
@@ -202,9 +205,19 @@ function ActiveOrderModal({
             </ul>
           )}
           <Row
+            label={t('results.col.productionTime')}
+            value={formatDuration(info.orderMinutes, {
+              day: t('units.day'),
+              hour: t('units.hour'),
+              minute: t('units.minute'),
+            })}
+            nowrap
+          />
+          <Row
             label={t('activeModal.orderEnd')}
             value={<DateTime value={info.orderEnd} />}
             accent
+            nowrap
           />
         </dl>
 
@@ -216,13 +229,12 @@ function ActiveOrderModal({
   );
 }
 
-// A date + time whose time drops under the date when both don't fit.
+// A date + time, always on one line.
 function DateTime({ value }: { value: { date: string; time: string } }) {
   return (
-    <span className="flex flex-wrap justify-end gap-x-1.5">
-      <span className="whitespace-nowrap">{value.date}</span>
-      <span className="whitespace-nowrap">{value.time}</span>
-    </span>
+    <>
+      {value.date} <span className="ml-0.5">{value.time}</span>
+    </>
   );
 }
 
@@ -230,20 +242,29 @@ function Row({
   label,
   value,
   accent,
+  nowrap,
 }: {
   label: string;
   value: ReactNode;
   accent?: boolean;
+  /** The value stays whole on one line (a date, a time): the label wraps
+   *  instead. Otherwise the value is cut short (a long product name). */
+  nowrap?: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="shrink-0 text-xs tracking-wide text-ink-soft uppercase">
+      <dt
+        className={`text-xs tracking-wide text-ink-soft uppercase ${
+          nowrap ? 'min-w-0' : 'shrink-0'
+        }`}
+      >
         {label}
       </dt>
+      {/* 12px on a 320px screen, 14px from 375px: a date and its time fit. */}
       <dd
-        className={`min-w-0 truncate text-right font-semibold ${
-          accent ? 'text-brand-700' : 'text-ink'
-        }`}
+        className={`text-right text-[clamp(12px,3.75vw,14px)] font-semibold ${
+          nowrap ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate'
+        } ${accent ? 'text-brand-700' : 'text-ink'}`}
       >
         {value}
       </dd>
