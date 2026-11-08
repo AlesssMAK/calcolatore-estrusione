@@ -333,7 +333,7 @@ function ProductionCard({
         className="flex w-full cursor-pointer items-start justify-between gap-2 rounded-t-xl px-3 pt-3 text-left sm:px-4"
       >
         <span className="flex min-w-0 items-center gap-1 font-semibold text-ink">
-          <span className="min-w-0 truncate">{calc.payload.label || '—'}</span>
+          <MarqueeText text={calc.payload.label || '—'} />
           <span aria-hidden className="shrink-0 text-ink-soft">
             ›
           </span>

@@ -14,6 +14,7 @@ import {
   floatMenuCls,
   type FloatPlacement,
 } from './floatStyles';
+import MarqueeText from './MarqueeText';
 
 interface Props {
   /** Open a company-published result (parent restores it as a synced doc). */
@@ -243,9 +244,10 @@ function CompanyResultsButton({
                             aria-hidden
                           />
                         )}
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                          {c.payload.label || '—'}
-                        </span>
+                        <MarqueeText
+                          text={c.payload.label || '—'}
+                          className="text-sm font-medium text-ink"
+                        />
                         {c.isEditable && (
                           <span
                             className="shrink-0 rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700"

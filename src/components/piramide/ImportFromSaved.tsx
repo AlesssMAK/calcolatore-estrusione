@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import { isViewOnly, loadHistory } from '../../lib/calcHistory';
 import { ImportIcon } from '../ActionIcons';
 import { toolBtnCls, toolIconCls } from '../toolButton';
+import MarqueeText from '../MarqueeText';
 
 export interface ImportRow {
   length: number;
@@ -145,9 +146,10 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left transition hover:bg-brand-50"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-ink">
-                    {g.label}
-                  </span>
+                  <MarqueeText
+                    text={g.label}
+                    className="text-sm font-medium text-ink"
+                  />
                   <span className="block text-xs text-ink-soft">
                     {t('piramide.import.orders', { n: g.orders.length })} ·{' '}
                     {formatRelative(g.ts, lang)}
@@ -167,7 +169,7 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
                 className="mb-1 flex w-full items-center gap-1 rounded-md px-3 py-2 text-left text-xs font-medium text-ink-soft transition hover:bg-neutral-50"
               >
                 <span aria-hidden>‹</span>
-                <span className="truncate">{selected.label}</span>
+                <MarqueeText text={selected.label} />
               </button>
               {selected.orders.map((o, i) => (
                 <button
@@ -179,9 +181,10 @@ function ImportFromSaved({ onImport, t, retentionDays }: Props) {
                   }}
                   className="block w-full rounded-md px-3 py-2 text-left transition hover:bg-brand-50"
                 >
-                  <span className="block truncate text-sm font-medium text-ink">
-                    {o.label}
-                  </span>
+                  <MarqueeText
+                    text={o.label}
+                    className="text-sm font-medium text-ink"
+                  />
                   <span className="block text-xs text-ink-soft">
                     {t('piramide.import.info', { sizes: o.sizes, pieces: o.pieces })}
                   </span>
