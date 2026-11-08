@@ -5,6 +5,7 @@ import type { TFunction } from 'i18next';
 import { isViewOnly, loadHistory } from '../../lib/calcHistory';
 import { CalcIcon } from '../ActionIcons';
 import { toolBtnCls, toolIconCls } from '../toolButton';
+import MarqueeText from '../MarqueeText';
 
 interface CalcOption {
   id: string;
@@ -130,9 +131,10 @@ function UseInCalculator({
                 }}
                 className="block w-full rounded-md px-3 py-2 text-left transition hover:bg-brand-50"
               >
-                <span className="block truncate text-sm font-medium text-ink">
-                  {c.label}
-                </span>
+                <MarqueeText
+                  text={c.label}
+                  className="text-sm font-medium text-ink"
+                />
                 <span className="block text-xs text-ink-soft">
                   {formatRelative(c.ts, lang)}
                 </span>

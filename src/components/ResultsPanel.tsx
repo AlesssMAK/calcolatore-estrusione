@@ -252,9 +252,9 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
             {t('results.title')}
           </h2>
           {result.productName && (
-            <p className="mt-0.5 truncate text-sm font-medium text-brand-700">
-              <span aria-hidden className="mr-1">🏷</span>
-              {result.productName}
+            <p className="mt-0.5 flex min-w-0 items-center text-sm font-medium text-brand-700">
+              <span aria-hidden className="mr-1 shrink-0">🏷</span>
+              <MarqueeText text={result.productName} />
             </p>
           )}
         </div>

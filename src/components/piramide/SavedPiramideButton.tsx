@@ -6,6 +6,7 @@ import {
   removePiramideEntry,
   type SavedPiramide,
 } from '../../lib/piramideHistory';
+import MarqueeText from '../MarqueeText';
 
 interface Props {
   /** Called when a saved layout is picked; parent refills inputs + recomputes. */
@@ -118,8 +119,11 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
                     }}
                     className="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-2 py-2 text-left"
                   >
-                    <span className="min-w-0 truncate text-sm font-medium text-ink">
-                      {it.label}
+                    <span className="block w-full min-w-0">
+                      <MarqueeText
+                        text={it.label}
+                        className="text-sm font-medium text-ink"
+                      />
                     </span>
                     <span className="text-[11px] text-ink-soft">
                       {formatRelative(it.ts, lang)}

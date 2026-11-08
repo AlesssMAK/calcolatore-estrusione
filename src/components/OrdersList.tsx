@@ -2408,7 +2408,8 @@ interface AdvRate {
  * here (lastre per bancale) and the produced total (bancali / pacchi).
  * Wide screen: one line per entry — count | rate | total | − +. Phone, with a
  * rate: the count on its line with − +, the rate and the total on the line
- * below; the folded rate's button joins the size's buttons up top.
+ * below; the folded rate's button joins the size's buttons up top (✓ ⏭ ⏹ of
+ * a tracked calc) — without them (a new calc) it sits beside the count.
  */
 function AdvBlockLayout({
   isPhone,
@@ -2534,13 +2535,16 @@ function AdvBlockLayout({
 
   // Phone: count | − + on one line; rate | total on the line below it.
   const lineTwo = rate.open || showTotal;
+  // No size buttons up top (a new calc): the folded rate's button stays in
+  // the count's line rather than taking a line of its own.
+  const rateInline = !rate.open && !actions;
   return (
     <>
       <SizeBlockHeader
         sizeIdx={sizeIdx}
         totalSizes={totalSizes}
         actions={
-          !rate.open || actions ? (
+          actions ? (
             <div className="flex items-center gap-1.5">
               {!rate.open && (
                 <RateButton
@@ -2563,8 +2567,17 @@ function AdvBlockLayout({
         <span />
         {rows.map((arrayPos, rowIdx) => (
           <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
-            <div className="col-span-2 min-w-0">
-              {arrayPos === null ? off : renderCount(arrayPos)}
+            <div className="col-span-2 flex min-w-0 items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                {arrayPos === null ? off : renderCount(arrayPos)}
+              </div>
+              {rateInline && (
+                <RateButton
+                  title={rate.title}
+                  icon={rate.icon}
+                  onOpen={() => rate.onOpen(rowIdx)}
+                />
+              )}
             </div>
             {rowButtons(rowIdx, arrayPos)}
             {lineTwo && rowIdx === 0 && (

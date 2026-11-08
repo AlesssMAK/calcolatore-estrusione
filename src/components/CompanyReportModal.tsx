@@ -139,9 +139,10 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                     className="block w-full rounded-lg border border-neutral-200 bg-white p-3 text-left text-sm shadow-sm transition hover:border-brand-300"
                   >
                     <span className="flex items-start justify-between gap-2">
-                      <span className="min-w-0 truncate font-semibold text-ink">
-                        {calc.payload.label || '—'}
-                      </span>
+                      <MarqueeText
+                        text={calc.payload.label || '—'}
+                        className="font-semibold text-ink"
+                      />
                       <StatusChip status={stage.status} label={t(`report.status.${stage.status}`)} />
                     </span>
 

@@ -5,6 +5,7 @@ import type { CalculatorMode, Order, OrderSize } from '../types';
 import { diffCalcs, type CalcDiff, type CalcVersion } from '../utils/calcDiff';
 import type { DiffSide } from '../utils/calcMerge';
 import { formatDuration } from '../utils/format';
+import MarqueeText from './MarqueeText';
 
 interface Props {
   /** The calc's name, for the header. */
@@ -97,9 +98,9 @@ function CompareModal({
         className="flex h-full w-full flex-col overflow-hidden bg-surface-alt shadow-xl sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-xl"
       >
         <header className="flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-ink">{t('compare.title')}</h2>
-            <p className="truncate text-xs text-ink-soft">{label}</p>
+            <MarqueeText text={label} className="text-xs text-ink-soft" />
           </div>
           <button
             type="button"
