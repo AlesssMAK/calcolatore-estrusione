@@ -154,6 +154,8 @@ interface Props {
   openResultFor?: (orderId: string) => (() => void) | undefined;
   /** An order to open, coming from its result. */
   revealOrder?: { id: string; n: number } | null;
+  /** The results page's "← Calcolo", pinned while its own is out of view. */
+  resultsBack?: { visible: boolean; onClick: () => void };
 }
 
 function CalculatorForm({
@@ -176,6 +178,7 @@ function CalculatorForm({
   activeLoc,
   openResultFor,
   revealOrder,
+  resultsBack,
   onPublish,
   onOpenCompany,
   onDeleteCompany,
@@ -804,6 +807,7 @@ function CalculatorForm({
         onDeleteCompany={onDeleteCompany}
         onOpenReport={onOpenReport}
         onToggleCompanyRunning={onToggleCompanyRunning}
+        resultsBack={resultsBack}
       />
       {/* Room under the page so the pinned phone bar never covers the end. */}
       {showFloating && <div aria-hidden className="h-16 sm:hidden" />}

@@ -37,11 +37,15 @@ interface Props {
   onOpenReport?: () => void;
   onToggleCompanyRunning?: (calc: CompanyCalc) => Promise<CompanyCalc | null>;
   onProductionChecked?: () => void;
+  /** The results page is on screen: its "← Calcolo", pinned while the page's
+   *  own is out of view — in place of the form's actions. */
+  resultsBack?: { visible: boolean; onClick: () => void };
 }
 
 /** Pinned, icon-only copy of the form actions (Calcola / Nuovo / Salvati /
  *  Azienda / Risultati) + scroll-to-top: a bottom bar on phones, a vertical rail on the
- *  right on wider screens. */
+ *  right on wider screens. On the results page: just "← Calcolo" over the
+ *  scroll-to-top — a rail on every screen (one button needs no bar). */
 function FloatingActions({
   visible,
   formId,
@@ -60,10 +64,11 @@ function FloatingActions({
   onOpenReport,
   onToggleCompanyRunning,
   onProductionChecked,
+  resultsBack,
 }: Props) {
   const { t } = useTranslation();
   const isPhone = useMediaQuery('(max-width: 639px)');
-  const p: FloatPlacement = isPhone ? 'bar' : 'rail';
+  const p: FloatPlacement = isPhone && !resultsBack ? 'bar' : 'rail';
 
   return createPortal(
     // The container itself never blocks clicks; the action group shows only
@@ -85,9 +90,9 @@ function FloatingActions({
         className={`flex gap-2 transition-opacity duration-200 ${
           p === 'bar' ? '' : 'flex-col'
         } ${
-          visible
+          visible && !resultsBack
             ? 'pointer-events-auto opacity-100'
-            : p === 'bar'
+            : p === 'bar' || resultsBack
               ? 'hidden'
               : 'opacity-0'
         }`}
@@ -155,6 +160,21 @@ function FloatingActions({
           <ResultsIcon />
         </button>
       </div>
+      {resultsBack && (
+        <button
+          type="button"
+          onClick={resultsBack.onClick}
+          aria-hidden={!resultsBack.visible}
+          inert={!resultsBack.visible}
+          title={t('actions.backToCalc')}
+          aria-label={t('actions.backToCalc')}
+          className={`${floatBtnCls()} transition-opacity duration-200 ${
+            resultsBack.visible ? 'pointer-events-auto opacity-100' : 'opacity-0'
+          }`}
+        >
+          <CalcIcon />
+        </button>
+      )}
       <ScrollTopButton placement={p} />
     </div>,
     document.body,
