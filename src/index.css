@@ -293,6 +293,12 @@ button:disabled,
   font-weight: 700;
   animation: num-blink 1.4s ease-in-out infinite;
 }
+/* Its grey hint (the field's name, on a phone) stays a plain hint — as every
+   field's — not the blinking red bold of the number. */
+.num-blink::placeholder {
+  font-weight: 400;
+  color: color-mix(in oklab, var(--color-ink) 50%, transparent);
+}
 @media (prefers-reduced-motion: reduce) {
   .num-blink {
     animation: none;

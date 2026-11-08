@@ -1877,9 +1877,9 @@ function AdvancedSection({
 }
 
 /**
- * A size's Calcolo Avanzato, under its own row: a small toggle (not like the
- * order's links — "Leggi Misure da Foto"), the size's produced counts and
- * buttons in its panel. Opens by itself on the size in production and on one
+ * A size's Calcolo Avanzato, under its own row: a small grey toggle (not
+ * like the order's red links — "Leggi Misure da Foto"), the size's produced
+ * counts and buttons in its panel. Opens by itself on the size in production and on one
  * a tracked calc filled in (amber, with its note).
  */
 function SizeAdvancedPanel({
@@ -1934,14 +1934,10 @@ function SizeAdvancedPanel({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         data-view
-        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] leading-tight font-medium transition sm:text-[11px] ${
-          open
-            ? 'border-brand-200 bg-brand-50 text-brand-700'
-            : 'border-neutral-300 bg-white text-ink-soft hover:border-brand-300 hover:text-brand-700'
-        }`}
+        className="inline-flex items-center gap-1 text-[10px] leading-tight font-medium text-ink-soft transition hover:text-brand-700 sm:text-[11px]"
       >
         <span aria-hidden>{open ? '▾' : '▸'}</span>
-        {t('orders.advancedSizeToggle')}
+        {t('orders.advancedToggle')}
       </button>
       {open && (
         <div
@@ -2641,17 +2637,25 @@ function AdvBlockLayout({
           className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
           style={{ gridTemplateColumns: cols }}
         >
-          <span className={nameCls(disabled.count)}>{labels.count}</span>
-          {rate && (
-            <span className={nameCls(rate.disabled)}>
-              {rate.open ? rate.label : ''}
-            </span>
+          {/* The names over the fields — on a phone the count's is its hint;
+              no line of names when there's none to show. */}
+          {(!isPhone || rate?.open || showTotal) && (
+            <>
+              <span className={nameCls(disabled.count)}>
+                {isPhone ? '' : labels.count}
+              </span>
+              {rate && (
+                <span className={nameCls(rate.disabled)}>
+                  {rate.open ? rate.label : ''}
+                </span>
+              )}
+              {showTotal && (
+                <span className={nameCls(disabled.total)}>{labels.total}</span>
+              )}
+              <span />
+              <span />
+            </>
           )}
-          {showTotal && (
-            <span className={nameCls(disabled.total)}>{labels.total}</span>
-          )}
-          <span />
-          <span />
           {rows.map((arrayPos, rowIdx) => (
             <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
               {arrayPos === null ? off : renderCount(arrayPos)}
@@ -2674,7 +2678,8 @@ function AdvBlockLayout({
     );
   }
 
-  // Phone: count | − + on one line; rate | total on the line below it.
+  // Phone: count | − + on one line (the count named by its hint); rate |
+  // total on the line below it.
   const lineTwo = rate.open || showTotal;
   // No size buttons up top (a new calc): the folded rate's button stays in
   // the count's line rather than taking a line of its own.
@@ -2699,11 +2704,6 @@ function AdvBlockLayout({
         }
       />
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 gap-y-1.5">
-        <span className={`${nameCls(disabled.count)} col-span-2`}>
-          {labels.count}
-        </span>
-        <span />
-        <span />
         {rows.map((arrayPos, rowIdx) => (
           <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
             <div className="col-span-2 flex min-w-0 items-center gap-1.5">
@@ -2904,6 +2904,10 @@ function SizeAdvancedBlockListi({
             step="1"
             inputMode="numeric"
             disabled={countDisabled}
+            placeholder={isPhone ? countLabel : undefined}
+            data-name-hint={isPhone || undefined}
+            title={countLabel}
+            aria-label={countLabel}
             // Produced count blinks (empty field has no text → still).
             className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
             {...register(`orders.${orderIdx}.producedSheets.${p}.value`, {
@@ -3019,6 +3023,10 @@ function SizeAdvancedBlockProfili({
             step="1"
             inputMode="numeric"
             disabled={countDisabled}
+            placeholder={isPhone ? countLabel : undefined}
+            data-name-hint={isPhone || undefined}
+            title={countLabel}
+            aria-label={countLabel}
             className={`${sizeBlockInputCls} num-blink ${countDisabled ? 'opacity-40 pointer-events-none' : ''}`}
             {...register(`orders.${orderIdx}.producedProfiles.${p}.value`, {
               setValueAs: numericSetValueAs,
@@ -3061,7 +3069,8 @@ function BatchField({
   disabled,
   children,
 }: {
-  label: string;
+  /** None: the field is named by its hint. */
+  label?: string;
   disabled: boolean;
   children: ReactNode;
 }) {
@@ -3069,8 +3078,8 @@ function BatchField({
     <div
       className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
     >
-      <label className={advLabelCls}>{label}</label>
-      <div className="mt-0.5">{children}</div>
+      {label && <label className={advLabelCls}>{label}</label>}
+      <div className={label ? 'mt-0.5' : ''}>{children}</div>
     </div>
   );
 }
@@ -3083,6 +3092,7 @@ function BatchInput({
   min,
   autoFocus,
   onBlur,
+  hint,
 }: {
   orderIdx: number;
   fieldName: BatchFieldName;
@@ -3090,6 +3100,8 @@ function BatchInput({
   disabled: boolean;
   min: '0' | '1';
   autoFocus?: boolean;
+  /** The field's name as its grey hint (no label above it). */
+  hint?: string;
   /** After the form's own blur handling. */
   onBlur?: () => void;
 }) {
@@ -3105,8 +3117,12 @@ function BatchInput({
       inputMode="numeric"
       disabled={disabled}
       autoFocus={autoFocus}
+      placeholder={hint}
+      data-name-hint={hint ? true : undefined}
+      title={hint}
+      aria-label={hint}
       // The produced count (count field) blinks like everywhere else.
-      className={`h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-2.5 sm:text-sm ${
+      className={`h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-2.5 sm:text-sm ${
         fieldName === 'producedSheets' || fieldName === 'producedProfiles'
           ? 'num-blink'
           : ''
@@ -3259,13 +3275,18 @@ function BatchRowsArray({
               </div>
             </div>
             <div className="grid grid-cols-2 items-end gap-1.5 sm:grid-cols-4 sm:gap-2">
-              <BatchField label={countLabel} disabled={countDisabled}>
+              <BatchField
+                // Phone: named by its hint, as the product name.
+                label={isPhone ? undefined : countLabel}
+                disabled={countDisabled}
+              >
                 <BatchInput
                   orderIdx={orderIdx}
                   fieldName={countFieldName}
                   sIdx={sIdx}
                   disabled={countDisabled}
                   min="0"
+                  hint={isPhone ? countLabel : undefined}
                 />
               </BatchField>
               <BatchField label={lengthLabel} disabled={countDisabled}>
