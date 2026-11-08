@@ -102,8 +102,10 @@ import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/f
 // line up with the buttons — 36px on sm+ (= button height), a smaller 32px on
 // mobile (with the buttons also shrunk) so the buttons take less room and the
 // number fields get more width. Height controls the size, so no vertical pad.
+// The field's name is its grey hint: 11px on a phone, so "Lunghezza (mm)" fits
+// from 375px; narrower, it ends in "…".
 const sizeInputBase =
-  'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
+  'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 
 /** A button beside a field: a square of the field's height. */
 const squareBtnBase =
@@ -1210,13 +1212,17 @@ function OrderFields({
       <div className="flex flex-wrap-reverse items-start justify-around gap-2 pb-5 sm:gap-3">
         {isFirst ? (
           <div className="min-w-16 flex-1">
-            <label className={labelBase}>{t('orders.speed')}</label>
+            {/* No label above: the name is the field's grey hint, and its
+                tooltip on hover — as for the product name. */}
             <input
               type="number"
               min="0"
               step="0.1"
               inputMode="decimal"
-              className={`${inputBase} mt-1`}
+              placeholder={t('orders.speed')}
+              title={t('orders.speed')}
+              aria-label={t('orders.speed')}
+              className={inputBase}
               {...speedReg}
               {...chainHandlers(speedChain)}
               onBlur={(e) => {
@@ -1303,14 +1309,16 @@ function OrderFields({
       {useTotalLength ? (
         <>
           <div className="pb-5">
-            <label className={labelBase}>{t('orders.totalLength')}</label>
             <input
               id={`qty-${idx}`}
               type="number"
               min="0"
               step="0.01"
               inputMode="decimal"
-              className={`${inputBase} mt-1 sm:max-w-xs`}
+              placeholder={t('orders.totalLength')}
+              title={t('orders.totalLength')}
+              aria-label={t('orders.totalLength')}
+              className={`${inputBase} sm:max-w-xs`}
               {...register(`orders.${idx}.totalLengthM`, {
                 setValueAs: numericSetValueAs,
               })}
@@ -1465,8 +1473,8 @@ function CollapsibleInheritField({
     | `orders.${number}.cavity`;
   icon: string;
   label: string;
-  /** Optional hint shown in parentheses after the label and as the
-   *  collapsed-button tooltip. Omit to render just the bare label (e.g. a
+  /** Optional hint in parentheses after the label, in the tooltip of the
+   *  collapsed button and of the field. Omit for just the bare label (e.g. a
    *  value that doesn't inherit, like per pacco or the first order's cavità). */
   inheritLabel?: string;
   inputProps: {
@@ -1525,22 +1533,18 @@ function CollapsibleInheritField({
   const reg = register(fieldPath, { setValueAs: numericSetValueAs });
   return (
     <div className={expandedClassName}>
-      <label className={labelBase}>
-        {label}
-        {inheritLabel && (
-          <span className="ml-1 normal-case text-ink-soft">
-            ({inheritLabel})
-          </span>
-        )}
-      </label>
+      {/* No label above: the grey hint is the value it would inherit, else
+          the field's name; the full description is the tooltip. */}
       <input
         type="number"
         min={inputProps.min}
         step={inputProps.step}
         inputMode={inputProps.inputMode}
         autoFocus={open && !hasValue}
-        placeholder={placeholder}
-        className={`${compact ? sizeInputBase : inputBase} mt-1`}
+        placeholder={placeholder ?? label}
+        title={titleText}
+        aria-label={titleText}
+        className={compact ? sizeInputBase : inputBase}
         {...reg}
         {...chainHandlers(chain)}
         onBlur={(e) => {
@@ -3155,8 +3159,10 @@ function SizesFieldArray({
       : null;
 
   const isProfiles = mode === 'profiles';
+  // No labels above the size fields: the name is the grey hint (the length
+  // just "Lunghezza (mm)"), the full one is the tooltip.
   const sheetsLabel = isProfiles ? t('orders.profiles') : t('orders.sheets');
-  const lengthLabel = isProfiles
+  const lengthTitle = isProfiles
     ? t('orders.profileLength')
     : t('orders.sheetLength');
 
@@ -3298,14 +3304,16 @@ function SizesFieldArray({
                         className={`grid ${gridCols} min-w-0 flex-1 items-end gap-2 pb-5 sm:gap-3`}
                       >
                         <div className="min-w-0">
-                <label className={labelBase}>{sheetsLabel}</label>
                 <input
                   id={sIdx === 0 ? `qty-${orderIdx}` : undefined}
                   type="number"
                   min="1"
                   step="1"
                   inputMode="numeric"
-                  className={`${sizeInputBase} mt-1`}
+                  placeholder={sheetsLabel}
+                  title={sheetsLabel}
+                  aria-label={sheetsLabel}
+                  className={sizeInputBase}
                   {...register(`orders.${orderIdx}.sizes.${sIdx}.sheets`, {
                     setValueAs: numericSetValueAs,
                   })}
@@ -3320,13 +3328,15 @@ function SizesFieldArray({
               </div>
 
               <div className="min-w-0">
-                <label className={labelBase}>{lengthLabel}</label>
                 <input
                   type="number"
                   min="1"
                   step="1"
                   inputMode="numeric"
-                  className={`${sizeInputBase} mt-1`}
+                  placeholder={t('orders.length')}
+                  title={lengthTitle}
+                  aria-label={lengthTitle}
+                  className={sizeInputBase}
                   {...register(`orders.${orderIdx}.sizes.${sIdx}.length`, {
                     setValueAs: numericSetValueAs,
                   })}

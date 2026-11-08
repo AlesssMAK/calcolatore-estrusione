@@ -71,6 +71,7 @@
     "profiles": "Profili (pz)",
     "sheetLength": "Lunghezza Lastra (mm)",
     "profileLength": "Lunghezza Profilo (mm)",
+    "length": "Lunghezza (mm)",
     "speed": "Velocità (m/min)",
     "gapAfter": "Pausa Dopo (min)",
     "profilesPerPackage": "Profili per Pacco",

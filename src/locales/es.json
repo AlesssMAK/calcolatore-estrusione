@@ -71,6 +71,7 @@
     "profiles": "Perfiles (uds)",
     "sheetLength": "Longitud de Lámina (mm)",
     "profileLength": "Longitud de Perfil (mm)",
+    "length": "Longitud (mm)",
     "speed": "Velocidad (m/min)",
     "gapAfter": "Pausa Después (min)",
     "profilesPerPackage": "Perfiles por Paquete",
