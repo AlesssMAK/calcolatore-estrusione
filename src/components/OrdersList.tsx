@@ -103,7 +103,8 @@ import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/f
 // mobile (with the buttons also shrunk) so the buttons take less room and the
 // number fields get more width. Height controls the size, so no vertical pad.
 // The field's name is its grey hint: 11px on a phone, so "Lunghezza (mm)" fits
-// from 375px; narrower, it ends in "…".
+// from 375px; narrower, it ends in "…". Every hint has this size (inputBase,
+// the product name / order number fields).
 const sizeInputBase =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 
@@ -820,7 +821,7 @@ function OrdersList({
                 isDragging ? 'shadow-lg' : ''
               }`}
             >
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 {canDrag && (
                   <button
@@ -1795,9 +1796,8 @@ function AdvancedSection({
                   totalDisabled={
                     packagePathBlockedByProfiles || !perPackageEntered
                   }
-                  inheritedRate={perPaccoPerSize[sIdx]}
+                  showTotal={(perPaccoPerSize[sIdx] ?? 0) > 0}
                   countLabel={t('orders.advanced.profilesProduced')}
-                  rateLabel={t('orders.profilesPerPackage')}
                   totalLabel={t('orders.advanced.packagesProduced')}
                   t={t}
                 />
@@ -1991,7 +1991,7 @@ function OrderNameField({
           placeholder={t('orders.orderNumber')}
           data-name-hint
           aria-label={t('orders.orderNumber')}
-          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm"
+          className="h-8 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm"
           {...register(`orders.${idx}.orderNumber`)}
           // Keeps the field while its last character is deleted.
           onFocus={() => setOpen(true)}
@@ -2018,7 +2018,7 @@ function OrderNameField({
             // Its name, also while a new product is typed over the current one.
             placeholder={t('orders.productName')}
             // Not being edited, the name is shown by the scrolling copy above.
-            className={`w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:px-3 sm:py-1.5 sm:text-sm ${
+            className={`h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm ${
               showStill ? 'text-transparent' : 'text-ink'
             }`}
             onFocus={() => {
@@ -2226,7 +2226,7 @@ function arrayPositionsForSize(
 }
 
 const sizeBlockInputCls =
-  'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
+  'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 const sizeBlockBtnBase = `${squareBtnBase} bg-white`;
 
 /** Field names above the Calcolo Avanzato inputs: small, so a name stays over
@@ -2260,7 +2260,7 @@ function SizeBlockHeader({
   );
 }
 
-/** Profili per pacco's button: a pack (as in the size row). */
+/** Profili per pacco's button (Σ rows): a pack, as in the order's row. */
 const PACK_ICON = (
   <span aria-hidden className="block text-sm leading-none sm:text-base">
     📦
@@ -2392,12 +2392,26 @@ function OrderEndNote({
   );
 }
 
+/** A size's own rate in Calcolo Avanzato (lastre per bancale, one per entry):
+ *  folded to a button while it's empty. */
+interface AdvRate {
+  /** The field is shown (else its button). */
+  open: boolean;
+  label: string;
+  disabled: boolean;
+  title: string;
+  /** What the folded rate's button shows. */
+  icon: ReactNode;
+  onOpen: (rowIdx: number) => void;
+  render: (arrayPos: number, rowIdx: number) => ReactNode;
+}
+
 /**
- * A size's Calcolo Avanzato entries: produced count, the rate (lastre per
- * bancale / profili per pacco) and the produced total (bancali / pacchi).
- * Wide screen: one line per entry — count | rate | total | − +. Phone: the
- * count on its line with − +, the rate and the total on the line below; the
- * folded rate's 📦 joins the size's buttons up top.
+ * A size's Calcolo Avanzato entries: produced count, the rate when it lives
+ * here (lastre per bancale) and the produced total (bancali / pacchi).
+ * Wide screen: one line per entry — count | rate | total | − +. Phone, with a
+ * rate: the count on its line with − +, the rate and the total on the line
+ * below; the folded rate's button joins the size's buttons up top.
  */
 function AdvBlockLayout({
   isPhone,
@@ -2407,14 +2421,9 @@ function AdvBlockLayout({
   rows,
   labels,
   disabled,
-  rateOpen,
+  rate,
   showTotal,
-  rateTitle,
-  rateIcon,
-  rateOnEveryRow,
-  onOpenRate,
   renderCount,
-  renderRate,
   renderTotal,
   onRemove,
   onAdd,
@@ -2426,19 +2435,12 @@ function AdvBlockLayout({
   actions?: ReactNode;
   /** The entries' array positions (null: not seeded yet). */
   rows: (number | null)[];
-  labels: { count: string; rate: string; total: string };
-  disabled: { count: boolean; rate: boolean; total: boolean };
-  /** The rate field is shown (else its 📦 button). */
-  rateOpen: boolean;
+  labels: { count: string; total: string };
+  disabled: { count: boolean; total: boolean };
+  /** None: the rate is set elsewhere (profili per pacco: the size row). */
+  rate?: AdvRate;
   showTotal: boolean;
-  rateTitle: string;
-  /** What the folded rate's button shows. */
-  rateIcon: ReactNode;
-  /** One rate per entry (lastre) — else one per size, on the first. */
-  rateOnEveryRow: boolean;
-  onOpenRate: (rowIdx: number) => void;
   renderCount: (arrayPos: number) => ReactNode;
-  renderRate: (arrayPos: number, rowIdx: number) => ReactNode;
   renderTotal: (arrayPos: number) => ReactNode;
   onRemove: (rowIdx: number) => void;
   onAdd: () => void;
@@ -2454,9 +2456,8 @@ function AdvBlockLayout({
   );
   const nameCls = (d: boolean) =>
     `${advLabelCls} self-end ${d ? 'opacity-40' : ''}`;
-  const hasRate = (rowIdx: number) => rateOnEveryRow || rowIdx === 0;
-  const rateCell = (arrayPos: number | null, rowIdx: number) =>
-    !hasRate(rowIdx) ? <span /> : arrayPos === null ? off : renderRate(arrayPos, rowIdx);
+  const rateCell = (r: AdvRate, arrayPos: number | null, rowIdx: number) =>
+    arrayPos === null ? off : r.render(arrayPos, rowIdx);
   const rowButtons = (rowIdx: number, arrayPos: number | null) => (
     <>
       <button
@@ -2481,11 +2482,11 @@ function AdvBlockLayout({
     </>
   );
 
-  if (!isPhone) {
+  if (!isPhone || !rate) {
     // One grid for the names and the rows: a name stays over its field.
     const cols = [
       'minmax(0,1fr)',
-      rateOpen ? 'minmax(0,1fr)' : 'auto',
+      ...(rate ? [rate.open ? 'minmax(0,1fr)' : 'auto'] : []),
       ...(showTotal ? ['minmax(0,1fr)'] : []),
       'auto',
       'auto',
@@ -2498,13 +2499,15 @@ function AdvBlockLayout({
           actions={actions}
         />
         <div
-          className="grid items-center gap-x-2 gap-y-1.5"
+          className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
           style={{ gridTemplateColumns: cols }}
         >
           <span className={nameCls(disabled.count)}>{labels.count}</span>
-          <span className={nameCls(disabled.rate)}>
-            {rateOpen ? labels.rate : ''}
-          </span>
+          {rate && (
+            <span className={nameCls(rate.disabled)}>
+              {rate.open ? rate.label : ''}
+            </span>
+          )}
           {showTotal && (
             <span className={nameCls(disabled.total)}>{labels.total}</span>
           )}
@@ -2513,17 +2516,16 @@ function AdvBlockLayout({
           {rows.map((arrayPos, rowIdx) => (
             <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
               {arrayPos === null ? off : renderCount(arrayPos)}
-              {rateOpen ? (
-                rateCell(arrayPos, rowIdx)
-              ) : hasRate(rowIdx) ? (
-                <RateButton
-                  title={rateTitle}
-                  icon={rateIcon}
-                  onOpen={() => onOpenRate(rowIdx)}
-                />
-              ) : (
-                <span />
-              )}
+              {rate &&
+                (rate.open ? (
+                  rateCell(rate, arrayPos, rowIdx)
+                ) : (
+                  <RateButton
+                    title={rate.title}
+                    icon={rate.icon}
+                    onOpen={() => rate.onOpen(rowIdx)}
+                  />
+                ))}
               {showTotal && (arrayPos === null ? off : renderTotal(arrayPos))}
               {rowButtons(rowIdx, arrayPos)}
             </Fragment>
@@ -2534,21 +2536,21 @@ function AdvBlockLayout({
   }
 
   // Phone: count | − + on one line; rate | total on the line below it.
-  const lineTwo = rateOpen || showTotal;
+  const lineTwo = rate.open || showTotal;
   return (
     <>
       <SizeBlockHeader
         sizeIdx={sizeIdx}
         totalSizes={totalSizes}
         actions={
-          !rateOpen || actions ? (
+          !rate.open || actions ? (
             <div className="flex items-center gap-1.5">
-              {!rateOpen && (
+              {!rate.open && (
                 <RateButton
                   small
-                  title={rateTitle}
-                  icon={rateIcon}
-                  onOpen={() => onOpenRate(0)}
+                  title={rate.title}
+                  icon={rate.icon}
+                  onOpen={() => rate.onOpen(0)}
                 />
               )}
               {actions}
@@ -2570,8 +2572,8 @@ function AdvBlockLayout({
             {rowButtons(rowIdx, arrayPos)}
             {lineTwo && rowIdx === 0 && (
               <>
-                <span className={nameCls(disabled.rate)}>
-                  {rateOpen ? labels.rate : ''}
+                <span className={nameCls(rate.disabled)}>
+                  {rate.open ? rate.label : ''}
                 </span>
                 <span className={nameCls(disabled.total)}>
                   {showTotal ? labels.total : ''}
@@ -2582,7 +2584,7 @@ function AdvBlockLayout({
             )}
             {lineTwo && (
               <>
-                {rateOpen ? rateCell(arrayPos, rowIdx) : <span />}
+                {rate.open ? rateCell(rate, arrayPos, rowIdx) : <span />}
                 {showTotal ? (arrayPos === null ? off : renderTotal(arrayPos)) : <span />}
                 <span />
                 <span />
@@ -2711,20 +2713,43 @@ function SizeAdvancedBlockListi({
         totalSizes={totalSizes}
         actions={actions}
         rows={rows}
-        labels={{ count: countLabel, rate: rateLabel, total: totalLabel }}
-        disabled={{
-          count: countDisabled,
-          rate: rateDisabled,
-          total: totalDisabled,
-        }}
-        rateOpen={rateOpen}
+        labels={{ count: countLabel, total: totalLabel }}
+        disabled={{ count: countDisabled, total: totalDisabled }}
         showTotal={(inheritedRate ?? 0) > 0}
-        rateTitle={rateTitle}
-        rateIcon={<PalletIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
-        rateOnEveryRow
-        onOpenRate={(rowIdx) => {
-          setFocusRow(rowIdx);
-          setRateOpened(true);
+        rate={{
+          open: rateOpen,
+          label: rateLabel,
+          disabled: rateDisabled,
+          title: rateTitle,
+          icon: <PalletIcon className="h-4 w-4 sm:h-5 sm:w-5" />,
+          onOpen: (rowIdx) => {
+            setFocusRow(rowIdx);
+            setRateOpened(true);
+          },
+          render: (p, rowIdx) => {
+            const reg = register(
+              `orders.${orderIdx}.sheetsPerPallet.${p}.value`,
+              { setValueAs: numericSetValueAs },
+            );
+            return (
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                disabled={rateDisabled}
+                autoFocus={focusRow === rowIdx}
+                placeholder={inheritedRate ? String(inheritedRate) : undefined}
+                title={rateTitle}
+                className={`${sizeBlockInputCls} ${rateDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+                {...reg}
+                onBlur={(e) => {
+                  void reg.onBlur(e);
+                  foldRate();
+                }}
+              />
+            );
+          },
         }}
         renderCount={(p) => (
           <input
@@ -2740,29 +2765,6 @@ function SizeAdvancedBlockListi({
             })}
           />
         )}
-        renderRate={(p, rowIdx) => {
-          const reg = register(`orders.${orderIdx}.sheetsPerPallet.${p}.value`, {
-            setValueAs: numericSetValueAs,
-          });
-          return (
-            <input
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              disabled={rateDisabled}
-              autoFocus={focusRow === rowIdx}
-              placeholder={inheritedRate ? String(inheritedRate) : undefined}
-              title={rateTitle}
-              className={`${sizeBlockInputCls} ${rateDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-              {...reg}
-              onBlur={(e) => {
-                void reg.onBlur(e);
-                foldRate();
-              }}
-            />
-          );
-        }}
         renderTotal={(p) => (
           <input
             type="number"
@@ -2791,9 +2793,8 @@ function SizeAdvancedBlockProfili({
   totalSizes,
   countDisabled,
   totalDisabled,
-  inheritedRate,
+  showTotal,
   countLabel,
-  rateLabel,
   totalLabel,
   t,
   actions,
@@ -2803,19 +2804,17 @@ function SizeAdvancedBlockProfili({
   totalSizes: number;
   countDisabled: boolean;
   totalDisabled: boolean;
-  /** The profili-per-pacco in force for this size (its own, else the previous
-   *  size's) — greyed in its empty field; pacchi prodotti only once set. */
-  inheritedRate?: number;
+  /** Pacchi prodotti only once a per-pacco is in force for this size — set
+   *  in the size row (its 📦), not here. */
+  showTotal: boolean;
   countLabel: string;
-  rateLabel: string;
   totalLabel: string;
   t: TFunction;
   /** Per-size action buttons shown in the block header. */
   actions?: ReactNode;
 }) {
   'use no memo';
-  const { register, control, getValues, setValue } =
-    useFormContext<FormValues>();
+  const { register, control } = useFormContext<FormValues>();
   const isPhone = useMediaQuery('(max-width: 639px)');
   const counts = useFieldArray({
     control,
@@ -2859,20 +2858,6 @@ function SizeAdvancedBlockProfili({
     totals.remove(arrayPos);
   };
 
-  // Profili per pacco is the size's own value — the same one as the 📦 of
-  // its size row (one per size: on the first entry). Here too it folds to a
-  // 📦 button while empty. A controlled field (setValue): that one is
-  // registered by the size row.
-  const ratePath = `orders.${orderIdx}.sizes.${sizeIdx}.profilesPerPackage` as const;
-  const rate = useWatch({ control, name: ratePath });
-  const ownRate = Number(rate) > 0;
-  const [rateOpened, setRateOpened] = useState(false);
-  const rateOpen = rateOpened || ownRate;
-  const rateTitle =
-    !ownRate && inheritedRate
-      ? `${rateLabel} (${t('orders.optionalInherit')}: ${inheritedRate})`
-      : rateLabel;
-
   return (
     <div>
       <AdvBlockLayout
@@ -2881,14 +2866,9 @@ function SizeAdvancedBlockProfili({
         totalSizes={totalSizes}
         actions={actions}
         rows={rows}
-        labels={{ count: countLabel, rate: rateLabel, total: totalLabel }}
-        disabled={{ count: countDisabled, rate: false, total: totalDisabled }}
-        rateOpen={rateOpen}
-        showTotal={(inheritedRate ?? 0) > 0}
-        rateTitle={rateTitle}
-        rateIcon={PACK_ICON}
-        rateOnEveryRow={false}
-        onOpenRate={() => setRateOpened(true)}
+        labels={{ count: countLabel, total: totalLabel }}
+        disabled={{ count: countDisabled, total: totalDisabled }}
+        showTotal={showTotal}
         renderCount={(p) => (
           <input
             type="number"
@@ -2900,29 +2880,6 @@ function SizeAdvancedBlockProfili({
             {...register(`orders.${orderIdx}.producedProfiles.${p}.value`, {
               setValueAs: numericSetValueAs,
             })}
-          />
-        )}
-        renderRate={() => (
-          <input
-            type="number"
-            min="1"
-            step="1"
-            inputMode="numeric"
-            autoFocus={rateOpened && !ownRate}
-            value={rate ?? ''}
-            placeholder={inheritedRate ? String(inheritedRate) : undefined}
-            title={rateTitle}
-            className={sizeBlockInputCls}
-            onChange={(e) =>
-              setValue(ratePath, numericSetValueAs(e.target.value), {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-            // Left empty → folded again.
-            onBlur={() => {
-              if (!(Number(getValues(ratePath)) > 0)) setRateOpened(false);
-            }}
           />
         )}
         renderTotal={(p) => (
