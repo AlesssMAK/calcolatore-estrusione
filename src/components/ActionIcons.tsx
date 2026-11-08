@@ -193,6 +193,22 @@ export function StopIcon({ className = 'h-5 w-5' }: IconProps) {
 }
 
 /** Filled chevron (Syllert sprite `arrow_back_ios_new`, rotated to point up). */
+/** Sheets stacked on a pallet — lastre per bancale. */
+export function PalletIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      {/* three sheets */}
+      <g fill="currentColor" stroke="none">
+        <rect x="4" y="3" width="16" height="2.5" rx="0.6" />
+        <rect x="4" y="7" width="16" height="2.5" rx="0.6" />
+        <rect x="4" y="11" width="16" height="2.5" rx="0.6" />
+      </g>
+      {/* the pallet: deck, legs, base */}
+      <path d="M2 15.5h20M2 20.5h20M4 16.5v3M12 16.5v3M20 16.5v3" />
+    </svg>
+  );
+}
+
 export function ChevronUpIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
