@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
+import MarqueeText from './MarqueeText';
 import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
 import ProducedEditor from './ProducedEditor';
@@ -145,7 +146,11 @@ function ActiveOrderModal({
             }
           />
           {info.productName && (
-            <Row label={t('orders.productName')} value={info.productName} />
+            // A name longer than the row scrolls, as everywhere else.
+            <Row
+              label={t('orders.productName')}
+              value={<MarqueeText text={info.productName} />}
+            />
           )}
           <Row label={t('activeModal.size')} value={info.sizeLabel} />
           {editing && onSaveProduced ? (
