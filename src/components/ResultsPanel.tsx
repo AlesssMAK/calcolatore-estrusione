@@ -1,4 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   CalculatorMode,
@@ -12,6 +18,7 @@ import { buildResultPdfBlob, hasProgress } from '../lib/resultPdf';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import OrderNumberTag from './OrderNumberTag';
 import MarqueeText from './MarqueeText';
+import { isJumpTap, notePress } from '../utils/tapToJump';
 import PauseStrip from './PauseStrip';
 import UnitsTimeline from './UnitsTimeline';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
@@ -75,10 +82,25 @@ interface Props {
   /** Mark an order (or a single size) fully produced. Present only when
    *  tracking a saved/shared calc → renders per-row "✓" buttons. */
   onComplete?: (orderId: string, sizeIdx?: number) => void;
+  /** A tap on an order's result: the order in the form. */
+  onOpenOrder?: (orderId: string) => void;
 }
 
-function ResultsPanel({ result, mode, onComplete }: Props) {
+function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
   const { t, i18n } = useTranslation();
+  // One handler for all the rows: the tapped one's order (data-result-order).
+  const jumpProps = onOpenOrder
+    ? {
+        onPointerDownCapture: notePress,
+        onClick: (e: ReactMouseEvent<HTMLElement>) => {
+          const row = (e.target as Element).closest<HTMLElement>(
+            '[data-result-order]',
+          );
+          const id = row?.dataset.resultOrder;
+          if (id && isJumpTap(e)) onOpenOrder(id);
+        },
+      }
+    : {};
   const { company } = useCatalog();
   const [exporting, setExporting] = useState(false);
   // Something of it already made → "Condividi" first asks what to share: every
@@ -362,7 +384,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
         </h3>
 
         {/* Mobile: stacked cards */}
-        <ul className="space-y-2 lg:hidden">
+        <ul className="space-y-2 lg:hidden" {...jumpProps}>
           {doneCount > 0 && (
             <li>
               <button
@@ -380,6 +402,9 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
             const profilesCount = profilesCountFor(row);
             const perItemMin = perItemMinFor(row);
             const done = isRowDone(row);
+            // A tap on an order (not on its ✓): it in the form. Not a finished
+            // one — the form has it no more.
+            const jumpId = onOpenOrder && !done ? row.order.id : undefined;
             const doneSizes = doneSizesFor(row);
             const pause = pauseShown(row, done) && (
               <li>
@@ -392,6 +417,8 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
             return (
               <Fragment key={row.order.id}>
               <li
+                data-result-order={jumpId}
+                title={jumpId ? t('results.openOrder') : undefined}
                 className={`rounded-lg border p-3 ${
                   done
                     ? 'border-success/30 bg-success/5'
@@ -700,7 +727,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                 <th className="py-2">{t('results.col.end')}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody {...jumpProps}>
               {doneCount > 0 && (
                 <tr>
                   <td colSpan={isProfiles ? 9 : 7} className="py-1">
@@ -722,6 +749,9 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                 const profilesCount = profilesCountFor(row);
                 const perItemMin = perItemMinFor(row);
                 const done = isRowDone(row);
+                // A tap on an order (not on its ✓): it in the form. Not a finished
+                // one — the form has it no more.
+                const jumpId = onOpenOrder && !done ? row.order.id : undefined;
                 const pause = pauseShown(row, done) && (
                   <tr>
                     <td colSpan={isProfiles ? 9 : 7} className="py-1.5">
@@ -758,6 +788,8 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                 return (
                   <Fragment key={row.order.id}>
                     <tr
+                      data-result-order={jumpId}
+                      title={jumpId ? t('results.openOrder') : undefined}
                       className={`${mainRowBorder}${done ? ' bg-success/5' : ''}`}
                     >
                       <td className="py-2 pr-3 font-semibold text-brand-600 whitespace-nowrap">
@@ -831,7 +863,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                           !showAggregateProduced &&
                           !hasRowPerUnit;
                         return (
-                          <tr
+                          <tr data-result-order={jumpId}
                             key={`seg-${sIdx}`}
                             className={
                               closesGroup
@@ -869,7 +901,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                         );
                       })}
                     {doneSizes.map((s, sIdx) => (
-                      <tr
+                      <tr data-result-order={jumpId}
                         key={`done-size-${sIdx}`}
                         className={
                           sIdx === doneSizes.length - 1
@@ -902,7 +934,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                           !isSizeDone(sd);
                         return (
                           <Fragment key={sIdx}>
-                            <tr
+                            <tr data-result-order={jumpId}
                               className={
                                 hasProducedAtSize
                                   ? 'border-b-0 bg-brand-50/30 text-xs text-ink-soft'
@@ -965,7 +997,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                               </td>
                             </tr>
                             {hasProducedAtSize && (
-                              <tr
+                              <tr data-result-order={jumpId}
                                 className={
                                   isLastSub && sd.timePerUnitMin === undefined
                                     ? 'border-b border-neutral-100 bg-brand-50/30 last:border-b-0'
@@ -982,7 +1014,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                             )}
                             {sd.timePerUnitMin !== undefined &&
                               sd.totalUnits !== undefined && (
-                                <tr
+                                <tr data-result-order={jumpId}
                                   className={
                                     isLastSub
                                       ? 'border-b border-neutral-100 bg-brand-50/30 last:border-b-0'
@@ -1013,7 +1045,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                         );
                       })}
                     {showAggregateProduced && (
-                      <tr
+                      <tr data-result-order={jumpId}
                         className={
                           row.timePerUnitMin !== undefined
                             ? 'border-b-0 bg-brand-50/40'
@@ -1032,7 +1064,7 @@ function ResultsPanel({ result, mode, onComplete }: Props) {
                     {!hasSizeBreakdown &&
                       row.timePerUnitMin !== undefined &&
                       row.totalUnits !== undefined && (
-                        <tr className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
+                        <tr data-result-order={jumpId} className="border-b border-neutral-100 bg-brand-50/40 last:border-b-0">
                           <td colSpan={colSpan} className="px-3 pb-3 pt-1">
                             <PerUnitBlock
                               start={row.start}
