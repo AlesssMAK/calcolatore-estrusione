@@ -425,18 +425,14 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                     : 'border-neutral-200 bg-surface-alt'
                 }`}
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
+                {/* Line one: the order (#N, its number) and the time it takes;
+                    line two: the product, the whole width for its name. */}
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
                       #{idx + 1}
                     </span>
                     <OrderNumberTag value={row.order.orderNumber} />
-                    {row.order.productName && (
-                      <MarqueeText
-                        text={row.order.productName}
-                        className="text-xs font-medium text-ink"
-                      />
-                    )}
                     {done && (
                       <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         ✓ {t('results.completed')}
@@ -461,7 +457,15 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                     )}
                   </div>
                 </div>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                {row.order.productName && (
+                  <div className="mt-1 flex min-w-0">
+                    <MarqueeText
+                      text={row.order.productName}
+                      className="text-sm font-medium text-ink"
+                    />
+                  </div>
+                )}
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                   {isProfiles && (
                     <>
                       <dt className="text-ink-soft">
