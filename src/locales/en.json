@@ -277,6 +277,7 @@
     "title": "Order in production",
     "size": "Size",
     "tapToGo": "Tap to open the size",
+    "toResult": "Go to Result",
     "edit": "Edit produced count",
     "sizeEnd": "Size ends",
     "orderEnd": "Order ends",

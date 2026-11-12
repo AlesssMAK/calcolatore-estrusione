@@ -809,6 +809,17 @@ function CalculatorApp() {
     setFormKey((k) => k + 1);
   };
 
+  // From the modal to the active order's result (the results page at it).
+  const goToActiveResult = () => {
+    if (!activeModal) return;
+    const id = result?.rows?.[activeModal.orderIdx]?.order?.id;
+    keepModalRef.current = false;
+    setActiveModal(null);
+    const jump = id ? openResultFor?.(id) : undefined;
+    if (jump) jump();
+    else openResults();
+  };
+
   // Jump from the modal to the active size in the form, then close the modal.
   const goToActiveSize = () => {
     if (!activeModal) return;
@@ -1714,6 +1725,7 @@ function CalculatorApp() {
             setActiveModal(null);
           }}
           onGoToForm={goToActiveSize}
+          onGoToResult={result ? goToActiveResult : undefined}
           // Editable produced count — not on a read-only company calc, nor on
           // a total-meters order (no per-size count there).
           onSaveProduced={

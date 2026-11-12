@@ -1,11 +1,12 @@
-// Tapping a field empties it, so a new value is typed straight away instead of
-// deleting the old one first. The old value stays as the grey hint: left
+// Tapping a field that holds 0 empties it, so a number is typed straight away
+// instead of deleting the 0 first. Any other value stays as it is: it's edited,
+// not retyped (the user's choice). The 0 stays as the grey hint: left
 // untouched, the field gets it back; typed over, the new value replaces it.
 // To really empty a field: type something and delete it.
 //
 // A field whose grey hint is its name (`data-name-hint`: no label above it)
 // keeps that hint instead — what to type there shows until typing starts —
-// unless its value is wrong (aria-invalid): then the hint is that value.
+// unless its 0 is wrong (aria-invalid): then the hint is the 0.
 //
 // One listener for the whole app, so a new field gets this by itself. Opt out
 // with `data-keep-value` (a field with its own handling, a password).
@@ -15,6 +16,9 @@
 // blur handler (RHF's reads the input) already sees the value back.
 
 const CLEARABLE_TYPES = new Set(['text', 'number']);
+/** A 0 ("0", "0.0", "0,0"…): the one value a tap clears. */
+const isZero = (v: string) =>
+  v.trim() !== '' && Number(v.trim().replace(',', '.')) === 0;
 const OPT_OUT = '[data-keep-value], .react-datepicker-wrapper';
 
 const nativeValue = Object.getOwnPropertyDescriptor(
@@ -51,7 +55,7 @@ export function installClearOnFocus(): () => void {
       !(el instanceof HTMLInputElement) ||
       !CLEARABLE_TYPES.has(el.type) ||
       el.readOnly ||
-      el.value === '' ||
+      !isZero(el.value) ||
       el.closest(OPT_OUT)
     ) {
       return;
