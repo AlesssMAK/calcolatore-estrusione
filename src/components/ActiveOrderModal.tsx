@@ -40,6 +40,8 @@ interface Props {
   onClose: () => void;
   /** Jump to the active size in the form (tap on the modal body). */
   onGoToForm: () => void;
+  /** Its button: the order's result (results page, at that order). */
+  onGoToResult?: () => void;
   /** Set the produced count of the active size and recompute. Absent → the
    *  count is shown read-only (total-meters orders, view-only company calcs). */
   onSaveProduced?: (produced: number) => void;
@@ -48,11 +50,13 @@ interface Props {
 
 /** Shown once when a saved calc is opened: what size of which order is being
  *  produced now, how much is done and when it finishes. Tapping the body jumps
- *  to that size in the form; Esc / backdrop / ✕ close it. */
+ *  to that size in the form, its button to the order's result; Esc / backdrop
+ *  / ✕ close it. */
 function ActiveOrderModal({
   info,
   onClose,
   onGoToForm,
+  onGoToResult,
   onSaveProduced,
   t,
 }: Props) {
@@ -226,7 +230,23 @@ function ActiveOrderModal({
           />
         </dl>
 
-        <p className="mt-4 text-center text-xs font-medium text-brand-700">
+        {onGoToResult && (
+          // As the form's "Risultati" button.
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onGoToResult();
+            }}
+            className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600"
+          >
+            <span aria-hidden>📊</span>
+            <span>{t('activeModal.toResult')}</span>
+          </button>
+        )}
+        <p
+          className={`${onGoToResult ? 'mt-2' : 'mt-4'} text-center text-xs font-medium text-brand-700`}
+        >
           {t('activeModal.tapToGo')}
         </p>
       </div>
