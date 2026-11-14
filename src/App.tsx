@@ -29,6 +29,7 @@ import { settleDiffs, type DiffSide } from './utils/calcMerge';
 import { revealJump } from './utils/tapToJump';
 import { TrackedResultContext } from './contexts/trackedResult';
 import ErrorBoundary from './components/ErrorBoundary';
+import TailRoom from './components/TailRoom';
 import ActiveOrderModal, {
   type ActiveModalInfo,
 } from './components/ActiveOrderModal';
@@ -1802,6 +1803,8 @@ function CalculatorApp() {
           © {new Date().getFullYear()} {t('footer.madeBy')}
         </div>
       </footer>
+      {/* Room under the page for a card scrolled to the top (a new order). */}
+      <TailRoom />
     </div>
   );
 }

@@ -129,6 +129,10 @@
     "cavity": "Cavities",
     "cavityHint": "optional — multiplies the speed",
     "advancedToggle": "Advanced Calculation",
+    "sizeSplit": "✂ Split",
+    "sizeSplitTitle": "The sizes below into a new group",
+    "sizeMerge": "⊕ Merge",
+    "sizeMergeTitle": "Merge the group below into this one",
     "advanced": {
       "profilesProduced": "Profiles Produced",
       "packagesProduced": "Packages Produced",

@@ -24,6 +24,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -72,6 +73,14 @@ import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
 import { errorAttrs } from '../utils/errorBubble';
 import { isJumpTap, notePress } from '../utils/tapToJump';
+import { scrollToTopWithRoom } from '../utils/tailRoom';
+import {
+  afterMove,
+  groupOf,
+  groupRuns,
+  mergeAfter,
+  splitAfter,
+} from '../utils/sizeGroups';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
 import { inputBase, labelBase } from './formStyles';
@@ -178,7 +187,7 @@ function OrdersList({
     register,
   } = useFormContext<FormValues>();
 
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append, insert, remove, move } = useFieldArray({
     control,
     name: 'orders',
   });
@@ -225,6 +234,11 @@ function OrdersList({
   blockOf.forEach((b, i) => (blocks[b] ??= []).push(i));
   const freeIdx = fields.map((_, i) => i).slice(placedN);
   const multiBlock = blocks.length > 1;
+  // A pause closing the last placed order opens a block still empty: a new
+  // order goes straight into it, and a new one waiting below can be dropped
+  // on that pause card to start it.
+  const openBlock =
+    placedN > 0 && isGapEnabled(watchedOrders?.[placedN - 1], { gapMode });
   const blockKey = (list: number[]) => `block:${fields[list[0]].id}`;
   // Different products next to each other with no pause (always inside a
   // block): a reminder strip between them.
@@ -263,6 +277,8 @@ function OrdersList({
   const sameGroup = (activeId: unknown, id: unknown) => {
     const a = String(activeId);
     const b = String(id);
+    // The open block's pause: for a new order only.
+    if (b.startsWith('pause:')) return !a.startsWith('block:') && isFree(a);
     if (a.startsWith('block:')) return b.startsWith('block:');
     return !b.startsWith('block:') && (!isFree(b) || isFree(a));
   };
@@ -578,6 +594,18 @@ function OrdersList({
       if (r) applyArrangement(r, before);
       return;
     }
+    if (o.startsWith('pause:')) {
+      // A new order on the open block's pause: it starts that block.
+      const from = indexOfField(a);
+      if (from >= placedN) {
+        move(from, placedN);
+        setValue(`orders.${placedN}.unplaced`, undefined, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      return;
+    }
     const from = indexOfField(a);
     const to = indexOfField(o);
     if (from >= placedN && to >= placedN) {
@@ -607,25 +635,27 @@ function OrdersList({
   const [numberFocusIdx, setNumberFocusIdx] = useState<number | null>(null);
 
   const appendOrder = () => {
-    const last = watchedOrders?.[watchedOrders.length - 1];
-    pendingFocusIdx.current = fields.length; // index the new order will take
+    // Split into blocks → it waits under them, to drag into one — unless the
+    // last block is open (a pause after its last order): it goes in there.
+    const waits = (multiBlock || freeIdx.length > 0) && !openBlock;
+    const at = waits ? fields.length : placedN;
+    const last = watchedOrders?.[at - 1];
+    pendingFocusIdx.current = at; // index the new order will take
     setNumberFocusIdx(
-      watchedOrders?.some((o) => o?.orderNumber?.trim()) ? fields.length : null,
+      watchedOrders?.some((o) => o?.orderNumber?.trim()) ? at : null,
     );
-    append(
-      {
-        ...makeEmptyOrder(
-          mode,
-          Boolean(last?.useTotalLength),
-          last?.productName ?? '',
-        ),
-        // Split into blocks → it waits under them, to drag into one.
-        ...(multiBlock || freeIdx.length > 0 ? { unplaced: true } : {}),
-      },
-      // Not RHF's own focus: it lands on the order's first field — the
-      // (inherited) product name — and pops its suggestion list open.
-      { shouldFocus: false },
-    );
+    const order = {
+      ...makeEmptyOrder(
+        mode,
+        Boolean(last?.useTotalLength),
+        last?.productName ?? '',
+      ),
+      ...(waits ? { unplaced: true } : {}),
+    };
+    // Not RHF's own focus: it lands on the order's first field — the
+    // (inherited) product name — and pops its suggestion list open.
+    if (at === fields.length) append(order, { shouldFocus: false });
+    else insert(at, order, { shouldFocus: false });
   };
 
   // Removing the last order placed in a block: the new ones simply become the
@@ -652,7 +682,11 @@ function OrdersList({
     if (target) {
       pendingFocusIdx.current = null;
       setNumberFocusIdx(null);
-      target.focus();
+      target.focus({ preventScroll: true });
+      // The new card first on screen: its top at the top (once laid out).
+      // (with room under the page when it ends too soon for that)
+      const card = target.closest<HTMLElement>('[data-order-slot]');
+      if (card) scrollToTopWithRoom(card);
       return;
     }
     const id = fields[idx]?.id;
@@ -838,6 +872,8 @@ function OrdersList({
               ref={setNodeRef}
               style={style}
               data-order-card={wo?.id}
+              // (always there — the id above comes a render later)
+              data-order-slot=""
               // A tap on the card itself (not a field or a button): its result.
               onPointerDownCapture={jumpToResult ? notePress : undefined}
               onClick={
@@ -1055,15 +1091,27 @@ function OrdersList({
                   ) : (
                     inner
                   )}
-                  {pauseOn && (
-                    <PauseCard
-                      idx={closer}
-                      isLast={closer === fields.length - 1}
-                      onRemove={() => removePause(closer)}
-                      kept={pauseKept === closer ? sidesAt(closer) : null}
-                      clearKept={setPauseKept}
-                    />
-                  )}
+                  {pauseOn &&
+                    (() => {
+                      const card = (
+                        <PauseCard
+                          idx={closer}
+                          isLast={closer === fields.length - 1}
+                          onRemove={() => removePause(closer)}
+                          kept={pauseKept === closer ? sidesAt(closer) : null}
+                          clearKept={setPauseKept}
+                        />
+                      );
+                      // The open block's pause, with new orders waiting: one
+                      // dropped on it starts the block.
+                      return b === blocks.length - 1 && freeIdx.length > 0 ? (
+                        <PauseDropZone id={`pause:${fields[closer].id}`}>
+                          {card}
+                        </PauseDropZone>
+                      ) : (
+                        card
+                      );
+                    })()}
                 </Fragment>
               );
             })}
@@ -1383,11 +1431,12 @@ function OrderFields({
           t={t}
           activeSizeIdx={activeSizeIdx}
           editingId={editingId}
-          sizeAdvanced={(sIdx, totalSizes) => (
+          sizeAdvanced={(sIdx, totalSizes, aside) => (
             <SizeAdvancedPanel
               orderIdx={idx}
               sizeIdx={sIdx}
               totalSizes={totalSizes}
+              aside={aside}
               mode={mode}
               t={t}
               activeSizeIdx={activeSizeIdx}
@@ -1886,6 +1935,7 @@ function SizeAdvancedPanel({
   orderIdx,
   sizeIdx,
   totalSizes,
+  aside,
   mode,
   t,
   activeSizeIdx,
@@ -1896,6 +1946,8 @@ function SizeAdvancedPanel({
   orderIdx: number;
   sizeIdx: number;
   totalSizes: number;
+  /** On the toggle's line, at the right (the size groups' ✂ / ⊕). */
+  aside?: ReactNode;
   mode: CalculatorMode;
   t: TFunction;
   /** The size in production on this (active) order — gets the ⏹ button. */
@@ -1929,16 +1981,19 @@ function SizeAdvancedPanel({
 
   return (
     <div className="mt-1.5">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        data-view
-        className="inline-flex items-center gap-1 text-[10px] leading-tight font-medium text-ink-soft transition hover:text-brand-700 sm:text-[11px]"
-      >
-        <span aria-hidden>{open ? '▾' : '▸'}</span>
-        {t('orders.advancedToggle')}
-      </button>
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          data-view
+          className="inline-flex items-center gap-1 text-[10px] leading-tight font-medium text-ink-soft transition hover:text-brand-700 sm:text-[11px]"
+        >
+          <span aria-hidden>{open ? '▾' : '▸'}</span>
+          {t('orders.advancedToggle')}
+        </button>
+        {aside}
+      </div>
       {open && (
         <div
           className={`mt-1.5 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
@@ -2357,6 +2412,22 @@ function OrderNameField({
 }
 
 /** Where a dragged order lands in another block. */
+/** The open block's pause card (no orders after it yet), as a target: a new
+ *  order dropped on it starts that block. Ringed while one is over it. */
+function PauseDropZone({ id, children }: { id: string; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg transition ${
+        isOver ? 'ring-2 ring-brand-400 ring-offset-2' : ''
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
 function DropLine() {
   return <div aria-hidden className="h-1 rounded-full bg-brand-500" />;
 }
@@ -3419,8 +3490,12 @@ function SizesFieldArray({
   mode: CalculatorMode;
   t: TFunction;
   /** A size's Calcolo Avanzato, under its row (an open one: a collapsed
-   *  summary has none). */
-  sizeAdvanced?: (sizeIdx: number, totalSizes: number) => ReactNode;
+   *  summary has none); `aside` goes on its toggle's line (✂ / ⊕). */
+  sizeAdvanced?: (
+    sizeIdx: number,
+    totalSizes: number,
+    aside?: ReactNode,
+  ) => ReactNode;
   /** Active order (saved view): the size in production — other sizes collapse
    *  to a summary (click to expand). Null → all sizes shown. */
   activeSizeIdx?: number | null;
@@ -3484,13 +3559,26 @@ function SizesFieldArray({
     getValues(`orders.${orderIdx}.sizes`)?.forEach((s, i) => {
       if (!s?.uid) setValue(`orders.${orderIdx}.sizes.${i}.uid`, genId());
     });
+  const groupsNow = () =>
+    (getValues(`orders.${orderIdx}.sizes`) ?? []).map(groupOf);
+  // New groups for the sizes (by position): only the changed ones are written.
+  const writeGroups = (before: number[], after: number[]) =>
+    after.forEach((g, i) => {
+      if (g !== before[i]) {
+        setValue(`orders.${orderIdx}.sizes.${i}.group`, g || undefined, {
+          shouldDirty: true,
+        });
+      }
+    });
   const insertSizeAt = (at: number) => {
     ensureSizeUids();
     remapSizeEntries(insertMap(at));
     // Render the just-inserted size expanded, not collapsed to a summary (the
     // default for non-active sizes in a saved calc).
     pendingSizeExpand.current = at;
-    insertSize(at, makeEmptySize());
+    // In the group of the size it's put after.
+    const g = groupsNow()[Math.max(0, at - 1)] ?? 0;
+    insertSize(at, { ...makeEmptySize(), ...(g ? { group: g } : {}) });
   };
   const removeSizeAt = (at: number) => {
     ensureSizeUids();
@@ -3500,7 +3588,21 @@ function SizesFieldArray({
   const moveSizeTo = (from: number, to: number) => {
     ensureSizeUids();
     remapSizeEntries(moveMap(from, to));
+    const before = groupsNow();
     moveSize(from, to);
+    // It joins the group it's put in.
+    const moved = [...before];
+    moved.splice(to, 0, ...moved.splice(from, 1));
+    writeGroups(moved, afterMove(before, from, to));
+  };
+  // ✂ / ⊕ under a size: split its group below it, or merge the one below in.
+  const splitSizesAfter = (at: number) => {
+    const before = groupsNow();
+    writeGroups(before, splitAfter(before, at));
+  };
+  const mergeSizesAfter = (at: number) => {
+    const before = groupsNow();
+    writeGroups(before, mergeAfter(before, at));
   };
 
   // Reorder the sizes within this order: drag (press-hold handle, mobile) or
@@ -3632,29 +3734,28 @@ function SizesFieldArray({
     ...idxs.filter((i) => isSizeDone(i)),
     ...idxs.filter((i) => !isSizeDone(i)),
   ];
-
-  return (
-    <div>
-      {sizesRootError && (
-        <p
-          data-form-error
-          className="mb-2 rounded-md bg-red-50 px-3 py-2 text-sm text-danger"
-        >
-          {t(`orders.${sizesRootError}`, { defaultValue: sizesRootError })}
-        </p>
-      )}
-
-      <DndContext
-        sensors={sizeSensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleSizeDragEnd}
+  // Groups of sizes (utils/sizeGroups): a frame each, when there are several.
+  const groups = sizeFields.map((_, i) => groupOf(watchedSizes?.[i]));
+  const sizeRuns = groupRuns(displayOrder, groups);
+  // Under a size (not the last): ✂ starts a new group below it, or — on a
+  // group's last size — ⊕ merges the next group into it.
+  const groupControl = (sIdx: number): ReactNode => {
+    if (sIdx >= sizeFields.length - 1) return undefined;
+    const split = groups[sIdx] === groups[sIdx + 1];
+    return (
+      <button
+        type="button"
+        onClick={() => (split ? splitSizesAfter(sIdx) : mergeSizesAfter(sIdx))}
+        title={t(split ? 'orders.sizeSplitTitle' : 'orders.sizeMergeTitle')}
+        aria-label={t(split ? 'orders.sizeSplitTitle' : 'orders.sizeMergeTitle')}
+        className="shrink-0 text-[10px] leading-tight font-medium text-ink-soft transition hover:text-brand-700 sm:text-[11px]"
       >
-        <SortableContext
-          items={displayOrder.map((i) => sizeFields[i].id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-2">
-            {displayOrder.map((sIdx) => {
+        {t(split ? 'orders.sizeSplit' : 'orders.sizeMerge')}
+      </button>
+    );
+  };
+
+  const renderSize = (sIdx: number) => {
               const sizeField = sizeFields[sIdx];
               const sizeErr = orderErr?.sizes?.[sIdx];
               const showPerPackage = isProfiles && sizeFields.length > 1;
@@ -3834,14 +3935,47 @@ function SizesFieldArray({
                     {sizeAdvanced && (
                       // In line with the fields (past the drag handle).
                       <div className={canReorder ? 'pl-7' : ''}>
-                        {sizeAdvanced(sIdx, sizeFields.length)}
+                        {sizeAdvanced(sIdx, sizeFields.length, groupControl(sIdx))}
                       </div>
                     )}
                     </div>
                   )}
                 </SortableItem>
               );
-            })}
+  };
+
+  return (
+    <div>
+      {sizesRootError && (
+        <p
+          data-form-error
+          className="mb-2 rounded-md bg-red-50 px-3 py-2 text-sm text-danger"
+        >
+          {t(`orders.${sizesRootError}`, { defaultValue: sizesRootError })}
+        </p>
+      )}
+
+      <DndContext
+        sensors={sizeSensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleSizeDragEnd}
+      >
+        <SortableContext
+          items={displayOrder.map((i) => sizeFields[i].id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2">
+            {sizeRuns.length > 1
+              ? sizeRuns.map((run) => (
+                  // A group of sizes: a frame (for the eye only).
+                  <div
+                    key={`group-${sizeFields[run[0]].id}`}
+                    className="-mx-2 space-y-2 rounded-lg border border-dashed border-neutral-300 p-2"
+                  >
+                    {run.map(renderSize)}
+                  </div>
+                ))
+              : displayOrder.map(renderSize)}
           </div>
         </SortableContext>
       </DndContext>

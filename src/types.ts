@@ -10,6 +10,9 @@ export interface OrderSize {
    *  order) — what a custom production queue points at. Assigned on creation,
    *  or lazily when a queue is built for sizes that came without one. */
   uid?: string;
+  /** Its group in the order card: a frame, for the eye only (no pause, no
+   *  effect on the calculation). None = group 0. */
+  group?: number;
 }
 
 /** One step of a custom production queue: a size of an order (by stable ids),
