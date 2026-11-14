@@ -10,6 +10,7 @@ import CompanyResultsButton from './CompanyResultsButton';
 import type { CompanyCalc } from '../lib/sharedCalc';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import FloatingActions from './FloatingActions';
+import { TextModeContext } from '../contexts/textMode';
 import { SaveIcon } from './ActionIcons';
 
 const FORM_ID = 'calc-form';
@@ -691,6 +692,9 @@ function CalculatorForm({
           onPasteCapture={readOnly ? (e) => e.preventDefault() : undefined}
           onDropCapture={readOnly ? (e) => e.preventDefault() : undefined}
         >
+          {/* A tracked calc (Salvati / Produzione): values as text, a field
+              on a tap. */}
+          <TextModeContext.Provider value={!!canComplete}>
           <OrdersList
             mode={mode}
             onComplete={canComplete && !readOnly ? completeItem : undefined}
@@ -714,6 +718,7 @@ function CalculatorForm({
             openResultFor={openResultFor}
             revealOrder={revealOrder}
           />
+          </TextModeContext.Provider>
         </div>
 
         <div
