@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -12,7 +19,12 @@ import {
 } from '../lib/pauseReasons';
 import type { PauseReasonSnapshot } from '../types';
 import { numericSetValueAs } from '../utils/numeric';
-import { inputBase } from './formStyles';
+import { bareNeutral, inputBase } from './formStyles';
+import BareButton from './BareButton';
+import { CloseIcon } from './ActionIcons';
+import TapToEdit from './TapToEdit';
+import EditNum from './EditNum';
+import { TextModeContext } from '../contexts/textMode';
 import MarqueeText from './MarqueeText';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { PauseKeptNote, type ProductChangeSides } from './ProductChange';
@@ -63,6 +75,9 @@ function PauseCard({
   const hex = pauseColorHex(reason?.color ?? 'grey');
   const opts = { shouldDirty: true, shouldValidate: true };
   const [expanded, setExpanded] = useState(false);
+  // A tracked calc: as the order cards — text and bare icons, a field on a
+  // tap.
+  const textMode = useContext(TextModeContext);
 
   // The "can't remove" note goes away by itself.
   useEffect(() => {
@@ -103,6 +118,7 @@ function PauseCard({
             reason={reason}
             minutes={minutes}
             onPick={pick}
+            textMode={textMode}
             t={t}
           />
         ) : (
@@ -115,6 +131,16 @@ function PauseCard({
             )}
           </span>
         )}
+        {textMode ? (
+          <BareButton
+            title={t('orders.pauseRemove')}
+            onClick={onRemove}
+            iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+            className="ml-0.5"
+          >
+            <CloseIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </BareButton>
+        ) : (
         <button
           type="button"
           onClick={onRemove}
@@ -124,7 +150,18 @@ function PauseCard({
         >
           ✕
         </button>
-        {foldable && (
+        )}
+        {foldable && textMode && (
+          <BareButton
+            title={t('orders.pauseSlots')}
+            pressed={showTime}
+            onClick={() => setExpanded((e) => !e)}
+            iconCls={`${bareNeutral} text-xs`}
+          >
+            {showTime ? '▾' : '▸'}
+          </BareButton>
+        )}
+        {foldable && !textMode && (
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
@@ -141,7 +178,22 @@ function PauseCard({
       </div>
 
       {showTime && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div
+          className={`${textMode ? 'mt-1' : 'mt-2'} flex flex-wrap items-center gap-x-3 gap-y-1`}
+        >
+          {/* A tracked calc: "60 min · 1 h", the field on a tap. */}
+          <TapToEdit
+            names={[`orders.${idx}.gapAfterMin`]}
+            title={t('orders.gapAfter')}
+            render={([v], fmt) => (
+              <>
+                <EditNum name={`orders.${idx}.gapAfterMin`}>{fmt(v)}</EditNum>
+                <span className="text-ink-soft">
+                  min{minutes >= 60 ? ` · ${fmtPause(minutes)}` : ''}
+                </span>
+              </>
+            )}
+          >
           <div className="w-32 sm:w-36">
             <PauseField
               idx={idx}
@@ -152,6 +204,7 @@ function PauseCard({
           <span className="text-xs text-ink-soft">
             min{minutes >= 60 ? ` · ${fmtPause(minutes)}` : ''}
           </span>
+          </TapToEdit>
           {standard != null && minutes !== standard && (
             <button
               type="button"
@@ -164,7 +217,10 @@ function PauseCard({
         </div>
       )}
       {span && (
-        <p className="mt-1 text-[11px] text-ink-soft tabular-nums">{span}</p>
+        // (centred on a phone)
+        <p className="mt-1 text-center text-[11px] text-ink-soft tabular-nums sm:text-left">
+          {span}
+        </p>
       )}
       {isLast && <p className="mt-1 text-[11px] text-ink-soft">{t('orders.pauseNoNext')}</p>}
       {kept && <PauseKeptNote {...kept} />}
@@ -181,12 +237,15 @@ function ReasonPicker({
   reason,
   minutes,
   onPick,
+  textMode,
   t,
 }: {
   reasons: PauseReason[];
   reason: PauseReasonSnapshot | undefined;
   minutes: number;
   onPick: (r: PauseReason | null) => void;
+  /** A tracked calc: the reason as text (no frame), its list on a tap. */
+  textMode: boolean;
   t: TFunction;
 }) {
   'use no memo';
@@ -266,13 +325,20 @@ function ReasonPicker({
         title={label}
         // Shown in the read-only view too, but inert there (.ro-inert).
         data-view
-        className={`${inputBase} ro-inert flex items-center gap-2 px-2 text-left font-medium`}
+        className={
+          textMode
+            ? 'group/rp ro-inert flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-0.5 text-left text-sm font-medium text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 sm:h-8'
+            : `${inputBase} ro-inert flex items-center gap-2 px-2 text-left font-medium`
+        }
       >
         <MarqueeText text={label} />
         {minutes > 0 && (
           <span className="shrink-0 text-xs font-normal text-ink-soft">{fmtPause(minutes)}</span>
         )}
-        <span aria-hidden className="shrink-0 text-[10px] text-ink-soft">
+        <span
+          aria-hidden
+          className="shrink-0 text-[10px] text-ink-soft transition group-hover/rp:text-brand-700"
+        >
           ▾
         </span>
       </button>

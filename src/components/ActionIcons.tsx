@@ -174,6 +174,15 @@ export function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Cross — remove (a pause). */
+export function CloseIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
 /** Sigma — an order counted by its total length (Σ). */
 export function SigmaIcon({ className = 'h-5 w-5' }: IconProps) {
   return (

@@ -36,11 +36,11 @@ export function formatShortDateTime(date: Date, lang: string): string {
   return format(date, 'dd.MM.yyyy HH:mm', { locale: getDateFnsLocale(lang) });
 }
 
-/** A span in short: "08.11 14:30 → 16:30", the end's date only when it falls
- *  on another day ("08.11 22:00 → 09.11 06:00"). */
+/** A span in short: "08.11.2026 14:30 → 16:30", the end's date only when it
+ *  falls on another day ("08.11.2026 22:00 → 09.11.2026 06:00"). */
 export function formatSpan(start: Date, end: Date): string {
   const sameDay = start.toDateString() === end.toDateString();
-  return `${format(start, 'dd.MM HH:mm')} → ${format(end, sameDay ? 'HH:mm' : 'dd.MM HH:mm')}`;
+  return `${format(start, 'dd.MM.yyyy HH:mm')} → ${format(end, sameDay ? 'HH:mm' : 'dd.MM.yyyy HH:mm')}`;
 }
 
 interface UnitLabels {
