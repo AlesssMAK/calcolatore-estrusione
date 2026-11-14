@@ -127,7 +127,10 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
   }, [shareMenu]);
   // Completed orders are collapsed into one block by default, so the active
   // part of the queue is what stands out. Toggle to reveal them.
-  const [showCompleted, setShowCompleted] = useState(false);
+  // Every order done (a calc made to the end): the completed ones open.
+  const [showCompleted, setShowCompleted] = useState(
+    () => result.rows.length > 0 && result.rows.every(isRowDone),
+  );
   const doneCount = result.rows.filter(isRowDone).length;
   const sectionRef = useRef<HTMLElement>(null);
   const [now] = useState(() => new Date());

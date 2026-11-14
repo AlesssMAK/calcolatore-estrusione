@@ -149,8 +149,9 @@ interface Props {
   onRevertPiramide?: (orderIdx: number) => void;
   /** The jump to an order's result (a tap on its open card), when it has one. */
   openResultFor?: (orderId: string) => (() => void) | undefined;
-  /** An order to open, coming from its result (`n`: each jump anew). */
-  revealOrder?: { id: string; n: number } | null;
+  /** Orders to open, coming from their result or brought back (`n`: each
+   *  time anew). */
+  revealOrder?: { ids: string[]; n: number } | null;
 }
 
 /** A product picked / typed for an order: a catalog one carries its parameters. */
@@ -198,17 +199,10 @@ function OrdersList({
     name: 'orders',
   });
 
-  // Coming from an order's result: that order opens (as if tapped).
-  const [prevReveal, setPrevReveal] = useState(revealOrder);
-  if (prevReveal !== revealOrder) {
-    setPrevReveal(revealOrder);
-    const at = revealOrder
-      ? getValues('orders').findIndex((o) => o?.id === revealOrder.id)
-      : -1;
-    if (at >= 0 && fields[at]) {
-      setExpandedOrders((s) => new Set(s).add(fields[at].id));
-    }
-  }
+  // Coming from their result (or brought back by Ripristina): those orders
+  // are open, whatever the collapse — read straight from the prop, as the form
+  // remounts on a Ripristina.
+  const revealIds = new Set(revealOrder?.ids ?? []);
 
   // Global product-name field, toggled from the "Ordini in Coda" header (moved
   // here from the settings panel). Open when explicitly shown or already filled.
@@ -751,7 +745,8 @@ function OrdersList({
     const collapsed =
       !!activeLoc &&
       idx !== activeLoc.orderIdx &&
-      !expandedOrders.has(field.id);
+      !expandedOrders.has(field.id) &&
+      !revealIds.has(wo?.id ?? '');
     const jumpToResult = wo?.id ? openResultFor?.(wo.id) : undefined;
 
     // Order-level actions — rendered in the speed row (OrderFields `actions`),
