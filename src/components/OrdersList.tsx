@@ -959,7 +959,7 @@ function OrdersList({
     // A tracked calc: the same, bare icons in the order's number line.
     const useTotal = Boolean(watchedOrders?.[idx]?.useTotalLength);
     const headIcons = (
-      <div className="flex shrink-0 items-center">
+      <div className="order-1 ml-auto flex shrink-0 items-center">
         {onComplete && (
           <BareButton
             title={t('orders.completeOrder')}
@@ -1080,10 +1080,22 @@ function OrdersList({
               } ${jumpToResult ? 'cursor-pointer' : ''}`}
             >
             {/* ⠿ at the top, beside the number (the product name may take a
-                second line). A tracked calc: the order's buttons too, bare
-                icons at the line's end. */}
-            <div className={`${textMode ? 'mb-1.5' : 'mb-2'} flex items-start gap-2`}>
-              <div className="flex min-w-0 flex-1 items-start gap-1.5">
+                second line). A tracked calc: one wrapping line — ⠿, the
+                number, the order's buttons (bare icons) at its end, and the
+                product name beside the number or, with an order number, on a
+                line of its own across the whole card. */}
+            <div
+              className={
+                textMode
+                  ? 'mb-1.5 flex flex-wrap items-center gap-x-1.5'
+                  : 'mb-2 flex items-start gap-2'
+              }
+            >
+              <div
+                className={
+                  textMode ? 'contents' : 'flex min-w-0 flex-1 items-start gap-1.5'
+                }
+              >
                 {canDrag && (
                   <button
                     type="button"
@@ -2469,7 +2481,13 @@ function OrderNameField({
   const showStill = draft === null && hasValue;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+    // (a tracked calc: its items are the header line's own — see the order
+    // card's header)
+    <div
+      className={
+        textMode ? 'contents' : 'flex min-w-0 flex-1 flex-wrap items-center gap-2'
+      }
+    >
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -2528,7 +2546,9 @@ function OrderNameField({
       )}
       <div
         ref={wrapperRef}
-        className={`relative min-w-0 ${showNumber ? 'basis-full' : 'flex-1'}`}
+        className={`relative min-w-0 ${
+          showNumber ? (textMode ? 'order-2 basis-full' : 'basis-full') : 'flex-1'
+        }`}
       >
           <input
             ref={inputRef}
