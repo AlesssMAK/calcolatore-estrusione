@@ -31,6 +31,7 @@ export default function TapToEdit({
   children,
   disabled,
   title,
+  compact,
   className = '',
 }: {
   /** The form fields shown by the text. */
@@ -42,6 +43,8 @@ export default function TapToEdit({
   /** The fields are locked: the text doesn't open them. */
   disabled?: boolean;
   title?: string;
+  /** A lower line (Calcolo Avanzato's values). */
+  compact?: boolean;
   /** The text's place / size (grid span, width…). */
   className?: string;
 }) {
@@ -113,7 +116,9 @@ export default function TapToEdit({
           open(e as unknown as ReactMouseEvent<HTMLElement>);
         }
       }}
-      className={`flex h-7 min-w-0 items-center gap-1 text-xs text-ink sm:h-8 sm:text-sm ${
+      className={`flex min-w-0 items-center gap-1 text-xs text-ink sm:text-sm ${
+        compact ? 'h-6 sm:h-7' : 'h-7 sm:h-8'
+      } ${
         disabled ? 'opacity-40' : 'cursor-text'
       } ${className}`}
     >
