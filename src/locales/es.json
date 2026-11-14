@@ -129,6 +129,10 @@
     "cavity": "Cavidades",
     "cavityHint": "opc. — multiplica la velocidad",
     "advancedToggle": "Cálculo Avanzado",
+    "sizeSplit": "✂ Dividir",
+    "sizeSplitTitle": "Las medidas de abajo en un nuevo grupo",
+    "sizeMerge": "⊕ Unir",
+    "sizeMergeTitle": "Unir el grupo de abajo a este",
     "advanced": {
       "profilesProduced": "Perfiles Producidos",
       "packagesProduced": "Paquetes Producidos",

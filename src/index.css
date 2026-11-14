@@ -426,7 +426,8 @@ textarea[aria-invalid='true']::placeholder {
   cursor: pointer;
 }
 [data-result-order],
-[data-order-card] {
+[data-order-card],
+[data-order-slot] {
   scroll-margin-top: 12px;
 }
 @keyframes jump-flash {

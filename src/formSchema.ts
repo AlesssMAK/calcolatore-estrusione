@@ -10,6 +10,8 @@ const sizeSchema = z.object({
     .positive('positive')
     .optional(),
   uid: z.string().optional(),
+  // Its group in the order card (a frame; visual only — utils/sizeGroups).
+  group: z.number().int().min(0).optional(),
 });
 
 const producedEntrySchema = z.object({
