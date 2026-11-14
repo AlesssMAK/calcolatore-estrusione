@@ -27,6 +27,7 @@ import CompareModal from './components/CompareModal';
 import type { CalcDiff, CalcVersion } from './utils/calcDiff';
 import { settleDiffs, type DiffSide } from './utils/calcMerge';
 import { revealJump } from './utils/tapToJump';
+import { completedTotals } from './utils/completedTotals';
 import { TrackedResultContext } from './contexts/trackedResult';
 import ErrorBoundary from './components/ErrorBoundary';
 import TailRoom from './components/TailRoom';
@@ -286,8 +287,13 @@ function CalculatorApp() {
   const withCompleted = (
     r: ScheduleResult,
     completed: ScheduledOrder[],
-  ): ScheduleResult =>
-    completed.length > 0 ? { ...r, rows: [...completed, ...r.rows] } : r;
+  ): ScheduleResult => {
+    if (completed.length === 0) return r;
+    const rows = [...completed, ...r.rows];
+    // Every order done: its summary is what the calc took.
+    const done = r.rows.length === 0 ? completedTotals(completed) : null;
+    return done ? { ...r, rows, ...done } : { ...r, rows };
+  };
 
   const scrollToTop = () => {
     window.requestAnimationFrame(() => {
@@ -323,31 +329,34 @@ function CalculatorApp() {
   }, []);
   // An order's card in the form and its result jump to each other (a tap):
   // where to land once the page has switched.
-  const jumpRef = useRef<{ to: 'form' | 'results'; id: string } | null>(null);
-  // The order to open in the form (collapsed in a tracked calc).
+  const jumpRef = useRef<{ to: 'form' | 'results'; ids: string[] } | null>(
+    null,
+  );
+  // The orders to open in the form (collapsed in a tracked calc).
   const [revealOrder, setRevealOrder] = useState<{
-    id: string;
+    ids: string[];
     n: number;
   } | null>(null);
   const openResultFor = result
     ? (orderId: string) =>
         result.rows.some((r) => r.order.id === orderId)
           ? () => {
-              jumpRef.current = { to: 'results', id: orderId };
+              jumpRef.current = { to: 'results', ids: [orderId] };
               openResults();
             }
           : undefined
     : undefined;
-  const openOrderInForm = (orderId: string) => {
-    setRevealOrder((r) => ({ id: orderId, n: (r?.n ?? 0) + 1 }));
-    jumpRef.current = { to: 'form', id: orderId };
+  const openOrdersInForm = (ids: string[]) => {
+    setRevealOrder((r) => ({ ids, n: (r?.n ?? 0) + 1 }));
+    jumpRef.current = { to: 'form', ids };
     showForm();
   };
+  const openOrderInForm = (orderId: string) => openOrdersInForm([orderId]);
   useLayoutEffect(() => {
     const jump = jumpRef.current;
     jumpRef.current = null;
     const at = (attr: string) =>
-      jump ? `[${attr}="${CSS.escape(jump.id)}"]` : '';
+      (jump?.ids ?? []).map((id) => `[${attr}="${CSS.escape(id)}"]`).join(', ');
     if (onResultsPage) {
       window.scrollTo(0, 0);
       if (jump?.to === 'results') revealJump(at('data-result-order'));
@@ -721,6 +730,14 @@ function CalculatorApp() {
     );
     if (showModal) setActiveModal(active);
     setFormKey((k) => k + 1);
+    // Nothing left to make (every order done): its results, the completed
+    // ones open — what it took, and Ripristina to bring orders back.
+    const left = (reopened?.orders ?? []).length;
+    if (left === 0 && (adv?.completedRows.length ?? 0) > 0) {
+      setActiveModal(null);
+      openResults();
+      return;
+    }
     if (scroll) scrollToTop();
   };
 
@@ -884,6 +901,8 @@ function CalculatorApp() {
     setCompletedRows((prev) => prev.filter((r) => !restoredIds.has(r.order.id)));
     setMountState('unsaved'); // not saved until the next "Calcola"
     setFormKey((k) => k + 1);
+    // From the results: to the form, on the order(s) brought back.
+    if (onResultsPage) openOrdersInForm([...restoredIds]);
   };
 
   const restoreOneCompleted = () => {

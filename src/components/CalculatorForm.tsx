@@ -152,8 +152,8 @@ interface Props {
   persist?: boolean;
   /** The jump to an order's result (a tap on its open card), when it has one. */
   openResultFor?: (orderId: string) => (() => void) | undefined;
-  /** An order to open, coming from its result. */
-  revealOrder?: { id: string; n: number } | null;
+  /** Orders to open, coming from their result or brought back. */
+  revealOrder?: { ids: string[]; n: number } | null;
   /** The results page's "← Calcolo", pinned while its own is out of view. */
   resultsBack?: { visible: boolean; onClick: () => void };
 }
