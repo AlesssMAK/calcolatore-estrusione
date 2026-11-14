@@ -1,5 +1,6 @@
 import {
   Fragment,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -82,6 +83,9 @@ import { numericSetValueAs } from '../utils/numeric';
 import { errorAttrs } from '../utils/errorBubble';
 import { isJumpTap, notePress } from '../utils/tapToJump';
 import { scrollToTopWithRoom } from '../utils/tailRoom';
+import TapToEdit from './TapToEdit';
+import EditNum from './EditNum';
+import { TextModeContext } from '../contexts/textMode';
 import { spanTotal, type SpanTotal } from '../utils/spanTotals';
 import {
   afterMove,
@@ -126,6 +130,31 @@ import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/f
 // the product name / order number fields).
 const sizeInputBase =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
+
+/** A Calcolo Avanzato count / rate / total in a tracked calc: its value as
+ *  text, the field on a tap (TapToEdit). `label`: shown before it (a phone's
+ *  count, which has no name above it). */
+const advText = (
+  name: string,
+  label: string | undefined,
+  disabled: boolean,
+  field: ReactNode,
+) => (
+  <TapToEdit
+    names={[name]}
+    disabled={disabled}
+    render={([v], fmt) => (
+      <>
+        {label && (
+          <span className="min-w-0 truncate text-[11px] text-ink-soft">{label}</span>
+        )}
+        <EditNum name={name}>{fmt(v)}</EditNum>
+      </>
+    )}
+  >
+    {field}
+  </TapToEdit>
+);
 
 /** The size groups' frames, stepped by a tap (strength) / a hold (fill). */
 const GROUP_BORDERS = [
@@ -1321,7 +1350,19 @@ function OrderFields({
         {isFirst ? (
           <div className="min-w-16 flex-1">
             {/* Phone: no label above — the name is the field's grey hint (and
-                its tooltip), as for the product name. Wider: the label. */}
+                its tooltip), as for the product name. Wider: the label. A
+                tracked calc: "⚡ 2,1 m/min", the field on a tap. */}
+            <TapToEdit
+              names={[`orders.${idx}.speedMPerMin`]}
+              title={t('orders.speed')}
+              render={([v], fmt) => (
+                <>
+                  <span aria-hidden>⚡</span>
+                  <EditNum name={`orders.${idx}.speedMPerMin`}>{fmt(v)}</EditNum>
+                  <span className="text-ink-soft">m/min</span>
+                </>
+              )}
+            >
             {!isPhone && (
               <label className={labelBase}>{t('orders.speed')}</label>
             )}
@@ -1347,12 +1388,14 @@ function OrderFields({
                 speedChain.commit();
               }}
             />
+            </TapToEdit>
           </div>
         ) : (
           <CollapsibleInheritField
             fieldPath={`orders.${idx}.speedMPerMin`}
             icon="⚡"
             label={t('orders.speed')}
+            unit="m/min"
             buttonClassName="mr-auto"
             inheritLabel={t('orders.optionalInherit')}
             chain={speedChain}
@@ -1568,6 +1611,7 @@ function CollapsibleInheritField({
   fieldPath,
   icon,
   label,
+  unit,
   inheritLabel,
   inputProps,
   errorMessage,
@@ -1584,6 +1628,8 @@ function CollapsibleInheritField({
     | `orders.${number}.cavity`;
   icon: string;
   label: string;
+  /** After its value in a tracked calc's text ("m/min"). */
+  unit?: string;
   /** Optional hint in parentheses after the label, in the tooltip of the
    *  collapsed button and of the field. Omit for just the bare label (e.g. a
    *  value that doesn't inherit, like per pacco or the first order's cavità). */
@@ -1651,7 +1697,19 @@ function CollapsibleInheritField({
           inherit, else the field's name, its name too while a value of its
           own is retyped (data-name-hint); the full description is the
           tooltip. Wider: the label (and what it inherits) above, the hint
-          just the inherited value. */}
+          just the inherited value. A tracked calc: "⚡ 2,1 m/min" as text,
+          the field on a tap. */}
+      <TapToEdit
+        names={[fieldPath]}
+        title={titleText}
+        render={([v], fmt) => (
+          <>
+            <span aria-hidden>{icon}</span>
+            <EditNum name={fieldPath}>{fmt(v)}</EditNum>
+            {unit && <span className="text-ink-soft">{unit}</span>}
+          </>
+        )}
+      >
       {!isPhone && (
         <label className={labelBase}>
           {label}
@@ -1688,6 +1746,7 @@ function CollapsibleInheritField({
           if (e.target.value === '') setOpen(false);
         }}
       />
+      </TapToEdit>
     </div>
   );
 }
@@ -2090,6 +2149,7 @@ function OrderNameField({
 }) {
   'use no memo';
   const { control, register } = useFormContext<FormValues>();
+  const textMode = useContext(TextModeContext);
   const value = useWatch({
     control,
     name: `orders.${idx}.productName`,
@@ -2226,6 +2286,16 @@ function OrderNameField({
         #{idx + 1}
       </button>
       {showNumber && (
+        <TapToEdit
+          names={[`orders.${idx}.orderNumber`]}
+          title={t('orders.orderNumber')}
+          className="shrink-0"
+          render={([v]) => (
+            <span data-edit={`orders.${idx}.orderNumber`}>
+              <OrderNumberTag value={String(v)} />
+            </span>
+          )}
+        >
         <input
           id={`order-number-${idx}`}
           type="text"
@@ -2246,6 +2316,7 @@ function OrderNameField({
             }
           }}
         />
+        </TapToEdit>
       )}
       <div
         ref={wrapperRef}
@@ -2261,7 +2332,13 @@ function OrderNameField({
             // Its name, also while a new product is typed over the current one.
             placeholder={t('orders.productName')}
             // Not being edited, the name is shown by the scrolling copy above.
-            className={`h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm ${
+            // (a tracked calc: no frame until it's tapped — the name reads
+            // as text)
+            className={`h-8 w-full min-w-0 rounded-md border px-2 text-xs text-ellipsis transition max-sm:placeholder:text-[11px] ${
+              textMode
+                ? 'border-transparent bg-transparent focus:bg-white focus:shadow-sm'
+                : 'border-neutral-300 bg-white shadow-sm'
+            } focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm ${
               showStill ? 'text-transparent' : 'text-ink'
             }`}
             onFocus={() => {
@@ -3018,7 +3095,10 @@ function SizeAdvancedBlockListi({
               `orders.${orderIdx}.sheetsPerPallet.${p}.value`,
               { setValueAs: numericSetValueAs },
             );
-            return (
+            return advText(
+              `orders.${orderIdx}.sheetsPerPallet.${p}.value`,
+              undefined,
+              rateDisabled,
               <input
                 type="number"
                 min="1"
@@ -3034,11 +3114,14 @@ function SizeAdvancedBlockListi({
                   void reg.onBlur(e);
                   foldRate();
                 }}
-              />
+              />,
             );
           },
         }}
-        renderCount={(p) => (
+        renderCount={(p) => advText(
+          `orders.${orderIdx}.producedSheets.${p}.value`,
+          isPhone ? countLabel : undefined,
+          countDisabled,
           <input
             type="number"
             min="0"
@@ -3054,9 +3137,12 @@ function SizeAdvancedBlockListi({
             {...register(`orders.${orderIdx}.producedSheets.${p}.value`, {
               setValueAs: numericSetValueAs,
             })}
-          />
+          />,
         )}
-        renderTotal={(p) => (
+        renderTotal={(p) => advText(
+          `orders.${orderIdx}.producedPallets.${p}.value`,
+          undefined,
+          totalDisabled,
           <input
             type="number"
             min="0"
@@ -3067,7 +3153,7 @@ function SizeAdvancedBlockListi({
             {...register(`orders.${orderIdx}.producedPallets.${p}.value`, {
               setValueAs: numericSetValueAs,
             })}
-          />
+          />,
         )}
         onRemove={removeAll}
         onAdd={appendAll}
@@ -3157,7 +3243,10 @@ function SizeAdvancedBlockProfili({
         labels={{ count: countLabel, total: totalLabel }}
         disabled={{ count: countDisabled, total: totalDisabled }}
         showTotal={showTotal}
-        renderCount={(p) => (
+        renderCount={(p) => advText(
+          `orders.${orderIdx}.producedProfiles.${p}.value`,
+          isPhone ? countLabel : undefined,
+          countDisabled,
           <input
             type="number"
             min="0"
@@ -3172,9 +3261,12 @@ function SizeAdvancedBlockProfili({
             {...register(`orders.${orderIdx}.producedProfiles.${p}.value`, {
               setValueAs: numericSetValueAs,
             })}
-          />
+          />,
         )}
-        renderTotal={(p) => (
+        renderTotal={(p) => advText(
+          `orders.${orderIdx}.producedPackages.${p}.value`,
+          undefined,
+          totalDisabled,
           <input
             type="number"
             min="0"
@@ -3185,7 +3277,7 @@ function SizeAdvancedBlockProfili({
             {...register(`orders.${orderIdx}.producedPackages.${p}.value`, {
               setValueAs: numericSetValueAs,
             })}
-          />
+          />,
         )}
         onRemove={removeAll}
         onAdd={appendAll}
@@ -3250,7 +3342,10 @@ function BatchInput({
   const reg = register(`orders.${orderIdx}.${fieldName}.${sIdx}.value`, {
     setValueAs: numericSetValueAs,
   });
-  return (
+  return advText(
+    `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
+    hint,
+    disabled,
     <input
       type="number"
       min={min}
@@ -3273,7 +3368,7 @@ function BatchInput({
         void reg.onBlur(e);
         onBlur?.();
       }}
-    />
+    />,
   );
 }
 
@@ -3982,6 +4077,28 @@ function SizesFieldArray({
                       <div
                         className={`grid ${gridCols} min-w-0 flex-1 items-end gap-2 sm:gap-3`}
                       >
+                        {/* A tracked calc: "170 × 6000 mm" over both columns,
+                            each number opening its field. */}
+                        <TapToEdit
+                          names={[
+                            `orders.${orderIdx}.sizes.${sIdx}.sheets`,
+                            `orders.${orderIdx}.sizes.${sIdx}.length`,
+                          ]}
+                          title={`${sheetsLabel} × ${lengthTitle}`}
+                          className="col-span-2"
+                          render={([q, l], fmt) => (
+                            <>
+                              <EditNum name={`orders.${orderIdx}.sizes.${sIdx}.sheets`}>
+                                {fmt(q)}
+                              </EditNum>
+                              <span className="text-ink-soft">×</span>
+                              <EditNum name={`orders.${orderIdx}.sizes.${sIdx}.length`}>
+                                {fmt(l)}
+                              </EditNum>
+                              <span className="text-ink-soft">mm</span>
+                            </>
+                          )}
+                        >
                         <div className="min-w-0">
                 {!isPhone && <label className={labelBase}>{sheetsLabel}</label>}
                 <input
@@ -4028,6 +4145,7 @@ function SizesFieldArray({
                   })}
                 />
               </div>
+                        </TapToEdit>
 
               {showPerPackage && (
                 <CollapsibleInheritField
