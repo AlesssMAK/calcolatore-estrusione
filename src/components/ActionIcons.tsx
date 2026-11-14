@@ -174,7 +174,19 @@ export function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
-/** Cross — remove (a pause). */
+/** Two arrows round — a saved calc kept in step with production. */
+export function SyncIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" />
+      <path d="M8 16H3v5" />
+    </svg>
+  );
+}
+
+/** Cross — remove (a pause, a list's entry). */
 export function CloseIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg {...base} className={className}>
