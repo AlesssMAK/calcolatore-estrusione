@@ -174,6 +174,15 @@ export function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Sigma — an order counted by its total length (Σ). */
+export function SigmaIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M17 5H7l5.5 7L7 19h10" />
+    </svg>
+  );
+}
+
 /** Pencil — edit. */
 export function EditIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
