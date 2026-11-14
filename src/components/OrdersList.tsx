@@ -3759,7 +3759,7 @@ function SizesFieldArray({
   // name in the tooltip) that starts a new group below it, or — on a group's
   // last size — merges the next group into it.
   const groupIconCls =
-    'h-4 w-4 rounded-sm transition group-hover/grp:text-brand-700 group-focus-visible/grp:text-brand-700 group-focus-visible/grp:ring-2 group-focus-visible/grp:ring-brand-300';
+    'h-3.5 w-3.5 rounded-sm transition group-hover/grp:text-brand-700 group-focus-visible/grp:text-brand-700 group-focus-visible/grp:ring-2 group-focus-visible/grp:ring-brand-300';
   const groupControl = (sIdx: number): ReactNode => {
     if (sIdx >= sizeFields.length - 1) return undefined;
     const split = groups[sIdx] === groups[sIdx + 1];
