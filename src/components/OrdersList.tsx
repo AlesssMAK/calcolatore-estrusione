@@ -3602,6 +3602,13 @@ function SizesFieldArray({
   };
   const mergeSizesAfter = (at: number) => {
     const before = groupsNow();
+    const path = `orders.${orderIdx}.sizeGroupTitles` as const;
+    const titles = getValues(path) ?? {};
+    const keep = `g${before[at]}`;
+    const gone = `g${before[at + 1]}`;
+    if (!titles[keep]?.trim() && titles[gone]?.trim()) {
+      setValue(`${path}.${keep}`, titles[gone], { shouldDirty: true });
+    }
     writeGroups(before, mergeAfter(before, at));
   };
 
@@ -3734,8 +3741,13 @@ function SizesFieldArray({
     ...idxs.filter((i) => isSizeDone(i)),
     ...idxs.filter((i) => !isSizeDone(i)),
   ];
-  // Groups of sizes (utils/sizeGroups): a frame each, when there are several.
+  // Groups of sizes (utils/sizeGroups): a frame each, when there are several,
+  // with an optional title.
   const groups = sizeFields.map((_, i) => groupOf(watchedSizes?.[i]));
+  const groupTitles = useWatch({
+    control,
+    name: `orders.${orderIdx}.sizeGroupTitles`,
+  });
   const sizeRuns = groupRuns(displayOrder, groups);
   // Under a size (not the last): ✂ starts a new group below it, or — on a
   // group's last size — ⊕ merges the next group into it.
@@ -3967,11 +3979,25 @@ function SizesFieldArray({
           <div className="space-y-2">
             {sizeRuns.length > 1
               ? sizeRuns.map((run) => (
-                  // A group of sizes: a frame (for the eye only).
+                  // A group of sizes: a frame (for the eye only), its title on
+                  // top — optional: an empty one is just its grey hint (and
+                  // not there at all in the read-only view).
                   <div
                     key={`group-${sizeFields[run[0]].id}`}
                     className="-mx-2 space-y-2 rounded-lg border border-dashed border-neutral-300 p-2"
                   >
+                    <input
+                      type="text"
+                      placeholder={t('orders.sizeGroupTitle')}
+                      title={t('orders.sizeGroupTitle')}
+                      aria-label={t('orders.sizeGroupTitle')}
+                      className={`block w-full min-w-0 truncate rounded bg-transparent px-1 py-0.5 text-xs font-semibold tracking-wide text-ink-soft uppercase transition placeholder:font-normal placeholder:tracking-normal placeholder:text-neutral-400 placeholder:normal-case hover:bg-white/60 focus:bg-white focus:ring-1 focus:ring-brand-200 focus:outline-none ${
+                        groupTitles?.[`g${groups[run[0]]}`]?.trim() ? '' : 'edit-only'
+                      }`}
+                      {...register(
+                        `orders.${orderIdx}.sizeGroupTitles.g${groups[run[0]]}`,
+                      )}
+                    />
                     {run.map(renderSize)}
                   </div>
                 ))
