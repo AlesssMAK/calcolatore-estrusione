@@ -82,6 +82,7 @@ import { numericSetValueAs } from '../utils/numeric';
 import { errorAttrs } from '../utils/errorBubble';
 import { isJumpTap, notePress } from '../utils/tapToJump';
 import { scrollToTopWithRoom } from '../utils/tailRoom';
+import { spanTotal, type SpanTotal } from '../utils/spanTotals';
 import {
   afterMove,
   groupOf,
@@ -232,6 +233,8 @@ function OrdersList({
 
   const gapMode = useWatch({ control, name: 'settings.gapMode' });
   const watchedOrders = useWatch({ control, name: 'orders' });
+  // A tracked calc: each block's end and what's left of it (at its end).
+  const tracked = useTrackedResult();
 
   // Blocks: the orders between two pauses (see utils/blocks). A block's id is
   // its first order's field key, so it stays stable while it moves. New orders
@@ -1096,6 +1099,23 @@ function OrdersList({
                             </span>
                           </div>
                           {inner}
+                          {(() => {
+                            const rows = list.map((i) =>
+                              rowForOrder(tracked, watchedOrders?.[i]?.id),
+                            );
+                            // (a one-order block: its order's end says it)
+                            const total =
+                              list.length > 1 && rows.every(Boolean)
+                              ? spanTotal(rows as NonNullable<(typeof rows)[number]>[])
+                              : null;
+                            return total ? (
+                              <SpanEndNote
+                                label={t('orders.blockEnds')}
+                                total={total}
+                                t={t}
+                              />
+                            ) : null;
+                          })()}
                         </div>
                       )}
                     </SortableItem>
@@ -2614,6 +2634,45 @@ function OrderEndNote({
   );
 }
 
+/** At the end of a size group / a block in a tracked calc — as the order's
+ *  end note: when it ends and what's left of it (none once it's done). */
+function SpanEndNote({
+  label,
+  total,
+  t,
+}: {
+  label: string;
+  total: SpanTotal;
+  t: TFunction;
+}) {
+  const { i18n } = useTranslation();
+  if (total.minutes < 0.5) return null;
+  const end = formatDateParts(total.end, i18n.resolvedLanguage ?? 'it');
+  return (
+    <div className="space-y-0.5 border-t border-dashed border-neutral-300 pt-1.5 text-[clamp(10px,3vw,12px)] whitespace-nowrap">
+      <p className="flex items-baseline justify-between gap-x-2">
+        <span className="tracking-wide text-ink-soft uppercase">{label}</span>
+        <span className="flex gap-x-1.5 text-ink">
+          <span>{end.date}</span>
+          <span>{end.time}</span>
+        </span>
+      </p>
+      <p className="flex items-baseline justify-between gap-x-2">
+        <span className="tracking-wide text-ink-soft uppercase">
+          {t('results.timeToFinish')}
+        </span>
+        <span className="font-semibold text-ink">
+          {formatDuration(total.minutes, {
+            day: t('units.day'),
+            hour: t('units.hour'),
+            minute: t('units.minute'),
+          })}
+        </span>
+      </p>
+    </div>
+  );
+}
+
 /** A size's own rate in Calcolo Avanzato (lastre per bancale, one per entry):
  *  folded to a button while it's empty. */
 interface AdvRate {
@@ -3806,6 +3865,15 @@ function SizesFieldArray({
     },
   };
   const sizeRuns = groupRuns(displayOrder, groups);
+  // A tracked calc: each group's end and what's left of it, at its end —
+  // from the sizes' last result (when they still match the form's).
+  const tracked = useTrackedResult();
+  const trackedOrderId = useWatch({ control, name: `orders.${orderIdx}.id` });
+  const trackedSizes = rowForOrder(tracked, trackedOrderId)?.sizeDetails;
+  const groupTotal = (run: number[]) =>
+    trackedSizes && trackedSizes.length === sizeFields.length
+      ? spanTotal(run.map((i) => trackedSizes[i]))
+      : null;
   // Under a size (not the last): an icon (no words — the user's choice; its
   // name in the tooltip) that starts a new group below it, or — on a group's
   // last size — merges the next group into it.
@@ -4066,6 +4134,16 @@ function SizesFieldArray({
                       )}
                     />
                     {run.map(renderSize)}
+                    {(() => {
+                      const total = groupTotal(run);
+                      return total ? (
+                        <SpanEndNote
+                          label={t('orders.groupEnds')}
+                          total={total}
+                          t={t}
+                        />
+                      ) : null;
+                    })()}
                   </div>
                 ))
               : displayOrder.map(renderSize)}
