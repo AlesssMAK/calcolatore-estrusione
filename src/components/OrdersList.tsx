@@ -67,7 +67,13 @@ import BlockProductModal from './BlockProductModal';
 import type { CatalogProduct } from '../lib/catalog';
 import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { PalletIcon, PlayIcon, StopIcon } from './ActionIcons';
+import {
+  MergeGroupIcon,
+  PalletIcon,
+  PlayIcon,
+  SplitGroupIcon,
+  StopIcon,
+} from './ActionIcons';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
 import { numericSetValueAs } from '../utils/numeric';
@@ -1946,7 +1952,7 @@ function SizeAdvancedPanel({
   orderIdx: number;
   sizeIdx: number;
   totalSizes: number;
-  /** On the toggle's line, at the right (the size groups' ✂ / ⊕). */
+  /** On the toggle's line, at the right (the size groups' split / merge). */
   aside?: ReactNode;
   mode: CalculatorMode;
   t: TFunction;
@@ -3490,7 +3496,7 @@ function SizesFieldArray({
   mode: CalculatorMode;
   t: TFunction;
   /** A size's Calcolo Avanzato, under its row (an open one: a collapsed
-   *  summary has none); `aside` goes on its toggle's line (✂ / ⊕). */
+   *  summary has none); `aside` goes on its toggle's line (split / merge). */
   sizeAdvanced?: (
     sizeIdx: number,
     totalSizes: number,
@@ -3749,8 +3755,9 @@ function SizesFieldArray({
     name: `orders.${orderIdx}.sizeGroupTitles`,
   });
   const sizeRuns = groupRuns(displayOrder, groups);
-  // Under a size (not the last): ✂ starts a new group below it, or — on a
-  // group's last size — ⊕ merges the next group into it.
+  // Under a size (not the last): an icon (no words — the user's choice; its
+  // name in the tooltip) that starts a new group below it, or — on a group's
+  // last size — merges the next group into it.
   const groupControl = (sIdx: number): ReactNode => {
     if (sIdx >= sizeFields.length - 1) return undefined;
     const split = groups[sIdx] === groups[sIdx + 1];
@@ -3760,9 +3767,13 @@ function SizesFieldArray({
         onClick={() => (split ? splitSizesAfter(sIdx) : mergeSizesAfter(sIdx))}
         title={t(split ? 'orders.sizeSplitTitle' : 'orders.sizeMergeTitle')}
         aria-label={t(split ? 'orders.sizeSplitTitle' : 'orders.sizeMergeTitle')}
-        className="shrink-0 text-[10px] leading-tight font-medium text-ink-soft transition hover:text-brand-700 sm:text-[11px]"
+        className="-my-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-soft transition hover:bg-white hover:text-brand-700"
       >
-        {t(split ? 'orders.sizeSplit' : 'orders.sizeMerge')}
+        {split ? (
+          <SplitGroupIcon className="h-4 w-4" />
+        ) : (
+          <MergeGroupIcon className="h-4 w-4" />
+        )}
       </button>
     );
   };

@@ -209,6 +209,26 @@ export function PalletIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Split a group of sizes: two frames, one over the other. */
+export function SplitGroupIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="4" y="3" width="16" height="7" rx="1.5" />
+      <rect x="4" y="14" width="16" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+/** Merge two groups of sizes: one frame round both. */
+export function MergeGroupIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="4" y="3" width="16" height="18" rx="1.5" />
+      <path d="M8 9h8M8 15h8" />
+    </svg>
+  );
+}
+
 export function ChevronUpIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
