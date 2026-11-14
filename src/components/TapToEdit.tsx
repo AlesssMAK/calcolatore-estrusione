@@ -55,15 +55,25 @@ export default function TapToEdit({
   const ref = useRef<HTMLDivElement>(null);
   const inError = names.some((n) => get(errors, n));
   // Leaving the field(s) turns them back to text (a native listener: the
-  // wrapper is display: contents).
+  // wrapper is display: contents). Only once React has handled the blur
+  // itself: closing right here would unmount the field before that, and its
+  // onBlur (validation, the inherited value's chain, the row's − / +) would
+  // never run.
   useEffect(() => {
     const el = ref.current;
     if (!editing || !el) return;
+    let timer: number | undefined;
     const onOut = (e: FocusEvent) => {
-      if (!el.contains(e.relatedTarget as Node | null)) setEditing(false);
+      if (el.contains(e.relatedTarget as Node | null)) return;
+      timer = window.setTimeout(() => {
+        if (!el.contains(document.activeElement)) setEditing(false);
+      }, 0);
     };
     el.addEventListener('focusout', onOut);
-    return () => el.removeEventListener('focusout', onOut);
+    return () => {
+      el.removeEventListener('focusout', onOut);
+      window.clearTimeout(timer);
+    };
   }, [editing]);
   if (!textMode || editing || inError || values.some(isEmpty)) {
     return (
@@ -103,7 +113,7 @@ export default function TapToEdit({
           open(e as unknown as ReactMouseEvent<HTMLElement>);
         }
       }}
-      className={`flex h-8 min-w-0 items-center gap-1 text-xs text-ink sm:h-9 sm:text-sm ${
+      className={`flex h-7 min-w-0 items-center gap-1 text-xs text-ink sm:h-8 sm:text-sm ${
         disabled ? 'opacity-40' : 'cursor-text'
       } ${className}`}
     >

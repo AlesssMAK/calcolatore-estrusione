@@ -6,12 +6,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import {
   useFieldArray,
   useFormContext,
@@ -71,11 +72,15 @@ import type { CatalogProduct } from '../lib/catalog';
 import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
+  CheckIcon,
   MergeGroupIcon,
+  PauseIcon,
   PalletIcon,
   PlayIcon,
+  SigmaIcon,
   SplitGroupIcon,
   StopIcon,
+  TrashIcon,
 } from './ActionIcons';
 import MarqueeText from './MarqueeText';
 import SheetScanner from './SheetScanner';
@@ -168,6 +173,89 @@ const GROUP_FILLS = ['', 'bg-brand-50/70', 'bg-amber-50', 'bg-success/5'];
 const squareBtnBase =
   'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
 
+/** A tracked calc's icon size (✓ Σ ⏸ 🗑, ▶ ⏹, − +…). */
+const bareIconSize = 'h-4 w-4 sm:h-4.5 sm:w-4.5';
+
+/**
+ * A tracked calc's button (TextModeContext): just its icon, no box round it —
+ * hover, focus and press show on the icon itself. `iconCls`: its colours
+ * (hover too). `keepFocus`: a tap leaves the focus in the field being edited
+ * (a row's − / +, shown only while it's edited).
+ */
+function BareButton({
+  title,
+  onClick,
+  disabled,
+  pressed,
+  keepFocus,
+  iconCls,
+  className = '',
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+  pressed?: boolean;
+  keepFocus?: boolean;
+  iconCls: string;
+  className?: string;
+  /** The icon: an SVG (sized by bareIconSize) or a glyph. */
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
+      disabled={disabled}
+      aria-pressed={pressed}
+      title={title}
+      aria-label={title}
+      className={`group/ib flex h-7 w-6 shrink-0 items-center justify-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-7 ${className}`}
+    >
+      <span
+        aria-hidden
+        className={`flex items-center justify-center rounded-sm leading-none transition group-focus-visible/ib:ring-2 group-focus-visible/ib:ring-brand-300 group-active/ib:scale-90 group-disabled/ib:scale-100 ${iconCls}`}
+      >
+        {children}
+      </span>
+    </button>
+  );
+}
+
+/** Hover / focus colours of a bare icon: grey → red (the app's accent). */
+const bareNeutral =
+  'text-ink-soft group-hover/ib:text-brand-700 group-focus-visible/ib:text-brand-700';
+/** …a "pressed" one (Σ, ⏸ on). */
+const bareOn =
+  'text-brand-600 group-hover/ib:text-brand-800 group-focus-visible/ib:text-brand-800';
+/** …an emoji (no colour of its own to change): a touch bigger. */
+const bareEmoji = 'text-sm group-hover/ib:scale-110 sm:text-base';
+
+/**
+ * A tracked calc shows a row's − / + only while the row is being edited:
+ * which row holds the focus. Rows are marked data-edit-row="<key>" (inside
+ * the element given the handlers).
+ */
+function useEditRow() {
+  const [row, setRow] = useState<string | null>(null);
+  const keyOf = (n: EventTarget | null, root: Element) => {
+    const el = n instanceof Element ? n.closest('[data-edit-row]') : null;
+    return el && root.contains(el) ? el.getAttribute('data-edit-row') : null;
+  };
+  return {
+    row,
+    /** (a row removed: its focus went with it, unseen) */
+    clear: () => setRow(null),
+    handlers: {
+      onFocus: (e: ReactFocusEvent<HTMLElement>) =>
+        setRow(keyOf(e.target, e.currentTarget)),
+      onBlur: (e: ReactFocusEvent<HTMLElement>) =>
+        setRow(keyOf(e.relatedTarget, e.currentTarget)),
+    },
+  };
+}
+
 type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
 
 interface Props {
@@ -233,6 +321,8 @@ function OrdersList({
     getValues,
     register,
   } = useFormContext<FormValues>();
+  // A tracked calc: the order's buttons are bare icons, by its number.
+  const textMode = useContext(TextModeContext);
 
   const { fields, append, insert, remove, move } = useFieldArray({
     control,
@@ -677,9 +767,13 @@ function OrdersList({
   const [numberFocusIdx, setNumberFocusIdx] = useState<number | null>(null);
 
   const appendOrder = () => {
-    // Split into blocks → it waits under them, to drag into one — unless the
-    // last block is open (a pause after its last order): it goes in there.
-    const waits = (multiBlock || freeIdx.length > 0) && !openBlock;
+    // A calc being put together: it joins the last block (the open one after
+    // a closing pause), each new one until the next pause. A saved calc
+    // (opened from Salvati / Produzione) split into blocks, or with one open:
+    // it waits under them, in no block, to be dragged into one (the user's
+    // choice).
+    const waits =
+      textMode && (multiBlock || openBlock || freeIdx.length > 0);
     const at = waits ? fields.length : placedN;
     const last = watchedOrders?.[at - 1];
     pendingFocusIdx.current = at; // index the new order will take
@@ -862,6 +956,59 @@ function OrdersList({
         </button>
       </>
     );
+    // A tracked calc: the same, bare icons in the order's number line.
+    const useTotal = Boolean(watchedOrders?.[idx]?.useTotalLength);
+    const headIcons = (
+      <div className="flex shrink-0 items-center">
+        {onComplete && (
+          <BareButton
+            title={t('orders.completeOrder')}
+            onClick={() => {
+              const id = watchedOrders?.[idx]?.id;
+              if (id) onComplete(id);
+            }}
+            iconCls="text-success group-hover/ib:brightness-75 group-focus-visible/ib:brightness-75"
+          >
+            <CheckIcon className={bareIconSize} />
+          </BareButton>
+        )}
+        <BareButton
+          title={t('orders.toggleTotalLength')}
+          pressed={useTotal}
+          onClick={() =>
+            setValue(`orders.${idx}.useTotalLength`, !useTotal, {
+              shouldValidate: true,
+            })
+          }
+          iconCls={useTotal ? bareOn : bareNeutral}
+        >
+          <SigmaIcon className={bareIconSize} />
+        </BareButton>
+        <BareButton
+          title={t('orders.togglePause')}
+          pressed={gapOn}
+          onClick={() =>
+            gapOn
+              ? removePause(idx)
+              : setValue(`orders.${idx}.gapEnabled`, true, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+          }
+          iconCls={gapOn ? bareOn : bareNeutral}
+        >
+          <PauseIcon className={bareIconSize} />
+        </BareButton>
+        <BareButton
+          title={t('orders.remove')}
+          onClick={() => removeOrder(idx)}
+          disabled={fields.length <= 1}
+          iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+        >
+          <TrashIcon className={bareIconSize} />
+        </BareButton>
+      </div>
+    );
 
     return (
       <SortableItem key={field.id} id={field.id}>
@@ -884,7 +1031,8 @@ function OrdersList({
                 className="flex w-full flex-col items-start gap-1 text-left"
               >
                 <span className="flex w-full items-center gap-2">
-                  <span className="shrink-0 rounded-md bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
+                  {/* (as on the open card: just "#N" in red) */}
+                  <span className="shrink-0 text-sm font-bold text-brand-600 sm:text-base">
                     #{idx + 1}
                   </span>
                   <OrderNumberTag value={wo?.orderNumber} />
@@ -931,15 +1079,20 @@ function OrdersList({
                 isDragging ? 'shadow-lg' : ''
               } ${jumpToResult ? 'cursor-pointer' : ''}`}
             >
-            <div className="mb-2 flex items-center gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            {/* ⠿ at the top, beside the number (the product name may take a
+                second line). A tracked calc: the order's buttons too, bare
+                icons at the line's end. */}
+            <div className={`${textMode ? 'mb-1.5' : 'mb-2'} flex items-start gap-2`}>
+              <div className="flex min-w-0 flex-1 items-start gap-1.5">
                 {canDrag && (
                   <button
                     type="button"
                     {...handleProps}
                     aria-label={t('orders.reorder')}
                     title={t('orders.reorder')}
-                    className="flex h-7 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing"
+                    className={`flex w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-base text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing ${
+                      textMode ? 'h-7 sm:h-8' : 'h-8 sm:h-9'
+                    }`}
                   >
                     ⠿
                   </button>
@@ -952,10 +1105,11 @@ function OrdersList({
                   openNumber={numberFocusIdx === idx}
                 />
               </div>
+              {textMode && headIcons}
             </div>
 
             <OrderFields
-              actions={headActions}
+              actions={textMode ? undefined : headActions}
               idx={idx}
               rowErr={rowErr}
               mode={mode}
@@ -1299,6 +1453,7 @@ function OrderFields({
 }: FieldsProps) {
   'use no memo';
   const { register, control } = useFormContext<FormValues>();
+  const textMode = useContext(TextModeContext);
   // Where the speed row's collapsed 📦 / 🔢 go: in with the order's actions, so
   // all the buttons move as one.
   const [packSlot, setPackSlot] = useState<HTMLElement | null>(null);
@@ -1340,7 +1495,7 @@ function OrderFields({
   });
 
   return (
-    <div className="space-y-2">
+    <div className={textMode ? 'space-y-1.5' : 'space-y-2'}>
       {/* The fields give way down to min-w-16; only then all the buttons wrap,
           on a row above the speed (reversed: "start" here is the row's bottom).
           Alone on that row they're centered (justify-around); beside the
@@ -1450,8 +1605,14 @@ function OrderFields({
             }
           />
         )}
-        {actions && (
-          <div className="flex max-w-full shrink-0 flex-wrap items-center justify-center gap-2 self-start">
+        {(actions || textMode) && (
+          // (a tracked calc: no order buttons here — they're by its number —
+          // just the folded 📦 / 🔢)
+          <div
+            className={`flex max-w-full shrink-0 flex-wrap items-center justify-center self-start ${
+              textMode ? 'gap-1' : 'gap-2'
+            }`}
+          >
             <span ref={setPackSlot} className="contents" />
             <span ref={setCavitySlot} className="contents" />
             {actions}
@@ -1663,10 +1824,46 @@ function CollapsibleInheritField({
   const showInput = open || hasValue;
   // A phone names the field by its grey hint; wider, a label above it.
   const isPhone = useMediaQuery('(max-width: 639px)');
+  const textMode = useContext(TextModeContext);
 
   const titleText = inheritLabel
     ? `${label} (${inheritLabel}${placeholder ? `: ${placeholder}` : ''})`
     : label;
+
+  if (!showInput && textMode) {
+    // A tracked calc: what it inherits as grey text ("⚡ 2,1 m/min" — the
+    // field on a tap, in the same tap so the keyboard comes up), or with
+    // nothing to inherit (or no room: a size row's 📦) just the bare icon.
+    const openField = () => {
+      flushSync(() => setOpen(true));
+      document.getElementsByName(fieldPath)[0]?.focus();
+    };
+    const el = placeholder && !compact ? (
+      <button
+        type="button"
+        onClick={openField}
+        title={titleText}
+        aria-label={titleText}
+        className={`group/ib flex h-7 min-w-0 shrink-0 items-center gap-1 text-xs text-ink-soft focus:outline-none sm:h-8 sm:text-sm ${buttonClassName}`}
+      >
+        <span aria-hidden>{icon}</span>
+        <span className="rounded-sm underline decoration-neutral-300 decoration-dotted underline-offset-4 transition group-hover/ib:text-ink group-focus-visible/ib:ring-2 group-focus-visible/ib:ring-brand-300">
+          {placeholder}
+        </span>
+        {unit && <span>{unit}</span>}
+      </button>
+    ) : (
+      <BareButton
+        title={titleText}
+        onClick={openField}
+        iconCls={bareEmoji}
+        className={`${compact ? 'self-end' : 'self-start'} ${buttonClassName}`}
+      >
+        {icon}
+      </BareButton>
+    );
+    return slot ? createPortal(el, slot) : el;
+  }
 
   if (!showInput) {
     const button = (
@@ -2279,11 +2476,22 @@ function OrderNameField({
         title={t('orders.orderNumber')}
         aria-expanded={showNumber}
         // The "#N" badge stays in the read-only view (the inputs themselves
-        // can't be edited there).
+        // can't be edited there). A tracked calc: just "#N" in red, hover /
+        // focus on the text itself.
         data-view
-        className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm"
+        className={
+          textMode
+            ? 'group/ib flex h-7 shrink-0 items-center text-sm font-bold text-brand-600 focus:outline-none sm:h-8 sm:text-base'
+            : 'flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700 sm:h-8 sm:text-sm'
+        }
       >
-        #{idx + 1}
+        {textMode ? (
+          <span className="rounded-sm px-0.5 transition group-hover/ib:text-brand-800 group-focus-visible/ib:ring-2 group-focus-visible/ib:ring-brand-300 group-active/ib:scale-95">
+            #{idx + 1}
+          </span>
+        ) : (
+          `#${idx + 1}`
+        )}
       </button>
       {showNumber && (
         <TapToEdit
@@ -2334,11 +2542,13 @@ function OrderNameField({
             // Not being edited, the name is shown by the scrolling copy above.
             // (a tracked calc: no frame until it's tapped — the name reads
             // as text)
-            className={`h-8 w-full min-w-0 rounded-md border px-2 text-xs text-ellipsis transition max-sm:placeholder:text-[11px] ${
+            // (the text in line with the number above it, the field a bit
+            // lower: no frame to make room for)
+            className={`w-full min-w-0 rounded-md border text-xs text-ellipsis transition max-sm:placeholder:text-[11px] ${
               textMode
-                ? 'border-transparent bg-transparent focus:bg-white focus:shadow-sm'
-                : 'border-neutral-300 bg-white shadow-sm'
-            } focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm ${
+                ? 'h-7 border-transparent bg-transparent px-0.5 focus:bg-white focus:px-2 focus:shadow-sm sm:h-8 sm:focus:px-3'
+                : 'h-8 border-neutral-300 bg-white px-2 shadow-sm sm:h-9 sm:px-3'
+            } focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:text-sm ${
               showStill ? 'text-transparent' : 'text-ink'
             }`}
             onFocus={() => {
@@ -2401,7 +2611,9 @@ function OrderNameField({
             // (inset-px: inside the border, the text where the input's is)
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-px flex items-center px-2 text-xs text-ink sm:px-3 sm:text-sm"
+              className={`pointer-events-none absolute inset-px flex items-center text-xs text-ink sm:text-sm ${
+                textMode ? 'px-0.5' : 'px-2 sm:px-3'
+              }`}
             >
               <MarqueeText text={String(value)} />
             </span>
@@ -2600,6 +2812,15 @@ function RateButton({
   onOpen: () => void;
   small?: boolean;
 }) {
+  // A tracked calc: just the icon.
+  const textMode = useContext(TextModeContext);
+  if (textMode) {
+    return (
+      <BareButton title={title} onClick={onOpen} iconCls={`${bareNeutral} ${bareEmoji}`}>
+        {icon}
+      </BareButton>
+    );
+  }
   return (
     <button
       type="button"
@@ -2803,6 +3024,19 @@ function AdvBlockLayout({
   onAdd: () => void;
   t: TFunction;
 }) {
+  'use no memo';
+  // A total that can't be entered (bancali prodotti while the count path is
+  // in use, or before a rate): not shown at all.
+  const total = showTotal && !disabled.total;
+  // A tracked calc: a row's − / + only while the row is being edited (a tap
+  // on them leaves the focus in its field).
+  const textMode = useContext(TextModeContext);
+  const editRow = useEditRow();
+  const showButtons = (rowIdx: number) =>
+    !textMode || editRow.row === String(rowIdx);
+  const keep = textMode
+    ? (e: ReactMouseEvent<HTMLButtonElement>) => e.preventDefault()
+    : undefined;
   const off = (
     <input
       type="number"
@@ -2815,11 +3049,16 @@ function AdvBlockLayout({
     `${advLabelCls} self-end ${d ? 'opacity-40' : ''}`;
   const rateCell = (r: AdvRate, arrayPos: number | null, rowIdx: number) =>
     arrayPos === null ? off : r.render(arrayPos, rowIdx);
-  const rowButtons = (rowIdx: number, arrayPos: number | null) => (
+  const rowButtons = (rowIdx: number, arrayPos: number | null) =>
+    showButtons(rowIdx) ? (
     <>
       <button
         type="button"
-        onClick={() => onRemove(rowIdx)}
+        onClick={() => {
+          onRemove(rowIdx);
+          editRow.clear();
+        }}
+        onMouseDown={keep}
         disabled={rows.length <= 1 || arrayPos === null}
         className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
         aria-label={t('orders.removeSize')}
@@ -2830,6 +3069,7 @@ function AdvBlockLayout({
       <button
         type="button"
         onClick={onAdd}
+        onMouseDown={keep}
         className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
         aria-label={t('orders.addSize')}
         title={t('orders.addSize')}
@@ -2837,14 +3077,19 @@ function AdvBlockLayout({
         +
       </button>
     </>
-  );
+    ) : (
+      <>
+        <span />
+        <span />
+      </>
+    );
 
   if (!isPhone || !rate) {
     // One grid for the names and the rows: a name stays over its field.
     const cols = [
       'minmax(0,1fr)',
       ...(rate ? [rate.open ? 'minmax(0,1fr)' : 'auto'] : []),
-      ...(showTotal ? ['minmax(0,1fr)'] : []),
+      ...(total ? ['minmax(0,1fr)'] : []),
       'auto',
       'auto',
     ].join(' ');
@@ -2854,10 +3099,11 @@ function AdvBlockLayout({
         <div
           className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
           style={{ gridTemplateColumns: cols }}
+          {...editRow.handlers}
         >
           {/* The names over the fields — on a phone the count's is its hint;
               no line of names when there's none to show. */}
-          {(!isPhone || rate?.open || showTotal) && (
+          {(!isPhone || rate?.open || total) && (
             <>
               <span className={nameCls(disabled.count)}>
                 {isPhone ? '' : labels.count}
@@ -2867,15 +3113,17 @@ function AdvBlockLayout({
                   {rate.open ? rate.label : ''}
                 </span>
               )}
-              {showTotal && (
-                <span className={nameCls(disabled.total)}>{labels.total}</span>
-              )}
+              {total && <span className={advLabelCls + ' self-end'}>{labels.total}</span>}
               <span />
               <span />
             </>
           )}
           {rows.map((arrayPos, rowIdx) => (
-            <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
+            <div
+              key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}
+              data-edit-row={rowIdx}
+              className="contents"
+            >
               {arrayPos === null ? off : renderCount(arrayPos)}
               {rate &&
                 (rate.open ? (
@@ -2887,9 +3135,9 @@ function AdvBlockLayout({
                     onOpen={() => rate.onOpen(rowIdx)}
                   />
                 ))}
-              {showTotal && (arrayPos === null ? off : renderTotal(arrayPos))}
+              {total && (arrayPos === null ? off : renderTotal(arrayPos))}
               {rowButtons(rowIdx, arrayPos)}
-            </Fragment>
+            </div>
           ))}
         </div>
       </>
@@ -2898,7 +3146,7 @@ function AdvBlockLayout({
 
   // Phone: count | − + on one line (the count named by its hint); rate |
   // total on the line below it.
-  const lineTwo = rate.open || showTotal;
+  const lineTwo = rate.open || total;
   // No size buttons up top (a new calc): the folded rate's button stays in
   // the count's line rather than taking a line of its own.
   const rateInline = !rate.open && !actions;
@@ -2921,9 +3169,16 @@ function AdvBlockLayout({
           ) : undefined
         }
       />
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 gap-y-1.5">
+      <div
+        className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 gap-y-1.5"
+        {...editRow.handlers}
+      >
         {rows.map((arrayPos, rowIdx) => (
-          <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
+          <div
+            key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}
+            data-edit-row={rowIdx}
+            className="contents"
+          >
             <div className="col-span-2 flex min-w-0 items-center gap-1.5">
               <div className="min-w-0 flex-1">
                 {arrayPos === null ? off : renderCount(arrayPos)}
@@ -2942,8 +3197,8 @@ function AdvBlockLayout({
                 <span className={nameCls(rate.disabled)}>
                   {rate.open ? rate.label : ''}
                 </span>
-                <span className={nameCls(disabled.total)}>
-                  {showTotal ? labels.total : ''}
+                <span className={advLabelCls + ' self-end'}>
+                  {total ? labels.total : ''}
                 </span>
                 <span />
                 <span />
@@ -2952,12 +3207,12 @@ function AdvBlockLayout({
             {lineTwo && (
               <>
                 {rate.open ? rateCell(rate, arrayPos, rowIdx) : <span />}
-                {showTotal ? (arrayPos === null ? off : renderTotal(arrayPos)) : <span />}
+                {total ? (arrayPos === null ? off : renderTotal(arrayPos)) : <span />}
                 <span />
                 <span />
               </>
             )}
-          </Fragment>
+          </div>
         ))}
       </div>
     </>
@@ -3467,14 +3722,26 @@ function BatchRowsArray({
 
   const btnBase =
     'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
+  // A tracked calc: a row's − / + only while it's being edited (a tap on
+  // them leaves the focus in its field).
+  const textMode = useContext(TextModeContext);
+  const editRow = useEditRow();
+  const keep = textMode
+    ? (e: ReactMouseEvent<HTMLButtonElement>) => e.preventDefault()
+    : undefined;
 
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, sIdx) => {
         const hasRate = rateOf(watchedRates, sIdx);
         const rateOpen = hasRate || openRates.has(sIdx);
+        const showButtons = !textMode || editRow.row === String(sIdx);
         return (
-          <div key={`${counts.fields[sIdx]?.id ?? 'c'}-${sIdx}`}>
+          <div
+            key={`${counts.fields[sIdx]?.id ?? 'c'}-${sIdx}`}
+            data-edit-row={sIdx}
+            {...editRow.handlers}
+          >
             <div className="mb-1 flex items-center justify-between gap-1">
               <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-brand-100 px-1.5 text-[10px] font-bold text-brand-700 sm:text-xs">
                 #{sIdx + 1}
@@ -3489,9 +3756,15 @@ function BatchRowsArray({
                     onOpen={() => setOpenRates((s) => new Set(s).add(sIdx))}
                   />
                 )}
+                {showButtons && (
+                <>
                 <button
                   type="button"
-                  onClick={() => removeAll(sIdx)}
+                  onClick={() => {
+                    removeAll(sIdx);
+                    editRow.clear();
+                  }}
+                  onMouseDown={keep}
                   disabled={rows <= 1}
                   className={`${btnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
                   aria-label={t('orders.removeSize')}
@@ -3502,12 +3775,15 @@ function BatchRowsArray({
                 <button
                   type="button"
                   onClick={appendAll}
+                  onMouseDown={keep}
                   className={`${btnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
                   aria-label={t('orders.addSize')}
                   title={t('orders.addSize')}
                 >
                   +
                 </button>
+                </>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 items-end gap-1.5 sm:grid-cols-4 sm:gap-2">
@@ -3557,7 +3833,8 @@ function BatchRowsArray({
                   />
                 </div>
               )}
-              {hasRate && (
+              {/* (not at all while it can't be entered) */}
+              {hasRate && !totalDisabled && (
                 <BatchField label={totalLabel} disabled={totalDisabled}>
                   <BatchInput
                     orderIdx={orderIdx}
@@ -3589,7 +3866,42 @@ function SizeActions({
   onStop?: () => void;
   t: TFunction;
 }) {
+  const textMode = useContext(TextModeContext);
   if (!onComplete && !onPrioritize && !onStop) return null;
+  // A tracked calc: just the icons, like the order's own buttons.
+  if (textMode) {
+    return (
+      <div className="flex shrink-0 items-center">
+        {onComplete && (
+          <BareButton
+            title={t('orders.completeSize')}
+            onClick={onComplete}
+            iconCls="text-success group-hover/ib:brightness-75 group-focus-visible/ib:brightness-75"
+          >
+            <CheckIcon className={bareIconSize} />
+          </BareButton>
+        )}
+        {onPrioritize && (
+          <BareButton
+            title={t('orders.prioritize')}
+            onClick={onPrioritize}
+            iconCls="text-amber-600 group-hover/ib:text-amber-800 group-focus-visible/ib:text-amber-800"
+          >
+            <PlayIcon className={`${bareIconSize} fill-current`} />
+          </BareButton>
+        )}
+        {onStop && (
+          <BareButton
+            title={t('orders.stopActive')}
+            onClick={onStop}
+            iconCls="text-danger group-hover/ib:brightness-75 group-focus-visible/ib:brightness-75"
+          >
+            <StopIcon className={bareIconSize} />
+          </BareButton>
+        )}
+      </div>
+    );
+  }
   // Smaller on a phone (28px), as wide screens' fields (36px) on sm+.
   return (
     <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -3681,6 +3993,9 @@ function SizesFieldArray({
   }
   // Index of a size just inserted via "+", to auto-expand once it mounts.
   const pendingSizeExpand = useRef<number | null>(null);
+  // A tracked calc: a size's − / + only while its row is being edited.
+  const textMode = useContext(TextModeContext);
+  const editRow = useEditRow();
   const {
     register,
     formState: { errors },
@@ -4015,6 +4330,10 @@ function SizesFieldArray({
                 !expandedSizes.has(sizeField.id);
               const zSheets = Number(watchedSizes?.[sIdx]?.sheets) || 0;
               const zLen = Number(watchedSizes?.[sIdx]?.length) || 0;
+              // A tracked calc: − / + only while the row is being edited
+              // (a tap on them leaves the focus in its field).
+              const rowEdited = editRow.row === sizeField.id;
+              const showRowButtons = !textMode || rowEdited;
               return (
                 <SortableItem key={sizeField.id} id={sizeField.id}>
                   {({ setNodeRef, style, handleProps }) =>
@@ -4053,6 +4372,8 @@ function SizesFieldArray({
                       id={`size-${orderIdx}-${sIdx}`}
                     >
                     <div
+                      data-edit-row={sizeField.id}
+                      {...editRow.handlers}
                       // The size in production blinks (saved view), framed
                       // without shifting the inputs (-mx-2 + px-2).
                       className={`flex items-end gap-2 ${
@@ -4068,7 +4389,10 @@ function SizesFieldArray({
                             {...handleProps}
                             aria-label={t('orders.reorder')}
                             title={t('orders.reorder')}
-                            className="flex h-8 w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing sm:h-9"
+                            // (as high as the row's text / fields)
+                            className={`flex w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing ${
+                              textMode && !rowEdited ? 'h-7 sm:h-8' : 'h-8 sm:h-9'
+                            }`}
                           >
                             ⠿
                           </button>
@@ -4171,9 +4495,15 @@ function SizesFieldArray({
                 />
               )}
 
+              {showRowButtons && (
+              <>
               <button
                 type="button"
-                onClick={() => removeSizeAt(sIdx)}
+                onClick={() => {
+                  removeSizeAt(sIdx);
+                  editRow.clear();
+                }}
+                onMouseDown={textMode ? (e) => e.preventDefault() : undefined}
                 disabled={sizeFields.length <= 1}
                 className={`flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9 ${
                   showPerPackage ? 'col-start-4' : ''
@@ -4187,12 +4517,15 @@ function SizesFieldArray({
               <button
                 type="button"
                 onClick={() => insertSizeAt(sIdx + 1)}
+                onMouseDown={textMode ? (e) => e.preventDefault() : undefined}
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}
               >
                 +
               </button>
+              </>
+              )}
                       </div>
                     </div>
                     {sizeAdvanced && (
