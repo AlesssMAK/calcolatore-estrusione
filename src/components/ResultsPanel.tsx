@@ -19,6 +19,7 @@ import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import OrderNumberTag from './OrderNumberTag';
 import MarqueeText from './MarqueeText';
 import { isJumpTap, notePress } from '../utils/tapToJump';
+import { blockEnds, sizeGroupEnds, type SpanTotal } from '../utils/spanTotals';
 import PauseStrip from './PauseStrip';
 import UnitsTimeline from './UnitsTimeline';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
@@ -225,6 +226,30 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
   const formatLength = (m: number) =>
     m >= 100 ? m.toFixed(0) : m.toFixed(2).replace(/\.?0+$/, '');
 
+  // A size group's / a block's line at its end: what's left of it, and when
+  // it ends (none once it's done).
+  const blockEndAt = blockEnds(result.rows);
+  const spanLine = (label: string, total: SpanTotal) =>
+    total.minutes < 0.5 ? null : (
+      <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px] leading-tight">
+        <span className="font-semibold tracking-wide text-ink-soft uppercase">
+          {label}
+        </span>
+        <span className="text-ink-soft">
+          <span className="font-semibold text-ink">
+            {formatDuration(total.minutes, units)}
+          </span>{' '}
+          · {t('results.spanEnds', { end: formatShortDateTime(total.end, lang) })}
+        </span>
+      </span>
+    );
+  const groupLine = (g: { n: number; title?: string; total: SpanTotal }) =>
+    spanLine(g.title ?? t('orders.groupN', { n: g.n }), g.total);
+  const blockLine = (idx: number) => {
+    const b = blockEndAt.get(idx);
+    return b ? spanLine(t('orders.block', { n: b.n }), b.total) : null;
+  };
+
   // For a single-size order, the "count × length" detail to show next to the
   // meters — mirrors what multi-size orders already show per sub-row. Null for
   // total-meters orders and multi-size orders (which break it out per size).
@@ -409,6 +434,7 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
             // one — the form has it no more.
             const jumpId = onOpenOrder && !done ? row.order.id : undefined;
             const doneSizes = doneSizesFor(row);
+            const groupEndAt = sizeGroupEnds(row);
             const pause = pauseShown(row, done) && (
               <li>
                 <PauseStrip row={row} now={now} />
@@ -570,11 +596,11 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                         (sd.producedProfiles !== undefined ||
                           sd.producedSheetsAtSize !== undefined) &&
                         !isSizeDone(sd);
+                      const gEnd = groupEndAt.get(sIdx);
+                      const gLine = gEnd && groupLine(gEnd);
                       return (
-                        <li
-                          key={sIdx}
-                          className="rounded-md border border-neutral-200 bg-white p-2 text-xs"
-                        >
+                        <Fragment key={sIdx}>
+                        <li className="rounded-md border border-neutral-200 bg-white p-2 text-xs">
                           <div className="mb-1 flex items-center justify-between gap-2">
                             <span className="font-semibold text-brand-700">
                               ↳ #{idx + 1}.{sIdx + 1}
@@ -660,6 +686,12 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                               />
                             )}
                         </li>
+                        {gLine && (
+                          <li className="rounded-md border border-dashed border-neutral-300 px-2 py-1">
+                            {gLine}
+                          </li>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </ul>
@@ -708,6 +740,11 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                     />
                   )}
               </li>
+              {blockLine(idx) && (
+                <li className="rounded-lg border border-dashed border-neutral-300 px-3 py-1.5">
+                  {blockLine(idx)}
+                </li>
+              )}
               {pause}
               </Fragment>
             );
@@ -779,6 +816,7 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                 const hasSegments =
                   row.segments !== undefined && row.segments.length > 1;
                 const doneSizes = doneSizesFor(row);
+                const groupEndAt = sizeGroupEnds(row);
                 // When sizes are broken out, hide the aggregate produced
                 // block and show per-size produced inside each sub-row.
                 const showAggregateProduced = hasProduced && !hasSizeBreakdown;
@@ -1048,6 +1086,13 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                                   </td>
                                 </tr>
                               )}
+                            {groupEndAt.get(sIdx) && groupLine(groupEndAt.get(sIdx)!) && (
+                              <tr data-result-order={jumpId} className="border-b border-dashed border-neutral-200">
+                                <td colSpan={colSpan} className="px-3 py-1.5">
+                                  {groupLine(groupEndAt.get(sIdx)!)}
+                                </td>
+                              </tr>
+                            )}
                           </Fragment>
                         );
                       })}
@@ -1088,6 +1133,15 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                           </td>
                         </tr>
                       )}
+                    {blockLine(idx) && (
+                      <tr>
+                        <td colSpan={colSpan} className="py-1.5">
+                          <div className="rounded-md border border-dashed border-neutral-300 px-3 py-1.5">
+                            {blockLine(idx)}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     {pause}
                   </Fragment>
                 );

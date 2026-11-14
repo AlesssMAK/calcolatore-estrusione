@@ -132,6 +132,7 @@
     "sizeSplitTitle": "Le misure sotto in un nuovo gruppo",
     "sizeMergeTitle": "Unisci il gruppo sotto a questo",
     "sizeGroupTitle": "Titolo del gruppo (facoltativo)",
+    "groupN": "Gruppo {{n}}",
     "sizeGroupFrameHint": "Tocca la cornice: più o meno marcata · Tieni premuto: colore",
     "advanced": {
       "profilesProduced": "Profili Prodotti",
@@ -154,6 +155,8 @@
     "reorder": "Trascina per spostare",
     "sizeEnds": "Fine",
     "orderEnds": "Fine ordine",
+    "groupEnds": "Fine gruppo",
+    "blockEnds": "Fine blocco",
     "perItem": "{{time}}/lastra",
     "perItemProfiles": "{{time}}/profilo"
   },
@@ -230,6 +233,7 @@
     "remaining": "Rimanenti",
     "pdfRemaining": "Solo ordini da completare",
     "timeToFinish": "Tempo per il Restante",
+    "spanEnds": "fine {{end}}",
     "timePerUnit": "Tempo per Unità",
     "shownOf": "Mostrati {{shown}} su {{total}} {{many}}",
     "showMore": "Mostra Altri {{n}}",

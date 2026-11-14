@@ -132,6 +132,7 @@
     "sizeSplitTitle": "The sizes below into a new group",
     "sizeMergeTitle": "Merge the group below into this one",
     "sizeGroupTitle": "Group title (optional)",
+    "groupN": "Group {{n}}",
     "sizeGroupFrameHint": "Tap the frame: lighter or bolder · Hold: colour",
     "advanced": {
       "profilesProduced": "Profiles Produced",
@@ -154,6 +155,8 @@
     "reorder": "Drag to reorder",
     "sizeEnds": "Ends",
     "orderEnds": "Order ends",
+    "groupEnds": "Group ends",
+    "blockEnds": "Block ends",
     "perItem": "{{time}}/sheet",
     "perItemProfiles": "{{time}}/profile"
   },
@@ -230,6 +233,7 @@
     "remaining": "Remaining",
     "pdfRemaining": "Only orders still to complete",
     "timeToFinish": "Time for the Remainder",
+    "spanEnds": "ends {{end}}",
     "timePerUnit": "Time per Unit",
     "shownOf": "Showing {{shown}} of {{total}} {{many}}",
     "showMore": "Show {{n}} More",
