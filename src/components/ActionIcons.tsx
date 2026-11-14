@@ -209,22 +209,28 @@ export function PalletIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
-/** Split a group of sizes: two frames, one over the other. */
+// The size groups' split / merge: thin and light (a fine stroke), so they sit
+// quietly beside "Calcolo Avanzato" — a line with arrows parting from it, or
+// coming together onto a dashed one.
+
+/** Split a group of sizes: arrows parting from a line. */
 export function SplitGroupIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
-    <svg {...base} className={className}>
-      <rect x="4" y="3" width="16" height="7" rx="1.5" />
-      <rect x="4" y="14" width="16" height="7" rx="1.5" />
+    <svg {...base} strokeWidth={1.5} className={className}>
+      <path d="M4 12h16" />
+      <path d="M8 7l4-4 4 4" />
+      <path d="M8 17l4 4 4-4" />
     </svg>
   );
 }
 
-/** Merge two groups of sizes: one frame round both. */
+/** Merge two groups of sizes: arrows coming together onto a dashed line. */
 export function MergeGroupIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
-    <svg {...base} className={className}>
-      <rect x="4" y="3" width="16" height="18" rx="1.5" />
-      <path d="M8 9h8M8 15h8" />
+    <svg {...base} strokeWidth={1.5} className={className}>
+      <path d="M12 3v6M9 6l3 3 3-3" />
+      <path d="M12 21v-6M9 18l3-3 3 3" />
+      <path d="M4 12h2M9 12h2M13 12h2M18 12h2" />
     </svg>
   );
 }
