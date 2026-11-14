@@ -3758,6 +3758,8 @@ function SizesFieldArray({
   // Under a size (not the last): an icon (no words — the user's choice; its
   // name in the tooltip) that starts a new group below it, or — on a group's
   // last size — merges the next group into it.
+  const groupIconCls =
+    'h-4 w-4 rounded-sm transition group-hover/grp:text-brand-700 group-focus-visible/grp:text-brand-700 group-focus-visible/grp:ring-2 group-focus-visible/grp:ring-brand-300';
   const groupControl = (sIdx: number): ReactNode => {
     if (sIdx >= sizeFields.length - 1) return undefined;
     const split = groups[sIdx] === groups[sIdx + 1];
@@ -3767,12 +3769,13 @@ function SizesFieldArray({
         onClick={() => (split ? splitSizesAfter(sIdx) : mergeSizesAfter(sIdx))}
         title={t(split ? 'orders.sizeSplitTitle' : 'orders.sizeMergeTitle')}
         aria-label={t(split ? 'orders.sizeSplitTitle' : 'orders.sizeMergeTitle')}
-        className="-my-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-soft transition hover:bg-white hover:text-brand-700"
+        // Hover and focus show on the icon itself, not on a box round it.
+        className="group/grp -my-1 flex h-6 w-6 shrink-0 items-center justify-center text-ink-soft focus:outline-none"
       >
         {split ? (
-          <SplitGroupIcon className="h-4 w-4" />
+          <SplitGroupIcon className={groupIconCls} />
         ) : (
-          <MergeGroupIcon className="h-4 w-4" />
+          <MergeGroupIcon className={groupIconCls} />
         )}
       </button>
     );
