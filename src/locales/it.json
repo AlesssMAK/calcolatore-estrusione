@@ -133,6 +133,7 @@
     "sizeSplitTitle": "Le misure sotto in un nuovo gruppo",
     "sizeMerge": "⊕ Unisci",
     "sizeMergeTitle": "Unisci il gruppo sotto a questo",
+    "sizeGroupTitle": "Titolo del gruppo (facoltativo)",
     "advanced": {
       "profilesProduced": "Profili Prodotti",
       "packagesProduced": "Pacchi Prodotti",

@@ -70,6 +70,8 @@ const orderSchema = z.object({
     .optional(),
   // A new order not yet placed in a block (see Order.unplaced).
   unplaced: z.boolean().optional(),
+  // Its size groups' titles (see Order.sizeGroupTitles).
+  sizeGroupTitles: z.record(z.string(), z.string()).optional(),
   producedProfiles: producedArray,
   producedPackages: producedArray,
   producedSheets: producedArray,

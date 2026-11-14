@@ -133,6 +133,7 @@
     "sizeSplitTitle": "The sizes below into a new group",
     "sizeMerge": "⊕ Merge",
     "sizeMergeTitle": "Merge the group below into this one",
+    "sizeGroupTitle": "Group title (optional)",
     "advanced": {
       "profilesProduced": "Profiles Produced",
       "packagesProduced": "Packages Produced",

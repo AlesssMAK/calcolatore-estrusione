@@ -74,6 +74,9 @@ export interface Order {
    *  shown under them, to drag into one; until then it runs at the end of the
    *  queue. Such orders are always the last ones. */
   unplaced?: boolean;
+  /** The titles of its size groups (OrderSize.group), optional, by group:
+   *  "g<number>" → title. For the eye only, as the groups. */
+  sizeGroupTitles?: Record<string, string>;
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
   producedSheets?: ProducedEntry[];
