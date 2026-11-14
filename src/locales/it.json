@@ -132,6 +132,7 @@
     "sizeSplitTitle": "Le misure sotto in un nuovo gruppo",
     "sizeMergeTitle": "Unisci il gruppo sotto a questo",
     "sizeGroupTitle": "Titolo del gruppo (facoltativo)",
+    "sizeGroupFrameHint": "Tocca la cornice: più o meno marcata · Tieni premuto: colore",
     "advanced": {
       "profilesProduced": "Profili Prodotti",
       "packagesProduced": "Pacchi Prodotti",

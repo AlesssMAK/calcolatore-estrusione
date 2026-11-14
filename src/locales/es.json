@@ -132,6 +132,7 @@
     "sizeSplitTitle": "Las medidas de abajo en un nuevo grupo",
     "sizeMergeTitle": "Unir el grupo de abajo a este",
     "sizeGroupTitle": "Título del grupo (opcional)",
+    "sizeGroupFrameHint": "Toca el marco: más o menos marcado · Mantén pulsado: color",
     "advanced": {
       "profilesProduced": "Perfiles Producidos",
       "packagesProduced": "Paquetes Producidos",

@@ -72,6 +72,13 @@ const orderSchema = z.object({
   unplaced: z.boolean().optional(),
   // Its size groups' titles (see Order.sizeGroupTitles).
   sizeGroupTitles: z.record(z.string(), z.string()).optional(),
+  // How its size groups' frames look (see Order.sizeGroupStyle).
+  sizeGroupStyle: z
+    .object({
+      border: z.number().int().min(0).optional(),
+      fill: z.number().int().min(0).optional(),
+    })
+    .optional(),
   producedProfiles: producedArray,
   producedPackages: producedArray,
   producedSheets: producedArray,
