@@ -145,8 +145,8 @@ const sizeInputBase =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
 
 /** A Calcolo Avanzato count / rate / total in a tracked calc: its value as
- *  text, the field on a tap (TapToEdit). `label`: shown before it (a phone's
- *  count, which has no name above it). */
+ *  text, the field on a tap (TapToEdit). `label`: its name, before it (the
+ *  text has no line of names above it). */
 const advText = (
   name: string,
   label: string | undefined,
@@ -156,6 +156,7 @@ const advText = (
   <TapToEdit
     names={[name]}
     disabled={disabled}
+    compact
     render={([v], fmt) => (
       <>
         {label && (
@@ -2058,8 +2059,12 @@ function sizeActionsFor({
 
 /** The amber note over Calcolo Avanzato counts a tracked calc filled in. */
 function AutoFilledNote({ t, action }: { t: TFunction; action?: ReactNode }) {
+  // (a tracked calc: close to its values)
+  const textMode = useContext(TextModeContext);
   return (
-    <div className="mb-2 flex items-start justify-between gap-2">
+    <div
+      className={`${textMode ? 'mb-0.5 items-center' : 'mb-2 items-start'} flex justify-between gap-2`}
+    >
       <p className="text-[11px] font-medium text-amber-700">
         ↳ {t('orders.advanced.autoFilledNote')}
       </p>
@@ -2092,6 +2097,7 @@ function AdvancedSection({
   'use no memo';
   const { getValues } = useFormContext<FormValues>();
   const f = useAdvancedFlags(idx);
+  const textMode = useContext(TextModeContext);
   const isProfiles = mode === 'profiles';
   // Produced values at mount → a tracked calc: opens by itself, framed amber
   // so the time-based fill is obvious.
@@ -2123,7 +2129,9 @@ function AdvancedSection({
 
       {expanded && (
         <div
-          className={`mt-2 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
+          className={`rounded-md border bg-brand-50/40 ${
+            textMode ? 'mt-1 px-2 py-1 sm:px-3 sm:py-1.5' : 'mt-2 p-2 sm:p-3'
+          } ${
             hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
           }`}
         >
@@ -2210,6 +2218,7 @@ function SizeAdvancedPanel({
   'use no memo';
   const { getValues } = useFormContext<FormValues>();
   const f = useAdvancedFlags(orderIdx);
+  const textMode = useContext(TextModeContext);
   const [hadProducedAtMount] = useState(() =>
     producedAtMount(getValues(`orders.${orderIdx}`), sizeIdx),
   );
@@ -2228,7 +2237,7 @@ function SizeAdvancedPanel({
   const uid = getValues(`orders.${orderIdx}.sizes.${sizeIdx}.uid`);
 
   return (
-    <div className="mt-1.5">
+    <div className={textMode ? 'mt-1' : 'mt-1.5'}>
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
@@ -2244,7 +2253,9 @@ function SizeAdvancedPanel({
       </div>
       {open && (
         <div
-          className={`mt-1.5 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
+          className={`rounded-md border bg-brand-50/40 ${
+            textMode ? 'mt-1 px-2 py-1 sm:px-3 sm:py-1.5' : 'mt-1.5 p-2 sm:p-3'
+          } ${
             hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
           }`}
         >
@@ -2754,9 +2765,12 @@ const advLabelCls =
 /** The size's buttons (✓ / ▶ / ⏹) over its Calcolo Avanzato entries — no
  *  "#N": the block sits right under its own size row. */
 function SizeBlockHeader({ actions }: { actions?: ReactNode }) {
+  const textMode = useContext(TextModeContext);
   if (!actions) return null;
   return (
-    <div className="mb-1 flex items-center justify-end gap-2">{actions}</div>
+    <div className={`${textMode ? '' : 'mb-1'} flex items-center justify-end gap-2`}>
+      {actions}
+    </div>
   );
 }
 
@@ -2835,7 +2849,7 @@ function SizeEndNote({
     minute: t('units.minute'),
   };
   return (
-    <p className="mt-1.5 text-[11px] text-ink-soft">
+    <p className="mt-0.5 text-[11px] text-ink-soft">
       {t('orders.sizeEnds')}{' '}
       <span className="num-blink">
         {formatShortDateTime(timing.end, i18n.resolvedLanguage ?? 'it')}
@@ -3066,13 +3080,14 @@ function AdvBlockLayout({
       <>
         <SizeBlockHeader actions={actions} />
         <div
-          className="grid items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2"
+          className={`grid items-center gap-x-1.5 sm:gap-x-2 ${textMode ? 'gap-y-0' : 'gap-y-1.5'}`}
           style={{ gridTemplateColumns: cols }}
           {...editRow.handlers}
         >
           {/* The names over the fields — on a phone the count's is its hint;
-              no line of names when there's none to show. */}
-          {(!isPhone || rate?.open || total) && (
+              no line of names when there's none to show (nor in a tracked
+              calc: each value's text carries its name). */}
+          {!textMode && (!isPhone || rate?.open || total) && (
             <>
               <span className={nameCls(disabled.count)}>
                 {isPhone ? '' : labels.count}
@@ -3139,7 +3154,9 @@ function AdvBlockLayout({
         }
       />
       <div
-        className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 gap-y-1.5"
+        className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 ${
+          textMode ? 'gap-y-0' : 'gap-y-1.5'
+        }`}
         {...editRow.handlers}
       >
         {rows.map((arrayPos, rowIdx) => (
@@ -3161,7 +3178,7 @@ function AdvBlockLayout({
               )}
             </div>
             {rowButtons(rowIdx, arrayPos)}
-            {lineTwo && rowIdx === 0 && (
+            {lineTwo && rowIdx === 0 && !textMode && (
               <>
                 <span className={nameCls(rate.disabled)}>
                   {rate.open ? rate.label : ''}
@@ -3173,14 +3190,25 @@ function AdvBlockLayout({
                 <span />
               </>
             )}
-            {lineTwo && (
-              <>
-                {rate.open ? rateCell(rate, arrayPos, rowIdx) : <span />}
-                {total ? (arrayPos === null ? off : renderTotal(arrayPos)) : <span />}
-                <span />
-                <span />
-              </>
-            )}
+            {lineTwo &&
+              (textMode && !total ? (
+                // (a tracked calc, no total: the rate's text across the line,
+                // its name not cut short)
+                <>
+                  <div className="col-span-2 min-w-0">
+                    {rateCell(rate, arrayPos, rowIdx)}
+                  </div>
+                  <span />
+                  <span />
+                </>
+              ) : (
+                <>
+                  {rate.open ? rateCell(rate, arrayPos, rowIdx) : <span />}
+                  {total ? (arrayPos === null ? off : renderTotal(arrayPos)) : <span />}
+                  <span />
+                  <span />
+                </>
+              ))}
           </div>
         ))}
       </div>
@@ -3321,7 +3349,7 @@ function SizeAdvancedBlockListi({
             );
             return advText(
               `orders.${orderIdx}.sheetsPerPallet.${p}.value`,
-              undefined,
+              rateLabel,
               rateDisabled,
               <input
                 type="number"
@@ -3344,7 +3372,7 @@ function SizeAdvancedBlockListi({
         }}
         renderCount={(p) => advText(
           `orders.${orderIdx}.producedSheets.${p}.value`,
-          isPhone ? countLabel : undefined,
+          countLabel,
           countDisabled,
           <input
             type="number"
@@ -3365,7 +3393,7 @@ function SizeAdvancedBlockListi({
         )}
         renderTotal={(p) => advText(
           `orders.${orderIdx}.producedPallets.${p}.value`,
-          undefined,
+          totalLabel,
           totalDisabled,
           <input
             type="number"
@@ -3469,7 +3497,7 @@ function SizeAdvancedBlockProfili({
         showTotal={showTotal}
         renderCount={(p) => advText(
           `orders.${orderIdx}.producedProfiles.${p}.value`,
-          isPhone ? countLabel : undefined,
+          countLabel,
           countDisabled,
           <input
             type="number"
@@ -3489,7 +3517,7 @@ function SizeAdvancedBlockProfili({
         )}
         renderTotal={(p) => advText(
           `orders.${orderIdx}.producedPackages.${p}.value`,
-          undefined,
+          totalLabel,
           totalDisabled,
           <input
             type="number"
@@ -3531,12 +3559,14 @@ function BatchField({
   disabled: boolean;
   children: ReactNode;
 }) {
+  const textMode = useContext(TextModeContext);
+  const name = textMode ? undefined : label;
   return (
     <div
       className={`min-w-0 ${disabled ? 'pointer-events-none opacity-40' : ''}`}
     >
-      {label && <label className={advLabelCls}>{label}</label>}
-      <div className={label ? 'mt-0.5' : ''}>{children}</div>
+      {name && <label className={advLabelCls}>{name}</label>}
+      <div className={name ? 'mt-0.5' : ''}>{children}</div>
     </div>
   );
 }
@@ -3550,6 +3580,7 @@ function BatchInput({
   autoFocus,
   onBlur,
   hint,
+  label,
 }: {
   orderIdx: number;
   fieldName: BatchFieldName;
@@ -3559,6 +3590,8 @@ function BatchInput({
   autoFocus?: boolean;
   /** The field's name as its grey hint (no label above it). */
   hint?: string;
+  /** Its name in a tracked calc's text (before the value). */
+  label?: string;
   /** After the form's own blur handling. */
   onBlur?: () => void;
 }) {
@@ -3568,7 +3601,7 @@ function BatchInput({
   });
   return advText(
     `orders.${orderIdx}.${fieldName}.${sIdx}.value`,
-    hint,
+    label ?? hint,
     disabled,
     <input
       type="number"
@@ -3700,7 +3733,7 @@ function BatchRowsArray({
     : undefined;
 
   return (
-    <div className="space-y-2">
+    <div className={textMode ? 'space-y-1' : 'space-y-2'}>
       {Array.from({ length: rows }).map((_, sIdx) => {
         const hasRate = rateOf(watchedRates, sIdx);
         const rateOpen = hasRate || openRates.has(sIdx);
@@ -3711,7 +3744,9 @@ function BatchRowsArray({
             data-edit-row={sIdx}
             {...editRow.handlers}
           >
-            <div className="mb-1 flex items-center justify-between gap-1">
+            <div
+              className={`${textMode ? '' : 'mb-1'} flex items-center justify-between gap-1`}
+            >
               <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-brand-100 px-1.5 text-[10px] font-bold text-brand-700 sm:text-xs">
                 #{sIdx + 1}
               </span>
@@ -3755,7 +3790,11 @@ function BatchRowsArray({
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-2 items-end gap-1.5 sm:grid-cols-4 sm:gap-2">
+            <div
+              className={`grid grid-cols-2 items-end gap-x-1.5 sm:grid-cols-4 sm:gap-x-2 ${
+                textMode ? 'gap-y-0' : 'gap-y-1.5 sm:gap-y-2'
+              }`}
+            >
               <BatchField
                 // Phone: named by its hint, as the product name.
                 label={isPhone ? undefined : countLabel}
@@ -3768,6 +3807,7 @@ function BatchRowsArray({
                   disabled={countDisabled}
                   min="0"
                   hint={isPhone ? countLabel : undefined}
+                  label={countLabel}
                 />
               </BatchField>
               <BatchField label={lengthLabel} disabled={countDisabled}>
@@ -3777,6 +3817,7 @@ function BatchRowsArray({
                   sIdx={sIdx}
                   disabled={countDisabled}
                   min="1"
+                  label={lengthLabel}
                 />
               </BatchField>
               {rateOpen ? (
@@ -3789,6 +3830,7 @@ function BatchRowsArray({
                     min="1"
                     autoFocus={!hasRate}
                     onBlur={() => foldRate(sIdx)}
+                    label={rateLabel}
                   />
                 </BatchField>
               ) : isPhone ? null : (
@@ -3811,6 +3853,7 @@ function BatchRowsArray({
                     sIdx={sIdx}
                     disabled={totalDisabled}
                     min="0"
+                    label={totalLabel}
                   />
                 </BatchField>
               )}
