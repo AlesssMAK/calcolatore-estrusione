@@ -4,7 +4,9 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
-import { FactoryIcon, PauseIcon, PlayIcon } from './ActionIcons';
+import { CloseIcon, FactoryIcon, PauseIcon, PlayIcon } from './ActionIcons';
+import BareButton from './BareButton';
+import { bareIconSize, bareNeutral } from './formStyles';
 import PauseNowNote from './PauseNowNote';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { pauseAt } from '../utils/pauseAt';
@@ -263,8 +265,7 @@ function CompanyResultsButton({
                       </span>
                     </button>
                     {canToggle && (
-                      <button
-                        type="button"
+                      <BareButton
                         disabled={busyId === c.id}
                         onClick={() => {
                           setBusyId(c.id);
@@ -278,32 +279,31 @@ function CompanyResultsButton({
                             })
                             .finally(() => setBusyId(null));
                         }}
-                        aria-label={t(paused ? 'company.resume' : 'company.pause')}
                         title={t(paused ? 'company.resume' : 'company.pause')}
-                        className="shrink-0 rounded p-1.5 text-ink-soft transition last:mr-1 hover:bg-neutral-100 hover:text-ink disabled:cursor-wait disabled:opacity-50"
+                        iconCls={bareNeutral}
+                        className="last:mr-1 disabled:cursor-wait"
                       >
                         {paused ? (
-                          <PlayIcon className="h-4 w-4" />
+                          <PlayIcon className={`${bareIconSize} fill-current`} />
                         ) : (
-                          <PauseIcon className="h-4 w-4" />
+                          <PauseIcon className={bareIconSize} />
                         )}
-                      </button>
+                      </BareButton>
                     )}
                     {canDelete && (
-                      <button
-                        type="button"
+                      <BareButton
                         onClick={() => {
                           void Promise.resolve(onDelete!(c)).then(() => {
                             setItems((cur) => cur.filter((x) => x.id !== c.id));
                             setCount((n) => Math.max(0, n - 1));
                           });
                         }}
-                        aria-label={t('company.unpublish')}
                         title={t('company.unpublish')}
-                        className="mr-1 shrink-0 rounded p-1.5 text-ink-soft transition hover:bg-danger/10 hover:text-danger"
+                        iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+                        className="mr-1"
                       >
-                        ×
-                      </button>
+                        <CloseIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </BareButton>
                     )}
                   </li>
                 );

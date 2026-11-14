@@ -14,7 +14,9 @@ const loadOwn = (retentionDays: number) =>
 import { useCatalog } from '../contexts/CatalogContext';
 import { checkProduction, productionStatus } from '../lib/productionCheck';
 import type { TFunction } from 'i18next';
-import { SaveIcon } from './ActionIcons';
+import { CloseIcon, FactoryIcon, SaveIcon, SyncIcon } from './ActionIcons';
+import BareButton from './BareButton';
+import { bareIconSize, bareNeutral, bareOn } from './formStyles';
 import { fixedMenuStyle, useMenuPlacement } from '../hooks/useMenuPlacement';
 import {
   floatBadgeCls,
@@ -263,11 +265,11 @@ function SavedCalculationsButton({
                       />
                       {it.sync?.published && !it.sync.gone && (
                         <span
-                          className="shrink-0 rounded bg-brand-100 px-1 py-0.5 text-[10px] font-semibold text-brand-700"
+                          className="shrink-0 text-brand-600"
                           title={t('company.broadcasting')}
                           aria-label={t('company.broadcasting')}
                         >
-                          🏭
+                          <FactoryIcon className="h-3.5 w-3.5" />
                         </span>
                       )}
                       <ProductionBadge entry={it} t={t} />
@@ -280,33 +282,23 @@ function SavedCalculationsButton({
                     </span>
                   </button>
                   {onToggleTracking && it.values && (
-                    <button
-                      type="button"
+                    <BareButton
                       onClick={() => onToggleTracking(it)}
-                      aria-pressed={!it.values.settings.frozen}
-                      aria-label={
-                        it.values.settings.frozen
-                          ? t('saved.trackingOff')
-                          : t('saved.trackingOn')
-                      }
+                      pressed={!it.values.settings.frozen}
                       title={
                         it.values.settings.frozen
                           ? t('saved.trackingOff')
                           : t('saved.trackingOn')
                       }
-                      className={`shrink-0 rounded p-1.5 transition ${
-                        it.values.settings.frozen
-                          ? 'opacity-40 grayscale hover:bg-neutral-100 hover:opacity-70'
-                          : 'bg-brand-50 hover:bg-brand-100'
-                      }`}
+                      // In step with production: red; a fixed calc: grey.
+                      iconCls={it.values.settings.frozen ? bareNeutral : bareOn}
                     >
-                      🔄
-                    </button>
+                      <SyncIcon className={bareIconSize} />
+                    </BareButton>
                   )}
                   {onPublish && it.values && (
                     <div className="relative shrink-0">
-                      <button
-                        type="button"
+                      <BareButton
                         onClick={(e) => {
                           publishAnchor.current = e.currentTarget;
                           setPublishMenuStyle(fixedMenuStyle(e.currentTarget, 220));
@@ -314,16 +306,13 @@ function SavedCalculationsButton({
                             cur === it.id ? null : it.id,
                           );
                         }}
-                        aria-label={t('company.publish')}
-                        title={t('company.publish')}
-                        className={`rounded p-1.5 transition ${
-                          it.sync?.published
-                            ? 'text-brand-600 hover:bg-brand-50'
-                            : 'text-ink-soft hover:bg-neutral-100 hover:text-brand-600'
-                        }`}
+                        title={t(
+                          it.sync?.published ? 'company.broadcasting' : 'company.publish',
+                        )}
+                        iconCls={it.sync?.published ? bareOn : bareNeutral}
                       >
-                        🏭
-                      </button>
+                        <FactoryIcon className={bareIconSize} />
+                      </BareButton>
                       {publishMenuId === it.id && (
                         <div
                           role="menu"
@@ -369,18 +358,17 @@ function SavedCalculationsButton({
                       )}
                     </div>
                   )}
-                  <button
-                    type="button"
+                  <BareButton
                     onClick={() => {
                       removeCalculation(it.id, retentionDays);
                       setItems(loadOwn(retentionDays));
                     }}
-                    aria-label={t('saved.delete')}
                     title={t('saved.delete')}
-                    className="mr-1 shrink-0 rounded p-1.5 text-ink-soft transition hover:bg-danger/10 hover:text-danger"
+                    iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+                    className="mr-1"
                   >
-                    ×
-                  </button>
+                    <CloseIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </BareButton>
                 </li>
                 );
               })}

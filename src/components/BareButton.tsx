@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 
 /**
- * A tracked calc's button (TextModeContext): just its icon, no box round it —
- * hover, focus and press show on the icon itself. `iconCls`: its colours
- * (hover too). `keepFocus`: a tap leaves the focus in the field being edited
- * (a row's − / +, shown only while it's edited).
+ * A button that's just its icon, no box round it — hover, focus and press
+ * show on the icon itself (a tracked calc's form, the pop-up lists).
+ * `iconCls`: its colours (hover too). `keepFocus`: a tap leaves the focus in
+ * the field being edited (a row's − / +, shown only while it's edited).
  */
 export default function BareButton({
   title,
@@ -17,7 +17,7 @@ export default function BareButton({
   children,
 }: {
   title: string;
-  onClick: () => void;
+  onClick: (e: ReactMouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   pressed?: boolean;
   keepFocus?: boolean;

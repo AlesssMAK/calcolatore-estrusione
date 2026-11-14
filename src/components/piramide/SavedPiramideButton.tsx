@@ -7,6 +7,8 @@ import {
   type SavedPiramide,
 } from '../../lib/piramideHistory';
 import MarqueeText from '../MarqueeText';
+import BareButton from '../BareButton';
+import { CloseIcon } from '../ActionIcons';
 
 interface Props {
   /** Called when a saved layout is picked; parent refills inputs + recomputes. */
@@ -129,18 +131,17 @@ function SavedPiramideButton({ onRestore, refreshKey }: Props) {
                       {formatRelative(it.ts, lang)}
                     </span>
                   </button>
-                  <button
-                    type="button"
+                  <BareButton
                     onClick={() => {
                       removePiramideEntry(it.id);
                       setItems(loadPiramideHistory());
                     }}
-                    aria-label={t('saved.delete')}
                     title={t('saved.delete')}
-                    className="mr-1 shrink-0 rounded p-1.5 text-ink-soft transition hover:bg-danger/10 hover:text-danger"
+                    iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+                    className="mr-1"
                   >
-                    ×
-                  </button>
+                    <CloseIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </BareButton>
                 </li>
               ))}
             </ul>
