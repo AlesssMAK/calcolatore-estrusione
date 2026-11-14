@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -123,6 +125,14 @@ import { formatDateParts, formatDuration, formatShortDateTime } from '../utils/f
 // the product name / order number fields).
 const sizeInputBase =
   'h-8 w-full min-w-0 rounded-md border border-neutral-300 bg-white px-2 text-xs text-ellipsis text-ink shadow-sm transition max-sm:placeholder:text-[11px] focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none sm:h-9 sm:px-3 sm:text-sm';
+
+/** The size groups' frames, stepped by a tap (strength) / a hold (fill). */
+const GROUP_BORDERS = [
+  'border-dashed border-neutral-300',
+  'border-dashed border-neutral-500',
+  'border-solid border-neutral-500',
+];
+const GROUP_FILLS = ['', 'bg-brand-50/70', 'bg-amber-50', 'bg-success/5'];
 
 /** A button beside a field: a square of the field's height. */
 const squareBtnBase =
@@ -3749,6 +3759,52 @@ function SizesFieldArray({
     control,
     name: `orders.${orderIdx}.sizeGroupTitles`,
   });
+  // The frames' look, one for all the order's groups: a tap on a frame (its
+  // own edge / gaps, not what's in it) steps its strength, a hold its fill —
+  // round and round.
+  const groupStyle = useWatch({
+    control,
+    name: `orders.${orderIdx}.sizeGroupStyle`,
+  });
+  const frameCls = `${GROUP_BORDERS[(groupStyle?.border ?? 0) % GROUP_BORDERS.length]} ${
+    GROUP_FILLS[(groupStyle?.fill ?? 0) % GROUP_FILLS.length]
+  }`;
+  const stepGroupStyle = (key: 'border' | 'fill') => {
+    const cur = getValues(`orders.${orderIdx}.sizeGroupStyle`) ?? {};
+    const n = key === 'border' ? GROUP_BORDERS.length : GROUP_FILLS.length;
+    setValue(
+      `orders.${orderIdx}.sizeGroupStyle`,
+      { ...cur, [key]: ((cur[key] ?? 0) + 1) % n },
+      { shouldDirty: true },
+    );
+  };
+  const holdRef = useRef<{ timer: number; held: boolean } | null>(null);
+  const frameHandlers = {
+    onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return;
+      const hold = { timer: 0, held: false };
+      hold.timer = window.setTimeout(() => {
+        hold.held = true;
+        stepGroupStyle('fill');
+      }, 550);
+      holdRef.current = hold;
+    },
+    onPointerUp: () => window.clearTimeout(holdRef.current?.timer),
+    onPointerLeave: () => window.clearTimeout(holdRef.current?.timer),
+    onPointerCancel: () => window.clearTimeout(holdRef.current?.timer),
+    // (no menu / selection on a hold)
+    onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (e.target === e.currentTarget) e.preventDefault();
+    },
+    onClick: (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return;
+      // The frame's own tap: not the card's (which opens its result).
+      e.stopPropagation();
+      const hold = holdRef.current;
+      holdRef.current = null;
+      if (!hold?.held) stepGroupStyle('border');
+    },
+  };
   const sizeRuns = groupRuns(displayOrder, groups);
   // Under a size (not the last): an icon (no words — the user's choice; its
   // name in the tooltip) that starts a new group below it, or — on a group's
@@ -3993,7 +4049,9 @@ function SizesFieldArray({
                   // not there at all in the read-only view).
                   <div
                     key={`group-${sizeFields[run[0]].id}`}
-                    className="-mx-2 space-y-2 rounded-lg border border-dashed border-neutral-300 p-2"
+                    title={t('orders.sizeGroupFrameHint')}
+                    {...frameHandlers}
+                    className={`-mx-2 space-y-2 rounded-lg border p-2 transition-colors select-none [-webkit-touch-callout:none] ${frameCls}`}
                   >
                     <input
                       type="text"

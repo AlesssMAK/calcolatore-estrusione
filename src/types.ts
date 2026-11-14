@@ -77,6 +77,10 @@ export interface Order {
   /** The titles of its size groups (OrderSize.group), optional, by group:
    *  "g<number>" → title. For the eye only, as the groups. */
   sizeGroupTitles?: Record<string, string>;
+  /** How its size groups' frames look — the same for all of them: the
+   *  frame's strength (0 light dashed, 1 darker dashed, 2 solid) and its fill
+   *  (0 none, 1 pink, 2 amber, 3 green). Tap / hold a frame to change them. */
+  sizeGroupStyle?: { border?: number; fill?: number };
   producedProfiles?: ProducedEntry[];
   producedPackages?: ProducedEntry[];
   producedSheets?: ProducedEntry[];

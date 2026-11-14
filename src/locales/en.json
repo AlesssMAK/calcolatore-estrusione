@@ -132,6 +132,7 @@
     "sizeSplitTitle": "The sizes below into a new group",
     "sizeMergeTitle": "Merge the group below into this one",
     "sizeGroupTitle": "Group title (optional)",
+    "sizeGroupFrameHint": "Tap the frame: lighter or bolder · Hold: colour",
     "advanced": {
       "profilesProduced": "Profiles Produced",
       "packagesProduced": "Packages Produced",
