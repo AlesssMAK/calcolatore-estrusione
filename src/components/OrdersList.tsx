@@ -101,7 +101,15 @@ import {
 } from '../utils/sizeGroups';
 import { useCatalog } from '../contexts/CatalogContext';
 import { stashPiramideImport } from '../lib/piramideImport';
-import { inputBase, labelBase } from './formStyles';
+import {
+  bareEmoji,
+  bareIconSize,
+  bareNeutral,
+  bareOn,
+  inputBase,
+  labelBase,
+} from './formStyles';
+import BareButton from './BareButton';
 import PauseCard from './PauseCard';
 import {
   ProductChangeModal,
@@ -172,65 +180,6 @@ const GROUP_FILLS = ['', 'bg-brand-50/70', 'bg-amber-50', 'bg-success/5'];
 /** A button beside a field: a square of the field's height. */
 const squareBtnBase =
   'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
-
-/** A tracked calc's icon size (✓ Σ ⏸ 🗑, ▶ ⏹, − +…). */
-const bareIconSize = 'h-4 w-4 sm:h-4.5 sm:w-4.5';
-
-/**
- * A tracked calc's button (TextModeContext): just its icon, no box round it —
- * hover, focus and press show on the icon itself. `iconCls`: its colours
- * (hover too). `keepFocus`: a tap leaves the focus in the field being edited
- * (a row's − / +, shown only while it's edited).
- */
-function BareButton({
-  title,
-  onClick,
-  disabled,
-  pressed,
-  keepFocus,
-  iconCls,
-  className = '',
-  children,
-}: {
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-  pressed?: boolean;
-  keepFocus?: boolean;
-  iconCls: string;
-  className?: string;
-  /** The icon: an SVG (sized by bareIconSize) or a glyph. */
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
-      disabled={disabled}
-      aria-pressed={pressed}
-      title={title}
-      aria-label={title}
-      className={`group/ib flex h-7 w-6 shrink-0 items-center justify-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-7 ${className}`}
-    >
-      <span
-        aria-hidden
-        className={`flex items-center justify-center rounded-sm leading-none transition group-focus-visible/ib:ring-2 group-focus-visible/ib:ring-brand-300 group-active/ib:scale-90 group-disabled/ib:scale-100 ${iconCls}`}
-      >
-        {children}
-      </span>
-    </button>
-  );
-}
-
-/** Hover / focus colours of a bare icon: grey → red (the app's accent). */
-const bareNeutral =
-  'text-ink-soft group-hover/ib:text-brand-700 group-focus-visible/ib:text-brand-700';
-/** …a "pressed" one (Σ, ⏸ on). */
-const bareOn =
-  'text-brand-600 group-hover/ib:text-brand-800 group-focus-visible/ib:text-brand-800';
-/** …an emoji (no colour of its own to change): a touch bigger. */
-const bareEmoji = 'text-sm group-hover/ib:scale-110 sm:text-base';
 
 /**
  * A tracked calc shows a row's − / + only while the row is being edited:
