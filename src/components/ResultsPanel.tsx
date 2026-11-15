@@ -85,10 +85,17 @@ interface Props {
   onComplete?: (orderId: string, sizeIdx?: number) => void;
   /** A tap on an order's result: the order in the form. */
   onOpenOrder?: (orderId: string) => void;
+  /** A tracked calc: the size in production. Only it shows what's made of it
+   *  and its times per pallet — not every size of its order. */
+  active?: { orderId: string; sizeIdx: number } | null;
 }
 
-function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
+function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) {
   const { t, i18n } = useTranslation();
+  // A size's produced block / per-pallet times: in a tracked calc only the
+  // size in production's (else every size's, as entered).
+  const sizeExtras = (orderId: string | undefined, sIdx: number) =>
+    !active || (orderId === active.orderId && sIdx === active.sizeIdx);
   // One handler for all the rows: the tapped one's order (data-result-order).
   const jumpProps = onOpenOrder
     ? {
@@ -592,7 +599,9 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                     {row.sizeDetails.map((sd, sIdx) => {
                       // Hide the "produced X/X" block for a finished size — the
                       // ✓ already marks it done.
+                      const extras = sizeExtras(row.order?.id, sIdx);
                       const hasProducedAtSize =
+                        extras &&
                         (sd.producedProfiles !== undefined ||
                           sd.producedSheetsAtSize !== undefined) &&
                         !isSizeDone(sd);
@@ -670,7 +679,8 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                           {hasProducedAtSize && (
                             <SizeProducedBlock sd={sd} t={t} mode={mode} />
                           )}
-                          {sd.timePerUnitMin !== undefined &&
+                          {extras &&
+                            sd.timePerUnitMin !== undefined &&
                             sd.totalUnits !== undefined && (
                               <PerUnitBlock
                                 start={sd.start}
@@ -973,10 +983,17 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                           sIdx === row.sizeDetails!.length - 1;
                         // A finished size needs no "produced X/X" block — the
                         // ✓ already says it's done — so treat it as no-produced.
+                        const extras = sizeExtras(row.order?.id, sIdx);
                         const hasProducedAtSize =
+                          extras &&
                           (sd.producedProfiles !== undefined ||
                             sd.producedSheetsAtSize !== undefined) &&
                           !isSizeDone(sd);
+                        // (its last line closes the order's rows)
+                        const hasPerUnit =
+                          extras &&
+                          sd.timePerUnitMin !== undefined &&
+                          sd.totalUnits !== undefined;
                         return (
                           <Fragment key={sIdx}>
                             <tr data-result-order={jumpId}
@@ -1044,7 +1061,7 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                             {hasProducedAtSize && (
                               <tr data-result-order={jumpId}
                                 className={
-                                  isLastSub && sd.timePerUnitMin === undefined
+                                  isLastSub && !hasPerUnit
                                     ? 'border-b border-neutral-100 bg-brand-50/30 last:border-b-0'
                                     : 'border-b-0 bg-brand-50/30'
                                 }
@@ -1057,8 +1074,7 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                                 </td>
                               </tr>
                             )}
-                            {sd.timePerUnitMin !== undefined &&
-                              sd.totalUnits !== undefined && (
+                            {hasPerUnit && (
                                 <tr data-result-order={jumpId}
                                   className={
                                     isLastSub
@@ -1073,8 +1089,8 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder }: Props) {
                                     <PerUnitBlock
                                       start={sd.start}
                                       end={sd.end}
-                                      timePerUnitMin={sd.timePerUnitMin}
-                                      totalUnits={sd.totalUnits}
+                                      timePerUnitMin={sd.timePerUnitMin!}
+                                      totalUnits={sd.totalUnits!}
                                       producedMinutes={
                                         sd.productionMinutes -
                                         sd.remainingMinutes

@@ -162,13 +162,21 @@ const advText = (
         {label && (
           <span className="min-w-0 truncate text-[11px] text-ink-soft">{label}</span>
         )}
-        <EditNum name={name}>{fmt(v)}</EditNum>
+        {/* The produced count stands out (blinking red, as its field). */}
+        <EditNum
+          name={name}
+          className={PRODUCED_COUNT.test(name) ? 'num-blink' : undefined}
+        >
+          {fmt(v)}
+        </EditNum>
       </>
     )}
   >
     {field}
   </TapToEdit>
 );
+/** A produced count's field (lastre / profili prodotti). */
+const PRODUCED_COUNT = /\.produced(Sheets|Profiles)\.\d+\.value$/;
 
 /** The size groups' frames, stepped by a tap (strength) / a hold (fill). */
 const GROUP_BORDERS = [
