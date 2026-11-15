@@ -41,3 +41,18 @@ export function completedTotals(
     totalPackages: packages,
   };
 }
+
+/** What a calc made, done or not: its first start and last end (totals), the
+ *  meters of all its orders, and its products (each once, in order). */
+export function calcSummary(p: {
+  completedRows?: ScheduledOrder[];
+  result: Pick<ScheduleResult, 'rows'>;
+}) {
+  const rows = [...(p.completedRows ?? []), ...p.result.rows];
+  const totals = completedTotals(rows);
+  const meters = rows.reduce((s, r) => s + (r.totalLengthM ?? 0), 0);
+  const products = [
+    ...new Set(rows.map((r) => r.order?.productName?.trim()).filter((n): n is string => !!n)),
+  ];
+  return { totals, meters, products };
+}

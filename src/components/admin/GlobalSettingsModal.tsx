@@ -255,6 +255,7 @@ export default function GlobalSettingsModal({
                   ['Max risultati', 'maxSavedResults', 1, 100, undefined],
                   ['Giorni di conservazione', 'savedRetentionDays', 1, 365, 'gg'],
                   ['Max condivisi azienda', 'maxCompanyShared', 0, 100, undefined],
+                  ['Giorni in Completati', 'completedRetentionDays', 1, 90, 'gg'],
                 ] as const
               ).map(([label, key, lo, hi, unit]) =>
                 numRow(
@@ -283,7 +284,8 @@ export default function GlobalSettingsModal({
             </div>
             <p className="mt-2 text-xs text-ink-soft">
               Numero massimo di calcoli tenuti nella cronologia «Salvati» e per
-              quanti giorni conservarli.
+              quanti giorni conservarli; per quanti giorni dalla fine un calcolo
+              completato resta in «Completati» (al massimo 90).
             </p>
           </section>
 

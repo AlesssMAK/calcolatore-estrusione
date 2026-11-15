@@ -1,4 +1,5 @@
 import {
+  deriveLabel,
   isOriginal,
   loadHistory,
   updateCalculation,
@@ -9,12 +10,14 @@ import {
 } from './calcHistory';
 import type { CompanySettings } from './catalog';
 import {
+  adminDeleteCompanyCalc,
+  setCompanyPublish,
   updateCompanyCalc,
   updateSharedCalc,
   type CompanyCalc,
   type SharedPayload,
 } from './sharedCalc';
-import type { TrackingPatch } from '../utils/advance';
+import { toggleTracking, type TrackingPatch } from '../utils/advance';
 import { loadWeekendPref } from '../utils/defaults';
 import type { ScheduleSnapshot } from '../types';
 
@@ -92,4 +95,64 @@ export async function saveCompanyPatch(
   const sync: SyncMeta = { ...local.sync, version };
   updateSyncMeta(local.id, sync, retentionDays);
   return { calc, copy: updated ? { ...updated, sync } : undefined };
+}
+
+/**
+ * ⏸ / ▶ of a published calc (the Produzione list and page): pause it — frozen
+ * as it is right now, nothing more subtracted — or start it again, recomputed
+ * from now. The 🔄 of Salvati, written to the shared calc so everyone sees it.
+ * Only where this device may edit it (its edit token, or editable by anyone).
+ * Null when it wasn't written.
+ */
+export async function toggleCompanyRunning(
+  c: CompanyCalc,
+  company: Pick<CompanySettings, 'schedule' | 'warmupMinutes' | 'shutdownMinutes'> | null,
+  retentionDays: number,
+): Promise<{ calc: CompanyCalc; copy?: SavedCalculation } | null> {
+  const p = c.payload;
+  const local = loadHistory(retentionDays).find((e) => e.sync?.id === c.id);
+  // The shared version is the latest — work from it, not a stale local copy.
+  const current: SavedCalculation = {
+    ...(local ?? {
+      id: `shared-${c.id}`,
+      ts: Date.now(),
+      label: p.label ?? deriveLabel(p.result),
+    }),
+    result: p.result,
+    values: p.values,
+    snapshot: p.snapshot,
+    completedRows: p.completedRows,
+  };
+  let patch: TrackingPatch | null = null;
+  try {
+    patch = toggleTracking(current, new Date(), currentSchedule(current, company));
+  } catch (err) {
+    console.error('Failed to pause / start company calc', c.id, err);
+  }
+  if (!patch) return null;
+  return saveCompanyPatch(c, patch, retentionDays);
+}
+
+/**
+ * Take a calc off the company's Produzione list. Its author (the edit token on
+ * their copy) unpublishes it; otherwise the admin RPC (the server lets only an
+ * admin of this company / a super-admin through). The author's copy is marked
+ * not published. Null when it wasn't removed; else that copy and its new sync
+ * state (none on another device).
+ */
+export async function unpublishCompanyCalc(
+  c: CompanyCalc,
+  companySlug: string,
+  retentionDays: number,
+): Promise<{ localId?: string; sync?: SyncMeta } | null> {
+  const local = loadHistory(retentionDays).find((e) => e.sync?.id === c.id && e.sync?.token);
+  const token = local?.sync?.token;
+  const ok = token
+    ? await setCompanyPublish(c.id, token, companySlug, false, false)
+    : await adminDeleteCompanyCalc(c.id);
+  if (!ok) return null;
+  if (!local?.sync) return {};
+  const sync: SyncMeta = { ...local.sync, published: false, publishedEditable: false };
+  updateSyncMeta(local.id, sync, retentionDays);
+  return { localId: local.id, sync };
 }

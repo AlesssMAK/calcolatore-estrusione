@@ -87,6 +87,13 @@ button:disabled,
 .react-datepicker__triangle {
   display: none;
 }
+/* The ✕ that empties a clearable field (Completati's days): the brand's. */
+.react-datepicker__close-icon::after {
+  background-color: var(--color-ink-soft);
+}
+.react-datepicker__close-icon:hover::after {
+  background-color: var(--color-brand-600);
+}
 /* Its popup lives at the page's end (portalId): over a modal (the Report),
    never cut by it. */
 .react-datepicker-popper {

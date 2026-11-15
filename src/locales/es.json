@@ -340,7 +340,11 @@
     "sizeEnd": "Fin medida",
     "calcEnd": "Fin cola",
     "saveFailed": "No guardado: comprueba la conexión e inténtalo de nuevo.",
-    "changed": "El cálculo acaba de cambiar: comprueba el valor e inténtalo de nuevo."
+    "changed": "El cálculo acaba de cambiar: comprueba el valor e inténtalo de nuevo.",
+    "openPage": "Abrir la página Producción",
+    "doneWeek": "Completados esta semana",
+    "doneWeekHint": "Desde el lunes quedan solo en Completados.",
+    "toCompleted": "Todos los completados"
   },
   "report": {
     "title": "Informe",
@@ -365,9 +369,12 @@
       "stopped": "Línea parada",
       "waiting": "En pausa",
       "notStarted": "No iniciado",
-      "done": "Completado"
+      "done": "Completado",
+      "suspended": "Suspendido",
+      "willBeDone": "Se completará"
     },
-    "pauseUntil": "hasta las {{time}}"
+    "pauseUntil": "hasta las {{time}}",
+    "willEnd": "Fin prevista"
   },
   "compare": {
     "title": "Comparar",
@@ -528,5 +535,16 @@
     "completedCount": "{{n}} completados",
     "restoreCompleted": "Restaurar",
     "restoreHint": "Clic: uno · Mantener: todos"
+  },
+  "completed": {
+    "title": "Completados",
+    "open": "Abrir el resultado",
+    "search": "Buscar: nombre, producto, pedido…",
+    "from": "Desde",
+    "to": "Hasta",
+    "empty": "Ningún cálculo completado.",
+    "noMatch": "Ningún cálculo completado con estos filtros.",
+    "keptFor": "Se guardan {{n}} días desde el final.",
+    "clear": "Borrar los filtros"
   }
 }

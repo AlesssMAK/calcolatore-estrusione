@@ -8,14 +8,35 @@ import ProducedEditor from '../components/ProducedEditor';
 import { StatusChip } from '../components/CompanyReportModal';
 import ReportFilters from '../components/ReportFilters';
 import { useReportMoment } from '../hooks/useReportMoment';
-import FloatingScrollTop from '../components/ScrollTopButton';
+import PageActions from '../components/PageActions';
 import { useCatalog } from '../contexts/CatalogContext';
-import { currentSchedule, editableCompanyIds, saveCompanyPatch } from '../lib/companyEdit';
+import { useAuth } from '../contexts/AuthContext';
+import BareButton from '../components/BareButton';
+import CompletedCalcCard from '../components/CompletedCalcCard';
+import { CloseIcon, PauseIcon, PlayIcon } from '../components/ActionIcons';
+import { bareIconSize, bareNeutral } from '../components/formStyles';
+import { loadHistory } from '../lib/calcHistory';
+import {
+  currentSchedule,
+  editableCompanyIds,
+  saveCompanyPatch,
+  toggleCompanyRunning,
+  unpublishCompanyCalc,
+} from '../lib/companyEdit';
 import { fetchSharedCalc, loadCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { markLaunchDone, saveProductionStart, stashCompanyOpen } from '../lib/productionView';
 import { setProducedNow } from '../utils/calcMerge';
 import type { CalcVersion } from '../utils/calcDiff';
-import { stageAt, stageSizes, type ReportStage, type StageSize } from '../utils/companyReport';
+import {
+  endOf,
+  isFinished,
+  stageOf,
+  stageSizes,
+  weekStart,
+  willBeDone,
+  type ReportStage,
+  type StageSize,
+} from '../utils/companyReport';
 import { formatDateParts, formatShortDateTime } from '../utils/format';
 import MarqueeText from '../components/MarqueeText';
 
@@ -28,11 +49,14 @@ const REFRESH_MS = 60_000;
  * line with when it ends, the size being made with when it ends, and (folded,
  * like "Calcolo Avanzato") every size of the order: how many, how far, when it
  * ends. Counts follow the published schedule as time passes; the list is read
- * again every minute and when the app comes back to the screen. Paused /
- * "Calcolo Fisso" results are static plans → left out, as in the Report —
- * whose filters it has too: the same view at the line's closing, or at a
- * chosen day + time. Where this device may edit a calc, the count of the size
- * on the line is corrected right here, as in the active-order modal.
+ * again every minute and when the app comes back to the screen. The same calcs
+ * as the Produzione list: also the ones not started yet and the suspended ones
+ * (⏸ — where they stopped). It has the Report's filters: the same view at the
+ * line's closing, or at a chosen day + time. Where this device may edit a
+ * calc, the count of the size on the line is corrected right here, as in the
+ * active-order modal, and it's paused / started again (⏸ / ▶) — taken off the
+ * list (×) by its author or an admin. The calcs finished by now: a block of
+ * their own at the bottom, this week's (from Monday only in Completati).
  */
 export default function ProduzionePage() {
   const { t } = useTranslation();
@@ -87,30 +111,62 @@ export default function ProduzionePage() {
     };
   }, [company]);
 
-  // In production at that moment (on the line, the line stopped, or a pause
-  // between blocks), the order ending soonest first; then — looking ahead —
-  // the ones finished between now and then, by when they end.
-  const rows = useMemo(() => {
-    if (Number.isNaN(atMs)) return [];
+  // At that moment: in production (on the line, the line stopped, a pause
+  // between blocks), the order ending soonest first; then the ones not started
+  // yet, the suspended ones and — looking ahead — the ones done by then. The
+  // ones finished by now: a block of their own at the bottom — this week's
+  // (from Monday they're only in Completati), the latest first.
+  const { rows, doneWeek } = useMemo(() => {
+    const all = calcs ?? [];
+    const finished = new Set(all.filter((c) => isFinished(c.payload, now)).map((c) => c.id));
+    const monday = weekStart(now).getTime();
+    const doneWeek = all
+      .filter((c) => finished.has(c.id) && endOf(c.payload).getTime() >= monday)
+      .sort((a, b) => endOf(b.payload).getTime() - endOf(a.payload).getTime());
+    if (Number.isNaN(atMs)) return { rows: [], doneWeek };
     const at = new Date(atMs);
-    const done = (s: ReportStage) => (s.status === 'done' ? 1 : 0);
+    const rank: Record<ReportStage['status'], number> = {
+      running: 0,
+      stopped: 0,
+      waiting: 0,
+      notStarted: 1,
+      suspended: 2,
+      done: 3,
+    };
     const time = (s: ReportStage) =>
-      (s.status === 'done' ? s.calcEnd : (s.orderEnd ?? s.calcEnd)).getTime();
-    return (calcs ?? [])
-      .filter((c) => !c.payload.values?.settings.frozen)
-      .map((calc) => ({ calc, stage: stageAt(calc.payload, at) }))
-      .filter(
-        ({ stage }) =>
-          stage.status !== 'notStarted' &&
-          (stage.status !== 'done' || (!live && stage.calcEnd.getTime() > now.getTime())),
-      )
-      .sort((a, b) => done(a.stage) - done(b.stage) || time(a.stage) - time(b.stage));
-  }, [calcs, atMs, now, live]);
+      (s.status === 'done'
+        ? s.calcEnd
+        : s.status === 'notStarted'
+          ? (s.stepStart ?? s.calcEnd)
+          : (s.orderEnd ?? s.calcEnd)
+      ).getTime();
+    const rows = all
+      .filter((c) => !finished.has(c.id))
+      .map((calc) => ({ calc, stage: stageOf(calc.payload, at) }))
+      .sort((a, b) => rank[a.stage.status] - rank[b.stage.status] || time(a.stage) - time(b.stage));
+    return { rows, doneWeek };
+  }, [calcs, atMs, now]);
 
   const editable = useMemo(
     () => editableCompanyIds(calcs ?? [], settings.savedRetentionDays),
     [calcs, settings.savedRetentionDays],
   );
+
+  // ⏸ / ▶ where this device may edit the calc; × by its author (the edit
+  // token here) or an admin of the company.
+  const { companyId, isSuper } = useAuth();
+  const isAdmin = isSuper || (!!company && companyId === company.id);
+  // (read again with each list: the ones of it this device published)
+  const owned = useMemo(() => {
+    const listed = new Set((calcs ?? []).map((c) => c.id));
+    return new Set(
+      loadHistory(settings.savedRetentionDays).flatMap((e) =>
+        e.sync?.token && listed.has(e.sync.id) ? [e.sync.id] : [],
+      ),
+    );
+  }, [calcs, settings.savedRetentionDays]);
+  // The calc whose ⏸ / ▶ / × is being saved (its buttons wait meanwhile).
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const flashNotice = (msg: string) => {
     setNotice(msg);
@@ -169,6 +225,29 @@ export default function ProduzionePage() {
     return true;
   };
 
+  const toggleRunning = async (calc: CompanyCalc) => {
+    setBusyId(calc.id);
+    const saved = await toggleCompanyRunning(calc, settings, settings.savedRetentionDays);
+    setBusyId(null);
+    if (!saved) {
+      flashNotice(t('production.saveFailed'));
+      return;
+    }
+    replaceCalc(saved.calc);
+  };
+  const removeCalc = async (calc: CompanyCalc) => {
+    if (!company) return;
+    setBusyId(calc.id);
+    const done = await unpublishCompanyCalc(calc, company.slug, settings.savedRetentionDays);
+    setBusyId(null);
+    if (!done) {
+      flashNotice(t('production.saveFailed'));
+      return;
+    }
+    setCalcs((cur) => cur?.filter((c) => c.id !== calc.id) ?? cur);
+  };
+  const canRemove = (calc: CompanyCalc) => owned.has(calc.id) || isAdmin;
+
   const openInCalculator = (calc: CompanyCalc) => {
     stashCompanyOpen(calc);
     navigate(`/${search}`);
@@ -185,8 +264,9 @@ export default function ProduzionePage() {
     <div className="min-h-full bg-surface-alt">
       <Header title={t('production.title')} production="page" />
 
-      {/* Phone: room at the bottom for the pinned scroll-to-top. */}
-      <main className="mx-auto max-w-3xl px-3 pt-4 pb-16 sm:px-4 sm:py-8">
+      {/* Phone: room at the bottom for the pinned buttons. */}
+      <main className="mx-auto max-w-3xl px-3 pt-4 pb-20 sm:px-4 sm:py-8">
+        <PageActions other="completati" className="mb-4" />
         {company && <ReportFilters moment={moment} className="mb-3" />}
 
         {!company ? (
@@ -212,7 +292,9 @@ export default function ProduzionePage() {
           </div>
         ) : calcs === null ? (
           <p className="py-6 text-center text-sm text-ink-soft">{t('report.loading')}</p>
-        ) : rows.length === 0 ? (
+        ) : (
+          <>
+          {rows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft">
             {mode === 'closing' && !closing
               ? t('report.noClosing')
@@ -225,9 +307,20 @@ export default function ProduzionePage() {
                 key={calc.id}
                 calc={calc}
                 stage={stage}
-                sizes={stageSizes(calc.payload, stage, new Date(atMs))}
+                // (a suspended one: where it stopped)
+                sizes={stageSizes(
+                  calc.payload,
+                  stage,
+                  stage.status === 'suspended' ? calc.payload.result.startAt : new Date(atMs),
+                )}
                 at={new Date(atMs)}
+                now={now}
                 live={live}
+                busy={busyId === calc.id}
+                onToggleRunning={
+                  editable.has(calc.id) ? () => void toggleRunning(calc) : undefined
+                }
+                onRemove={canRemove(calc) ? () => void removeCalc(calc) : undefined}
                 sizesOpen={open.has(calc.id)}
                 onToggleSizes={() => toggle(calc.id)}
                 onOpen={() => openInCalculator(calc)}
@@ -241,8 +334,47 @@ export default function ProduzionePage() {
             ))}
           </ul>
         )}
+          {doneWeek.length > 0 && (
+            <section className="mt-6">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h2 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                  {t('production.doneWeek')}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/completati${search}`)}
+                  className="shrink-0 text-xs font-medium text-brand-700 transition hover:text-brand-800"
+                >
+                  {t('production.toCompleted')} ›
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {doneWeek.map((calc) => (
+                  <CompletedCalcCard
+                    key={calc.id}
+                    calc={calc}
+                    onOpen={() => openInCalculator(calc)}
+                    actions={
+                      canRemove(calc) ? (
+                        <BareButton
+                          title={t('company.unpublish')}
+                          onClick={() => void removeCalc(calc)}
+                          disabled={busyId === calc.id}
+                          iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+                        >
+                          <CloseIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        </BareButton>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[11px] text-ink-soft">{t('production.doneWeekHint')}</p>
+            </section>
+          )}
+          </>
+        )}
       </main>
-      <FloatingScrollTop />
 
       {notice && (
         <div
@@ -261,17 +393,28 @@ function ProductionCard({
   stage,
   sizes,
   at,
+  now,
   live,
+  busy,
   sizesOpen,
   onToggleSizes,
   onOpen,
   onSaveProduced,
+  onToggleRunning,
+  onRemove,
 }: {
   calc: CompanyCalc;
   stage: ReportStage;
   sizes: StageSize[];
   /** The moment shown. */
   at: Date;
+  now: Date;
+  /** Its ⏸ / ▶ / × is being saved. */
+  busy: boolean;
+  /** ⏸ / ▶: pause it / start it again. Absent: not on this device. */
+  onToggleRunning?: () => void;
+  /** ×: take it off the list. Absent: not on this device. */
+  onRemove?: () => void;
   /** It's now ("In Corso") — what's on the line blinks. */
   live: boolean;
   sizesOpen: boolean;
@@ -284,6 +427,41 @@ function ProductionCard({
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? 'it';
   const done = stage.status === 'done';
+  // Done by a moment still ahead (a look ahead): it will be, not it is.
+  const future = willBeDone(stage, now);
+  const suspended = stage.status === 'suspended';
+  // ⏸ / ▶ and ×: bare icons, at the top right of the size on the line (of
+  // the card, when it's done by then). They don't open the calc.
+  const controls = (onToggleRunning || onRemove) && (
+    <span className="-my-1 -mr-1 flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+      {onToggleRunning && (
+        <BareButton
+          title={t(suspended ? 'company.resume' : 'company.pause')}
+          onClick={onToggleRunning}
+          disabled={busy}
+          iconCls={bareNeutral}
+          className="disabled:cursor-wait"
+        >
+          {suspended ? (
+            <PlayIcon className={`${bareIconSize} fill-current`} />
+          ) : (
+            <PauseIcon className={bareIconSize} />
+          )}
+        </BareButton>
+      )}
+      {onRemove && (
+        <BareButton
+          title={t('company.unpublish')}
+          onClick={onRemove}
+          disabled={busy}
+          iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+          className="disabled:cursor-wait"
+        >
+          <CloseIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        </BareButton>
+      )}
+    </span>
+  );
   // What a tap on the count corrects: the size on the line, as in the modal
   // (total-meters orders have no count per size). The editor belongs to that
   // size — it goes when the line moves on to the next one.
@@ -328,18 +506,25 @@ function ProductionCard({
       title={t('production.open')}
       className="cursor-pointer rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:border-brand-300"
     >
-      <button
-        type="button"
-        className="flex w-full cursor-pointer items-start justify-between gap-2 rounded-t-xl px-3 pt-3 text-left sm:px-4"
-      >
-        <span className="flex min-w-0 items-center gap-1 font-semibold text-ink">
+      <div className="flex items-start justify-between gap-2 px-3 pt-3 sm:px-4">
+        <button
+          type="button"
+          className="flex min-w-0 cursor-pointer items-center gap-1 text-left font-semibold text-ink"
+        >
           <MarqueeText text={calc.payload.label || '—'} />
           <span aria-hidden className="shrink-0 text-ink-soft">
             ›
           </span>
+        </button>
+        <span className="flex shrink-0 items-center gap-1">
+          <StatusChip
+            status={stage.status}
+            future={future}
+            label={t(future ? 'report.status.willBeDone' : `report.status.${stage.status}`)}
+          />
+          {done && controls}
         </span>
-        <StatusChip status={stage.status} label={t(`report.status.${stage.status}`)} />
-      </button>
+      </div>
 
       <div className="px-3 pt-1.5 pb-3 sm:px-4">
         {stage.pause && <PauseNowNote pause={stage.pause} now={at} className="mb-1.5" />}
@@ -364,6 +549,8 @@ function ProductionCard({
               running && !isEditing ? 'active-blink' : ''
             }`}
           >
+            <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <span className="text-ink-soft">
                 {stage.sizeLength !== undefined && (
@@ -416,6 +603,9 @@ function ProductionCard({
                 />
               </dl>
             )}
+            </div>
+            {controls}
+            </div>
           </div>
         )}
 
@@ -486,21 +676,38 @@ function ProductionCard({
           </div>
         )}
 
-        {/* Finished by then (looking ahead): when it ends, as in the Report. */}
+        {/* Finished by then (looking ahead): when it ends, as in the Report.
+            (none for a suspended one: its plan stands still) */}
+        {!suspended && (
+        <>
         <div
           className={`flex items-baseline justify-between gap-3 ${
             done ? 'mt-1' : 'mt-2.5 border-t border-neutral-100 pt-2'
           }`}
         >
           <span className="shrink-0 text-xs tracking-wide text-ink-soft uppercase">
-            {t(done ? 'report.ended' : 'report.orderEnd')}
+            {t(
+              done
+                ? future
+                  ? 'report.willEnd'
+                  : 'report.ended'
+                : stage.status === 'notStarted'
+                  ? 'report.starts'
+                  : 'report.orderEnd',
+            )}
           </span>
           <span
             className={`min-w-0 text-right text-sm font-semibold ${
               done ? 'text-success' : 'text-brand-700'
             }`}
           >
-            {dateTime(done ? stage.calcEnd : (stage.orderEnd ?? stage.calcEnd))}
+            {dateTime(
+              done
+                ? stage.calcEnd
+                : stage.status === 'notStarted'
+                  ? (stage.stepStart ?? stage.calcEnd)
+                  : (stage.orderEnd ?? stage.calcEnd),
+            )}
           </span>
         </div>
         {!done && (
@@ -508,6 +715,8 @@ function ProductionCard({
             <span className="shrink-0">{t('production.calcEnd')}</span>
             <span className="min-w-0 text-right">{dateTime(stage.calcEnd)}</span>
           </div>
+        )}
+        </>
         )}
       </div>
     </li>

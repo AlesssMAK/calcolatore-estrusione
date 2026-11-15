@@ -340,7 +340,11 @@
     "sizeEnd": "Size ends",
     "calcEnd": "Queue ends",
     "saveFailed": "Not saved: check your connection and try again.",
-    "changed": "This calculation has just changed: check the value and try again."
+    "changed": "This calculation has just changed: check the value and try again.",
+    "openPage": "Open the Production page",
+    "doneWeek": "Completed this week",
+    "doneWeekHint": "From Monday they're only in Completed.",
+    "toCompleted": "All completed"
   },
   "report": {
     "title": "Report",
@@ -365,9 +369,12 @@
       "stopped": "Line stopped",
       "waiting": "Paused",
       "notStarted": "Not started",
-      "done": "Completed"
+      "done": "Completed",
+      "suspended": "Suspended",
+      "willBeDone": "Will be completed"
     },
-    "pauseUntil": "until {{time}}"
+    "pauseUntil": "until {{time}}",
+    "willEnd": "Expected end"
   },
   "compare": {
     "title": "Compare",
@@ -528,5 +535,16 @@
     "completedCount": "{{n}} completed",
     "restoreCompleted": "Restore",
     "restoreHint": "Click: one · Hold: all"
+  },
+  "completed": {
+    "title": "Completed",
+    "open": "Open the result",
+    "search": "Search: name, product, order…",
+    "from": "From",
+    "to": "To",
+    "empty": "No completed calcs.",
+    "noMatch": "No completed calcs with these filters.",
+    "keptFor": "Kept for {{n}} days after they end.",
+    "clear": "Clear the filters"
   }
 }

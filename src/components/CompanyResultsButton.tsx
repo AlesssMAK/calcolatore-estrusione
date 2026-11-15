@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useCatalog } from '../contexts/CatalogContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
@@ -10,6 +11,7 @@ import { bareIconSize, bareNeutral } from './formStyles';
 import PauseNowNote from './PauseNowNote';
 import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { pauseAt } from '../utils/pauseAt';
+import { onProductionList } from '../utils/companyReport';
 import {
   floatBadgeCls,
   floatBtnCls,
@@ -77,13 +79,21 @@ function CompanyResultsButton({
   const lang = i18n.resolvedLanguage ?? 'it';
   // The row whose ⏸ / ▶ is being saved (its button waits meanwhile).
   const [busyId, setBusyId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  // As the Produzione page: not the ones finished before this week (they're
+  // in Completati).
+  const shown = (list: CompanyCalc[]) => {
+    const now = new Date();
+    return list.filter((c) => onProductionList(c.payload, now));
+  };
 
   // Keep the badge count fresh (also when closed) so members notice new results.
   useEffect(() => {
     if (!company) return;
     let cancelled = false;
     void fetchCompanyCalcs(company.slug).then((list) => {
-      if (!cancelled) setCount(list.length);
+      if (!cancelled) setCount(shown(list).length);
     });
     return () => {
       cancelled = true;
@@ -93,8 +103,8 @@ function CompanyResultsButton({
   useEffect(() => {
     if (!open || !company) return;
     void fetchCompanyCalcs(company.slug).then((list) => {
-      setItems(list);
-      setCount(list.length);
+      setItems(shown(list));
+      setCount(shown(list).length);
     });
     // Which of these did this device publish (holds the token) → can unpublish.
     const owned = new Set(
@@ -186,8 +196,20 @@ function CompanyResultsButton({
               : { maxHeight: place.maxHeight, right: -place.shift }
           }
         >
-          <div className="border-b border-neutral-100 px-2 pb-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-            {t('company.results')}
+          {/* Its name opens the Produzione page. */}
+          <div className="border-b border-neutral-100 px-2 pb-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate(`/produzione${search}`);
+              }}
+              title={t('production.openPage')}
+              className="inline-flex items-center gap-1 text-xs font-semibold tracking-wide text-ink-soft uppercase transition hover:text-brand-700"
+            >
+              {t('company.results')}
+              <span aria-hidden>›</span>
+            </button>
           </div>
           {items.length === 0 ? (
             <div className="px-2 py-3 text-sm text-ink-soft">

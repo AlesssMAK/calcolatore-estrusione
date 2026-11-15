@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCatalog } from '../contexts/CatalogContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
-import { stageAt, type ReportStage } from '../utils/companyReport';
+import { stageAt, willBeDone, type ReportStage } from '../utils/companyReport';
 import { formatDateParts } from '../utils/format';
 import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
@@ -125,7 +125,10 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
             </p>
           ) : (
             <ul className="space-y-2">
-              {rows.map(({ calc, stage }) => (
+              {rows.map(({ calc, stage }) => {
+                // Done by a moment still ahead: it will be, not it is.
+                const future = willBeDone(stage, now);
+                return (
                 <li key={calc.id}>
                   <button
                     type="button"
@@ -144,7 +147,11 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                         text={calc.payload.label || '—'}
                         className="font-semibold text-ink"
                       />
-                      <StatusChip status={stage.status} label={t(`report.status.${stage.status}`)} />
+                      <StatusChip
+                        status={stage.status}
+                        future={future}
+                        label={t(future ? 'report.status.willBeDone' : `report.status.${stage.status}`)}
+                      />
                     </span>
 
                     {/* A pause between blocks: which and until when; the order
@@ -189,7 +196,7 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                     <span className="mt-2 flex items-baseline justify-between gap-3">
                       <span className="shrink-0 text-xs tracking-wide text-ink-soft uppercase">
                         {stage.status === 'done'
-                          ? t('report.ended')
+                          ? t(future ? 'report.willEnd' : 'report.ended')
                           : stage.status === 'notStarted'
                             ? t('report.starts')
                             : t('report.orderEnd')}
@@ -206,7 +213,8 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                     </span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
@@ -218,16 +226,23 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
 export function StatusChip({
   status,
   label,
+  future,
 }: {
   status: ReportStage['status'];
   label: string;
+  /** Done by a moment still ahead: it will be — outlined, not filled. */
+  future?: boolean;
 }) {
   const cls =
     status === 'running'
       ? 'text-ink'
       : status === 'done'
-        ? 'bg-success/10 text-success'
-        : 'bg-neutral-100 text-ink-soft';
+        ? future
+          ? 'border border-success/40 text-success'
+          : 'bg-success/10 text-success'
+        : status === 'suspended'
+          ? 'bg-amber-50 text-amber-700'
+          : 'bg-neutral-100 text-ink-soft';
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold ${cls}`}
