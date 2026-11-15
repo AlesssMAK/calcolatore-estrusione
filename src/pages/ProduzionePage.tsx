@@ -266,7 +266,6 @@ export default function ProduzionePage() {
 
       {/* Phone: room at the bottom for the pinned buttons. */}
       <main className="mx-auto max-w-3xl px-3 pt-4 pb-20 sm:px-4 sm:py-8">
-        <PageActions other="completati" className="mb-4" />
         {company && <ReportFilters moment={moment} className="mb-3" />}
 
         {!company ? (
@@ -374,6 +373,8 @@ export default function ProduzionePage() {
           )}
           </>
         )}
+        {/* Its buttons at the end, as the form's (pinned while out of view). */}
+        <PageActions other="completati" className="mt-6" />
       </main>
 
       {notice && (
