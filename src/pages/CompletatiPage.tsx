@@ -93,7 +93,6 @@ export default function CompletatiPage() {
 
       {/* Phone: room at the bottom for the pinned buttons. */}
       <main className="mx-auto max-w-3xl px-3 pt-4 pb-20 sm:px-4 sm:py-8">
-        <PageActions other="produzione" className="mb-4" />
 
         {!company ? (
           <div className="rounded-xl border border-dashed border-neutral-300 bg-white/50 p-5 text-center text-sm text-ink-soft">
@@ -189,6 +188,8 @@ export default function CompletatiPage() {
             </p>
           </>
         )}
+        {/* Its buttons at the end, as the form's (pinned while out of view). */}
+        <PageActions other="produzione" className="mt-6" />
       </main>
     </div>
   );
