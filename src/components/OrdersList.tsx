@@ -2239,6 +2239,8 @@ function SizeAdvancedPanel({
   const { getValues } = useFormContext<FormValues>();
   const f = useAdvancedFlags(orderIdx);
   const textMode = useContext(TextModeContext);
+  // The size in production (a tracked calc): this panel sits in its frame.
+  const inSizeFrame = textMode && sizeIdx === activeSizeIdx;
   const [hadProducedAtMount] = useState(() =>
     producedAtMount(getValues(`orders.${orderIdx}`), sizeIdx),
   );
@@ -2273,11 +2275,14 @@ function SizeAdvancedPanel({
       </div>
       {open && (
         <div
-          // (a tracked calc: no frame of its own — it's in its size's)
+          // (the size in production's, in a tracked calc: no frame of its
+          // own — it's in its size's)
           className={
-            textMode
+            inSizeFrame
               ? 'mt-0.5'
-              : `mt-1.5 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
+              : `rounded-md border bg-brand-50/40 ${
+                  textMode ? 'mt-1 px-2 py-1 sm:px-3 sm:py-1.5' : 'mt-1.5 p-2 sm:p-3'
+                } ${
                   hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
                 }`
           }
@@ -4373,12 +4378,13 @@ function SizesFieldArray({
                       ref={setNodeRef}
                       style={style}
                       id={`size-${orderIdx}-${sIdx}`}
-                      // The size in production blinks (saved view), framed
+                      // The size in production pulses (saved view), framed
                       // without shifting the inputs (-mx-2 + px-2) — its
-                      // Calcolo Avanzato in the same frame.
+                      // Calcolo Avanzato in the same frame, gently: its
+                      // produced count is what should catch the eye.
                       className={
                         sIdx === activeSizeIdx
-                          ? 'active-blink -mx-2 rounded-md border p-2'
+                          ? 'active-blink-soft -mx-2 rounded-md border p-2'
                           : undefined
                       }
                     >
