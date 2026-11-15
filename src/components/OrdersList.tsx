@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -74,9 +73,11 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
   CheckIcon,
   MergeGroupIcon,
+  MinusIcon,
   PauseIcon,
   PalletIcon,
   PlayIcon,
+  PlusIcon,
   SigmaIcon,
   SplitGroupIcon,
   StopIcon,
@@ -190,28 +191,38 @@ const GROUP_FILLS = ['', 'bg-brand-50/70', 'bg-amber-50', 'bg-success/5'];
 const squareBtnBase =
   'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
 
-/**
- * A tracked calc shows a row's − / + only while the row is being edited:
- * which row holds the focus. Rows are marked data-edit-row="<key>" (inside
- * the element given the handlers).
- */
-function useEditRow() {
-  const [row, setRow] = useState<string | null>(null);
-  const keyOf = (n: EventTarget | null, root: Element) => {
-    const el = n instanceof Element ? n.closest('[data-edit-row]') : null;
-    return el && root.contains(el) ? el.getAttribute('data-edit-row') : null;
-  };
-  return {
-    row,
-    /** (a row removed: its focus went with it, unseen) */
-    clear: () => setRow(null),
-    handlers: {
-      onFocus: (e: ReactFocusEvent<HTMLElement>) =>
-        setRow(keyOf(e.target, e.currentTarget)),
-      onBlur: (e: ReactFocusEvent<HTMLElement>) =>
-        setRow(keyOf(e.relatedTarget, e.currentTarget)),
-    },
-  };
+/** A tracked calc's − / + of a row (a size, a Calcolo Avanzato entry): bare
+ *  icons, as its other buttons. Two cells of a grid. */
+function BareRowButtons({
+  onRemove,
+  onAdd,
+  removeDisabled,
+  removeClassName,
+  t,
+}: {
+  onRemove: () => void;
+  onAdd: () => void;
+  removeDisabled?: boolean;
+  /** The − button's place (a grid column). */
+  removeClassName?: string;
+  t: TFunction;
+}) {
+  return (
+    <>
+      <BareButton
+        title={t('orders.removeSize')}
+        onClick={onRemove}
+        disabled={removeDisabled}
+        iconCls="text-ink-soft group-hover/ib:text-danger group-focus-visible/ib:text-danger"
+        className={removeClassName}
+      >
+        <MinusIcon className={bareIconSize} />
+      </BareButton>
+      <BareButton title={t('orders.addSize')} onClick={onAdd} iconCls={bareOn}>
+        <PlusIcon className={bareIconSize} />
+      </BareButton>
+    </>
+  );
 }
 
 type OrderError = NonNullable<FieldErrors<FormValues>['orders']>[number];
@@ -2261,11 +2272,14 @@ function SizeAdvancedPanel({
       </div>
       {open && (
         <div
-          className={`rounded-md border bg-brand-50/40 ${
-            textMode ? 'mt-1 px-2 py-1 sm:px-3 sm:py-1.5' : 'mt-1.5 p-2 sm:p-3'
-          } ${
-            hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
-          }`}
+          // (a tracked calc: no frame of its own — it's in its size's)
+          className={
+            textMode
+              ? 'mt-0.5'
+              : `mt-1.5 rounded-md border bg-brand-50/40 p-2 sm:p-3 ${
+                  hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
+                }`
+          }
         >
           {/* Filled in: the size's buttons beside the note, not on a line
               of their own. */}
@@ -3019,15 +3033,8 @@ function AdvBlockLayout({
   // A total that can't be entered (bancali prodotti while the count path is
   // in use, or before a rate): not shown at all.
   const total = showTotal && !disabled.total;
-  // A tracked calc: a row's − / + only while the row is being edited (a tap
-  // on them leaves the focus in its field).
+  // A tracked calc: − / + as bare icons.
   const textMode = useContext(TextModeContext);
-  const editRow = useEditRow();
-  const showButtons = (rowIdx: number) =>
-    !textMode || editRow.row === String(rowIdx);
-  const keep = textMode
-    ? (e: ReactMouseEvent<HTMLButtonElement>) => e.preventDefault()
-    : undefined;
   const off = (
     <input
       type="number"
@@ -3041,15 +3048,18 @@ function AdvBlockLayout({
   const rateCell = (r: AdvRate, arrayPos: number | null, rowIdx: number) =>
     arrayPos === null ? off : r.render(arrayPos, rowIdx);
   const rowButtons = (rowIdx: number, arrayPos: number | null) =>
-    showButtons(rowIdx) ? (
+    textMode ? (
+      <BareRowButtons
+        onRemove={() => onRemove(rowIdx)}
+        onAdd={onAdd}
+        removeDisabled={rows.length <= 1 || arrayPos === null}
+        t={t}
+      />
+    ) : (
     <>
       <button
         type="button"
-        onClick={() => {
-          onRemove(rowIdx);
-          editRow.clear();
-        }}
-        onMouseDown={keep}
+        onClick={() => onRemove(rowIdx)}
         disabled={rows.length <= 1 || arrayPos === null}
         className={`${sizeBlockBtnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger`}
         aria-label={t('orders.removeSize')}
@@ -3060,7 +3070,6 @@ function AdvBlockLayout({
       <button
         type="button"
         onClick={onAdd}
-        onMouseDown={keep}
         className={`${sizeBlockBtnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
         aria-label={t('orders.addSize')}
         title={t('orders.addSize')}
@@ -3068,11 +3077,6 @@ function AdvBlockLayout({
         +
       </button>
     </>
-    ) : (
-      <>
-        <span />
-        <span />
-      </>
     );
 
   if (!isPhone || !rate) {
@@ -3090,7 +3094,6 @@ function AdvBlockLayout({
         <div
           className={`grid items-center gap-x-1.5 sm:gap-x-2 ${textMode ? 'gap-y-0' : 'gap-y-1.5'}`}
           style={{ gridTemplateColumns: cols }}
-          {...editRow.handlers}
         >
           {/* The names over the fields — on a phone the count's is its hint;
               no line of names when there's none to show (nor in a tracked
@@ -3111,11 +3114,7 @@ function AdvBlockLayout({
             </>
           )}
           {rows.map((arrayPos, rowIdx) => (
-            <div
-              key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}
-              data-edit-row={rowIdx}
-              className="contents"
-            >
+            <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
               {arrayPos === null ? off : renderCount(arrayPos)}
               {rate &&
                 (rate.open ? (
@@ -3129,7 +3128,7 @@ function AdvBlockLayout({
                 ))}
               {total && (arrayPos === null ? off : renderTotal(arrayPos))}
               {rowButtons(rowIdx, arrayPos)}
-            </div>
+            </Fragment>
           ))}
         </div>
       </>
@@ -3165,14 +3164,9 @@ function AdvBlockLayout({
         className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-x-1.5 ${
           textMode ? 'gap-y-0' : 'gap-y-1.5'
         }`}
-        {...editRow.handlers}
       >
         {rows.map((arrayPos, rowIdx) => (
-          <div
-            key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}
-            data-edit-row={rowIdx}
-            className="contents"
-          >
+          <Fragment key={`${sizeIdx}-${rowIdx}-${arrayPos ?? 'new'}`}>
             <div className="col-span-2 flex min-w-0 items-center gap-1.5">
               <div className="min-w-0 flex-1">
                 {arrayPos === null ? off : renderCount(arrayPos)}
@@ -3217,7 +3211,7 @@ function AdvBlockLayout({
                   <span />
                 </>
               ))}
-          </div>
+          </Fragment>
         ))}
       </div>
     </>
@@ -3732,26 +3726,16 @@ function BatchRowsArray({
 
   const btnBase =
     'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-white text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 sm:text-base';
-  // A tracked calc: a row's − / + only while it's being edited (a tap on
-  // them leaves the focus in its field).
+  // A tracked calc: − / + as bare icons.
   const textMode = useContext(TextModeContext);
-  const editRow = useEditRow();
-  const keep = textMode
-    ? (e: ReactMouseEvent<HTMLButtonElement>) => e.preventDefault()
-    : undefined;
 
   return (
     <div className={textMode ? 'space-y-1' : 'space-y-2'}>
       {Array.from({ length: rows }).map((_, sIdx) => {
         const hasRate = rateOf(watchedRates, sIdx);
         const rateOpen = hasRate || openRates.has(sIdx);
-        const showButtons = !textMode || editRow.row === String(sIdx);
         return (
-          <div
-            key={`${counts.fields[sIdx]?.id ?? 'c'}-${sIdx}`}
-            data-edit-row={sIdx}
-            {...editRow.handlers}
-          >
+          <div key={`${counts.fields[sIdx]?.id ?? 'c'}-${sIdx}`}>
             <div
               className={`${textMode ? '' : 'mb-1'} flex items-center justify-between gap-1`}
             >
@@ -3768,15 +3752,18 @@ function BatchRowsArray({
                     onOpen={() => setOpenRates((s) => new Set(s).add(sIdx))}
                   />
                 )}
-                {showButtons && (
+                {textMode ? (
+                  <BareRowButtons
+                    onRemove={() => removeAll(sIdx)}
+                    onAdd={appendAll}
+                    removeDisabled={rows <= 1}
+                    t={t}
+                  />
+                ) : (
                 <>
                 <button
                   type="button"
-                  onClick={() => {
-                    removeAll(sIdx);
-                    editRow.clear();
-                  }}
-                  onMouseDown={keep}
+                  onClick={() => removeAll(sIdx)}
                   disabled={rows <= 1}
                   className={`${btnBase} border-neutral-300 text-ink-soft hover:border-danger hover:text-danger disabled:hover:border-neutral-300 disabled:hover:text-ink-soft`}
                   aria-label={t('orders.removeSize')}
@@ -3787,7 +3774,6 @@ function BatchRowsArray({
                 <button
                   type="button"
                   onClick={appendAll}
-                  onMouseDown={keep}
                   className={`${btnBase} border-brand-300 font-bold text-brand-700 hover:border-brand-600 hover:bg-brand-50`}
                   aria-label={t('orders.addSize')}
                   title={t('orders.addSize')}
@@ -4013,9 +3999,9 @@ function SizesFieldArray({
   }
   // Index of a size just inserted via "+", to auto-expand once it mounts.
   const pendingSizeExpand = useRef<number | null>(null);
-  // A tracked calc: a size's − / + only while its row is being edited.
+  // A tracked calc: − / + as bare icons, a size's Calcolo Avanzato at the
+  // left edge and in its frame.
   const textMode = useContext(TextModeContext);
-  const editRow = useEditRow();
   const {
     register,
     formState: { errors },
@@ -4350,10 +4336,6 @@ function SizesFieldArray({
                 !expandedSizes.has(sizeField.id);
               const zSheets = Number(watchedSizes?.[sIdx]?.sheets) || 0;
               const zLen = Number(watchedSizes?.[sIdx]?.length) || 0;
-              // A tracked calc: − / + only while the row is being edited
-              // (a tap on them leaves the focus in its field).
-              const rowEdited = editRow.row === sizeField.id;
-              const showRowButtons = !textMode || rowEdited;
               return (
                 <SortableItem key={sizeField.id} id={sizeField.id}>
                   {({ setNodeRef, style, handleProps }) =>
@@ -4390,18 +4372,16 @@ function SizesFieldArray({
                       ref={setNodeRef}
                       style={style}
                       id={`size-${orderIdx}-${sIdx}`}
-                    >
-                    <div
-                      data-edit-row={sizeField.id}
-                      {...editRow.handlers}
                       // The size in production blinks (saved view), framed
-                      // without shifting the inputs (-mx-2 + px-2).
-                      className={`flex items-end gap-2 ${
+                      // without shifting the inputs (-mx-2 + px-2) — its
+                      // Calcolo Avanzato in the same frame.
+                      className={
                         sIdx === activeSizeIdx
                           ? 'active-blink -mx-2 rounded-md border p-2'
-                          : ''
-                      }`}
+                          : undefined
+                      }
                     >
+                    <div className="flex items-end gap-2">
                       {canReorder && (
                         <div className="flex shrink-0 items-end">
                           <button
@@ -4411,7 +4391,7 @@ function SizesFieldArray({
                             title={t('orders.reorder')}
                             // (as high as the row's text / fields)
                             className={`flex w-5 cursor-grab touch-none items-center justify-center text-neutral-400 transition hover:text-ink-soft active:cursor-grabbing ${
-                              textMode && !rowEdited ? 'h-7 sm:h-8' : 'h-8 sm:h-9'
+                              textMode ? 'h-7 sm:h-8' : 'h-8 sm:h-9'
                             }`}
                           >
                             ⠿
@@ -4515,15 +4495,19 @@ function SizesFieldArray({
                 />
               )}
 
-              {showRowButtons && (
+              {textMode ? (
+                <BareRowButtons
+                  onRemove={() => removeSizeAt(sIdx)}
+                  onAdd={() => insertSizeAt(sIdx + 1)}
+                  removeDisabled={sizeFields.length <= 1}
+                  removeClassName={showPerPackage ? 'col-start-4' : undefined}
+                  t={t}
+                />
+              ) : (
               <>
               <button
                 type="button"
-                onClick={() => {
-                  removeSizeAt(sIdx);
-                  editRow.clear();
-                }}
-                onMouseDown={textMode ? (e) => e.preventDefault() : undefined}
+                onClick={() => removeSizeAt(sIdx)}
                 disabled={sizeFields.length <= 1}
                 className={`flex h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white text-base font-medium text-ink-soft shadow-sm transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-300 disabled:hover:text-ink-soft sm:h-9 sm:w-9 ${
                   showPerPackage ? 'col-start-4' : ''
@@ -4537,7 +4521,6 @@ function SizesFieldArray({
               <button
                 type="button"
                 onClick={() => insertSizeAt(sIdx + 1)}
-                onMouseDown={textMode ? (e) => e.preventDefault() : undefined}
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300 bg-white text-base font-bold text-brand-700 shadow-sm transition hover:border-brand-600 hover:bg-brand-50 sm:h-9 sm:w-9"
                 aria-label={t('orders.addSize')}
                 title={t('orders.addSize')}
@@ -4549,8 +4532,9 @@ function SizesFieldArray({
                       </div>
                     </div>
                     {sizeAdvanced && (
-                      // In line with the fields (past the drag handle).
-                      <div className={canReorder ? 'pl-7' : ''}>
+                      // In line with the fields (past the drag handle); a
+                      // tracked calc: at the left edge.
+                      <div className={canReorder && !textMode ? 'pl-7' : ''}>
                         {sizeAdvanced(sIdx, sizeFields.length, groupControl(sIdx))}
                       </div>
                     )}

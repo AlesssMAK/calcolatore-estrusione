@@ -186,6 +186,23 @@ export function SyncIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Minus / plus — a row less / one more. */
+export function MinusIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+export function PlusIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
 /** Cross — remove (a pause, a list's entry). */
 export function CloseIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
