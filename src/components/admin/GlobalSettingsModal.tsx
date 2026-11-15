@@ -12,6 +12,8 @@ import DayHoursRow from '../DayHoursRow';
 import { ModalActions } from './adminUi';
 import { adminLabelCls } from './adminStyles';
 import PauseReasonsSection from './PauseReasonsSection';
+import BareButton from '../BareButton';
+import { CloseIcon } from '../ActionIcons';
 
 const DAY_LABELS: Record<WeekdayKey, string> = {
   mon: 'Lunedì',
@@ -129,14 +131,13 @@ export default function GlobalSettingsModal({
             <h3 className="text-base font-semibold text-ink">Impostazioni Globali</h3>
             {subtitle && <p className="truncate text-xs text-ink-soft">{subtitle}</p>}
           </div>
-          <button
-            type="button"
+          <BareButton
             onClick={onClose}
-            aria-label="Chiudi"
-            className="rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
+            title={"Chiudi"}
+            iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
           >
-            ✕
-          </button>
+            <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+          </BareButton>
         </header>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">

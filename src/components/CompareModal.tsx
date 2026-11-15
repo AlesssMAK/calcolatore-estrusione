@@ -6,6 +6,8 @@ import { diffCalcs, type CalcDiff, type CalcVersion } from '../utils/calcDiff';
 import type { DiffSide } from '../utils/calcMerge';
 import { formatDuration } from '../utils/format';
 import MarqueeText from './MarqueeText';
+import BareButton from './BareButton';
+import { CloseIcon } from './ActionIcons';
 
 interface Props {
   /** The calc's name, for the header. */
@@ -102,14 +104,13 @@ function CompareModal({
             <h2 className="text-base font-semibold text-ink">{t('compare.title')}</h2>
             <MarqueeText text={label} className="text-xs text-ink-soft" />
           </div>
-          <button
-            type="button"
+          <BareButton
             onClick={onClose}
-            aria-label={t('actions.close')}
-            className="rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
+            title={t('actions.close')}
+            iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
           >
-            ✕
-          </button>
+            <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+          </BareButton>
         </header>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 sm:p-4">
