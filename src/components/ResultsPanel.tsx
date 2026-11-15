@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -19,7 +20,7 @@ import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import OrderNumberTag from './OrderNumberTag';
 import MarqueeText from './MarqueeText';
 import { isJumpTap, notePress } from '../utils/tapToJump';
-import { blockEnds, sizeGroupEnds, type SpanTotal } from '../utils/spanTotals';
+import { blockSpans, sizeGroupEnds, type SpanTotal } from '../utils/spanTotals';
 import PauseStrip from './PauseStrip';
 import UnitsTimeline from './UnitsTimeline';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
@@ -235,7 +236,6 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
 
   // A size group's / a block's line at its end: what's left of it, and when
   // it ends (none once it's done).
-  const blockEndAt = blockEnds(result.rows);
   const spanLine = (label: string, total: SpanTotal) =>
     total.minutes < 0.5 ? null : (
       <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px] leading-tight">
@@ -252,10 +252,6 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
     );
   const groupLine = (g: { n: number; title?: string; total: SpanTotal }) =>
     spanLine(g.title ?? t('orders.groupN', { n: g.n }), g.total);
-  const blockLine = (idx: number) => {
-    const b = blockEndAt.get(idx);
-    return b ? spanLine(t('orders.block', { n: b.n }), b.total) : null;
-  };
 
   // For a single-size order, the "count × length" detail to show next to the
   // meters — mirrors what multi-size orders already show per sub-row. Null for
@@ -296,6 +292,367 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
   const timePerItemLabel = t(
     isProfiles ? 'results.timePerItem.profiles' : 'results.timePerItem.sheets',
   );
+
+  // An order's card and the pause after it (no card for a folded completed
+  // order — its pause still, while it isn't over).
+  const orderCard = (
+    row: ScheduledOrder,
+    idx: number,
+  ): { card: ReactNode; pause: ReactNode } => {
+    const profilesCount = profilesCountFor(row);
+    const perItemMin = perItemMinFor(row);
+    const done = isRowDone(row);
+    // A tap on an order (not on its ✓): it in the form. Not a finished
+    // one — the form has it no more.
+    const jumpId = onOpenOrder && !done ? row.order.id : undefined;
+    const doneSizes = doneSizesFor(row);
+    const groupEndAt = sizeGroupEnds(row);
+    const pause = pauseShown(row, done) && (
+      <li>
+        <PauseStrip row={row} now={now} />
+      </li>
+    );
+    if (done && !showCompleted) return { card: null, pause };
+    const card = (
+      <li
+        data-result-order={jumpId}
+        title={jumpId ? t('results.openOrder') : undefined}
+        className={`rounded-lg border p-3 ${
+          done
+            ? 'border-success/30 bg-success/5'
+            : 'border-neutral-200 bg-surface-alt'
+        }`}
+      >
+        {/* Line one: the order (#N, its number) and the time it takes;
+            line two: the product, the whole width for its name. */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
+              #{idx + 1}
+            </span>
+            <OrderNumberTag value={row.order.orderNumber} />
+            {done && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                ✓ {t('results.completed')}
+              </span>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-sm font-semibold text-brand-700">
+              {formatDuration(row.remainingMinutes, units)}
+            </span>
+            {onComplete && !done && (
+              // Inset by a size card's padding+border (8+1px) so it
+              // lines up with the per-size ✓ below, which keep their
+              // breathing room from the card border.
+              <span className="mr-[9px] flex w-6 justify-center">
+                <CompleteBtn
+                  big
+                  onClick={() => onComplete(row.order.id)}
+                  label={t('orders.complete')}
+                />
+              </span>
+            )}
+          </div>
+        </div>
+        {row.order.productName && (
+          <div className="mt-1 flex min-w-0">
+            <MarqueeText
+              text={row.order.productName}
+              className="text-sm font-medium text-ink"
+            />
+          </div>
+        )}
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+          {isProfiles && (
+            <>
+              <dt className="text-ink-soft">
+                {t('results.col.profiles')}
+              </dt>
+              <dd className="font-medium text-ink">
+                {profilesCount ?? '—'}
+              </dd>
+            </>
+          )}
+          <dt className="text-ink-soft">{t('results.col.meters')}</dt>
+          <dd className="font-medium text-ink">
+            {formatLength(row.totalLengthM)} m
+            {sizeSuffixFor(row) && (
+              <span className="ml-1 font-normal text-ink-soft">
+                ({sizeSuffixFor(row)})
+              </span>
+            )}
+          </dd>
+          <dt className="text-ink-soft">{t('results.col.speed')}</dt>
+          <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
+          {perItemMin !== undefined && (
+            <>
+              <dt className="text-ink-soft">{timePerItemLabel}</dt>
+              <dd className="font-medium text-ink">
+                {formatDuration(perItemMin, units)}
+              </dd>
+            </>
+          )}
+          {isProfiles && (
+            <>
+              <dt className="text-ink-soft">
+                {t('results.col.packages')}
+              </dt>
+              <dd className="font-medium text-brand-700">
+                {row.packages ?? '—'}
+              </dd>
+            </>
+          )}
+          <dt className="text-ink-soft">{t('results.col.start')}</dt>
+          <dd className="font-medium text-ink">
+            {formatShortDateTime(row.start, lang)}
+          </dd>
+          <dt className="text-ink-soft">{t('results.col.end')}</dt>
+          <dd className="font-medium text-ink">
+            {formatShortDateTime(row.end, lang)}
+          </dd>
+        </dl>
+
+        {row.segments && row.segments.length > 1 && (
+          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/50 p-2 text-xs">
+            <div className="mb-1 font-semibold text-amber-700">
+              {t('results.splitParts', { n: row.segments.length })}
+            </div>
+            <ol className="space-y-1">
+              {row.segments.map((seg, sIdx) => (
+                <li
+                  key={sIdx}
+                  className="rounded border border-amber-100 bg-white/70 p-1.5 tabular-nums"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-amber-700">
+                      {t('results.part', { n: sIdx + 1 })}
+                    </span>
+                    <span className="text-ink-soft">
+                      {formatDuration(seg.minutes, units)}
+                    </span>
+                  </div>
+                  <div className="text-ink-soft">
+                    {formatShortDateTime(seg.start, lang)} –{' '}
+                    {formatShortDateTime(seg.end, lang)}
+                  </div>
+                  <div>
+                    <span className="font-medium text-ink">
+                      {formatLength(seg.metersM)} m
+                    </span>
+                    {seg.pieces !== undefined && (
+                      <span className="text-ink-soft">
+                        {' · '}
+                        {seg.pieces}{' '}
+                        {isProfiles
+                          ? t('results.col.profiles').toLowerCase()
+                          : t('results.col.sheets').toLowerCase()}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {row.sizeDetails && row.sizeDetails.length > 1 && (
+          <ul className="mt-2 space-y-1.5">
+            {row.sizeDetails.map((sd, sIdx) => {
+              // Hide the "produced X/X" block for a finished size — the
+              // ✓ already marks it done.
+              const extras = sizeExtras(row.order?.id, sIdx);
+              const hasProducedAtSize =
+                extras &&
+                (sd.producedProfiles !== undefined ||
+                  sd.producedSheetsAtSize !== undefined) &&
+                !isSizeDone(sd);
+              const gEnd = groupEndAt.get(sIdx);
+              const gLine = gEnd && groupLine(gEnd);
+              return (
+                <Fragment key={sIdx}>
+                <li className="rounded-md border border-neutral-200 bg-white p-2 text-xs">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="font-semibold text-brand-700">
+                      ↳ #{idx + 1}.{sIdx + 1}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink">
+                        {formatDuration(sd.remainingMinutes, units)}
+                      </span>
+                      {onComplete && !isSizeDone(sd) && (
+                        // Same w-6 slot as the order button (which is
+                        // inset by this card's padding+border) so all
+                        // ✓ line up in one column.
+                        <span className="flex w-6 justify-center">
+                          <CompleteBtn
+                            onClick={() =>
+                              onComplete(row.order.id, sIdx)
+                            }
+                            label={t('orders.complete')}
+                          />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+                    <dt className="text-ink-soft">
+                      {isProfiles
+                        ? t('results.col.profiles')
+                        : t('results.col.sheets')}
+                    </dt>
+                    <dd className="font-medium text-ink">
+                      {sd.sheets} × {sd.length} mm
+                    </dd>
+                    <dt className="text-ink-soft">
+                      {t('results.col.meters')}
+                    </dt>
+                    <dd className="font-medium text-ink">
+                      {formatLength(sd.metersM)} m
+                    </dd>
+                    {isProfiles && sd.packages !== undefined && (
+                      <>
+                        <dt className="text-ink-soft">
+                          {t('results.col.packages')}
+                        </dt>
+                        <dd className="font-medium text-brand-700">
+                          {sd.packages}
+                          {sd.perPackage !== undefined && (
+                            <span className="ml-1 text-ink-soft">
+                              (× {sd.perPackage})
+                            </span>
+                          )}
+                        </dd>
+                      </>
+                    )}
+                    <dt className="text-ink-soft">
+                      {t('results.col.start')}
+                    </dt>
+                    <dd className="font-medium text-ink">
+                      {formatShortDateTime(sd.start, lang)}
+                    </dd>
+                    <dt className="text-ink-soft">
+                      {t('results.col.end')}
+                    </dt>
+                    <dd className="font-medium text-ink">
+                      {formatShortDateTime(sd.end, lang)}
+                    </dd>
+                  </dl>
+                  {hasProducedAtSize && (
+                    <SizeProducedBlock sd={sd} t={t} mode={mode} />
+                  )}
+                  {extras &&
+                    sd.timePerUnitMin !== undefined &&
+                    sd.totalUnits !== undefined && (
+                      <PerUnitBlock
+                        start={sd.start}
+                        end={sd.end}
+                        timePerUnitMin={sd.timePerUnitMin}
+                        totalUnits={sd.totalUnits}
+                        producedMinutes={
+                          sd.productionMinutes - sd.remainingMinutes
+                        }
+                        mode={mode}
+                        windows={row.segments}
+                        t={t}
+                      />
+                    )}
+                </li>
+                {gLine && (
+                  <li className="rounded-md border border-dashed border-neutral-300 px-2 py-1">
+                    {gLine}
+                  </li>
+                )}
+                </Fragment>
+              );
+            })}
+          </ul>
+        )}
+
+        {doneSizes.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {doneSizes.map((s, sIdx) => (
+              <li
+                key={sIdx}
+                className="flex items-center justify-between gap-2 rounded-md border border-success/20 bg-white px-2 py-1.5 text-xs"
+              >
+                <span className="font-semibold text-brand-700">
+                  ↳ #{idx + 1}.{sIdx + 1}
+                </span>
+                <span className="font-medium text-ink">
+                  {s.sheets} × {s.length} mm
+                  <span className="ml-1 font-normal text-ink-soft">
+                    · {formatLength(s.metersM)} m
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {!row.sizeDetails &&
+          (row.producedProfiles !== undefined ||
+            row.producedSheets !== undefined) && (
+            <ProducedRemainingBlock row={row} t={t} mode={mode} />
+          )}
+        {!row.sizeDetails &&
+          row.timePerUnitMin !== undefined &&
+          row.totalUnits !== undefined && (
+            <PerUnitBlock
+              start={row.start}
+              end={row.end}
+              timePerUnitMin={row.timePerUnitMin}
+              totalUnits={row.totalUnits}
+              producedMinutes={
+                row.productionMinutes - row.remainingMinutes
+              }
+              mode={mode}
+              windows={row.segments}
+              t={t}
+            />
+          )}
+      </li>
+    );
+    return { card, pause };
+  };
+
+  // The cards: a block's orders (two or more) in one frame, its time and end
+  // at its foot, the pause that closes it after the frame.
+  const spanAt = new Map(blockSpans(result.rows).map((s) => [s.rows[0], s]));
+  const cards: ReactNode[] = [];
+  for (let i = 0; i < result.rows.length; ) {
+    const span = spanAt.get(i);
+    if (!span) {
+      const { card, pause } = orderCard(result.rows[i], i);
+      cards.push(
+        <Fragment key={result.rows[i].order.id}>
+          {card}
+          {pause}
+        </Fragment>,
+      );
+      i += 1;
+      continue;
+    }
+    const parts = span.rows.map((j) => ({
+      id: result.rows[j].order.id,
+      ...orderCard(result.rows[j], j),
+    }));
+    const line = spanLine(t('orders.block', { n: span.n }), span.total);
+    cards.push(
+      <Fragment key={`block-${parts[0].id}`}>
+        <li className="space-y-2 rounded-xl border border-dashed border-neutral-300 p-2 sm:p-3">
+          <ul className="space-y-2">
+            {parts.map((p) => (
+              <Fragment key={p.id}>{p.card}</Fragment>
+            ))}
+          </ul>
+          {line && <div className="px-1">{line}</div>}
+        </li>
+        {parts[parts.length - 1].pause}
+      </Fragment>,
+    );
+    i = span.rows[span.rows.length - 1] + 1;
+  }
 
   return (
     <section
@@ -433,332 +790,7 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
               </button>
             </li>
           )}
-          {result.rows.map((row, idx) => {
-            const profilesCount = profilesCountFor(row);
-            const perItemMin = perItemMinFor(row);
-            const done = isRowDone(row);
-            // A tap on an order (not on its ✓): it in the form. Not a finished
-            // one — the form has it no more.
-            const jumpId = onOpenOrder && !done ? row.order.id : undefined;
-            const doneSizes = doneSizesFor(row);
-            const groupEndAt = sizeGroupEnds(row);
-            const pause = pauseShown(row, done) && (
-              <li>
-                <PauseStrip row={row} now={now} />
-              </li>
-            );
-            if (done && !showCompleted) {
-              return pause ? <Fragment key={row.order.id}>{pause}</Fragment> : null;
-            }
-            return (
-              <Fragment key={row.order.id}>
-              <li
-                data-result-order={jumpId}
-                title={jumpId ? t('results.openOrder') : undefined}
-                className={`rounded-lg border p-3 ${
-                  done
-                    ? 'border-success/30 bg-success/5'
-                    : 'border-neutral-200 bg-surface-alt'
-                }`}
-              >
-                {/* Line one: the order (#N, its number) and the time it takes;
-                    line two: the product, the whole width for its name. */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-600 px-2.5 text-xs font-bold text-white">
-                      #{idx + 1}
-                    </span>
-                    <OrderNumberTag value={row.order.orderNumber} />
-                    {done && (
-                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
-                        ✓ {t('results.completed')}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-sm font-semibold text-brand-700">
-                      {formatDuration(row.remainingMinutes, units)}
-                    </span>
-                    {onComplete && !done && (
-                      // Inset by a size card's padding+border (8+1px) so it
-                      // lines up with the per-size ✓ below, which keep their
-                      // breathing room from the card border.
-                      <span className="mr-[9px] flex w-6 justify-center">
-                        <CompleteBtn
-                          big
-                          onClick={() => onComplete(row.order.id)}
-                          label={t('orders.complete')}
-                        />
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {row.order.productName && (
-                  <div className="mt-1 flex min-w-0">
-                    <MarqueeText
-                      text={row.order.productName}
-                      className="text-sm font-medium text-ink"
-                    />
-                  </div>
-                )}
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                  {isProfiles && (
-                    <>
-                      <dt className="text-ink-soft">
-                        {t('results.col.profiles')}
-                      </dt>
-                      <dd className="font-medium text-ink">
-                        {profilesCount ?? '—'}
-                      </dd>
-                    </>
-                  )}
-                  <dt className="text-ink-soft">{t('results.col.meters')}</dt>
-                  <dd className="font-medium text-ink">
-                    {formatLength(row.totalLengthM)} m
-                    {sizeSuffixFor(row) && (
-                      <span className="ml-1 font-normal text-ink-soft">
-                        ({sizeSuffixFor(row)})
-                      </span>
-                    )}
-                  </dd>
-                  <dt className="text-ink-soft">{t('results.col.speed')}</dt>
-                  <dd className="font-medium text-ink">{row.speedMPerMin}</dd>
-                  {perItemMin !== undefined && (
-                    <>
-                      <dt className="text-ink-soft">{timePerItemLabel}</dt>
-                      <dd className="font-medium text-ink">
-                        {formatDuration(perItemMin, units)}
-                      </dd>
-                    </>
-                  )}
-                  {isProfiles && (
-                    <>
-                      <dt className="text-ink-soft">
-                        {t('results.col.packages')}
-                      </dt>
-                      <dd className="font-medium text-brand-700">
-                        {row.packages ?? '—'}
-                      </dd>
-                    </>
-                  )}
-                  <dt className="text-ink-soft">{t('results.col.start')}</dt>
-                  <dd className="font-medium text-ink">
-                    {formatShortDateTime(row.start, lang)}
-                  </dd>
-                  <dt className="text-ink-soft">{t('results.col.end')}</dt>
-                  <dd className="font-medium text-ink">
-                    {formatShortDateTime(row.end, lang)}
-                  </dd>
-                </dl>
-
-                {row.segments && row.segments.length > 1 && (
-                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50/50 p-2 text-xs">
-                    <div className="mb-1 font-semibold text-amber-700">
-                      {t('results.splitParts', { n: row.segments.length })}
-                    </div>
-                    <ol className="space-y-1">
-                      {row.segments.map((seg, sIdx) => (
-                        <li
-                          key={sIdx}
-                          className="rounded border border-amber-100 bg-white/70 p-1.5 tabular-nums"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-amber-700">
-                              {t('results.part', { n: sIdx + 1 })}
-                            </span>
-                            <span className="text-ink-soft">
-                              {formatDuration(seg.minutes, units)}
-                            </span>
-                          </div>
-                          <div className="text-ink-soft">
-                            {formatShortDateTime(seg.start, lang)} –{' '}
-                            {formatShortDateTime(seg.end, lang)}
-                          </div>
-                          <div>
-                            <span className="font-medium text-ink">
-                              {formatLength(seg.metersM)} m
-                            </span>
-                            {seg.pieces !== undefined && (
-                              <span className="text-ink-soft">
-                                {' · '}
-                                {seg.pieces}{' '}
-                                {isProfiles
-                                  ? t('results.col.profiles').toLowerCase()
-                                  : t('results.col.sheets').toLowerCase()}
-                              </span>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {row.sizeDetails && row.sizeDetails.length > 1 && (
-                  <ul className="mt-2 space-y-1.5">
-                    {row.sizeDetails.map((sd, sIdx) => {
-                      // Hide the "produced X/X" block for a finished size — the
-                      // ✓ already marks it done.
-                      const extras = sizeExtras(row.order?.id, sIdx);
-                      const hasProducedAtSize =
-                        extras &&
-                        (sd.producedProfiles !== undefined ||
-                          sd.producedSheetsAtSize !== undefined) &&
-                        !isSizeDone(sd);
-                      const gEnd = groupEndAt.get(sIdx);
-                      const gLine = gEnd && groupLine(gEnd);
-                      return (
-                        <Fragment key={sIdx}>
-                        <li className="rounded-md border border-neutral-200 bg-white p-2 text-xs">
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <span className="font-semibold text-brand-700">
-                              ↳ #{idx + 1}.{sIdx + 1}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-ink">
-                                {formatDuration(sd.remainingMinutes, units)}
-                              </span>
-                              {onComplete && !isSizeDone(sd) && (
-                                // Same w-6 slot as the order button (which is
-                                // inset by this card's padding+border) so all
-                                // ✓ line up in one column.
-                                <span className="flex w-6 justify-center">
-                                  <CompleteBtn
-                                    onClick={() =>
-                                      onComplete(row.order.id, sIdx)
-                                    }
-                                    label={t('orders.complete')}
-                                  />
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                            <dt className="text-ink-soft">
-                              {isProfiles
-                                ? t('results.col.profiles')
-                                : t('results.col.sheets')}
-                            </dt>
-                            <dd className="font-medium text-ink">
-                              {sd.sheets} × {sd.length} mm
-                            </dd>
-                            <dt className="text-ink-soft">
-                              {t('results.col.meters')}
-                            </dt>
-                            <dd className="font-medium text-ink">
-                              {formatLength(sd.metersM)} m
-                            </dd>
-                            {isProfiles && sd.packages !== undefined && (
-                              <>
-                                <dt className="text-ink-soft">
-                                  {t('results.col.packages')}
-                                </dt>
-                                <dd className="font-medium text-brand-700">
-                                  {sd.packages}
-                                  {sd.perPackage !== undefined && (
-                                    <span className="ml-1 text-ink-soft">
-                                      (× {sd.perPackage})
-                                    </span>
-                                  )}
-                                </dd>
-                              </>
-                            )}
-                            <dt className="text-ink-soft">
-                              {t('results.col.start')}
-                            </dt>
-                            <dd className="font-medium text-ink">
-                              {formatShortDateTime(sd.start, lang)}
-                            </dd>
-                            <dt className="text-ink-soft">
-                              {t('results.col.end')}
-                            </dt>
-                            <dd className="font-medium text-ink">
-                              {formatShortDateTime(sd.end, lang)}
-                            </dd>
-                          </dl>
-                          {hasProducedAtSize && (
-                            <SizeProducedBlock sd={sd} t={t} mode={mode} />
-                          )}
-                          {extras &&
-                            sd.timePerUnitMin !== undefined &&
-                            sd.totalUnits !== undefined && (
-                              <PerUnitBlock
-                                start={sd.start}
-                                end={sd.end}
-                                timePerUnitMin={sd.timePerUnitMin}
-                                totalUnits={sd.totalUnits}
-                                producedMinutes={
-                                  sd.productionMinutes - sd.remainingMinutes
-                                }
-                                mode={mode}
-                                windows={row.segments}
-                                t={t}
-                              />
-                            )}
-                        </li>
-                        {gLine && (
-                          <li className="rounded-md border border-dashed border-neutral-300 px-2 py-1">
-                            {gLine}
-                          </li>
-                        )}
-                        </Fragment>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                {doneSizes.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {doneSizes.map((s, sIdx) => (
-                      <li
-                        key={sIdx}
-                        className="flex items-center justify-between gap-2 rounded-md border border-success/20 bg-white px-2 py-1.5 text-xs"
-                      >
-                        <span className="font-semibold text-brand-700">
-                          ↳ #{idx + 1}.{sIdx + 1}
-                        </span>
-                        <span className="font-medium text-ink">
-                          {s.sheets} × {s.length} mm
-                          <span className="ml-1 font-normal text-ink-soft">
-                            · {formatLength(s.metersM)} m
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {!row.sizeDetails &&
-                  (row.producedProfiles !== undefined ||
-                    row.producedSheets !== undefined) && (
-                    <ProducedRemainingBlock row={row} t={t} mode={mode} />
-                  )}
-                {!row.sizeDetails &&
-                  row.timePerUnitMin !== undefined &&
-                  row.totalUnits !== undefined && (
-                    <PerUnitBlock
-                      start={row.start}
-                      end={row.end}
-                      timePerUnitMin={row.timePerUnitMin}
-                      totalUnits={row.totalUnits}
-                      producedMinutes={
-                        row.productionMinutes - row.remainingMinutes
-                      }
-                      mode={mode}
-                      windows={row.segments}
-                      t={t}
-                    />
-                  )}
-              </li>
-              {blockLine(idx) && (
-                <li className="rounded-lg border border-dashed border-neutral-300 px-3 py-1.5">
-                  {blockLine(idx)}
-                </li>
-              )}
-              {pause}
-              </Fragment>
-            );
-          })}
+          {cards}
         </ul>
       </div>
 
