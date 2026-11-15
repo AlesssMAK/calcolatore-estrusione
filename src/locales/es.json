@@ -217,11 +217,8 @@
     "breakdown": "Desglose por Pedido",
     "openOrder": "Toca para abrir el pedido en el cálculo",
     "col": {
-      "number": "#",
       "sheets": "Láminas",
       "profiles": "Perfiles",
-      "sheetLength": "Longitud (mm)",
-      "totalLength": "Metros Totales",
       "meters": "Metros",
       "speed": "Velocidad (m/min)",
       "productionTime": "Tiempo de Producción",
