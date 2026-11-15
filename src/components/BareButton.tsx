@@ -3,15 +3,13 @@ import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 /**
  * A button that's just its icon, no box round it — hover, focus and press
  * show on the icon itself (a tracked calc's form, the pop-up lists).
- * `iconCls`: its colours (hover too). `keepFocus`: a tap leaves the focus in
- * the field being edited (a row's − / +, shown only while it's edited).
+ * `iconCls`: its colours (hover too).
  */
 export default function BareButton({
   title,
   onClick,
   disabled,
   pressed,
-  keepFocus,
   iconCls,
   className = '',
   children,
@@ -20,7 +18,6 @@ export default function BareButton({
   onClick: (e: ReactMouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   pressed?: boolean;
-  keepFocus?: boolean;
   iconCls: string;
   className?: string;
   /** The icon: an SVG (sized by bareIconSize) or a glyph. */
@@ -30,7 +27,6 @@ export default function BareButton({
     <button
       type="button"
       onClick={onClick}
-      onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
       disabled={disabled}
       aria-pressed={pressed}
       title={title}
