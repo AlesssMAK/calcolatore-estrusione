@@ -545,6 +545,14 @@
     "empty": "Ningún cálculo completado.",
     "noMatch": "Ningún cálculo completado con estos filtros.",
     "keptFor": "Se guardan {{n}} días desde el final.",
-    "clear": "Borrar los filtros"
+    "clear": "Borrar los filtros",
+    "tabs": {
+      "all": "Todos",
+      "week": "Semana",
+      "month": "Mes",
+      "range": "Período"
+    },
+    "hintWeek": "Terminados esta semana, desde el lunes.",
+    "hintMonth": "Terminados este mes."
   }
 }

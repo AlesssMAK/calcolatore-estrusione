@@ -8,9 +8,13 @@ import DateTimePicker from '../components/DateTimePicker';
 import { useCatalog } from '../contexts/CatalogContext';
 import { loadCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { saveProductionStart, stashCompanyOpen } from '../lib/productionView';
-import { endOf, isFinished } from '../utils/companyReport';
+import { endOf, isFinished, weekStart } from '../utils/companyReport';
 
 const DAY_MS = 86_400_000;
+
+/** When they ended: all of them kept, this week, this month, or a period. */
+type Span = 'all' | 'week' | 'month' | 'range';
+const SPANS: Span[] = ['all', 'week', 'month', 'range'];
 
 const fieldCls =
   'h-9 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-ink shadow-sm transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200 focus:outline-none';
@@ -42,6 +46,7 @@ export default function CompletatiPage() {
   const [calcs, setCalcs] = useState<CompanyCalc[] | null>(null);
   const [now] = useState(() => new Date());
   const [query, setQuery] = useState('');
+  const [span, setSpan] = useState<Span>('all');
   const [from, setFrom] = useState<Date | null>(null);
   const [to, setTo] = useState<Date | null>(null);
 
@@ -64,24 +69,27 @@ export default function CompletatiPage() {
       .sort((a, b) => endOf(b.payload).getTime() - endOf(a.payload).getTime());
   }, [calcs, now, settings.completedRetentionDays]);
 
-  // Every word typed somewhere in it; ended between the two days (both in).
+  // Every word typed somewhere in it; ended in the span (a period: between
+  // the two days, both in).
   const shown = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const lo = from
-      ? new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()
-      : -Infinity;
-    const hi = to
-      ? new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1).getTime()
-      : Infinity;
+    let lo = -Infinity;
+    let hi = Infinity;
+    if (span === 'week') lo = weekStart(now).getTime();
+    if (span === 'month') lo = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    if (span === 'range') {
+      if (from) lo = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime();
+      if (to) hi = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1).getTime();
+    }
     return finished.filter((c) => {
       const end = endOf(c.payload).getTime();
       if (end < lo || end >= hi) return false;
       const text = haystack(c);
       return words.every((w) => text.includes(w));
     });
-  }, [finished, query, from, to]);
+  }, [finished, query, span, from, to, now]);
 
-  const filtered = query.trim() !== '' || from !== null || to !== null;
+  const filtered = query.trim() !== '' || span !== 'all';
   const open = (calc: CompanyCalc) => {
     stashCompanyOpen(calc);
     navigate(`/${search}`);
@@ -118,7 +126,71 @@ export default function CompletatiPage() {
           <p className="py-6 text-center text-sm text-ink-soft">{t('report.loading')}</p>
         ) : (
           <>
-            <div className="mb-3 space-y-2 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
+            {/* As the Produzione page's: when they ended (tabs, then what the
+                tab looks at), then what's typed. */}
+            <div className="mb-3 space-y-3">
+              <div
+                role="tablist"
+                aria-label={t('completed.title')}
+                className="grid grid-cols-4 rounded-lg border border-neutral-200 bg-white p-1 shadow-sm"
+              >
+                {SPANS.map((s) => (
+                  <button
+                    key={s}
+                    role="tab"
+                    type="button"
+                    aria-selected={span === s}
+                    onClick={() => setSpan(s)}
+                    className={
+                      span === s
+                        ? 'rounded-md bg-brand-600 px-1 py-2 text-xs font-semibold text-white transition sm:text-sm'
+                        : 'rounded-md px-1 py-2 text-xs font-medium text-ink-soft transition hover:bg-neutral-100 sm:text-sm'
+                    }
+                  >
+                    {t(`completed.tabs.${s}`)}
+                  </button>
+                ))}
+              </div>
+              {span === 'range' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="min-w-0">
+                    <label htmlFor="completed-from" className="mb-1 block text-xs text-ink-soft">
+                      {t('completed.from')}
+                    </label>
+                    <DateTimePicker
+                      id="completed-from"
+                      dateOnly
+                      clearable
+                      selected={from}
+                      onChange={setFrom}
+                      className={fieldCls}
+                      wrapperClassName="block w-full"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label htmlFor="completed-to" className="mb-1 block text-xs text-ink-soft">
+                      {t('completed.to')}
+                    </label>
+                    <DateTimePicker
+                      id="completed-to"
+                      dateOnly
+                      clearable
+                      selected={to}
+                      onChange={setTo}
+                      className={fieldCls}
+                      wrapperClassName="block w-full"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-ink-soft">
+                  {span === 'week'
+                    ? t('completed.hintWeek')
+                    : span === 'month'
+                      ? t('completed.hintMonth')
+                      : t('completed.keptFor', { n: settings.completedRetentionDays })}
+                </p>
+              )}
               <input
                 type="search"
                 value={query}
@@ -127,41 +199,12 @@ export default function CompletatiPage() {
                 aria-label={t('completed.search')}
                 className={fieldCls}
               />
-              <div className="grid grid-cols-2 gap-2">
-                <div className="min-w-0">
-                  <label htmlFor="completed-from" className="mb-1 block text-xs text-ink-soft">
-                    {t('completed.from')}
-                  </label>
-                  <DateTimePicker
-                    id="completed-from"
-                    dateOnly
-                    clearable
-                    selected={from}
-                    onChange={setFrom}
-                    className={fieldCls}
-                    wrapperClassName="block w-full"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <label htmlFor="completed-to" className="mb-1 block text-xs text-ink-soft">
-                    {t('completed.to')}
-                  </label>
-                  <DateTimePicker
-                    id="completed-to"
-                    dateOnly
-                    clearable
-                    selected={to}
-                    onChange={setTo}
-                    className={fieldCls}
-                    wrapperClassName="block w-full"
-                  />
-                </div>
-              </div>
               {filtered && (
                 <button
                   type="button"
                   onClick={() => {
                     setQuery('');
+                    setSpan('all');
                     setFrom(null);
                     setTo(null);
                   }}
@@ -183,9 +226,6 @@ export default function CompletatiPage() {
                 ))}
               </ul>
             )}
-            <p className="mt-2 text-[11px] text-ink-soft">
-              {t('completed.keptFor', { n: settings.completedRetentionDays })}
-            </p>
           </>
         )}
         {/* Its buttons at the end, as the form's (pinned while out of view). */}
