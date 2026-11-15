@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduledOrder, ScheduledSizeDetail } from '../types';
-import { blockEnds, sizeGroupEnds, spanTotal } from './spanTotals';
+import { blockSpans, sizeGroupEnds, spanTotal } from './spanTotals';
 
 const at = (h: number) => new Date(2026, 10, 10, h, 0, 0);
 const size = (min: number, endH: number) =>
@@ -59,14 +59,18 @@ describe('spanTotals', () => {
       row({ id: 'b', remainingMinutes: 30, end: at(10), gapAfterMin: 15 }),
       row({ id: 'c', remainingMinutes: 45, end: at(12), gapAfterMin: 15 }),
     ];
-    const ends = blockEnds(rows);
+    const spans = blockSpans(rows);
     // block 1 = a, b (closed by b's pause); block 2 = c alone: its order
     // says it already
-    expect([...ends.keys()]).toEqual([2]);
-    expect(ends.get(2)).toMatchObject({ n: 1, total: { minutes: 90, end: at(10) } });
+    expect(spans).toHaveLength(1);
+    expect(spans[0]).toMatchObject({
+      rows: [1, 2],
+      n: 1,
+      total: { minutes: 90, end: at(10) },
+    });
   });
 
-  it('has no block ends without a pause between orders', () => {
-    expect(blockEnds([row({}), row({})]).size).toBe(0);
+  it('has no blocks without a pause between orders', () => {
+    expect(blockSpans([row({}), row({})])).toEqual([]);
   });
 });

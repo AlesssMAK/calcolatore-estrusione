@@ -49,26 +49,31 @@ export function sizeGroupEnds(
   return out;
 }
 
-/** The blocks of the queue (orders between two pauses), by the row that
- *  closes each: its number and its total. Only the rows still in the queue
- *  count (not the completed ones), so the numbers match the form's blocks.
- *  Only with two blocks or more, and only a block of two orders or more (one
- *  order's block is that order: its own time says it). */
-export function blockEnds(
-  rows: ScheduledOrder[],
-): Map<number, { n: number; total: SpanTotal }> {
-  const out = new Map<number, { n: number; total: SpanTotal }>();
+/** A block of the queue: its rows (indexes, in order), its number and its
+ *  total. */
+export interface BlockSpan {
+  rows: number[];
+  n: number;
+  total: SpanTotal;
+}
+
+/** The blocks of the queue (orders between two pauses). Only the rows still
+ *  in the queue count (not the completed ones), so the numbers match the
+ *  form's blocks. Only with two blocks or more, and only a block of two
+ *  orders or more (one order's block is that order: its own time says it). */
+export function blockSpans(rows: ScheduledOrder[]): BlockSpan[] {
   const live = rows.map((r, i) => ({ r, i })).filter(({ r }) => !r.completed);
   const ranges: number[][] = [[]];
   live.forEach(({ r, i }, k) => {
     ranges[ranges.length - 1].push(i);
     if (r.gapAfterMin > 0 && k < live.length - 1) ranges.push([]);
   });
-  if (ranges.length < 2) return out;
+  if (ranges.length < 2) return [];
+  const out: BlockSpan[] = [];
   ranges.forEach((range, k) => {
     if (range.length < 2) return;
     const total = spanTotal(range.map((i) => rows[i]));
-    if (total) out.set(range[range.length - 1], { n: k + 1, total });
+    if (total) out.push({ rows: range, n: k + 1, total });
   });
   return out;
 }
