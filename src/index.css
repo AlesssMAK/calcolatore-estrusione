@@ -253,6 +253,30 @@ button:disabled,
     border-color: var(--color-brand-500);
   }
 }
+/* The size in production in a tracked calc's form — its frame holds its
+   Calcolo Avanzato: a slow, gentle pulse, so what catches the eye first is
+   its produced count (num-blink). */
+@keyframes active-blink-soft {
+  0%,
+  100% {
+    background-color: var(--color-brand-50);
+    border-color: var(--color-brand-200);
+  }
+  50% {
+    background-color: color-mix(in oklab, var(--color-brand-100) 55%, var(--color-brand-50));
+    border-color: var(--color-brand-300);
+  }
+}
+.active-blink-soft {
+  animation: active-blink-soft 3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .active-blink-soft {
+    animation: none;
+    background-color: var(--color-brand-50);
+    border-color: var(--color-brand-300);
+  }
+}
 /* Same pulse in amber for the auto-filled ("produced so far") Calcolo
    avanzato block of a saved calc — keeps its amber "auto-filled" meaning. */
 @keyframes amber-blink {
@@ -307,6 +331,7 @@ button:disabled,
 }
 @media print {
   .active-blink,
+  .active-blink-soft,
   .amber-blink,
   .num-blink {
     animation: none;
