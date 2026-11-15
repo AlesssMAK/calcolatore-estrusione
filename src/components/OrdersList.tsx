@@ -2239,8 +2239,6 @@ function SizeAdvancedPanel({
   const { getValues } = useFormContext<FormValues>();
   const f = useAdvancedFlags(orderIdx);
   const textMode = useContext(TextModeContext);
-  // The size in production (a tracked calc): this panel sits in its frame.
-  const inSizeFrame = textMode && sizeIdx === activeSizeIdx;
   const [hadProducedAtMount] = useState(() =>
     producedAtMount(getValues(`orders.${orderIdx}`), sizeIdx),
   );
@@ -2275,17 +2273,11 @@ function SizeAdvancedPanel({
       </div>
       {open && (
         <div
-          // (the size in production's, in a tracked calc: no frame of its
-          // own — it's in its size's)
-          className={
-            inSizeFrame
-              ? 'mt-0.5'
-              : `rounded-md border bg-brand-50/40 ${
-                  textMode ? 'mt-1 px-2 py-1 sm:px-3 sm:py-1.5' : 'mt-1.5 p-2 sm:p-3'
-                } ${
-                  hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
-                }`
-          }
+          className={`rounded-md border bg-brand-50/40 ${
+            textMode ? 'mt-1 px-2 py-1 sm:px-3 sm:py-1.5' : 'mt-1.5 p-2 sm:p-3'
+          } ${
+            hadProducedAtMount ? 'amber-blink border-amber-300' : 'border-brand-100'
+          }`}
         >
           {/* Filled in: the size's buttons beside the note, not on a line
               of their own. */}
