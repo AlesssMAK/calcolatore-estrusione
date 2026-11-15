@@ -72,6 +72,7 @@ import { placeMenu } from '../hooks/useMenuPlacement';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
   CheckIcon,
+  CloseIcon,
   MergeGroupIcon,
   MinusIcon,
   PauseIcon,
@@ -2677,18 +2678,18 @@ function OrderNameField({
               <span className="text-sm font-semibold text-ink">
                 {t('orders.productName')}
               </span>
-              <button
-                type="button"
+              <BareButton
                 onClick={() => {
                   setFullScreen(false);
                   setDropdownOpen(false);
                   commitDraft();
                 }}
-                aria-label={t('actions.close')}
-                className="rounded-md px-3 py-1.5 text-lg leading-none text-ink-soft transition hover:bg-neutral-100"
+                title={t('actions.close')}
+                iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
+                className="mr-1"
               >
-                ✕
-              </button>
+                <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              </BareButton>
             </div>
             <div className="border-b border-neutral-100 p-3">
               <input

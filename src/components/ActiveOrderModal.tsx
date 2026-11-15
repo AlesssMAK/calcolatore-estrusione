@@ -6,6 +6,8 @@ import PauseNowNote from './PauseNowNote';
 import ProducedEditor from './ProducedEditor';
 import type { RunningPause } from '../utils/pauseAt';
 import { formatDuration } from '../utils/format';
+import BareButton from './BareButton';
+import { CloseIcon } from './ActionIcons';
 
 export interface ActiveModalInfo {
   /** Number of the order in production (the form's "#N"). */
@@ -101,17 +103,17 @@ function ActiveOrderModal({
         }}
         className="relative w-full max-w-sm cursor-pointer rounded-xl border border-neutral-200 bg-white p-5 text-left shadow-xl transition hover:border-brand-300"
       >
-        <button
-          type="button"
+        <BareButton
           onClick={(e) => {
             e.stopPropagation();
             onClose();
           }}
-          aria-label={t('actions.close')}
-          className="absolute top-2 right-2 rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
+          title={t('actions.close')}
+          iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
+          className="absolute top-2 right-2"
         >
-          ✕
-        </button>
+          <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+        </BareButton>
 
         {info.pause ? (
           // In a pause: which and until when, then the order that follows it.

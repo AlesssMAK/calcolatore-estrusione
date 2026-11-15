@@ -6,6 +6,8 @@ import { usePauseSetter } from '../hooks/usePauseSetter';
 import { fmtPause, pauseColorHex, type PauseReason } from '../lib/pauseReasons';
 import { inputBase } from './formStyles';
 import MarqueeText from './MarqueeText';
+import BareButton from './BareButton';
+import { CloseIcon } from './ActionIcons';
 
 /** The two orders on either side of a product change (form numbers + names). */
 export interface ProductChangeSides {
@@ -75,14 +77,14 @@ export function ProductChangeModal({
         className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-xl border border-neutral-200 bg-white shadow-xl"
       >
         <div className="border-b border-neutral-100 px-4 pt-4 pb-3 sm:px-5">
-          <button
-            type="button"
+          <BareButton
             onClick={onClose}
-            aria-label={t('actions.close')}
-            className="absolute top-2 right-2 rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
+            title={t('actions.close')}
+            iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
+            className="absolute top-2 right-2"
           >
-            ✕
-          </button>
+            <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+          </BareButton>
           <h2 className="pr-8 text-base font-semibold text-ink">
             {t('orders.productChangeTitle')}
           </h2>

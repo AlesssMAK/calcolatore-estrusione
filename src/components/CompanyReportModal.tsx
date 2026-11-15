@@ -9,6 +9,8 @@ import PauseNowNote from './PauseNowNote';
 import ReportFilters from './ReportFilters';
 import { useReportMoment } from '../hooks/useReportMoment';
 import MarqueeText from './MarqueeText';
+import BareButton from './BareButton';
+import { CloseIcon } from './ActionIcons';
 
 interface Props {
   onClose: () => void;
@@ -96,14 +98,13 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
           <h2 className="text-base font-semibold text-ink">
             <span aria-hidden>📊</span> {t('report.title')}
           </h2>
-          <button
-            type="button"
+          <BareButton
             onClick={onClose}
-            aria-label={t('actions.close')}
-            className="rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
+            title={t('actions.close')}
+            iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
           >
-            ✕
-          </button>
+            <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+          </BareButton>
         </header>
 
         <ReportFilters

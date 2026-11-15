@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import OrderNumberTag from './OrderNumberTag';
-import { StopIcon } from './ActionIcons';
+import { CloseIcon, StopIcon } from './ActionIcons';
 import type { FormValues } from '../formSchema';
 import type { CalculatorMode } from '../types';
 import { liveSchedule } from '../utils/liveSchedule';
@@ -14,6 +14,7 @@ import {
   type SeqStep,
 } from '../utils/queue';
 import MarqueeText from './MarqueeText';
+import BareButton from './BareButton';
 
 interface Props {
   mode: CalculatorMode;
@@ -71,14 +72,14 @@ function StopPicker({ mode, stopped, onClose, onPick }: Props) {
         className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-xl border border-neutral-200 bg-white shadow-xl"
       >
         <div className="border-b border-neutral-100 px-4 pt-4 pb-3 sm:px-5">
-          <button
-            type="button"
+          <BareButton
             onClick={onClose}
-            aria-label={t('actions.close')}
-            className="absolute top-2 right-2 rounded p-1.5 text-ink-soft transition hover:bg-neutral-100 hover:text-ink"
+            title={t('actions.close')}
+            iconCls="text-ink-soft group-hover/ib:text-ink group-focus-visible/ib:text-ink"
+            className="absolute top-2 right-2"
           >
-            ✕
-          </button>
+            <CloseIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+          </BareButton>
           <h2 className="flex items-center gap-2 pr-8 text-base font-semibold text-ink">
             <StopIcon className="h-4 w-4 shrink-0 text-danger" />
             {t('stop.title')}
