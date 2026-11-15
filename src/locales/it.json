@@ -340,7 +340,11 @@
     "sizeEnd": "Fine misura",
     "calcEnd": "Fine coda",
     "saveFailed": "Modifica non salvata: controlla la connessione e riprova.",
-    "changed": "Il calcolo è appena cambiato: controlla il valore e riprova."
+    "changed": "Il calcolo è appena cambiato: controlla il valore e riprova.",
+    "openPage": "Apri la pagina Produzione",
+    "doneWeek": "Completati questa settimana",
+    "doneWeekHint": "Da lunedì restano solo in Completati.",
+    "toCompleted": "Tutti i completati"
   },
   "report": {
     "title": "Report",
@@ -365,9 +369,12 @@
       "stopped": "Linea ferma",
       "waiting": "In pausa",
       "notStarted": "Non iniziato",
-      "done": "Completato"
+      "done": "Completato",
+      "suspended": "Sospeso",
+      "willBeDone": "Sarà completato"
     },
-    "pauseUntil": "fino alle {{time}}"
+    "pauseUntil": "fino alle {{time}}",
+    "willEnd": "Fine prevista"
   },
   "compare": {
     "title": "Confronta",
@@ -528,5 +535,16 @@
     "completedCount": "{{n}} completati",
     "restoreCompleted": "Ripristina",
     "restoreHint": "Clic: uno · Tieni premuto: tutti"
+  },
+  "completed": {
+    "title": "Completati",
+    "open": "Apri il risultato",
+    "search": "Cerca: nome, prodotto, ordine…",
+    "from": "Dal",
+    "to": "Al",
+    "empty": "Nessun calcolo completato.",
+    "noMatch": "Nessun calcolo completato con questi filtri.",
+    "keptFor": "Conservati per {{n}} giorni dalla fine.",
+    "clear": "Azzera i filtri"
   }
 }

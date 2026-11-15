@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronUpIcon } from './ActionIcons';
 import type { FloatPlacement } from './floatStyles';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 
 /** Scroll-to-top, only once the page has actually been scrolled down. Rail:
  *  set a bit apart below the actions above it, `invisible` keeps its slot so
@@ -70,24 +68,5 @@ export function ScrollTopButton({ placement: p }: { placement: FloatPlacement })
       />
       <ChevronUpIcon className="relative h-5 w-5 text-white" />
     </button>
-  );
-}
-
-/** Just the scroll-to-top, where the calculator pins its actions (a page
- *  without them). */
-export default function FloatingScrollTop() {
-  const isPhone = useMediaQuery('(max-width: 639px)');
-  const p: FloatPlacement = isPhone ? 'bar' : 'rail';
-  return createPortal(
-    <div
-      className={`no-print pointer-events-none fixed z-40 flex ${
-        p === 'bar'
-          ? 'inset-x-0 bottom-0 justify-center px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]'
-          : 'right-3 bottom-4 flex-col justify-end'
-      }`}
-    >
-      <ScrollTopButton placement={p} />
-    </div>,
-    document.body,
   );
 }

@@ -65,7 +65,11 @@ import {
   type SavedCalculation,
   type SyncMeta,
 } from './lib/calcHistory';
-import { currentSchedule, saveCompanyPatch } from './lib/companyEdit';
+import {
+  currentSchedule,
+  toggleCompanyRunning as toggleCompanyRunningIn,
+  unpublishCompanyCalc,
+} from './lib/companyEdit';
 import { checkProduction, productionStatus } from './lib/productionCheck';
 import {
   buildAdvancedCalc,
@@ -78,7 +82,9 @@ import { buildEmptyDefaults, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
 import { popOpenSaved, takePiramidePending } from './lib/piramidePending';
 import { launchOnProduction, takeCompanyOpen } from './lib/productionView';
+import { isFinished } from './utils/companyReport';
 import ProduzionePage from './pages/ProduzionePage';
+import CompletatiPage from './pages/CompletatiPage';
 import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -87,7 +93,6 @@ import {
   fetchSharedCalc,
   updateSharedCalc,
   setCompanyPublish,
-  adminDeleteCompanyCalc,
   updateCompanyCalc,
   fetchCompanyCalcs,
   type SharedPayload,
@@ -949,7 +954,11 @@ function CalculatorApp() {
     if (!token) return false;
     const isPublic = mode !== 'off';
     if (isPublic && (!sync.published || sync.gone) && settings.maxCompanyShared > 0) {
-      const existing = await fetchCompanyCalcs(company.slug);
+      // (the finished ones stay listed for Completati: they don't count)
+      const now = new Date();
+      const existing = (await fetchCompanyCalcs(company.slug)).filter(
+        (c) => !isFinished(c.payload, now),
+      );
       if (existing.length >= settings.maxCompanyShared) {
         setCompanyNotice(
           t('company.limitReached', { max: settings.maxCompanyShared }),
@@ -1131,35 +1140,13 @@ function CalculatorApp() {
     c: CompanyCalc,
   ): Promise<CompanyCalc | null> => {
     const p = c.payload;
-    const local = loadHistory(settings.savedRetentionDays).find(
-      (e) => e.sync?.id === c.id,
+    const saved = await toggleCompanyRunningIn(
+      c,
+      company ? settings : null,
+      settings.savedRetentionDays,
     );
-    const entry: SavedCalculation = local ?? {
-      id: `shared-${c.id}`,
-      ts: Date.now(),
-      label: p.label ?? deriveLabel(p.result),
-      result: p.result,
-      values: p.values,
-      snapshot: p.snapshot,
-      completedRows: p.completedRows,
-    };
-    // The shared version is the latest — work from it, not a stale local copy.
-    const current: SavedCalculation = {
-      ...entry,
-      result: p.result,
-      values: p.values,
-      snapshot: p.snapshot,
-      completedRows: p.completedRows,
-    };
-    let patch: TrackingPatch | null = null;
-    try {
-      patch = toggleTracking(current, new Date(), currentScheduleFor(current));
-    } catch (err) {
-      console.error('Failed to pause / start company calc', c.id, err);
-    }
-    if (!patch) return null;
-    const saved = await saveCompanyPatch(c, patch, settings.savedRetentionDays);
     if (!saved) return null;
+    const patch = saved.calc.payload;
     // Follow it on screen: the list and banner of Salvati, the copy or the
     // live version being shown.
     setProductionRev((r) => r + 1);
@@ -1173,7 +1160,10 @@ function CalculatorApp() {
           id: `live-${c.id}`,
           ts: Date.now(),
           label: p.label ?? deriveLabel(p.result),
-          ...patch,
+          result: patch.result,
+          values: patch.values,
+          snapshot: patch.snapshot,
+          completedRows: patch.completedRows,
           sync: { ...syncMeta, version: saved.calc.version },
         },
         false,
@@ -1361,26 +1351,9 @@ function CalculatorApp() {
   // row. Clears the published flags locally so the "Salvati" 🏭 state matches.
   const deleteCompanyCalc = async (c: CompanyCalc) => {
     if (!company) return;
-    const local = loadHistory(settings.savedRetentionDays).find(
-      (e) => e.sync?.id === c.id && e.sync?.token,
-    );
-    const token = local?.sync?.token;
-    // Author path (has the edit token) unpublishes via set_company_publish;
-    // otherwise try the admin RPC (server gates on the caller being an admin of
-    // this company / a super-admin). Either way it leaves the company list.
-    const ok = token
-      ? await setCompanyPublish(c.id, token, company.slug, false, false)
-      : await adminDeleteCompanyCalc(c.id);
-    if (!ok) return;
-    if (local?.sync) {
-      const next: SyncMeta = {
-        ...local.sync,
-        published: false,
-        publishedEditable: false,
-      };
-      updateSyncMeta(local.id, next, settings.savedRetentionDays);
-      if (editingId === local.id) setSyncMeta(next);
-    }
+    const done = await unpublishCompanyCalc(c, company.slug, settings.savedRetentionDays);
+    if (!done) return;
+    if (done.sync && editingId === done.localId) setSyncMeta(done.sync);
     setSavedRefreshKey((k) => k + 1);
   };
 
@@ -1865,6 +1838,7 @@ function App() {
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/piramide" element={<PiramideRoute />} />
             <Route path="/produzione" element={<ProduzionePage />} />
+            <Route path="/completati" element={<CompletatiPage />} />
             <Route path="*" element={<CalculatorRoute />} />
           </Routes>
         </CatalogProvider>

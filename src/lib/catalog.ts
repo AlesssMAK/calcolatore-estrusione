@@ -41,6 +41,10 @@ export interface CompanySettings {
   /** Cap on how many results the company can have published to its shared list
    *  at once (0 = disabled). */
   maxCompanyShared: number;
+  /** How many days a finished company calc stays in Completati (after its
+   *  end). At most 90: the database drops a published calc 90 days after its
+   *  last change anyway. */
+  completedRetentionDays: number;
   /** "Causali di Fermo": named pauses picked between orders. */
   pauseReasons: PauseReason[];
 }
@@ -56,6 +60,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   maxSavedResults: 10,
   savedRetentionDays: 5,
   maxCompanyShared: 10,
+  completedRetentionDays: 90,
   pauseReasons: [],
 };
 
@@ -99,6 +104,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
     maxSavedResults: intIn(p.maxSavedResults, 10, 1, 100),
     savedRetentionDays: intIn(p.savedRetentionDays, 5, 1, 365),
     maxCompanyShared: intIn(p.maxCompanyShared, 10, 0, 100),
+    completedRetentionDays: intIn(p.completedRetentionDays, 90, 1, 90),
     pauseReasons: normalizePauseReasons(p.pauseReasons),
   };
 }

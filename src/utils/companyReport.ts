@@ -2,14 +2,22 @@ import type { SharedPayload } from '../lib/sharedCalc';
 import type { ScheduleSnapshot } from '../types';
 import { isWorkingAt, progressAsOf } from './calculator';
 import { pauseAt, type RunningPause } from './pauseAt';
+import { completedTotals } from './completedTotals';
 
 /** Where a published calc stands at a given moment:
  *  - running — a size is being produced
  *  - stopped — mid-size, but the line is off (outside working hours)
  *  - waiting — between two steps (pause after an order)
  *  - notStarted — before its first step
- *  - done — everything produced */
-export type StageStatus = 'running' | 'stopped' | 'waiting' | 'notStarted' | 'done';
+ *  - done — everything produced
+ *  - suspended — paused by hand (⏸, a "Calcolo Fisso"): it stays where it was */
+export type StageStatus =
+  | 'running'
+  | 'stopped'
+  | 'waiting'
+  | 'notStarted'
+  | 'done'
+  | 'suspended';
 
 export interface ReportStage {
   status: StageStatus;
@@ -188,4 +196,40 @@ export function stageSizes(p: SharedPayload, stage: ReportStage, at: Date): Stag
   });
   // (a custom queue may run them in another order than the form's)
   return list.sort((a, b) => sizes[a.idx].start.getTime() - sizes[b.idx].start.getTime());
+}
+
+/** Where a published calc stands at `at` — a suspended one (⏸) where it was
+ *  stopped, whatever the moment: its plan doesn't move on. */
+export function stageOf(p: SharedPayload, at: Date): ReportStage {
+  if (!p.values?.settings.frozen) return stageAt(p, at);
+  const stage = stageAt(p, p.result.startAt);
+  return stage.status === 'done' ? stage : { ...stage, status: 'suspended' };
+}
+
+/** Finished (everything produced) by now. A suspended calc never is. */
+export function isFinished(p: SharedPayload, now: Date): boolean {
+  return !p.values?.settings.frozen && stageAt(p, now).status === 'done';
+}
+
+/** Done by the moment shown, but still ahead of now: it will be done then. */
+export function willBeDone(stage: ReportStage, now: Date): boolean {
+  return stage.status === 'done' && stage.calcEnd.getTime() > now.getTime();
+}
+
+/** Monday 00:00 of the week of `d` (local time). */
+export function weekStart(d: Date): Date {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  out.setDate(out.getDate() - ((out.getDay() + 6) % 7));
+  return out;
+}
+
+/** When a calc's last order ends (its completed orders too). */
+export function endOf(p: SharedPayload): Date {
+  return completedTotals([...(p.completedRows ?? []), ...p.result.rows])?.endAt ?? p.result.endAt;
+}
+
+/** On the Produzione list / page: every calc not finished by now, and the ones
+ *  finished this week (from Monday they're only in Completati). */
+export function onProductionList(p: SharedPayload, now: Date): boolean {
+  return !isFinished(p, now) || endOf(p).getTime() >= weekStart(now).getTime();
 }

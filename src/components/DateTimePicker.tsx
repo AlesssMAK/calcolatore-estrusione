@@ -27,6 +27,8 @@ export default function DateTimePicker({
   filterDate,
   filterTime,
   invalid,
+  dateOnly,
+  clearable,
   className = inputBase,
   wrapperClassName = 'block w-full sm:max-w-xs',
 }: {
@@ -41,6 +43,10 @@ export default function DateTimePicker({
   filterTime?: (d: Date) => boolean;
   /** In error: framed red (its message: a wrapper's data-error). */
   invalid?: boolean;
+  /** Just the day (no time list). */
+  dateOnly?: boolean;
+  /** A ✕ in the field empties it. */
+  clearable?: boolean;
   /** The field's classes (the calendar looks the same whatever they are). */
   className?: string;
   wrapperClassName?: string;
@@ -79,9 +85,10 @@ export default function DateTimePicker({
       id={id}
       selected={selected}
       onChange={onChange}
-      showTimeSelect
+      showTimeSelect={!dateOnly}
       timeIntervals={timeIntervals}
-      dateFormat="dd/MM/yyyy HH:mm"
+      dateFormat={dateOnly ? 'dd/MM/yyyy' : 'dd/MM/yyyy HH:mm'}
+      isClearable={clearable}
       timeFormat="HH:mm"
       timeCaption={t('settings.time')}
       locale={lang}

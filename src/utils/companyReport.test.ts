@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { calculateSchedule, isWorkingAt, nextClosing } from './calculator';
-import { stageAt, stageSizes } from './companyReport';
+import {
+  endOf,
+  isFinished,
+  onProductionList,
+  stageAt,
+  stageOf,
+  stageSizes,
+  weekStart,
+  willBeDone,
+} from './companyReport';
 import type { SharedPayload } from '../lib/sharedCalc';
 import type { FormValues } from '../formSchema';
 import type { GlobalSettings, Order, WeekdayKey, WeekSchedule } from '../types';
@@ -227,5 +236,40 @@ describe('order number in the report', () => {
 
   it('is absent when the order has none', () => {
     expect(stageAt(payload, at(12, 21)).orderNumber).toBeUndefined();
+  });
+});
+
+describe('the Produzione page and list', () => {
+  it('a suspended calc stays where it stopped, whatever the moment', () => {
+    const frozen: SharedPayload = {
+      ...payload,
+      values: {
+        ...payload.values!,
+        settings: { ...payload.values!.settings, frozen: true },
+      } as FormValues,
+    };
+    expect(stageOf(frozen, at(13, 7)).status).toBe('suspended');
+    expect(stageOf(frozen, at(20, 9))).toMatchObject({ status: 'suspended', sizeLength: 1000 });
+    expect(isFinished(frozen, at(20, 9))).toBe(false);
+  });
+
+  it('done at a moment still ahead: it will be, not it is', () => {
+    const s = stageAt(payload, at(13, 7));
+    expect(willBeDone(s, at(12, 21))).toBe(true); // looked at from Monday evening
+    expect(willBeDone(s, at(13, 8))).toBe(false); // …and once it's over
+  });
+
+  it('weeks start on Monday 00:00', () => {
+    expect(weekStart(at(12, 21))).toEqual(at(12, 0)); // Monday
+    expect(weekStart(at(18, 9))).toEqual(at(12, 0)); // Sunday → that Monday
+    expect(weekStart(at(19, 0))).toEqual(at(19, 0)); // the next Monday
+  });
+
+  it('lists a finished calc until the end of its week', () => {
+    expect(endOf(payload)).toEqual(at(13, 6, 30));
+    expect(isFinished(payload, at(13, 7))).toBe(true);
+    expect(onProductionList(payload, at(12, 21))).toBe(true); // running
+    expect(onProductionList(payload, at(18, 23))).toBe(true); // done this week
+    expect(onProductionList(payload, at(19, 1))).toBe(false); // Monday after: Completati
   });
 });
