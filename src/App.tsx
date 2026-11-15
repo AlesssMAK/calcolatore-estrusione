@@ -1731,6 +1731,16 @@ function CalculatorApp() {
                     : undefined
                 }
                 onOpenOrder={openOrderInForm}
+                // The size in production (a tracked calc): the only one that
+                // shows what's made of it. (activeLoc counts in result.rows —
+                // the completed ones aren't there.)
+                active={(() => {
+                  const id =
+                    activeLoc && result.rows?.[activeLoc.orderIdx]?.order?.id;
+                  return id && activeLoc
+                    ? { orderId: id, sizeIdx: activeLoc.sizeIdx }
+                    : null;
+                })()}
               />
             </ErrorBoundary>
           </div>
