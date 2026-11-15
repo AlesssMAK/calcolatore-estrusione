@@ -545,6 +545,14 @@
     "empty": "No completed calcs.",
     "noMatch": "No completed calcs with these filters.",
     "keptFor": "Kept for {{n}} days after they end.",
-    "clear": "Clear the filters"
+    "clear": "Clear the filters",
+    "tabs": {
+      "all": "All",
+      "week": "Week",
+      "month": "Month",
+      "range": "Period"
+    },
+    "hintWeek": "Ended this week, since Monday.",
+    "hintMonth": "Ended this month."
   }
 }
