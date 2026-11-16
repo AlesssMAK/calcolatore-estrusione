@@ -574,6 +574,8 @@
     "since": "desde {{from}}",
     "change": "Cambiar",
     "resume": "Reanudar ahora",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "note": "Motivo (opcional)",
+    "notePlaceholder": "Ej. avería, mantenimiento…"
   }
 }

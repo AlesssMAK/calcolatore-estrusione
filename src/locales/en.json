@@ -574,6 +574,8 @@
     "since": "since {{from}}",
     "change": "Change",
     "resume": "Resume now",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "note": "Reason (optional)",
+    "notePlaceholder": "E.g. breakdown, maintenance…"
   }
 }

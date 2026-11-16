@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCatalog } from '../contexts/CatalogContext';
-import { pauseColorHex, reasonSnapshot } from '../lib/pauseReasons';
 import type { CalcHold, PauseReasonSnapshot } from '../types';
 import BareButton from './BareButton';
 import DateTimePicker from './DateTimePicker';
 import { CloseIcon, HaltIcon } from './ActionIcons';
+import { inputBase } from './formStyles';
 
 /**
  * "Ferma fino a…": the line stops now — what's made is kept — and the rest
  * waits until the moment picked, whatever the schedule says (a stop of days).
- * Why (the company's Causali di Fermo, or none) and until when. Opened again
- * on a running stop: its reason and moment, to change.
+ * Until when, and why in a few words if one likes (not the pauses' Causali di
+ * Fermo). Opened again on a running stop: its moment and words, to change.
  */
 function HaltModal({
   hold,
@@ -24,9 +23,8 @@ function HaltModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const { settings } = useCatalog();
-  const reasons = settings.pauseReasons;
-  const [reason, setReason] = useState<PauseReasonSnapshot | undefined>(hold?.reason);
+  // Why, in the user's words (optional).
+  const [note, setNote] = useState(hold?.reason?.name ?? '');
   const [until, setUntil] = useState<Date | null>(hold ? new Date(hold.until) : null);
   const [tried, setTried] = useState(false);
   // A moment to come (from when the window opened; checked again on apply).
@@ -49,30 +47,16 @@ function HaltModal({
   const apply = () => {
     setTried(true);
     if (invalid || until!.getTime() <= Date.now()) return;
+    const words = note.trim();
+    // (unchanged words keep what they came with — a stop between sizes' colour)
+    const reason: PauseReasonSnapshot | undefined = !words
+      ? undefined
+      : words === hold?.reason?.name
+        ? hold.reason
+        : { name: words, color: 'orange' };
     onApply(until!, reason);
     onClose();
   };
-  const chip = (key: string, label: string, color: string | undefined, on: boolean, pick: () => void) => (
-    <button
-      key={key}
-      type="button"
-      role="radio"
-      aria-checked={on}
-      onClick={pick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition sm:text-sm ${
-        on
-          ? 'border-brand-500 bg-brand-50 font-semibold text-brand-700'
-          : 'border-neutral-300 bg-white text-ink hover:border-brand-400'
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`h-2 w-2 shrink-0 rounded-full ${color ? '' : 'border border-neutral-400'}`}
-        style={color ? { backgroundColor: pauseColorHex(color) } : undefined}
-      />
-      {label}
-    </button>
-  );
   const err = tried && invalid ? t(until ? 'halt.future' : 'validation.pickResume') : undefined;
 
   return (
@@ -104,17 +88,6 @@ function HaltModal({
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-ink-soft">{t('orders.pauseReason')}</p>
-            <div role="radiogroup" aria-label={t('orders.pauseReason')} className="flex flex-wrap gap-1.5">
-              {chip('free', t('orders.pauseFree'), undefined, !reason, () => setReason(undefined))}
-              {reason && !reasons.some((r) => r.id === reason.id) &&
-                chip('saved', reason.name, reason.color, true, () => undefined)}
-              {reasons.map((r) =>
-                chip(r.id, r.name, r.color, reason?.id === r.id, () => setReason(reasonSnapshot(r))),
-              )}
-            </div>
-          </div>
           <div data-error={err}>
             <label htmlFor="halt-until" className="mb-1.5 block text-xs font-medium text-ink-soft">
               {t('halt.until')}
@@ -130,6 +103,20 @@ function HaltModal({
               wrapperClassName="block w-full"
             />
             {err && <p className="mt-1 text-xs text-danger">{err}</p>}
+          </div>
+          <div>
+            <label htmlFor="halt-note" className="mb-1.5 block text-xs font-medium text-ink-soft">
+              {t('halt.note')}
+            </label>
+            <input
+              id="halt-note"
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t('halt.notePlaceholder')}
+              maxLength={80}
+              className={inputBase}
+            />
           </div>
         </div>
 
