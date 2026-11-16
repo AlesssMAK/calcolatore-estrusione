@@ -441,6 +441,7 @@ function OrdersList({
       const next = pause ?? NO_PAUSE;
       setValue(`orders.${i}.gapEnabled`, next.gapEnabled, opts);
       setValue(`orders.${i}.gapAfterMin`, next.gapAfterMin, opts);
+      setValue(`orders.${i}.gapUntil`, next.gapUntil, opts);
       setValue(`orders.${i}.gapReason`, next.gapReason, opts);
     });
     const now = getValues('orders').map((o) => ({ ...o }));

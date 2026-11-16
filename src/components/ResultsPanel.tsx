@@ -145,9 +145,12 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
   const [now] = useState(() => new Date());
   // The pause after a row (closing its block). Under a folded completed order
   // it still shows while it isn't over (running now / still ahead).
+  // A pause "until" a moment already passed shows too (said so), while the
+  // order isn't done.
   const pauseShown = (row: ScheduledOrder, done: boolean): boolean =>
-    row.gapAfterMin > 0 &&
-    (!done || showCompleted || (row.gapEnd?.getTime() ?? 0) > now.getTime());
+    (row.gapAfterMin > 0 &&
+      (!done || showCompleted || (row.gapEnd?.getTime() ?? 0) > now.getTime())) ||
+    (!!row.gapPassed && !done);
 
   // Generate a crisp vector PDF of the result and hand it to the user in the
   // most share-friendly way the platform allows:

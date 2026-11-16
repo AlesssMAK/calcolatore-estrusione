@@ -30,8 +30,10 @@ import { useMenuPlacement } from '../hooks/useMenuPlacement';
 import { PauseKeptNote, type ProductChangeSides } from './ProductChange';
 import { useTrackedResult } from '../contexts/trackedResult';
 import { rowForOrder } from '../utils/formTiming';
-import { formatSpan } from '../utils/format';
+import { formatDuration, formatSpan } from '../utils/format';
 import { errorAttrs } from '../utils/errorBubble';
+import { format } from 'date-fns';
+import DateTimePicker from './DateTimePicker';
 
 // Pause slots (minutes): 30-min steps up to 12 h.
 const PAUSE_SLOTS: number[] = [];
@@ -45,6 +47,8 @@ const KEPT_NOTE_MS = 6000;
  * a block): the company's "Causale di Fermo" (colour + standard duration, still
  * editable) or a plain pause, and its minutes. The minutes show for a plain
  * pause / a reason with a free duration; a fixed one keeps them folded (▸).
+ * Or "until" a moment (⏱ / 📅): a stop of days, resuming when picked on the
+ * calendar — none when the queue gets there only after it (said so).
  */
 function PauseCard({
   idx,
@@ -72,6 +76,11 @@ function PauseCard({
   const reasons = settings.pauseReasons;
   const reason = useWatch({ control, name: `orders.${idx}.gapReason` });
   const minutes = Number(useWatch({ control, name: `orders.${idx}.gapAfterMin` })) || 0;
+  const until = useWatch({ control, name: `orders.${idx}.gapUntil` });
+  // Until a moment ('' → not picked yet), or minutes.
+  const untilMode = until !== undefined;
+  const untilDate = until ? new Date(until) : null;
+  const untilValid = !!untilDate && !Number.isNaN(untilDate.getTime());
   const hex = pauseColorHex(reason?.color ?? 'grey');
   const opts = { shouldDirty: true, shouldValidate: true };
   const [expanded, setExpanded] = useState(false);
@@ -93,18 +102,50 @@ function PauseCard({
   };
   const standard = reason?.defaultMin ?? null;
   const err = errors.orders?.[idx]?.gapAfterMin?.message;
+  const untilErr = errors.orders?.[idx]?.gapUntil?.message;
   // A fixed duration is already set — its minutes fold away (▸ to change them).
-  const foldable = standard != null;
-  const showTime = !foldable || expanded || !!err;
+  // A moment always shows (it's what the pause is).
+  const foldable = standard != null && !untilMode;
+  const showTime = untilMode || !foldable || expanded || !!err;
+  // ⏱ minutes ↔ 📅 until a moment (the minutes stay for coming back, and so
+  // does the moment while the card is open).
+  const lastUntil = useRef('');
+  const setUntilMode = (on: boolean) => {
+    if (on === untilMode) return;
+    if (!on) lastUntil.current = until ?? '';
+    setValue(`orders.${idx}.gapUntil`, on ? lastUntil.current : undefined, {
+      shouldDirty: true,
+      shouldValidate: !on || !!lastUntil.current,
+    });
+  };
   // Tracked calc (Salvati / Produzione): when the pause runs, from the last
   // "Calcola" — not once its minutes have been changed since.
   const result = useTrackedResult();
   const orderId = useWatch({ control, name: `orders.${idx}.id` });
   const row = rowForOrder(result, orderId);
+  // (as it was computed: same minutes / same moment)
+  const same =
+    !!row &&
+    (untilMode
+      ? row.order.gapUntil === until
+      : row.order.gapUntil === undefined && row.gapAfterMin === minutes);
+  const units = { day: t('units.day'), hour: t('units.hour'), minute: t('units.minute') };
   const span =
-    row?.gapStart && row.gapEnd && row.gapAfterMin === minutes
-      ? formatSpan(row.gapStart, row.gapEnd)
+    same && row?.gapStart && row.gapEnd
+      ? `${formatSpan(row.gapStart, row.gapEnd)}${
+          untilMode ? ` · ${formatDuration(row.gapAfterMin, units)}` : ''
+        }`
       : null;
+  // The queue gets there only after the moment: no pause.
+  const passed = same && untilMode && !!row?.gapPassed;
+  // Beside the reason: the minutes, or until when.
+  const badge = untilMode
+    ? untilValid
+      ? `→ ${format(untilDate!, 'dd.MM HH:mm')}`
+      : ''
+    : minutes > 0
+      ? fmtPause(minutes)
+      : '';
 
   return (
     <div
@@ -116,7 +157,7 @@ function PauseCard({
           <ReasonPicker
             reasons={reasons}
             reason={reason}
-            minutes={minutes}
+            badge={badge}
             onPick={pick}
             textMode={textMode}
             t={t}
@@ -124,10 +165,8 @@ function PauseCard({
         ) : (
           <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-ink">
             <MarqueeText text={`⏸ ${t('orders.togglePause')}`} />
-            {minutes > 0 && (
-              <span className="shrink-0 text-xs font-normal text-ink-soft">
-                {fmtPause(minutes)}
-              </span>
+            {badge && (
+              <span className="shrink-0 text-xs font-normal text-ink-soft">{badge}</span>
             )}
           </span>
         )}
@@ -181,6 +220,58 @@ function PauseCard({
         <div
           className={`${textMode ? 'mt-1' : 'mt-2'} flex flex-wrap items-center gap-x-3 gap-y-1`}
         >
+          <div
+            role="radiogroup"
+            aria-label={t('orders.pauseKind')}
+            // Shown in the read-only view too, but inert there (.ro-inert).
+            data-view
+            className="ro-inert inline-flex shrink-0 rounded-md bg-black/5 p-0.5"
+          >
+            {([false, true] as const).map((on) => (
+              <button
+                key={String(on)}
+                type="button"
+                role="radio"
+                aria-checked={untilMode === on}
+                onClick={() => setUntilMode(on)}
+                className={`rounded px-2 py-0.5 text-[11px] transition sm:text-xs ${
+                  untilMode === on
+                    ? 'bg-white font-semibold text-ink shadow-sm'
+                    : 'text-ink-soft hover:text-ink'
+                }`}
+              >
+                {on ? `📅 ${t('orders.pauseUntil')}` : `⏱ ${t('orders.pauseDuration')}`}
+              </button>
+            ))}
+          </div>
+          {untilMode ? (
+            <div
+              className={textMode ? 'min-w-0' : 'w-full sm:w-56'}
+              {...(untilErr ? { 'data-error': t(`validation.${untilErr}`) } : {})}
+            >
+              <DateTimePicker
+                id={`pause-until-${idx}`}
+                selected={untilValid ? untilDate : null}
+                onChange={(d) =>
+                  setValue(`orders.${idx}.gapUntil`, d ? d.toISOString() : '', opts)
+                }
+                timeIntervals={30}
+                placeholder={t('orders.pauseUntilPick')}
+                invalid={!!untilErr}
+                // A tracked calc: the moment as text, the calendar on a tap.
+                dateFormat={textMode ? 'EEE dd.MM.yyyy · HH:mm' : undefined}
+                className={
+                  textMode
+                    ? `h-7 w-full cursor-pointer rounded-md bg-transparent px-0.5 text-sm font-medium text-ink placeholder:font-normal placeholder:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 sm:h-8 ${
+                        untilErr ? 'ring-2 ring-danger/60' : ''
+                      }`
+                    : undefined
+                }
+                wrapperClassName="block w-full"
+              />
+            </div>
+          ) : (
+          <>
           {/* A tracked calc: "60 min · 1 h", the field on a tap. */}
           <TapToEdit
             names={[`orders.${idx}.gapAfterMin`]}
@@ -214,7 +305,14 @@ function PauseCard({
               ↺ {t('orders.pauseStandard', { d: fmtPause(standard) })}
             </button>
           )}
+          </>
+          )}
         </div>
+      )}
+      {passed && (
+        <p className="mt-1 rounded bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800 sm:text-xs">
+          ⚠ {t('orders.pausePassed')}
+        </p>
       )}
       {span && (
         // (centred on a phone)
@@ -235,14 +333,15 @@ function PauseCard({
 function ReasonPicker({
   reasons,
   reason,
-  minutes,
+  badge,
   onPick,
   textMode,
   t,
 }: {
   reasons: PauseReason[];
   reason: PauseReasonSnapshot | undefined;
-  minutes: number;
+  /** Beside its name: the pause's minutes, or until when. */
+  badge: string;
   onPick: (r: PauseReason | null) => void;
   /** A tracked calc: the reason as text (no frame), its list on a tap. */
   textMode: boolean;
@@ -332,9 +431,7 @@ function ReasonPicker({
         }
       >
         <MarqueeText text={label} />
-        {minutes > 0 && (
-          <span className="shrink-0 text-xs font-normal text-ink-soft">{fmtPause(minutes)}</span>
-        )}
+        {badge && <span className="shrink-0 text-xs font-normal text-ink-soft">{badge}</span>}
         <span
           aria-hidden
           className="shrink-0 text-[10px] text-ink-soft transition group-hover/rp:text-brand-700"

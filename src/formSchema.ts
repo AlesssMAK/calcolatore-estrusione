@@ -59,6 +59,8 @@ const orderSchema = z.object({
   cavity: z.number().int('integer').positive('positive').optional(),
   gapEnabled: z.boolean().optional(),
   gapAfterMin: z.number().min(0, 'nonNegative').optional(),
+  // The pause lasts until then (see Order.gapUntil).
+  gapUntil: z.string().optional(),
   // Snapshot of the company pause reason (see Order.gapReason).
   gapReason: z
     .object({
@@ -161,6 +163,17 @@ export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {
       }
 
       orders.forEach((order, idx) => {
+        // A pause "until": its moment picked on the calendar.
+        if (
+          order.gapUntil === '' &&
+          (order.gapEnabled ?? settings.gapMode === 'withGaps')
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['orders', idx, 'gapUntil'],
+            message: 'pickResume',
+          });
+        }
         if (order.useTotalLength) {
           if (order.totalLengthM === undefined) {
             ctx.addIssue({

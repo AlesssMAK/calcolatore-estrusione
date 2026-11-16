@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
 import type { CalculatorMode, Order, OrderSize } from '../types';
 import { diffCalcs, type CalcDiff, type CalcVersion } from '../utils/calcDiff';
 import type { DiffSide } from '../utils/calcMerge';
-import { formatDuration } from '../utils/format';
+import { formatDuration, formatShortDateTime } from '../utils/format';
 import MarqueeText from './MarqueeText';
 import BareButton from './BareButton';
 import { CloseIcon } from './ActionIcons';
@@ -307,6 +307,7 @@ function makeFormatter(
     cavity: t('orders.cavity'),
     gapEnabled: t('orders.togglePause'),
     gapAfterMin: t('orders.gapAfter'),
+    gapUntil: t('orders.pauseUntil'),
     gapReason: t('orders.pauseReason'),
     useTotalLength: t('orders.toggleTotalLength'),
     totalLengthM: t('orders.totalLength'),
@@ -368,6 +369,8 @@ function makeFormatter(
           return typeof v === 'number' ? formatDuration(v, units) : '—';
         if (d.field === 'totalLengthM') return typeof v === 'number' ? `${num(v)} m` : '—';
         if (d.field === 'gapReason') return (v as { name?: string } | undefined)?.name ?? '—';
+        if (d.field === 'gapUntil')
+          return typeof v === 'string' && v ? formatShortDateTime(new Date(v), lang) : '—';
         return num(v);
       }
       case 'sizeSequence':

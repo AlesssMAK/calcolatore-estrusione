@@ -1636,3 +1636,109 @@ describe('calculateSchedule — lastre per bancale is per order', () => {
     expect(result.rows[1]!.totalUnits).toBeUndefined(); // no own rate → none
   });
 });
+
+describe('calculateSchedule — a pause "until" a moment', () => {
+  const at = (d: number, h: number, min = 0) => new Date(2026, 5, d, h, min, 0, 0); // June 2026
+  // Wed 10:00, 60 min each
+  const start = at(3, 10);
+  const settings = {
+    startMode: 'manual' as const,
+    startAt: start.toISOString(),
+    gapMode: 'continuous' as const,
+  };
+  const order = (id: string, extra: Partial<Order> = {}): Order => ({
+    id,
+    sheets: 60,
+    sheetLengthMm: 1000,
+    speedMPerMin: 1,
+    ...extra,
+  });
+
+  it('holds the next order until that moment, whatever its length', () => {
+    const until = at(5, 14); // Fri 14:00 — two days later
+    const r = calculateSchedule(
+      settings,
+      [order('a', { gapEnabled: true, gapUntil: until.toISOString() }), order('b')],
+      { now: start },
+    );
+    expect(r.rows[0]!.gapStart!.getTime()).toBe(at(3, 11).getTime());
+    expect(r.rows[0]!.gapEnd!.getTime()).toBe(until.getTime());
+    expect(r.rows[0]!.gapAfterMin).toBe((until.getTime() - at(3, 11).getTime()) / 60_000);
+    expect(r.rows[0]!.gapPassed).toBeUndefined();
+    expect(r.rows[1]!.start.getTime()).toBe(until.getTime());
+    expect(r.totalGapMinutes).toBe(r.rows[0]!.gapAfterMin);
+  });
+
+  it('a moment off work (Saturday) → the next order starts when work does', () => {
+    const r = calculateSchedule(
+      settings,
+      [order('a', { gapEnabled: true, gapUntil: at(6, 14).toISOString() }), order('b')],
+      { now: start },
+    );
+    expect(r.rows[0]!.gapEnd!.getTime()).toBe(at(6, 14).getTime());
+    expect(r.rows[1]!.start.getTime()).toBe(at(8, 6).getTime()); // Mon 06:00
+  });
+
+  it('a moment the queue reaches only later → no pause, marked passed', () => {
+    const r = calculateSchedule(
+      settings,
+      [order('a', { gapEnabled: true, gapUntil: at(3, 10, 30).toISOString() }), order('b')],
+      { now: start },
+    );
+    expect(r.rows[0]!.gapAfterMin).toBe(0);
+    expect(r.rows[0]!.gapPassed).toBe(true);
+    expect(r.rows[0]!.gapStart).toBeUndefined();
+    expect(r.rows[1]!.start.getTime()).toBe(at(3, 11).getTime());
+    expect(r.totalGapMinutes).toBe(0);
+  });
+
+  it('none picked yet, a pause off, or the last order → no pause', () => {
+    const r = calculateSchedule(
+      settings,
+      [
+        order('a', { gapEnabled: true, gapUntil: '' }),
+        order('b', { gapEnabled: false, gapUntil: at(5, 14).toISOString() }),
+        order('c', { gapEnabled: true, gapUntil: at(5, 14).toISOString() }),
+      ],
+      { now: start },
+    );
+    expect(r.rows.map((x) => x.gapAfterMin)).toEqual([0, 0, 0]);
+    expect(r.rows.map((x) => !!x.gapPassed)).toEqual([false, false, false]);
+    expect(r.rows[1]!.start.getTime()).toBe(at(3, 11).getTime());
+    expect(r.rows[2]!.start.getTime()).toBe(at(3, 12).getTime());
+  });
+
+  it('with a custom queue: after the block\'s last step', () => {
+    const until = at(4, 9);
+    const r = calculateSchedule(
+      {
+        ...settings,
+        queue: [
+          { orderId: 'b', sizeUid: 'b2' },
+          { orderId: 'a' },
+          { orderId: 'b', sizeUid: 'b1' },
+          { orderId: 'c' },
+        ],
+      },
+      [
+        order('a'),
+        {
+          id: 'b',
+          speedMPerMin: 1,
+          sizes: [
+            { uid: 'b1', sheets: 60, length: 1000 },
+            { uid: 'b2', sheets: 60, length: 1000 },
+          ],
+          gapEnabled: true,
+          gapUntil: until.toISOString(),
+        },
+        order('c'),
+      ],
+      { now: start },
+    );
+    // a, b's two sizes: 10:00 → 13:00; then the pause until Thu 09:00
+    expect(r.rows[1]!.gapStart!.getTime()).toBe(at(3, 13).getTime());
+    expect(r.rows[1]!.gapEnd!.getTime()).toBe(until.getTime());
+    expect(r.rows[2]!.start.getTime()).toBe(until.getTime());
+  });
+});

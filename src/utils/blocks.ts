@@ -25,14 +25,19 @@ export function isGapEnabled(
   return order?.gapEnabled ?? settings?.gapMode === 'withGaps';
 }
 
-export type PauseFields = Pick<Order, 'gapEnabled' | 'gapAfterMin' | 'gapReason'>;
+export type PauseFields = Pick<Order, 'gapEnabled' | 'gapAfterMin' | 'gapUntil' | 'gapReason'>;
 
-type BlockOrder = Pick<Order, 'gapEnabled' | 'gapAfterMin' | 'gapReason'>;
+type BlockOrder = Pick<Order, 'gapEnabled' | 'gapAfterMin' | 'gapUntil' | 'gapReason'>;
 
 /** The pause after an order, or null when there's none. */
 export function pauseOf(order: BlockOrder | undefined, gapMode?: GapMode): PauseFields | null {
   if (!order || !isGapEnabled(order, { gapMode })) return null;
-  return { gapEnabled: true, gapAfterMin: order.gapAfterMin, gapReason: order.gapReason };
+  return {
+    gapEnabled: true,
+    gapAfterMin: order.gapAfterMin,
+    gapUntil: order.gapUntil,
+    gapReason: order.gapReason,
+  };
 }
 
 /** Block number of each order. */
@@ -226,6 +231,7 @@ export function pausesAfterRemoval(
 export const NO_PAUSE: PauseFields = {
   gapEnabled: false,
   gapAfterMin: undefined,
+  gapUntil: undefined,
   gapReason: undefined,
 };
 
@@ -239,6 +245,7 @@ export function samePause(
   if (!pa || !b) return !pa && !b;
   return (
     pa.gapAfterMin === b.gapAfterMin &&
+    pa.gapUntil === b.gapUntil &&
     JSON.stringify(pa.gapReason ?? null) === JSON.stringify(b.gapReason ?? null)
   );
 }

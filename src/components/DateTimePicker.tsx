@@ -29,6 +29,7 @@ export default function DateTimePicker({
   invalid,
   dateOnly,
   clearable,
+  dateFormat,
   className = inputBase,
   wrapperClassName = 'block w-full sm:max-w-xs',
 }: {
@@ -47,6 +48,8 @@ export default function DateTimePicker({
   dateOnly?: boolean;
   /** A ✕ in the field empties it. */
   clearable?: boolean;
+  /** How the field shows the moment (date-fns, in the app's language). */
+  dateFormat?: string;
   /** The field's classes (the calendar looks the same whatever they are). */
   className?: string;
   wrapperClassName?: string;
@@ -87,7 +90,7 @@ export default function DateTimePicker({
       onChange={onChange}
       showTimeSelect={!dateOnly}
       timeIntervals={timeIntervals}
-      dateFormat={dateOnly ? 'dd/MM/yyyy' : 'dd/MM/yyyy HH:mm'}
+      dateFormat={dateFormat ?? (dateOnly ? 'dd/MM/yyyy' : 'dd/MM/yyyy HH:mm')}
       isClearable={clearable}
       timeFormat="HH:mm"
       timeCaption={t('settings.time')}
