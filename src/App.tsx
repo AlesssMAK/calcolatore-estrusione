@@ -17,6 +17,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import Header from './components/Header';
+import { ProductionIcon } from './components/ActionIcons';
 import Tabs from './components/Tabs';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsPanel from './components/ResultsPanel';
@@ -1501,7 +1502,7 @@ function CalculatorApp() {
                     sm+: the buttons beside the text. */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                   <span className="flex min-w-0 basis-full items-start gap-2 font-medium sm:flex-1 sm:basis-0">
-                    <span aria-hidden>🏭</span>
+                    <ProductionIcon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {syncMeta.live
                         ? t('company.liveBanner')

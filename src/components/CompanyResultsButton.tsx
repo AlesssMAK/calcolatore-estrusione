@@ -5,7 +5,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCompanyCalcs, type CompanyCalc } from '../lib/sharedCalc';
 import { loadHistory } from '../lib/calcHistory';
-import { CloseIcon, FactoryIcon, PauseIcon, PlayIcon } from './ActionIcons';
+import { CloseIcon, ProductionIcon, PauseIcon, PlayIcon } from './ActionIcons';
 import BareButton from './BareButton';
 import { bareIconSize, bareNeutral } from './formStyles';
 import PauseNowNote from './PauseNowNote';
@@ -156,7 +156,7 @@ function CompanyResultsButton({
           aria-label={t('company.results')}
           className={floatBtnCls()}
         >
-          <FactoryIcon />
+          <ProductionIcon />
           {count > 0 && <span className={floatBadgeCls}>{count}</span>}
         </button>
       ) : (
@@ -171,7 +171,7 @@ function CompanyResultsButton({
           aria-expanded={open}
           className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 group-data-row/actions:w-auto"
         >
-          <span aria-hidden>🏭</span>
+          <ProductionIcon className="h-4 w-4" />
           <span>{t('company.results')}</span>
           {count > 0 && (
             <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">

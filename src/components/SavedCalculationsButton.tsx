@@ -14,7 +14,7 @@ const loadOwn = (retentionDays: number) =>
 import { useCatalog } from '../contexts/CatalogContext';
 import { checkProduction, productionStatus } from '../lib/productionCheck';
 import type { TFunction } from 'i18next';
-import { CloseIcon, FactoryIcon, SaveIcon, SyncIcon } from './ActionIcons';
+import { CloseIcon, ProductionIcon, SaveIcon, SyncIcon } from './ActionIcons';
 import BareButton from './BareButton';
 import { bareIconSize, bareNeutral, bareOn } from './formStyles';
 import { fixedMenuStyle, useMenuPlacement } from '../hooks/useMenuPlacement';
@@ -269,7 +269,7 @@ function SavedCalculationsButton({
                           title={t('company.broadcasting')}
                           aria-label={t('company.broadcasting')}
                         >
-                          <FactoryIcon className="h-3.5 w-3.5" />
+                          <ProductionIcon className="h-3.5 w-3.5" />
                         </span>
                       )}
                       <ProductionBadge entry={it} t={t} />
@@ -311,7 +311,7 @@ function SavedCalculationsButton({
                         )}
                         iconCls={it.sync?.published ? bareOn : bareNeutral}
                       >
-                        <FactoryIcon className={bareIconSize} />
+                        <ProductionIcon className={bareIconSize} />
                       </BareButton>
                       {publishMenuId === it.id && (
                         <div
@@ -385,18 +385,19 @@ function SavedCalculationsButton({
 }
 
 // A published original against Produzione: "⚠ N" when the plans differ, a
-// crossed-out 🏭 when it's no longer in the Produzione list.
+// crossed-out Produzione icon when it's no longer in the list.
 function ProductionBadge({ entry, t }: { entry: SavedCalculation; t: TFunction }) {
   const status = productionStatus(entry);
   if (!status) return null;
   if (status.gone) {
     return (
       <span
-        className="shrink-0 rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-semibold text-ink-soft line-through"
+        className="relative inline-flex shrink-0 items-center rounded bg-neutral-100 px-1 py-0.5 text-ink-soft"
         title={t('company.goneShort')}
         aria-label={t('company.goneShort')}
       >
-        🏭
+        <ProductionIcon className="h-3 w-3" />
+        <span aria-hidden className="absolute inset-x-0.5 top-1/2 h-px -rotate-45 bg-current" />
       </span>
     );
   }

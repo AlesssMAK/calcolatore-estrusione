@@ -8,7 +8,7 @@ import { useCatalog } from '../contexts/CatalogContext';
 import { clearDraft } from '../lib/formDraft';
 import { isInstalledApp } from '../lib/installedCompany';
 import { loadProductionStart, saveProductionStart } from '../lib/productionView';
-import { CalcIcon, FactoryIcon } from './ActionIcons';
+import { CalcIcon, ProductionIcon } from './ActionIcons';
 
 interface Props {
   /** Heading text. Defaults to the app title (calculator). */
@@ -120,7 +120,7 @@ function ProductionSwitch({ where }: { where: 'calculator' | 'page' }) {
         className={`${pillCls} border-brand-300 bg-brand-50 text-brand-700 hover:border-brand-500`}
       >
         <span aria-hidden>←</span>
-        <FactoryIcon className="h-3.5 w-3.5" />
+        <ProductionIcon className="h-3.5 w-3.5" />
         {t('production.title')}
       </button>
     );
@@ -142,7 +142,7 @@ function ProductionSwitch({ where }: { where: 'calculator' | 'page' }) {
       }`}
     >
       {/* On the page it names where a tap takes you: the calculator. */}
-      {on ? <CalcIcon className="h-3.5 w-3.5" /> : <FactoryIcon className="h-3.5 w-3.5" />}
+      {on ? <CalcIcon className="h-3.5 w-3.5" /> : <ProductionIcon className="h-3.5 w-3.5" />}
       {t(on ? 'production.toCalculator' : 'production.title')}
       <span
         aria-hidden
