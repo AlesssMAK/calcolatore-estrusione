@@ -135,6 +135,21 @@ const settingsSchema = z.object({
     .optional(),
   // A running pause's end (see GlobalSettings.resumeAt).
   resumeAt: z.string().optional(),
+  // The line stopped until then (see GlobalSettings.hold).
+  hold: z
+    .object({
+      from: z.string(),
+      until: z.string(),
+      reason: z
+        .object({
+          id: z.string().optional(),
+          name: z.string(),
+          color: z.string(),
+          defaultMin: z.number().nullable().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {

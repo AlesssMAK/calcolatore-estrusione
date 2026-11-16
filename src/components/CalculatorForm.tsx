@@ -32,6 +32,10 @@ import { revertPiramide } from '../utils/piramideApply';
 import { buildEmptyDefaults, genId } from '../utils/defaults';
 import QueueBanner from './QueueBanner';
 import StopPicker from './StopPicker';
+import HaltModal from './HaltModal';
+import HoldBanner from './HoldBanner';
+import { HaltContext } from '../contexts/halt';
+import type { PauseReasonSnapshot } from '../types';
 import { liveSchedule } from '../utils/liveSchedule';
 import {
   differsFromNatural,
@@ -548,6 +552,32 @@ function CalculatorForm({
             : null,
         }
       : null;
+  // "Ferma fino a…" on the size in production (a tracked calc in step with
+  // production): the line stops now — what's made stays — and the rest waits
+  // until the moment picked. Changed / resumed from the banner over the orders.
+  const [haltOpen, setHaltOpen] = useState(false);
+  const frozen = useWatch({ control: methods.control, name: 'settings.frozen' });
+  const hold = useWatch({ control: methods.control, name: 'settings.hold' });
+  const holdRunning = !!hold && new Date(hold.until).getTime() > Date.now();
+  const canHalt = !!canComplete && !readOnly && !frozen;
+  const applyHold = (until: Date, reason?: PauseReasonSnapshot) => {
+    methods.setValue(
+      'settings.hold',
+      {
+        from: holdRunning ? hold.from : new Date().toISOString(),
+        until: until.toISOString(),
+        reason,
+      },
+      { shouldDirty: true },
+    );
+    recomputeInPlace();
+  };
+  const resumeNow = () => {
+    methods.setValue('settings.hold', undefined, { shouldDirty: true });
+    methods.setValue('settings.resumeAt', undefined, { shouldDirty: true });
+    recomputeInPlace();
+  };
+
   const switchActiveTo = (target: SeqStep) => {
     if (!activeStep) return;
     const values = methods.getValues();
@@ -668,6 +698,10 @@ function CalculatorForm({
       >
         <WeekendBanner />
         <QueueBanner mode={mode} />
+        <HoldBanner
+          onChange={canHalt ? () => setHaltOpen(true) : undefined}
+          onResume={canHalt ? resumeNow : undefined}
+        />
         {settingsOpen && !readOnly && (
           <GlobalSettingsPanel mode={mode} onApplyQueue={applyQueue} />
         )}
@@ -695,6 +729,9 @@ function CalculatorForm({
           {/* A tracked calc (Salvati / Produzione): values as text, a field
               on a tap. */}
           <TextModeContext.Provider value={!!canComplete}>
+          <HaltContext.Provider
+            value={canHalt && activeStep ? () => setHaltOpen(true) : undefined}
+          >
           <OrdersList
             mode={mode}
             onComplete={canComplete && !readOnly ? completeItem : undefined}
@@ -718,6 +755,7 @@ function CalculatorForm({
             openResultFor={openResultFor}
             revealOrder={revealOrder}
           />
+          </HaltContext.Provider>
           </TextModeContext.Provider>
         </div>
 
@@ -784,6 +822,14 @@ function CalculatorForm({
           </button>
         </div>
       </form>
+
+      {haltOpen && (
+        <HaltModal
+          hold={holdRunning ? hold : undefined}
+          onApply={applyHold}
+          onClose={() => setHaltOpen(false)}
+        />
+      )}
 
       {stopOpen && activeStep && (
         <StopPicker

@@ -1,4 +1,4 @@
-import type { ScheduledOrder } from '../types';
+import type { ScheduledOrder, ScheduleResult } from '../types';
 
 /** A pause between blocks running at some moment. */
 export interface RunningPause {
@@ -16,8 +16,16 @@ export interface RunningPause {
  * rows. Results computed before pauses carried their times have none. A stop
  * between an order's sizes too.
  */
-export function pauseAt(rows: ScheduledOrder[], at: Date): RunningPause | null {
+export function pauseAt(
+  rows: ScheduledOrder[],
+  at: Date,
+  /** The line stopped ("Ferma fino a…" — ScheduleResult.hold). */
+  hold?: ScheduleResult['hold'],
+): RunningPause | null {
   const t = at.getTime();
+  if (hold && hold.start.getTime() <= t && t < hold.end.getTime()) {
+    return { name: hold.reason?.name, color: hold.reason?.color, until: hold.end };
+  }
   for (const r of rows) {
     if (!(r.gapAfterMin > 0) || !r.gapStart || !r.gapEnd) continue;
     if (r.gapStart.getTime() <= t && t < r.gapEnd.getTime()) {

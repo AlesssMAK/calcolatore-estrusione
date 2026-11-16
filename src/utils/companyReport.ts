@@ -107,7 +107,9 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
 
   // A pause between blocks — the block before it may already be among the
   // completed orders (then the rest starts after the pause, not "not started").
-  const pause = current ? null : pauseAt([...(p.completedRows ?? []), ...result.rows], at);
+  const pause = current
+    ? null
+    : pauseAt([...(p.completedRows ?? []), ...result.rows], at, result.hold);
   // Recomputed with the line off: the rest starts when it's back on, but the
   // calc did start.
   const started =

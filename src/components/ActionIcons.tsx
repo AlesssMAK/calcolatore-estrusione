@@ -61,6 +61,16 @@ export function ProductionIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** A calendar with ⏸ — stop the line until a day ("Ferma fino a…"). */
+export function HaltIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3 10h18M10 14v4M14 14v4" />
+    </svg>
+  );
+}
+
 /** Pause — stop a running process. */
 export function PauseIcon({ className = 'h-5 w-5' }: IconProps) {
   return (

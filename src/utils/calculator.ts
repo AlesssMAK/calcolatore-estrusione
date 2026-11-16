@@ -1058,9 +1058,16 @@ export function calculateSchedule(
   // "Senza limiti orari" always counts from now (a manual start is ignored).
   // A pause running now (set by the advance) holds the rest until it ends.
   const resumeAt = settings.resumeAt ? new Date(settings.resumeAt) : null;
+  // The line stopped until a moment ("Ferma fino a…"): the same, while it
+  // isn't over.
+  const holdUntil = settings.hold ? new Date(settings.hold.until) : null;
+  const holding =
+    !!holdUntil && !Number.isNaN(holdUntil.getTime()) && holdUntil.getTime() > now.getTime();
   const plannedStart = settings.noLimits ? now : resolveStartDate(settings, now);
-  const rawStart =
-    resumeAt && resumeAt.getTime() > plannedStart.getTime() ? resumeAt : plannedStart;
+  const rawStart = [resumeAt, holding ? holdUntil : null].reduce<Date>(
+    (a, b) => (b && b.getTime() > a.getTime() ? b : a),
+    plannedStart,
+  );
 
   // A fully continuous line never stops → no warm-up/shutdown and no splitting.
   // Otherwise production runs on "productive windows" (blocks trimmed by the
@@ -1697,6 +1704,14 @@ export function calculateSchedule(
     totalPackages,
     mode,
     productName: productName ? productName : undefined,
+    hold:
+      holding && settings.hold
+        ? {
+            start: new Date(settings.hold.from),
+            end: holdUntil!,
+            reason: settings.hold.reason,
+          }
+        : undefined,
   };
 }
 

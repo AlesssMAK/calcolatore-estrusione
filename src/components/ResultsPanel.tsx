@@ -22,6 +22,7 @@ import MarqueeText from './MarqueeText';
 import { isJumpTap, notePress } from '../utils/tapToJump';
 import { blockSpans, sizeGroupEnds, type SpanTotal } from '../utils/spanTotals';
 import PauseStrip from './PauseStrip';
+import PauseNowNote from './PauseNowNote';
 import UnitsTimeline from './UnitsTimeline';
 import { CollapsibleSchema } from './piramide/PiramideSchemaView';
 import {
@@ -785,6 +786,18 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
         <h3 className="mb-2 text-sm font-semibold tracking-wide text-ink-soft uppercase">
           {t('results.breakdown')}
         </h3>
+        {result.hold && result.hold.end.getTime() > now.getTime() && (
+          // The line stopped until a moment ("Ferma fino a…"): the rest waits.
+          <PauseNowNote
+            pause={{
+              name: result.hold.reason?.name,
+              color: result.hold.reason?.color,
+              until: result.hold.end,
+            }}
+            now={now}
+            className="mb-2"
+          />
+        )}
 
         {/* Cards, on every screen (no table). */}
         <ul className="space-y-2" {...jumpProps}>

@@ -13,6 +13,7 @@ import { effectiveValue } from './inherit';
 import type { FormValues } from '../formSchema';
 import type { SavedCalculation } from '../lib/calcHistory';
 import type {
+  CalcHold,
   GapMode,
   Order,
   ProducedEntry,
@@ -384,6 +385,10 @@ export function buildAdvancedCalc(
     resumeAt:
       runningPauseEnd(result, (i) => !!progress.orders[i]?.done, now)?.toISOString() ??
       undefined,
+    // The line stopped until a moment: kept while it isn't over. A stop
+    // between sizes running now becomes one (its size is made, so the stop
+    // would be gone from the result).
+    hold: holdAt(values.settings.hold, result, now),
   };
 
   const advResult =
@@ -442,6 +447,30 @@ export function runningPauseEnd(
   return null;
 }
 
+/** The line's stop at `now`: the calc's own while it isn't over, else a stop
+ *  between an order's sizes running then. */
+export function holdAt(
+  hold: CalcHold | undefined,
+  result: ScheduleResult,
+  now: Date,
+): CalcHold | undefined {
+  const t = now.getTime();
+  if (hold && new Date(hold.until).getTime() > t) return hold;
+  for (const row of result.rows) {
+    for (const [i, sd] of (row.sizeDetails ?? []).entries()) {
+      if (!(sd.gapAfterMin! > 0) || !sd.gapStart || !sd.gapEnd) continue;
+      if (sd.gapStart.getTime() <= t && t < sd.gapEnd.getTime()) {
+        return {
+          from: sd.gapStart.toISOString(),
+          until: sd.gapEnd.toISOString(),
+          reason: row.order.sizes?.[i]?.gapReason,
+        };
+      }
+    }
+  }
+  return undefined;
+}
+
 /** The new content of a saved calc after its 🔄 tracking toggle. */
 export type TrackingPatch = Pick<
   SavedCalculation,
@@ -472,6 +501,9 @@ export function toggleTracking(
       weekend: currentSchedule.weekend ?? values.settings.weekend,
       startMode: 'now',
       startAt: '',
+      // (starts now: no stop held over)
+      resumeAt: undefined,
+      hold: undefined,
     };
     const nextValues: FormValues = { ...values, settings };
     // Nothing left to run (every order already completed) → just flip the flag.
@@ -504,7 +536,7 @@ export function toggleTracking(
     result: base.result,
     values: {
       ...base.values,
-      settings: { ...base.values.settings, frozen: true },
+      settings: { ...base.values.settings, frozen: true, hold: undefined },
     },
     snapshot: adv ? currentSchedule : entry.snapshot,
     completedRows: base.completedRows,

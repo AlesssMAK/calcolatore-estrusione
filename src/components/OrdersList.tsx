@@ -73,6 +73,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
   CheckIcon,
   CloseIcon,
+  HaltIcon,
   MergeGroupIcon,
   MinusIcon,
   PauseIcon,
@@ -93,6 +94,7 @@ import { scrollToTopWithRoom } from '../utils/tailRoom';
 import TapToEdit from './TapToEdit';
 import EditNum from './EditNum';
 import { TextModeContext } from '../contexts/textMode';
+import { HaltContext } from '../contexts/halt';
 import { spanTotal, type SpanTotal } from '../utils/spanTotals';
 import {
   afterMove,
@@ -2050,6 +2052,7 @@ function sizeActionsFor({
   onCompleteSize,
   onPrioritizeSize,
   onStop,
+  onHalt,
   t,
 }: {
   sizeIdx: number;
@@ -2058,6 +2061,8 @@ function sizeActionsFor({
   onCompleteSize?: (sizeIdx: number) => void;
   onPrioritizeSize?: (sizeIdx: number) => void;
   onStop?: () => void;
+  /** "Ferma fino a…" (HaltContext) — on the size in production. */
+  onHalt?: () => void;
   t: TFunction;
 }): ReactNode {
   const complete =
@@ -2067,12 +2072,14 @@ function sizeActionsFor({
       ? () => onPrioritizeSize(sizeIdx)
       : undefined;
   const stop = onStop && sizeIdx === activeSizeIdx ? onStop : undefined;
-  if (!complete && !prioritize && !stop) return undefined;
+  const halt = onHalt && sizeIdx === activeSizeIdx ? onHalt : undefined;
+  if (!complete && !prioritize && !stop && !halt) return undefined;
   return (
     <SizeActions
       onComplete={complete}
       onPrioritize={prioritize}
       onStop={stop}
+      onHalt={halt}
       t={t}
     />
   );
@@ -2125,6 +2132,7 @@ function AdvancedSection({
   const [hadProducedAtMount] = useState(() =>
     producedAtMount(getValues(`orders.${idx}`), null),
   );
+  const halt = useContext(HaltContext);
   const [expanded, setExpanded] = useState(hadProducedAtMount);
   // A single production step: its buttons up top.
   const orderActions = sizeActionsFor({
@@ -2133,6 +2141,7 @@ function AdvancedSection({
     activeSizeIdx,
     onPrioritizeSize,
     onStop,
+    onHalt: halt,
     t,
   });
 
@@ -2246,6 +2255,7 @@ function SizeAdvancedPanel({
   const [open, setOpen] = useState(
     hadProducedAtMount || sizeIdx === activeSizeIdx,
   );
+  const halt = useContext(HaltContext);
   const actions = sizeActionsFor({
     sizeIdx,
     totalSizes,
@@ -2253,6 +2263,7 @@ function SizeAdvancedPanel({
     onCompleteSize,
     onPrioritizeSize,
     onStop,
+    onHalt: halt,
     t,
   });
   const uid = getValues(`orders.${orderIdx}.sizes.${sizeIdx}.uid`);
@@ -3864,15 +3875,17 @@ function SizeActions({
   onComplete,
   onPrioritize,
   onStop,
+  onHalt,
   t,
 }: {
   onComplete?: () => void;
   onPrioritize?: () => void;
   onStop?: () => void;
+  onHalt?: () => void;
   t: TFunction;
 }) {
   const textMode = useContext(TextModeContext);
-  if (!onComplete && !onPrioritize && !onStop) return null;
+  if (!onComplete && !onPrioritize && !onStop && !onHalt) return null;
   // A tracked calc: just the icons, like the order's own buttons.
   if (textMode) {
     return (
@@ -3893,6 +3906,15 @@ function SizeActions({
             iconCls="text-amber-600 group-hover/ib:text-amber-800 group-focus-visible/ib:text-amber-800"
           >
             <PlayIcon className={`${bareIconSize} fill-current`} />
+          </BareButton>
+        )}
+        {onHalt && (
+          <BareButton
+            title={t('halt.title')}
+            onClick={onHalt}
+            iconCls="text-amber-600 group-hover/ib:text-amber-800 group-focus-visible/ib:text-amber-800"
+          >
+            <HaltIcon className={bareIconSize} />
           </BareButton>
         )}
         {onStop && (

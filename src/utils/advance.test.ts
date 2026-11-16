@@ -438,3 +438,100 @@ describe('a pause between blocks running "now"', () => {
     expect(adv.result.rows[0]!.remainingMinutes).toBeCloseTo(30, 0);
   });
 });
+
+describe('the line stopped until a moment (settings.hold)', () => {
+  // Mon 11 May 2026 06:00, 600 min of work (to 16:00).
+  const withHold = (from: Date, until: Date): SavedCalculation => {
+    const e = makeEntry();
+    const values = {
+      ...e.values!,
+      settings: {
+        ...e.values!.settings,
+        startMode: 'now',
+        startAt: '',
+        hold: { from: from.toISOString(), until: until.toISOString(), reason: { name: 'Guasto', color: 'red' } },
+      },
+    } as FormValues;
+    const result = calculateSchedule(values.settings, values.orders, { now: from });
+    return { ...e, values, result };
+  };
+
+  it('the work waits until then; the result carries the stop', () => {
+    const from = localDate(2026, 4, 11, 9);
+    const until = localDate(2026, 4, 13, 14); // Wed 14:00
+    const e = withHold(from, until);
+    expect(e.result.startAt.getTime()).toBe(until.getTime());
+    expect(e.result.hold?.start.getTime()).toBe(from.getTime());
+    expect(e.result.hold?.end.getTime()).toBe(until.getTime());
+    expect(e.result.hold?.reason?.name).toBe('Guasto');
+  });
+
+  it('nothing is made during it: reopened before its end → as it was', () => {
+    const e = withHold(localDate(2026, 4, 11, 9), localDate(2026, 4, 13, 14));
+    expect(buildAdvancedCalc(e, localDate(2026, 4, 12, 10))).toBeNull();
+  });
+
+  it('once over, the advance drops it and counts from its end', () => {
+    const until = localDate(2026, 4, 13, 14);
+    const e = withHold(localDate(2026, 4, 11, 9), until);
+    const adv = buildAdvancedCalc(e, localDate(2026, 4, 13, 16))!; // +120 min of work
+    expect(adv.values.settings.hold).toBeUndefined();
+    expect(adv.result.hold).toBeUndefined();
+    expect(adv.result.rows[0]!.remainingMinutes).toBeCloseTo(480, 0);
+  });
+
+  it('🔄 starts afresh: no stop held over', () => {
+    const e = withHold(localDate(2026, 4, 11, 9), localDate(2026, 4, 13, 14));
+    const snap: ScheduleSnapshot = { warmupMinutes: 0, shutdownMinutes: 0, schedule: null };
+    const frozen = toggleTracking(e, localDate(2026, 4, 12, 10), snap)!;
+    expect(frozen.values!.settings.hold).toBeUndefined();
+    const back = toggleTracking(
+      { ...e, values: frozen.values, result: frozen.result },
+      localDate(2026, 4, 12, 10),
+      snap,
+    )!;
+    expect(back.values!.settings.hold).toBeUndefined();
+    expect(back.result.startAt.getTime()).toBe(localDate(2026, 4, 12, 10).getTime());
+  });
+
+  it('a stop between sizes running now becomes the line\'s stop', () => {
+    const start = localDate(2026, 4, 11, 6);
+    const values = {
+      settings: { startMode: 'manual', startAt: start.toISOString(), gapMode: 'continuous' },
+      orders: [
+        {
+          id: 'a',
+          speedMPerMin: 1,
+          sizes: [
+            {
+              uid: 'a1',
+              sheets: 60,
+              length: 1000,
+              gapEnabled: true,
+              gapUntil: localDate(2026, 4, 13, 14).toISOString(),
+              gapReason: { name: 'Cambio stampo', color: 'blue' },
+            },
+            { uid: 'a2', sheets: 60, length: 1000 },
+          ],
+        },
+      ],
+    } as unknown as FormValues;
+    const result = calculateSchedule(values.settings, values.orders, { now: start });
+    const e: SavedCalculation = {
+      id: 'y',
+      ts: start.getTime(),
+      label: 't',
+      result,
+      values,
+      snapshot: { warmupMinutes: 0, shutdownMinutes: 0, schedule: null },
+    };
+    const adv = buildAdvancedCalc(e, localDate(2026, 4, 12, 10))!; // in the stop
+    expect(adv.values.settings.hold?.reason?.name).toBe('Cambio stampo');
+    expect(adv.values.settings.hold?.until).toBe(localDate(2026, 4, 13, 14).toISOString());
+    expect(adv.result.hold?.end.getTime()).toBe(localDate(2026, 4, 13, 14).getTime());
+    // the size after it starts when the stop ends
+    expect(adv.result.rows[0]!.sizeDetails![1]!.start.getTime()).toBe(
+      localDate(2026, 4, 13, 14).getTime(),
+    );
+  });
+});
