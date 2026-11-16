@@ -78,6 +78,20 @@ button:disabled,
   background-color: var(--color-brand-700) !important;
   color: #fff !important;
 }
+/* Days picked as a period (Completati): its ends as a picked day, the days
+   between lightly tinted — also while the end is being chosen. */
+.react-datepicker__day--range-start,
+.react-datepicker__day--range-end,
+.react-datepicker__day--selecting-range-start,
+.react-datepicker__day--selecting-range-end {
+  background-color: var(--color-brand-600) !important;
+  color: #fff !important;
+}
+.react-datepicker__day--in-range:not(.react-datepicker__day--range-start):not(.react-datepicker__day--range-end),
+.react-datepicker__day--in-selecting-range:not(.react-datepicker__day--selecting-range-start):not(.react-datepicker__day--selecting-range-end) {
+  background-color: var(--color-brand-100) !important;
+  color: var(--color-brand-800) !important;
+}
 .react-datepicker__day--disabled,
 .react-datepicker__time-list-item--disabled {
   color: #cfcfcf !important;
@@ -86,13 +100,6 @@ button:disabled,
 }
 .react-datepicker__triangle {
   display: none;
-}
-/* The ✕ that empties a clearable field (Completati's days): the brand's. */
-.react-datepicker__close-icon::after {
-  background-color: var(--color-ink-soft);
-}
-.react-datepicker__close-icon:hover::after {
-  background-color: var(--color-brand-600);
 }
 /* Its popup lives at the page's end (portalId): over a modal (the Report),
    never cut by it. */
