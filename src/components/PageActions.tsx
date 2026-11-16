@@ -10,7 +10,7 @@ import type { SavedCalculation } from '../lib/calcHistory';
 import { publishSaved, toggleSavedTracking } from '../lib/savedEdit';
 import { isSupabaseConfigured } from '../lib/supabase';
 import SavedCalculationsButton from './SavedCalculationsButton';
-import { CalcIcon, CheckIcon, FactoryIcon } from './ActionIcons';
+import { CalcIcon, CheckIcon, ProductionIcon } from './ActionIcons';
 import { floatBtnCls, type FloatPlacement } from './floatStyles';
 import { ScrollTopButton } from './ScrollTopButton';
 
@@ -99,7 +99,7 @@ export default function PageActions({
   };
   const toOther = () => navigate(`/${other}${search}`);
   const otherLabel = t(other === 'completati' ? 'completed.title' : 'production.title');
-  const OtherIcon = other === 'completati' ? CheckIcon : FactoryIcon;
+  const OtherIcon = other === 'completati' ? CheckIcon : ProductionIcon;
 
   return (
     <>
