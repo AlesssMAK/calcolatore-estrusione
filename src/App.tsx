@@ -181,7 +181,7 @@ function computeActive(
         otherSizes,
         orderMinutes: row.remainingMinutes,
         orderEnd: formatDateParts(row.end, lang),
-        pause: pauseAt([...completed, ...rows], new Date()) ?? undefined,
+        pause: pauseAt([...completed, ...rows], new Date(), result.hold) ?? undefined,
       },
       orderIdx: i,
       sizeIdx,

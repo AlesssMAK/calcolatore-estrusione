@@ -566,5 +566,19 @@
     },
     "hintWeek": "Terminados esta semana, desde el lunes.",
     "hintMonth": "Terminados este mes."
+  },
+  "halt": {
+    "title": "Detener hasta…",
+    "editTitle": "Parada: cambiar",
+    "hint": "La línea se detiene ahora: lo hecho se mantiene, el resto se reanuda cuando elijas — incluso días después.",
+    "until": "Se reanuda el",
+    "future": "Elige un momento futuro",
+    "apply": "Detener",
+    "save": "Guardar",
+    "banner": "Parado hasta {{until}}",
+    "since": "desde {{from}}",
+    "change": "Cambiar",
+    "resume": "Reanudar ahora",
+    "cancel": "Cancelar"
   }
 }

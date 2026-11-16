@@ -245,6 +245,7 @@ function CompanyResultsButton({
                   : pauseAt(
                       [...(c.payload.completedRows ?? []), ...(c.payload.result?.rows ?? [])],
                       new Date(now),
+                      c.payload.result?.hold,
                     );
                 return (
                   <li

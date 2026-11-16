@@ -273,3 +273,35 @@ describe('the Produzione page and list', () => {
     expect(onProductionList(payload, at(19, 1))).toBe(false); // Monday after: Completati
   });
 });
+
+describe('a calc whose line is stopped until a moment', () => {
+  it('reads "in pausa" until then, with the reason', () => {
+    const held = {
+      ...settings,
+      startMode: 'now',
+      startAt: '',
+      hold: {
+        from: at(12, 21).toISOString(),
+        until: at(14, 10).toISOString(),
+        reason: { name: 'Guasto', color: 'orange' },
+      },
+    } as GlobalSettings;
+    const p: SharedPayload = {
+      ...payload,
+      values: { settings: held, orders } as unknown as FormValues,
+      result: calculateSchedule(held, orders, {
+        mode: 'sheets',
+        schedule,
+        warmupMinutes: 0,
+        shutdownMinutes: 0,
+        now: at(12, 21),
+      }),
+    };
+    const s = stageOf(p, at(13, 9));
+    expect(s.status).toBe('waiting');
+    expect(s.pause?.name).toBe('Guasto');
+    expect(s.pause?.until.getTime()).toBe(at(14, 10).getTime());
+    // once over: running again
+    expect(stageOf(p, at(14, 10, 30)).status).toBe('running');
+  });
+});

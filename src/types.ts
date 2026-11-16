@@ -173,6 +173,19 @@ export interface GlobalSettings {
    *  pause between blocks is running (the block before it is done), so the next
    *  block still waits for the pause's end. Internal, not shown in the form. */
   resumeAt?: string;
+  /** The line stopped from `from` until `until` (ISO): "Ferma fino a…" on
+   *  the size in production of a tracked calc — what's made by then is kept,
+   *  the rest waits until `until` (whatever the schedule says) — or a stop
+   *  between sizes running when the calc was brought up to now. Dropped once
+   *  it's over. */
+  hold?: CalcHold;
+}
+
+/** A stop of the whole line (GlobalSettings.hold). */
+export interface CalcHold {
+  from: string;
+  until: string;
+  reason?: PauseReasonSnapshot;
 }
 
 /** A single continuous production window (used when an order is split across
@@ -319,4 +332,6 @@ export interface ScheduleResult {
   totalPackages?: number;
   mode: CalculatorMode;
   productName?: string;
+  /** The line stopped (GlobalSettings.hold) — while it isn't over. */
+  hold?: { start: Date; end: Date; reason?: PauseReasonSnapshot };
 }

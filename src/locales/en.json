@@ -566,5 +566,19 @@
     },
     "hintWeek": "Ended this week, since Monday.",
     "hintMonth": "Ended this month."
+  },
+  "halt": {
+    "title": "Stop until…",
+    "editTitle": "Stop: change",
+    "hint": "The line stops now: what's made is kept, the rest resumes when you choose — even days later.",
+    "until": "Resumes on",
+    "future": "Pick a moment to come",
+    "apply": "Stop",
+    "save": "Save",
+    "banner": "Stopped until {{until}}",
+    "since": "since {{from}}",
+    "change": "Change",
+    "resume": "Resume now",
+    "cancel": "Cancel"
   }
 }

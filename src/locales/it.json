@@ -566,5 +566,19 @@
     },
     "hintWeek": "Finiti questa settimana, da lunedì.",
     "hintMonth": "Finiti questo mese."
+  },
+  "halt": {
+    "title": "Ferma fino a…",
+    "editTitle": "Fermo: cambia",
+    "hint": "La linea si ferma ora: ciò che è fatto resta, il resto riparte quando scegli — anche tra giorni.",
+    "until": "Riparte il",
+    "future": "Scegli un momento futuro",
+    "apply": "Ferma",
+    "save": "Salva",
+    "banner": "Fermo fino a {{until}}",
+    "since": "dal {{from}}",
+    "change": "Cambia",
+    "resume": "Riprendi ora",
+    "cancel": "Annulla"
   }
 }
