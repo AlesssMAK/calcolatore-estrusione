@@ -984,6 +984,17 @@ interface OrderDraft {
   gapNatural: number;
   /** Pause after the order wherever a custom queue puts its end. */
   gapRaw: number;
+  /** A pause "until" a moment instead of minutes (null: not picked yet → no
+   *  pause); undefined → a pause of minutes / none. */
+  gapUntil?: Date | null;
+}
+
+/** The moment a pause "until" ends (null: none picked / not a date), or
+ *  undefined for a pause of minutes. */
+function untilOf(order: Pick<Order, 'gapUntil'>): Date | null | undefined {
+  if (order.gapUntil === undefined) return undefined;
+  const d = new Date(order.gapUntil);
+  return order.gapUntil && !Number.isNaN(d.getTime()) ? d : null;
 }
 
 export function calculateSchedule(
@@ -1076,6 +1087,7 @@ export function calculateSchedule(
       ? Math.max(0, order.gapAfterMin ?? 0)
       : 0;
     const gapNatural = isLast ? 0 : gapRaw;
+    const gapUntil = isGapEnabled(order, settings) ? untilOf(order) : undefined;
 
     let packages: number | undefined;
     let totalProfiles: number | undefined;
@@ -1360,6 +1372,7 @@ export function calculateSchedule(
       remPieces,
       gapNatural,
       gapRaw,
+      gapUntil,
       sizes: sizeDetails,
       base: {
         order,
@@ -1409,6 +1422,38 @@ export function calculateSchedule(
       };
     });
 
+  // The pause from an order's `end`: `minutes` of working time, or until a
+  // moment (wall-clock, whatever the schedule) — none when the queue gets
+  // there only after that moment (`passed`). Where the work goes on, how long
+  // it lasted and when.
+  const pauseFrom = (
+    end: Date,
+    minutes: number,
+    until: Date | null | undefined,
+  ): {
+    cursor: Date;
+    minutes: number;
+    times: Pick<ScheduledOrder, 'gapStart' | 'gapEnd'>;
+    passed?: boolean;
+  } => {
+    if (until === undefined) {
+      const g = run(end, minutes);
+      return {
+        cursor: g.end,
+        minutes,
+        times: minutes > 0 ? { gapStart: g.segments[0]?.start ?? end, gapEnd: g.end } : {},
+      };
+    }
+    if (until && until.getTime() > end.getTime()) {
+      return {
+        cursor: until,
+        minutes: (until.getTime() - end.getTime()) / 60_000,
+        times: { gapStart: end, gapEnd: until },
+      };
+    }
+    return { cursor: end, minutes: 0, times: {}, passed: !!until };
+  };
+
   const rows: ScheduledOrder[] = [];
   let totalProductionMinutes = 0;
   let totalGapMinutes = 0;
@@ -1434,12 +1479,16 @@ export function calculateSchedule(
       // A finished order adds no real gap and must not push the cursor forward —
       // keep it (and any following finished orders) at the last working moment
       // instead of dragging them past the weekend into the next window.
-      let gap: Pick<ScheduledOrder, 'gapStart' | 'gapEnd'> = {};
+      // (the last order's pause has nothing to hold: none)
+      const isLast = d === drafts[drafts.length - 1];
+      let gap: Pick<ScheduledOrder, 'gapStart' | 'gapEnd' | 'gapPassed'> = {};
+      let gapMin = d.gapUntil === undefined ? d.gapNatural : 0;
       if (rem > 0) {
-        totalGapMinutes += d.gapNatural;
-        const g = run(end, d.gapNatural);
-        cursor = g.end;
-        if (d.gapNatural > 0) gap = { gapStart: g.segments[0]?.start ?? end, gapEnd: g.end };
+        const p = pauseFrom(end, d.gapNatural, isLast ? undefined : d.gapUntil);
+        totalGapMinutes += p.minutes;
+        cursor = p.cursor;
+        gapMin = p.minutes;
+        gap = p.passed ? { gapPassed: true } : p.times;
       } else {
         cursor = end;
       }
@@ -1449,7 +1498,7 @@ export function calculateSchedule(
         end,
         segments: segments.length > 1 ? segments : undefined,
         sizeDetails,
-        gapAfterMin: d.gapNatural,
+        gapAfterMin: gapMin,
         ...gap,
       });
       totalProductionMinutes += rem;
@@ -1476,7 +1525,10 @@ export function calculateSchedule(
     for (const s of working) lastStepOf.set(blockOf[s.orderIdx], s);
     const timed = new Map<string, { start: Date; end: Date; raw: RawSegment[] }>();
     const gapOf = new Map<number, number>();
-    const gapTimesOf = new Map<number, Pick<ScheduledOrder, 'gapStart' | 'gapEnd'>>();
+    const gapTimesOf = new Map<
+      number,
+      Pick<ScheduledOrder, 'gapStart' | 'gapEnd' | 'gapPassed'>
+    >();
     const key = (s: SeqStep) => `${s.orderIdx}:${s.sizeIdx ?? '*'}`;
     let cursor = rawStart;
     working.forEach((s, i) => {
@@ -1487,13 +1539,17 @@ export function calculateSchedule(
       // The block's pause once its work is done, unless nothing follows it.
       const b = blockOf[s.orderIdx];
       const closer = blockEnd.get(b)!;
-      const gap = drafts[closer].gapRaw;
-      if (lastStepOf.get(b) === s && i < working.length - 1 && gap > 0) {
-        gapOf.set(closer, gap);
-        totalGapMinutes += gap;
-        const g = run(end, gap);
-        gapTimesOf.set(closer, { gapStart: g.segments[0]?.start ?? end, gapEnd: g.end });
-        cursor = g.end;
+      const { gapRaw: gap, gapUntil: until } = drafts[closer];
+      if (
+        lastStepOf.get(b) === s &&
+        i < working.length - 1 &&
+        (gap > 0 || until !== undefined)
+      ) {
+        const p = pauseFrom(end, gap, until);
+        totalGapMinutes += p.minutes;
+        if (p.minutes > 0) gapOf.set(closer, p.minutes);
+        gapTimesOf.set(closer, p.passed ? { gapPassed: true } : p.times);
+        cursor = p.cursor;
       }
     });
 

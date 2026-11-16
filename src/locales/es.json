@@ -158,7 +158,12 @@
     "groupEnds": "Fin del grupo",
     "blockEnds": "Fin del bloque",
     "perItem": "{{time}}/lámina",
-    "perItemProfiles": "{{time}}/perfil"
+    "perItemProfiles": "{{time}}/perfil",
+    "pauseKind": "Tipo de pausa",
+    "pauseDuration": "Duración",
+    "pauseUntil": "Hasta",
+    "pauseUntilPick": "¿Cuándo se reanuda?",
+    "pausePassed": "Fecha ya superada: se llega aquí después, la producción sigue sin parada."
   },
   "actions": {
     "calculate": "Calcular",
@@ -258,7 +263,9 @@
     "advanceFailed": "No se pudo actualizar el cálculo guardado a «ahora» — se muestra como se guardó.",
     "renderError": "No se pudo mostrar este cálculo guardado.",
     "pause": "Pausa",
-    "pauseNow": "En Curso"
+    "pauseNow": "En Curso",
+    "pauseUntil": "hasta {{d}}",
+    "pausePassed": "fecha ya superada"
   },
   "units": {
     "day": "d",
@@ -276,7 +283,8 @@
     "enterTotalLength": "Introduce los metros totales",
     "enterSheets": "Introduce el número de láminas",
     "enterProfiles": "Introduce el número de perfiles",
-    "enterLength": "Introduce la longitud (mm)"
+    "enterLength": "Introduce la longitud (mm)",
+    "pickResume": "Elige cuándo se reanuda"
   },
   "activeModal": {
     "title": "Pedido en producción",

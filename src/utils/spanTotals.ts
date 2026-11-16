@@ -66,7 +66,8 @@ export function blockSpans(rows: ScheduledOrder[]): BlockSpan[] {
   const ranges: number[][] = [[]];
   live.forEach(({ r, i }, k) => {
     ranges[ranges.length - 1].push(i);
-    if (r.gapAfterMin > 0 && k < live.length - 1) ranges.push([]);
+    // (a pause "until" a moment already passed still closes its block)
+    if ((r.gapAfterMin > 0 || r.gapPassed) && k < live.length - 1) ranges.push([]);
   });
   if (ranges.length < 2) return [];
   const out: BlockSpan[] = [];

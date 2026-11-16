@@ -158,7 +158,12 @@
     "groupEnds": "Group ends",
     "blockEnds": "Block ends",
     "perItem": "{{time}}/sheet",
-    "perItemProfiles": "{{time}}/profile"
+    "perItemProfiles": "{{time}}/profile",
+    "pauseKind": "Pause type",
+    "pauseDuration": "Duration",
+    "pauseUntil": "Until",
+    "pauseUntilPick": "When does it resume?",
+    "pausePassed": "Date already passed: the line gets here later, production goes on without a stop."
   },
   "actions": {
     "calculate": "Calculate",
@@ -258,7 +263,9 @@
     "advanceFailed": "Couldn't update this saved calculation to «now» — showing it as saved.",
     "renderError": "Couldn't display this saved calculation.",
     "pause": "Pause",
-    "pauseNow": "In Progress"
+    "pauseNow": "In Progress",
+    "pauseUntil": "until {{d}}",
+    "pausePassed": "date already passed"
   },
   "units": {
     "day": "d",
@@ -276,7 +283,8 @@
     "enterTotalLength": "Enter total meters",
     "enterSheets": "Enter the number of sheets",
     "enterProfiles": "Enter the number of profiles",
-    "enterLength": "Enter the length (mm)"
+    "enterLength": "Enter the length (mm)",
+    "pickResume": "Pick when it resumes"
   },
   "activeModal": {
     "title": "Order in production",

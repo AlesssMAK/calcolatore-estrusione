@@ -10,7 +10,8 @@ const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
  * The pause after an order (closing its block) in the results: a slim strip
  * tinted with its reason's colour — name, duration and when it runs
  * ("14:00 → 16:00", with the day when it isn't today / spans days). Marked
- * "in corso" while it's running.
+ * "in corso" while it's running. A pause "until" a moment the queue reaches
+ * only later: that moment, "data già superata" (no pause).
  */
 function PauseStrip({ row, now }: { row: ScheduledOrder; now: Date }) {
   const { t } = useTranslation();
@@ -36,9 +37,22 @@ function PauseStrip({ row, now }: { row: ScheduledOrder; now: Date }) {
       <span className="min-w-0 truncate font-semibold">
         ⏸ {reason?.name ?? t('results.pause')}
       </span>
-      <span className="shrink-0 text-ink-soft">
-        · {formatDuration(row.gapAfterMin, units)}
-      </span>
+      {row.gapPassed ? (
+        <>
+          {row.order.gapUntil && (
+            <span className="shrink-0 text-ink-soft">
+              · {t('results.pauseUntil', { d: format(new Date(row.order.gapUntil), 'dd.MM HH:mm') })}
+            </span>
+          )}
+          <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 sm:text-xs">
+            ⚠ {t('results.pausePassed')}
+          </span>
+        </>
+      ) : (
+        <span className="shrink-0 text-ink-soft">
+          · {formatDuration(row.gapAfterMin, units)}
+        </span>
+      )}
       {running && (
         <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 sm:text-xs">
           {t('results.pauseNow')}

@@ -42,6 +42,7 @@ export type OrderField =
   | 'cavity'
   | 'gapEnabled'
   | 'gapAfterMin'
+  | 'gapUntil'
   | 'gapReason'
   | 'useTotalLength'
   | 'totalLengthM'
@@ -104,6 +105,7 @@ const ORDER_FIELDS: OrderField[] = [
   'cavity',
   'gapEnabled',
   'gapAfterMin',
+  'gapUntil',
   'gapReason',
   'useTotalLength',
   'totalLengthM',

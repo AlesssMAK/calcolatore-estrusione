@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -246,10 +247,18 @@ function QueueEditor({ mode, onClose, onApply }: Props) {
                           <span className="min-w-0 flex-1 truncate font-medium">
                             ⏸ {pauseAfter.gapReason?.name ?? t('orders.togglePause')}
                           </span>
-                          {(pauseAfter.gapAfterMin ?? 0) > 0 && (
-                            <span className="shrink-0 text-ink-soft">
-                              {fmtPause(pauseAfter.gapAfterMin ?? 0)}
-                            </span>
+                          {pauseAfter.gapUntil !== undefined ? (
+                            pauseAfter.gapUntil && (
+                              <span className="shrink-0 text-ink-soft">
+                                → {format(new Date(pauseAfter.gapUntil), 'dd.MM HH:mm')}
+                              </span>
+                            )
+                          ) : (
+                            (pauseAfter.gapAfterMin ?? 0) > 0 && (
+                              <span className="shrink-0 text-ink-soft">
+                                {fmtPause(pauseAfter.gapAfterMin ?? 0)}
+                              </span>
+                            )
                           )}
                         </li>
                       )}

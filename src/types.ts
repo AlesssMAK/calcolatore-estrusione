@@ -65,6 +65,11 @@ export interface Order {
    *  `settings.gapMode === 'withGaps'` decides (old saved calcs). */
   gapEnabled?: boolean;
   gapAfterMin?: number;
+  /** The pause lasts until this moment (ISO) instead of gapAfterMin working
+   *  minutes: a stop of days, resuming when picked on the calendar — whatever
+   *  the schedule says meanwhile. '' = picked "until" but no moment yet. A
+   *  moment the queue only reaches later → no pause (gapPassed on its row). */
+  gapUntil?: string;
   /** The company "Causale di Fermo" picked for this pause — a snapshot (name,
    *  colour, its standard duration), so saved / published calcs keep showing
    *  it even if the admin later edits or deletes the reason. None → a plain
@@ -246,10 +251,14 @@ export interface ScheduledOrder {
   end: Date;
   gapAfterMin: number;
   /** When the pause after this order (closing its block) runs — set when
-   *  gapAfterMin > 0. It runs on working time, so it can span a stop. Missing
-   *  in results computed before it existed. */
+   *  gapAfterMin > 0. It runs on working time, so it can span a stop (a pause
+   *  "until" a moment: from the order's end to that moment, wall-clock).
+   *  Missing in results computed before it existed. */
   gapStart?: Date;
   gapEnd?: Date;
+  /** A pause "until" a moment the queue reached only after it: no pause
+   *  (gapAfterMin 0) — the moment is to be looked at again. */
+  gapPassed?: boolean;
   packages?: number;
   totalProfiles?: number;
   producedProfiles?: number;

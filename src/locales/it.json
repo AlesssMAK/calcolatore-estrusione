@@ -158,7 +158,12 @@
     "groupEnds": "Fine gruppo",
     "blockEnds": "Fine blocco",
     "perItem": "{{time}}/lastra",
-    "perItemProfiles": "{{time}}/profilo"
+    "perItemProfiles": "{{time}}/profilo",
+    "pauseKind": "Tipo di pausa",
+    "pauseDuration": "Durata",
+    "pauseUntil": "Fino a",
+    "pauseUntilPick": "Quando riprende?",
+    "pausePassed": "Data già superata: qui si arriva dopo, la produzione continua senza fermo."
   },
   "actions": {
     "calculate": "Calcola",
@@ -258,7 +263,9 @@
     "advanceFailed": "Impossibile aggiornare il calcolo salvato ad «ora» — mostrato com'era salvato.",
     "renderError": "Impossibile mostrare questo calcolo salvato.",
     "pause": "Pausa",
-    "pauseNow": "In Corso"
+    "pauseNow": "In Corso",
+    "pauseUntil": "fino a {{d}}",
+    "pausePassed": "data già superata"
   },
   "units": {
     "day": "g",
@@ -276,7 +283,8 @@
     "enterTotalLength": "Inserisci i metri totali",
     "enterSheets": "Inserisci il numero di lastre",
     "enterProfiles": "Inserisci il numero di profili",
-    "enterLength": "Inserisci la lunghezza (mm)"
+    "enterLength": "Inserisci la lunghezza (mm)",
+    "pickResume": "Scegli quando riprende"
   },
   "activeModal": {
     "title": "Ordine in lavorazione",
