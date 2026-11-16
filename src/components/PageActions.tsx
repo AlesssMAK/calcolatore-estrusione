@@ -4,8 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFitsInRow } from '../hooks/useFitsInRow';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useCatalog } from '../contexts/CatalogContext';
 import { stashOpenSaved } from '../lib/piramidePending';
 import type { SavedCalculation } from '../lib/calcHistory';
+import { publishSaved, toggleSavedTracking } from '../lib/savedEdit';
+import { isSupabaseConfigured } from '../lib/supabase';
 import SavedCalculationsButton from './SavedCalculationsButton';
 import { CalcIcon, CheckIcon, FactoryIcon } from './ActionIcons';
 import { floatBtnCls, type FloatPlacement } from './floatStyles';
@@ -19,17 +22,22 @@ const btnCls =
  * calculator, Salvati (a saved calc opens in the calculator) and the other
  * page — in a row when they fit, else a full-width column. While they're out
  * of view: pinned icons (a bottom bar on a phone, a rail on the right wider)
- * over the scroll-to-top.
+ * over the scroll-to-top. Salvati as the calculator's: 🔄 and 🏭 per calc too.
  */
 export default function PageActions({
   other,
   className = '',
+  onPublished,
 }: {
   /** The other page's button. */
   other: 'produzione' | 'completati';
   className?: string;
+  /** A calc was published / taken off from Salvati: the page rereads its list. */
+  onPublished?: () => void;
 }) {
   const { t } = useTranslation();
+  const { company, settings } = useCatalog();
+  const retentionDays = settings.savedRetentionDays;
   const navigate = useNavigate();
   const { search } = useLocation();
   const ref = useRef<HTMLDivElement>(null);
@@ -46,9 +54,48 @@ export default function PageActions({
   const p: FloatPlacement = isPhone ? 'bar' : 'rail';
 
   const toCalculator = () => navigate(`/${search}`);
-  const openSaved = (entry: SavedCalculation) => {
-    stashOpenSaved(entry.id);
-    navigate(`/${search}`);
+
+  // Bumped after a change in Salvati, so its list rereads.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const flashNotice = (msg: string, ms = 4000) => {
+    setNotice(msg);
+    window.setTimeout(() => setNotice(null), ms);
+  };
+  // 🔄: fixed ↔ in step with production (a synced copy pushes the change; a
+  // view-only follower's copy is detached — said so, as in the calculator).
+  const onToggleTracking = (entry: SavedCalculation) => {
+    const done = toggleSavedTracking(entry, company ? settings : null, retentionDays);
+    if (!done) return;
+    setRefreshKey((k) => k + 1);
+    if (done.push === 'detached') flashNotice(t('company.readOnlySaved'));
+  };
+  // 🏭: publish to Produzione (view only / editable) or take it off.
+  const onPublish = async (entry: SavedCalculation, mode: 'view' | 'edit' | 'off') => {
+    if (!company) return;
+    const done = await publishSaved(
+      entry,
+      mode,
+      company.slug,
+      settings.maxCompanyShared,
+      retentionDays,
+    );
+    if (done.outcome === 'limit') {
+      flashNotice(t('company.limitReached', { max: settings.maxCompanyShared }), 3000);
+    }
+    if (done.outcome !== 'ok') return;
+    setRefreshKey((k) => k + 1);
+    onPublished?.();
+  };
+  // The same list in the buttons and in the pinned icons.
+  const savedProps = {
+    onRestore: (entry: SavedCalculation) => {
+      stashOpenSaved(entry.id);
+      navigate(`/${search}`);
+    },
+    onToggleTracking,
+    refreshKey,
+    onPublish: isSupabaseConfigured && company ? onPublish : undefined,
   };
   const toOther = () => navigate(`/${other}${search}`);
   const otherLabel = t(other === 'completati' ? 'completed.title' : 'production.title');
@@ -64,7 +111,7 @@ export default function PageActions({
         <button type="button" onClick={toCalculator} className={btnCls}>
           ← {t('production.toCalculator')}
         </button>
-        <SavedCalculationsButton onRestore={openSaved} />
+        <SavedCalculationsButton {...savedProps} />
         <button type="button" onClick={toOther} className={btnCls}>
           <OtherIcon className="h-4 w-4" />
           {otherLabel}
@@ -96,7 +143,7 @@ export default function PageActions({
             >
               <CalcIcon />
             </button>
-            <SavedCalculationsButton placement={p} onRestore={openSaved} />
+            <SavedCalculationsButton placement={p} {...savedProps} />
             <button
               type="button"
               onClick={toOther}
@@ -110,6 +157,15 @@ export default function PageActions({
           <ScrollTopButton placement={p} />
         </div>,
         document.body,
+      )}
+
+      {notice && (
+        <div
+          role="alert"
+          className="no-print fixed bottom-4 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg"
+        >
+          {notice}
+        </div>
       )}
     </>
   );
