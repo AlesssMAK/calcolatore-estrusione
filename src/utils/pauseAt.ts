@@ -13,7 +13,8 @@ export interface RunningPause {
 /**
  * The pause running at `at` among a calc's rows — pass the completed ones too:
  * once the block before a pause is done, its closing order has left the active
- * rows. Results computed before pauses carried their times have none.
+ * rows. Results computed before pauses carried their times have none. A stop
+ * between an order's sizes too.
  */
 export function pauseAt(rows: ScheduledOrder[], at: Date): RunningPause | null {
   const t = at.getTime();
@@ -25,6 +26,13 @@ export function pauseAt(rows: ScheduledOrder[], at: Date): RunningPause | null {
         color: r.order.gapReason?.color,
         until: r.gapEnd,
       };
+    }
+    for (const [i, sd] of (r.sizeDetails ?? []).entries()) {
+      if (!(sd.gapAfterMin! > 0) || !sd.gapStart || !sd.gapEnd) continue;
+      if (sd.gapStart.getTime() <= t && t < sd.gapEnd.getTime()) {
+        const reason = r.order.sizes?.[i]?.gapReason;
+        return { name: reason?.name, color: reason?.color, until: sd.gapEnd };
+      }
     }
   }
   return null;

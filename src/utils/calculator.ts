@@ -509,6 +509,20 @@ function makeWindowFeed(from: Date, work: Work | undefined, buf: Buffers) {
 }
 type WindowFeed = ReturnType<typeof makeWindowFeed>;
 
+/** Windows in time order, back-to-back ones merged. */
+function mergeAdjacent(segs: RawSegment[]): RawSegment[] {
+  const out: RawSegment[] = [];
+  for (const seg of segs) {
+    const prev = out[out.length - 1];
+    if (prev && prev.end.getTime() === seg.start.getTime()) {
+      out[out.length - 1] = { start: prev.start, end: seg.end };
+    } else {
+      out.push({ ...seg });
+    }
+  }
+  return out;
+}
+
 /** First productive instant at/after `cursor` on the feed. */
 function feedStart(feed: WindowFeed, cursor: Date): Date {
   const w = feed.at(feed.seek(cursor));
@@ -987,6 +1001,26 @@ interface OrderDraft {
   /** A pause "until" a moment instead of minutes (null: not picked yet → no
    *  pause); undefined → a pause of minutes / none. */
   gapUntil?: Date | null;
+  /** The stop after each size (not the last), by size — none when off. */
+  sizePauses?: (SizePause | undefined)[];
+}
+
+/** A stop after a size: minutes of working time, or until a moment. */
+interface SizePause {
+  minutes: number;
+  until: Date | null | undefined;
+}
+
+/** The stops after an order's sizes (on all but its last size). */
+function sizePausesOf(order: Order): (SizePause | undefined)[] | undefined {
+  const sizes = order.sizes;
+  if (order.useTotalLength || !sizes || sizes.length < 2) return undefined;
+  const out = sizes.map((s, i) =>
+    s?.gapEnabled && i < sizes.length - 1
+      ? { minutes: Math.max(0, s.gapAfterMin ?? 0), until: untilOf(s) }
+      : undefined,
+  );
+  return out.some(Boolean) ? out : undefined;
 }
 
 /** The moment a pause "until" ends (null: none picked / not a date), or
@@ -1373,6 +1407,7 @@ export function calculateSchedule(
       gapNatural,
       gapRaw,
       gapUntil,
+      sizePauses: sizePausesOf(order),
       sizes: sizeDetails,
       base: {
         order,
@@ -1467,14 +1502,40 @@ export function calculateSchedule(
     for (const d of drafts) {
       const rem = d.base.remainingMinutes;
       const start = rem > 0 ? startOf(cursor) : pastInstant();
-      const { end, segments: raw } = run(start, rem);
+      let { end, segments: raw } = run(start, rem);
       let sizeCursor = start;
-      const sizeDetails = d.sizes?.map((sd) => {
-        const startI = startOf(sizeCursor);
-        const endI = run(startI, sd.remainingMinutes).end;
-        sizeCursor = endI;
-        return { ...sd, start: startI, end: endI };
-      });
+      let sizeDetails: ScheduledSizeDetail[] | undefined;
+      if (d.sizes && d.sizePauses && rem > 0) {
+        // Stops between its sizes: each size runs on from the stop before it;
+        // the order spans its sizes and stops, its windows are the sizes'.
+        raw = [];
+        sizeDetails = d.sizes.map((sd, i) => {
+          const startI = startOf(sizeCursor);
+          const r = run(startI, sd.remainingMinutes);
+          raw.push(...r.segments);
+          sizeCursor = r.end;
+          if (sd.remainingMinutes > 0) end = r.end;
+          const sp = d.sizePauses![i];
+          const later = d.sizes!.slice(i + 1).some((s) => s.remainingMinutes > 0);
+          if (!sp || !(sd.remainingMinutes > 0) || !later) {
+            return { ...sd, start: startI, end: r.end };
+          }
+          const p = pauseFrom(r.end, sp.minutes, sp.until);
+          totalGapMinutes += p.minutes;
+          sizeCursor = p.cursor;
+          return p.passed
+            ? { ...sd, start: startI, end: r.end, gapAfterMin: 0, gapPassed: true }
+            : { ...sd, start: startI, end: r.end, gapAfterMin: p.minutes, ...p.times };
+        });
+        raw = mergeAdjacent(raw);
+      } else {
+        sizeDetails = d.sizes?.map((sd) => {
+          const startI = startOf(sizeCursor);
+          const endI = run(startI, sd.remainingMinutes).end;
+          sizeCursor = endI;
+          return { ...sd, start: startI, end: endI };
+        });
+      }
       const segments = enrich(d, raw);
       // A finished order adds no real gap and must not push the cursor forward —
       // keep it (and any following finished orders) at the last working moment
@@ -1530,12 +1591,28 @@ export function calculateSchedule(
       Pick<ScheduledOrder, 'gapStart' | 'gapEnd' | 'gapPassed'>
     >();
     const key = (s: SeqStep) => `${s.orderIdx}:${s.sizeIdx ?? '*'}`;
+    // The stops after sizes, by step.
+    const sizeGapOf = new Map<
+      string,
+      Pick<ScheduledSizeDetail, 'gapAfterMin' | 'gapStart' | 'gapEnd' | 'gapPassed'>
+    >();
     let cursor = rawStart;
     working.forEach((s, i) => {
       const start = startOf(cursor);
       const { end, segments: raw } = run(start, stepRem(s));
       timed.set(key(s), { start, end, raw });
       cursor = end;
+      // The stop after this size, when more work follows.
+      const sp = s.sizeIdx === null ? undefined : drafts[s.orderIdx].sizePauses?.[s.sizeIdx];
+      if (sp && i < working.length - 1) {
+        const p = pauseFrom(end, sp.minutes, sp.until);
+        totalGapMinutes += p.minutes;
+        cursor = p.cursor;
+        sizeGapOf.set(
+          key(s),
+          p.passed ? { gapAfterMin: 0, gapPassed: true } : { gapAfterMin: p.minutes, ...p.times },
+        );
+      }
       // The block's pause once its work is done, unless nothing follows it.
       const b = blockOf[s.orderIdx];
       const closer = blockEnd.get(b)!;
@@ -1566,21 +1643,20 @@ export function calculateSchedule(
         ? new Date(Math.max(...live.map((t) => t.end.getTime())))
         : past;
       // Union of the steps' windows, in time order, merging back-to-back ones.
-      const raw: RawSegment[] = [];
-      for (const seg of live
-        .flatMap((t) => t.raw)
-        .sort((a, b) => a.start.getTime() - b.start.getTime())) {
-        const prev = raw[raw.length - 1];
-        if (prev && prev.end.getTime() === seg.start.getTime()) {
-          raw[raw.length - 1] = { start: prev.start, end: seg.end };
-        } else {
-          raw.push({ ...seg });
-        }
-      }
+      const raw = mergeAdjacent(
+        live
+          .flatMap((t) => t.raw)
+          .sort((a, b) => a.start.getTime() - b.start.getTime()),
+      );
       const segments = enrich(d, raw);
       const sizeDetails = d.sizes?.map((sd, sizeIdx) => {
         const t = own[sizeIdx];
-        return { ...sd, start: t?.start ?? past, end: t?.end ?? past };
+        return {
+          ...sd,
+          start: t?.start ?? past,
+          end: t?.end ?? past,
+          ...sizeGapOf.get(key({ orderIdx, sizeIdx })),
+        };
       });
       rows.push({
         ...d.base,

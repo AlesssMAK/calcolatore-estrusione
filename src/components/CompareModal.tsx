@@ -362,8 +362,11 @@ function makeFormatter(
         const sizes = d.order.sizes ?? [];
         return sizes.length ? sizes.map(sizeName).join(', ') : t('compare.present');
       }
+      case 'sizeField':
       case 'orderField': {
         const v = d[from];
+        if (d.kind === 'sizeField' && d.field === 'length' && typeof v === 'number')
+          return `${num(v)} mm`;
         if (d.field === 'gapEnabled' || d.field === 'useTotalLength') return yesNo(v);
         if (d.field === 'gapAfterMin')
           return typeof v === 'number' ? formatDuration(v, units) : '—';
@@ -380,10 +383,6 @@ function makeFormatter(
         const presentIn: DiffSide = d.kind === 'sizeAdded' ? 'production' : 'original';
         return presentIn === from ? sizeName(d.size) : '—';
       }
-      case 'sizeField':
-        return d.field === 'length' && typeof d[from] === 'number'
-          ? `${num(d[from])} mm`
-          : num(d[from]);
       case 'produced':
         return d.sizeKey === 'm' ? `${num(d[from])} m` : num(d[from]);
       case 'orderDone':

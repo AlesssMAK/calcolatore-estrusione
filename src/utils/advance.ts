@@ -432,6 +432,13 @@ export function runningPauseEnd(
     const to = row.gapEnd?.getTime() ?? nextStart;
     if (Number.isFinite(to) && from <= t && t < to) return new Date(to);
   }
+  // A stop between an order's sizes (the size before it is made by then).
+  for (const row of result.rows) {
+    for (const sd of row.sizeDetails ?? []) {
+      if (!(sd.gapAfterMin! > 0) || !sd.gapStart || !sd.gapEnd) continue;
+      if (sd.gapStart.getTime() <= t && t < sd.gapEnd.getTime()) return new Date(sd.gapEnd);
+    }
+  }
   return null;
 }
 

@@ -163,7 +163,10 @@
     "pauseDuration": "Durata",
     "pauseUntil": "Fino a",
     "pauseUntilPick": "Quando riprende?",
-    "pausePassed": "Data già superata: qui si arriva dopo, la produzione continua senza fermo."
+    "pausePassed": "Data già superata: qui si arriva dopo, la produzione continua senza fermo.",
+    "sizePause": "Fermo dopo la misura",
+    "sizePauseOn": "Fermo dopo questa misura",
+    "sizePauseOff": "Togli il fermo dopo questa misura"
   },
   "actions": {
     "calculate": "Calcola",
@@ -265,7 +268,8 @@
     "pause": "Pausa",
     "pauseNow": "In Corso",
     "pauseUntil": "fino a {{d}}",
-    "pausePassed": "data già superata"
+    "pausePassed": "data già superata",
+    "sizePause": "Fermo"
   },
   "units": {
     "day": "g",

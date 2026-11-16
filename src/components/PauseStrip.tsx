@@ -11,14 +11,26 @@ const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
  * tinted with its reason's colour — name, duration and when it runs
  * ("14:00 → 16:00", with the day when it isn't today / spans days). Marked
  * "in corso" while it's running. A pause "until" a moment the queue reaches
- * only later: that moment, "data già superata" (no pause).
+ * only later: that moment, "data già superata" (no pause). With `sizeIdx`:
+ * the stop after that size of the order.
  */
-function PauseStrip({ row, now }: { row: ScheduledOrder; now: Date }) {
+function PauseStrip({
+  row,
+  now,
+  sizeIdx,
+}: {
+  row: ScheduledOrder;
+  now: Date;
+  sizeIdx?: number;
+}) {
   const { t } = useTranslation();
-  const reason = row.order.gapReason;
+  // The order's pause / the size's stop: what it is, and when.
+  const src = sizeIdx === undefined ? row.order : row.order.sizes?.[sizeIdx];
+  const times = sizeIdx === undefined ? row : row.sizeDetails?.[sizeIdx];
+  const reason = src?.gapReason;
   const hex = pauseColorHex(reason?.color ?? 'grey');
-  const from = row.gapStart;
-  const to = row.gapEnd;
+  const from = times?.gapStart;
+  const to = times?.gapEnd;
   const running =
     !!from && !!to && from.getTime() <= now.getTime() && now.getTime() < to.getTime();
   const units = { day: t('units.day'), hour: t('units.hour'), minute: t('units.minute') };
@@ -35,13 +47,13 @@ function PauseStrip({ row, now }: { row: ScheduledOrder; now: Date }) {
         style={{ backgroundColor: hex }}
       />
       <span className="min-w-0 truncate font-semibold">
-        ⏸ {reason?.name ?? t('results.pause')}
+        ⏸ {reason?.name ?? t(sizeIdx === undefined ? 'results.pause' : 'results.sizePause')}
       </span>
-      {row.gapPassed ? (
+      {times?.gapPassed ? (
         <>
-          {row.order.gapUntil && (
+          {src?.gapUntil && (
             <span className="shrink-0 text-ink-soft">
-              · {t('results.pauseUntil', { d: format(new Date(row.order.gapUntil), 'dd.MM HH:mm') })}
+              · {t('results.pauseUntil', { d: format(new Date(src.gapUntil), 'dd.MM HH:mm') })}
             </span>
           )}
           <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 sm:text-xs">
@@ -50,7 +62,7 @@ function PauseStrip({ row, now }: { row: ScheduledOrder; now: Date }) {
         </>
       ) : (
         <span className="shrink-0 text-ink-soft">
-          · {formatDuration(row.gapAfterMin, units)}
+          · {formatDuration(times?.gapAfterMin ?? 0, units)}
         </span>
       )}
       {running && (
