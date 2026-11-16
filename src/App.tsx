@@ -58,7 +58,6 @@ import {
   restoreBeforeProduction,
   saveCalculation,
   updateBeforeProduction,
-  updateCalculation,
   updateProduction,
   updateSyncMeta,
   type ProductionSnapshot,
@@ -72,29 +71,29 @@ import {
 } from './lib/companyEdit';
 import { checkProduction, productionStatus } from './lib/productionCheck';
 import {
+  payloadOf,
+  publishSaved,
+  pushSavedToShared,
+  toggleSavedTracking,
+  type SharedPush,
+} from './lib/savedEdit';
+import {
   buildAdvancedCalc,
   restoreIntoBlocks,
-  toggleTracking,
   type AdvancedCalc,
-  type TrackingPatch,
 } from './utils/advance';
 import { buildEmptyDefaults, makeEmptyOrder } from './utils/defaults';
 import { popOrderImport } from './lib/orderImport';
 import { popOpenSaved, takePiramidePending } from './lib/piramidePending';
 import { launchOnProduction, takeCompanyOpen } from './lib/productionView';
-import { isFinished } from './utils/companyReport';
 import ProduzionePage from './pages/ProduzionePage';
 import CompletatiPage from './pages/CompletatiPage';
 import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
-  createSharedCalc,
   fetchSharedCalc,
   updateSharedCalc,
-  setCompanyPublish,
-  updateCompanyCalc,
-  fetchCompanyCalcs,
   type SharedPayload,
   type CompanyCalc,
 } from './lib/sharedCalc';
@@ -425,17 +424,6 @@ function CalculatorApp() {
     setFormKey((k) => k + 1);
   };
 
-  // A saved entry as the shared document (Produzione) carries it.
-  const payloadOf = (entry: SavedCalculation): SharedPayload => ({
-    v: 1,
-    mode: entry.result.mode,
-    values: entry.values!,
-    result: entry.result,
-    completedRows: entry.completedRows,
-    label: entry.label,
-    snapshot: entry.snapshot,
-  });
-
   // Build the shareable payload for a set of values/result/completed rows,
   // carrying the effective schedule snapshot (from the bound saved entry) so a
   // recipient can advance it to "now".
@@ -553,35 +541,31 @@ function CalculatorApp() {
     entryId: string | undefined,
     isCurrent: boolean,
   ) => {
-    const applyVersion = (v: number | null) => {
-      if (v != null) {
-        const next: SyncMeta = { ...meta, version: v };
-        if (isCurrent) setSyncMeta(next);
-        if (entryId) {
-          updateSyncMeta(entryId, next, settings.savedRetentionDays);
-        }
-      }
-    };
-    if (meta.token) {
-      // Author / link collaborator — edits via the secret token.
-      void updateSharedCalc(meta.id, meta.token, payload).then(applyVersion);
-    } else if (meta.companyEditable) {
-      // Company member on an "editable by anyone" published calc — no token.
-      void updateCompanyCalc(meta.id, payload).then(applyVersion);
-    } else {
-      // A view-only follower edited → detach into a local copy so their
-      // changes aren't overwritten by the next pull. Say so: the company's
-      // shared version is NOT updated (reopening it from Azienda keeps these
-      // edits as a separate "(copia locale)" entry — see openCompanyCalc).
+    followPush(
+      pushSavedToShared(meta, payload, entryId, settings.savedRetentionDays),
+      isCurrent,
+      !!entryId,
+    );
+  };
+  // …and what it changes on screen.
+  const followPush = (push: SharedPush, isCurrent: boolean, saved: boolean) => {
+    if (push !== 'detached') {
       if (isCurrent) {
-        setSyncMeta(null);
-        flashNotice(t('company.readOnlySaved'));
+        void push.then((next) => {
+          if (next) setSyncMeta(next);
+        });
       }
-      if (entryId) {
-        updateSyncMeta(entryId, undefined, settings.savedRetentionDays);
-        setSavedRefreshKey((k) => k + 1);
-      }
+      return;
     }
+    // A view-only follower edited → detached into a local copy so their
+    // changes aren't overwritten by the next pull. Say so: the company's
+    // shared version is NOT updated (reopening it from Azienda keeps these
+    // edits as a separate "(copia locale)" entry — see openCompanyCalc).
+    if (isCurrent) {
+      setSyncMeta(null);
+      flashNotice(t('company.readOnlySaved'));
+    }
+    if (saved) setSavedRefreshKey((k) => k + 1);
   };
 
   // The *current* effective schedule to advance / recompute a saved calc on.
@@ -639,34 +623,16 @@ function CalculatorApp() {
   // original — that waits for "Invia a Produzione"); the calc on screen is
   // reopened so the form/result reflect it.
   const onToggleTracking = (entry: SavedCalculation) => {
-    let patch: TrackingPatch | null = null;
-    try {
-      patch = toggleTracking(entry, new Date(), currentScheduleFor(entry));
-    } catch (err) {
-      console.error('Failed to toggle tracking', entry.id, err);
-    }
-    if (!patch) return;
-    const updated = updateCalculation(entry.id, patch, settings.savedRetentionDays);
-    if (!updated) return;
+    const done = toggleSavedTracking(
+      entry,
+      company ? settings : null,
+      settings.savedRetentionDays,
+    );
+    if (!done) return;
     setSavedRefreshKey((k) => k + 1);
     const isCurrent = editingId === entry.id;
-    if (updated.sync && !isOriginal(updated.sync) && updated.values) {
-      pushToShared(
-        updated.sync,
-        {
-          v: 1,
-          mode: updated.result.mode,
-          values: updated.values,
-          result: updated.result,
-          completedRows: updated.completedRows,
-          label: updated.label,
-          snapshot: updated.snapshot,
-        },
-        updated.id,
-        isCurrent,
-      );
-    }
-    if (isCurrent) doRestore(updated, false, false);
+    if (done.push) followPush(done.push, isCurrent, true);
+    if (isCurrent) doRestore(done.updated, false, false);
   };
 
   // Restore a saved calculation. If it's stale (real time has moved past its
@@ -926,78 +892,25 @@ function CalculatorApp() {
     await publishEntry(entry, mode);
   };
 
-  // Publish / unpublish; true on success. A published original whose shared
-  // document is gone (removed / expired) is published anew from the original.
+  // Publish / unpublish (see publishSaved); true on success.
   const publishEntry = async (
     entry: SavedCalculation,
     mode: 'view' | 'edit' | 'off',
   ): Promise<boolean> => {
-    if (!isSupabaseConfigured || !company || !entry.values) return false;
-    let sync = entry.sync ?? null;
-    // Produzione's first version = this original as it is now.
-    let created: SharedPayload | null = null;
-    const createDoc = async () => {
-      const payload = payloadOf(entry);
-      const { id, editToken } = await createSharedCalc(payload);
-      return { sync: { id, token: editToken, version: 1 } as SyncMeta, payload };
-    };
-    if (!sync?.token) {
-      try {
-        const doc = await createDoc();
-        sync = doc.sync;
-        created = doc.payload;
-      } catch {
-        return false;
-      }
-    }
-    const token = sync.token;
-    if (!token) return false;
-    const isPublic = mode !== 'off';
-    if (isPublic && (!sync.published || sync.gone) && settings.maxCompanyShared > 0) {
-      // (the finished ones stay listed for Completati: they don't count)
-      const now = new Date();
-      const existing = (await fetchCompanyCalcs(company.slug)).filter(
-        (c) => !isFinished(c.payload, now),
-      );
-      if (existing.length >= settings.maxCompanyShared) {
-        setCompanyNotice(
-          t('company.limitReached', { max: settings.maxCompanyShared }),
-        );
-        window.setTimeout(() => setCompanyNotice(null), 3000);
-        return false;
-      }
-    }
-    let ok = await setCompanyPublish(
-      sync.id,
-      token,
+    if (!isSupabaseConfigured || !company) return false;
+    const done = await publishSaved(
+      entry,
+      mode,
       company.slug,
-      isPublic,
-      mode === 'edit',
+      settings.maxCompanyShared,
+      settings.savedRetentionDays,
     );
-    if (!ok && isPublic && !created) {
-      try {
-        const doc = await createDoc();
-        sync = doc.sync;
-        created = doc.payload;
-        ok = await setCompanyPublish(doc.sync.id, doc.sync.token!, company.slug, true, mode === 'edit');
-      } catch {
-        ok = false;
-      }
+    if (done.outcome === 'limit') {
+      flashNotice(t('company.limitReached', { max: settings.maxCompanyShared }), 3000);
     }
-    if (!ok) return false;
-    const next: SyncMeta = {
-      ...sync,
-      published: isPublic,
-      publishedEditable: mode === 'edit',
-      gone: undefined,
-    };
-    updateSyncMeta(entry.id, next, settings.savedRetentionDays);
-    if (created) {
-      noteProduction(entry.id, { version: 1, payload: created, seenAt: Date.now() });
-    } else {
-      setProductionRev((r) => r + 1); // listed again → no longer "gone"
-    }
-    if (editingId === entry.id) setSyncMeta(next);
+    if (done.outcome !== 'ok') return false;
+    setProductionRev((r) => r + 1); // a first Produzione version / listed again
+    if (editingId === entry.id) setSyncMeta(done.sync);
     setSavedRefreshKey((k) => k + 1);
     return true;
   };

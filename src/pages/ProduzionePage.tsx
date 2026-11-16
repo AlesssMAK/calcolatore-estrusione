@@ -73,6 +73,8 @@ export default function ProduzionePage() {
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   // Transient bottom notice (a count that couldn't be saved).
   const [notice, setNotice] = useState<string | null>(null);
+  // Bumped when Salvati published / took off a calc: the list is read again.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => markLaunchDone(), []);
 
@@ -109,7 +111,7 @@ export default function ProduzionePage() {
       window.removeEventListener('focus', read);
       document.removeEventListener('visibilitychange', read);
     };
-  }, [company]);
+  }, [company, reloadKey]);
 
   // At that moment: in production (on the line, the line stopped, a pause
   // between blocks), the order ending soonest first; then the ones not started
@@ -374,7 +376,11 @@ export default function ProduzionePage() {
           </>
         )}
         {/* Its buttons at the end, as the form's (pinned while out of view). */}
-        <PageActions other="completati" className="mt-6" />
+        <PageActions
+          other="completati"
+          className="mt-6"
+          onPublished={() => setReloadKey((k) => k + 1)}
+        />
       </main>
 
       {notice && (

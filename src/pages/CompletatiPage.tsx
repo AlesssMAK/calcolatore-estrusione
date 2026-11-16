@@ -49,17 +49,19 @@ export default function CompletatiPage() {
   const [span, setSpan] = useState<Span>('all');
   const [from, setFrom] = useState<Date | null>(null);
   const [to, setTo] = useState<Date | null>(null);
+  // Bumped when Salvati published / took off a calc: the list is read again.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!company) return;
     let cancelled = false;
     void loadCompanyCalcs(company.slug).then((list) => {
-      if (!cancelled) setCalcs(list ?? []);
+      if (!cancelled) setCalcs((cur) => list ?? cur ?? []);
     });
     return () => {
       cancelled = true;
     };
-  }, [company]);
+  }, [company, reloadKey]);
 
   // Finished and still kept, the latest first.
   const finished = useMemo(() => {
@@ -229,7 +231,11 @@ export default function CompletatiPage() {
           </>
         )}
         {/* Its buttons at the end, as the form's (pinned while out of view). */}
-        <PageActions other="produzione" className="mt-6" />
+        <PageActions
+          other="produzione"
+          className="mt-6"
+          onPublished={() => setReloadKey((k) => k + 1)}
+        />
       </main>
     </div>
   );
