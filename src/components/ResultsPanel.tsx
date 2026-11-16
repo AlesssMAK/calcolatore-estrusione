@@ -561,6 +561,14 @@ function ResultsPanel({ result, mode, onComplete, onOpenOrder, active }: Props) 
                       />
                     )}
                 </li>
+                {(((sd.gapAfterMin ?? 0) > 0 &&
+                  (!isSizeDone(sd) || (sd.gapEnd?.getTime() ?? 0) > now.getTime())) ||
+                  (!!sd.gapPassed && !isSizeDone(sd))) && (
+                  // The stop after this size, before the order's next one.
+                  <li>
+                    <PauseStrip row={row} now={now} sizeIdx={sIdx} />
+                  </li>
+                )}
                 {gLine && (
                   <li className="rounded-md border border-dashed border-neutral-300 px-2 py-1">
                     {gLine}

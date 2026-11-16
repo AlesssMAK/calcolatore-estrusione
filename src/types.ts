@@ -13,6 +13,14 @@ export interface OrderSize {
   /** Its group in the order card: a frame, for the eye only (no pause, no
    *  effect on the calculation). None = group 0. */
   group?: number;
+  /** A stop after this size, before the order's next one (not on its last
+   *  size — that's the order's pause): as the order's pause — minutes of
+   *  working time or until a moment, a reason. It doesn't split the order nor
+   *  its block. */
+  gapEnabled?: boolean;
+  gapAfterMin?: number;
+  gapUntil?: string;
+  gapReason?: PauseReasonSnapshot;
 }
 
 /** One step of a custom production queue: a size of an order (by stable ids),
@@ -239,6 +247,12 @@ export interface ScheduledSizeDetail {
   totalUnits?: number;
   start: Date;
   end: Date;
+  /** The stop after this size (OrderSize.gapEnabled), as the order's pause:
+   *  how long and when — or passed (a moment the queue reached later). */
+  gapAfterMin?: number;
+  gapStart?: Date;
+  gapEnd?: Date;
+  gapPassed?: boolean;
 }
 
 export interface ScheduledOrder {

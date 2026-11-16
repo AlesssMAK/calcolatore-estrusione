@@ -163,7 +163,10 @@
     "pauseDuration": "Duración",
     "pauseUntil": "Hasta",
     "pauseUntilPick": "¿Cuándo se reanuda?",
-    "pausePassed": "Fecha ya superada: se llega aquí después, la producción sigue sin parada."
+    "pausePassed": "Fecha ya superada: se llega aquí después, la producción sigue sin parada.",
+    "sizePause": "Parada tras la medida",
+    "sizePauseOn": "Parada tras esta medida",
+    "sizePauseOff": "Quitar la parada tras esta medida"
   },
   "actions": {
     "calculate": "Calcular",
@@ -265,7 +268,8 @@
     "pause": "Pausa",
     "pauseNow": "En Curso",
     "pauseUntil": "hasta {{d}}",
-    "pausePassed": "fecha ya superada"
+    "pausePassed": "fecha ya superada",
+    "sizePause": "Parada"
   },
   "units": {
     "day": "d",

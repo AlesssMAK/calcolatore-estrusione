@@ -4314,6 +4314,35 @@ function SizesFieldArray({
       </button>
     );
   };
+  // A stop after a size (not the last): on / off — its card under the size.
+  const sizePaused = (sIdx: number) =>
+    sIdx < sizeFields.length - 1 && !!watchedSizes?.[sIdx]?.gapEnabled;
+  const setSizePause = (sIdx: number, on: boolean) =>
+    setValue(`orders.${orderIdx}.sizes.${sIdx}.gapEnabled`, on || undefined, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  const sizeAside = (sIdx: number): ReactNode => {
+    if (sIdx >= sizeFields.length - 1) return undefined;
+    const on = sizePaused(sIdx);
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setSizePause(sIdx, !on)}
+          aria-pressed={on}
+          title={t(on ? 'orders.sizePauseOff' : 'orders.sizePauseOn')}
+          aria-label={t(on ? 'orders.sizePauseOff' : 'orders.sizePauseOn')}
+          className={`group/grp -my-1 flex h-6 w-6 shrink-0 items-center justify-center focus:outline-none ${
+            on ? 'text-brand-600' : 'text-ink-soft'
+          }`}
+        >
+          <PauseIcon className={groupIconCls} />
+        </button>
+        {groupControl(sIdx)}
+      </span>
+    );
+  };
 
   const renderSize = (sIdx: number) => {
               const sizeField = sizeFields[sIdx];
@@ -4371,6 +4400,8 @@ function SizesFieldArray({
                       ref={setNodeRef}
                       style={style}
                       id={`size-${orderIdx}-${sIdx}`}
+                    >
+                    <div
                       // The size in production pulses (saved view), framed
                       // without shifting the inputs (-mx-2 + px-2) — its
                       // Calcolo Avanzato in the same frame, gently: its
@@ -4535,7 +4566,18 @@ function SizesFieldArray({
                       // In line with the fields (past the drag handle); a
                       // tracked calc: at the left edge.
                       <div className={canReorder && !textMode ? 'pl-7' : ''}>
-                        {sizeAdvanced(sIdx, sizeFields.length, groupControl(sIdx))}
+                        {sizeAdvanced(sIdx, sizeFields.length, sizeAside(sIdx))}
+                      </div>
+                    )}
+                    </div>
+                    {sizePaused(sIdx) && (
+                      // The stop after it, before the order's next size.
+                      <div className="mt-2">
+                        <PauseCard
+                          idx={orderIdx}
+                          sizeIdx={sIdx}
+                          onRemove={() => setSizePause(sIdx, false)}
+                        />
                       </div>
                     )}
                     </div>

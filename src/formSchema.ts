@@ -12,6 +12,18 @@ const sizeSchema = z.object({
   uid: z.string().optional(),
   // Its group in the order card (a frame; visual only — utils/sizeGroups).
   group: z.number().int().min(0).optional(),
+  // A stop after this size (see OrderSize.gapEnabled).
+  gapEnabled: z.boolean().optional(),
+  gapAfterMin: z.number().min(0, 'nonNegative').optional(),
+  gapUntil: z.string().optional(),
+  gapReason: z
+    .object({
+      id: z.string().optional(),
+      name: z.string(),
+      color: z.string(),
+      defaultMin: z.number().nullable().optional(),
+    })
+    .optional(),
 });
 
 const producedEntrySchema = z.object({
@@ -201,6 +213,18 @@ export const buildFormSchema = (mode: CalculatorMode = 'sheets') => {
         }
 
         order.sizes.forEach((size, sIdx) => {
+          // Its stop "until": the moment picked (not on the last size).
+          if (
+            size.gapEnabled &&
+            size.gapUntil === '' &&
+            sIdx < (order.sizes?.length ?? 0) - 1
+          ) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['orders', idx, 'sizes', sIdx, 'gapUntil'],
+              message: 'pickResume',
+            });
+          }
           if (size.sheets === undefined) {
             ctx.addIssue({
               code: 'custom',

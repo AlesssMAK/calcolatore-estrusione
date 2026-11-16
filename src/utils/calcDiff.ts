@@ -49,7 +49,15 @@ export type OrderField =
   | 'sheets'
   | 'sheetLengthMm';
 
-export type SizeField = 'sheets' | 'length' | 'profilesPerPackage';
+export type SizeField =
+  | 'sheets'
+  | 'length'
+  | 'profilesPerPackage'
+  // the stop after the size
+  | 'gapEnabled'
+  | 'gapAfterMin'
+  | 'gapUntil'
+  | 'gapReason';
 
 export type CalcDiff =
   | { group: 'plan'; kind: 'setting'; key: SettingKey; original: unknown; production: unknown }
@@ -112,7 +120,15 @@ const ORDER_FIELDS: OrderField[] = [
   'sheets',
   'sheetLengthMm',
 ];
-const SIZE_FIELDS: SizeField[] = ['sheets', 'length', 'profilesPerPackage'];
+const SIZE_FIELDS: SizeField[] = [
+  'sheets',
+  'length',
+  'profilesPerPackage',
+  'gapEnabled',
+  'gapAfterMin',
+  'gapUntil',
+  'gapReason',
+];
 
 /** Blank / NaN → undefined, trimmed strings, false ≡ unset for flags. */
 function norm(v: unknown): unknown {

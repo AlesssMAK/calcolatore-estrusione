@@ -386,6 +386,18 @@ export async function buildResultPdfBlob(
         }
         sRows.push([t('results.col.start'), formatShortDateTime(sd.start, lang)]);
         sRows.push([t('results.col.end'), formatShortDateTime(sd.end, lang)]);
+        // The stop after it, before the order's next size.
+        if ((sd.gapAfterMin ?? 0) > 0) {
+          const reason = row.order.sizes?.[sIdx]?.gapReason;
+          sRows.push([
+            reason?.name ?? t('results.sizePause'),
+            `${dur(sd.gapAfterMin ?? 0)}${
+              sd.gapStart && sd.gapEnd
+                ? ` · ${formatShortDateTime(sd.gapStart, lang)} – ${formatShortDateTime(sd.gapEnd, lang)}`
+                : ''
+            }`,
+          ]);
+        }
         return [
           {
             header: `» #${idx + 1}.${sIdx + 1}`,

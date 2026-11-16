@@ -163,7 +163,10 @@
     "pauseDuration": "Duration",
     "pauseUntil": "Until",
     "pauseUntilPick": "When does it resume?",
-    "pausePassed": "Date already passed: the line gets here later, production goes on without a stop."
+    "pausePassed": "Date already passed: the line gets here later, production goes on without a stop.",
+    "sizePause": "Stop after the size",
+    "sizePauseOn": "Stop after this size",
+    "sizePauseOff": "Remove the stop after this size"
   },
   "actions": {
     "calculate": "Calculate",
@@ -265,7 +268,8 @@
     "pause": "Pause",
     "pauseNow": "In Progress",
     "pauseUntil": "until {{d}}",
-    "pausePassed": "date already passed"
+    "pausePassed": "date already passed",
+    "sizePause": "Stop"
   },
   "units": {
     "day": "d",

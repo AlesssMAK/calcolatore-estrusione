@@ -1742,3 +1742,113 @@ describe('calculateSchedule — a pause "until" a moment', () => {
     expect(r.rows[2]!.start.getTime()).toBe(until.getTime());
   });
 });
+
+describe('calculateSchedule — a stop between an order\'s sizes', () => {
+  const at = (d: number, h: number, min = 0) => new Date(2026, 5, d, h, min, 0, 0); // June 2026
+  const start = at(3, 10); // Wed 10:00
+  const settings = {
+    startMode: 'manual' as const,
+    startAt: start.toISOString(),
+    gapMode: 'continuous' as const,
+  };
+  // 60 min each size
+  const sized = (id: string, sizes: Order['sizes']): Order => ({ id, speedMPerMin: 1, sizes });
+  const s = (uid: string, extra: Partial<NonNullable<Order['sizes']>[number]> = {}) => ({
+    uid,
+    sheets: 60,
+    length: 1000,
+    ...extra,
+  });
+
+  it('minutes: the next size starts after the stop; the order spans both', () => {
+    const r = calculateSchedule(
+      settings,
+      [sized('a', [s('a1', { gapEnabled: true, gapAfterMin: 30 }), s('a2')]), sized('b', [s('b1')])],
+      { now: start },
+    );
+    const [a1, a2] = r.rows[0]!.sizeDetails!;
+    expect(a1!.end.getTime()).toBe(at(3, 11).getTime());
+    expect(a1!.gapAfterMin).toBe(30);
+    expect(a1!.gapEnd!.getTime()).toBe(at(3, 11, 30).getTime());
+    expect(a2!.start.getTime()).toBe(at(3, 11, 30).getTime());
+    expect(r.rows[0]!.end.getTime()).toBe(at(3, 12, 30).getTime());
+    expect(r.rows[0]!.gapAfterMin).toBe(0); // the order's own pause: none
+    expect(r.rows[1]!.start.getTime()).toBe(at(3, 12, 30).getTime());
+    expect(r.totalGapMinutes).toBe(30);
+    // two windows: before and after the stop
+    expect(r.rows[0]!.segments?.length).toBe(2);
+  });
+
+  it('until a moment (days later); none on the last size', () => {
+    const until = at(5, 14);
+    const r = calculateSchedule(
+      settings,
+      [
+        sized('a', [
+          s('a1', { gapEnabled: true, gapUntil: until.toISOString() }),
+          s('a2', { gapEnabled: true, gapAfterMin: 999 }),
+        ]),
+        sized('b', [s('b1')]),
+      ],
+      { now: start },
+    );
+    const [a1, a2] = r.rows[0]!.sizeDetails!;
+    expect(a1!.gapEnd!.getTime()).toBe(until.getTime());
+    expect(a2!.start.getTime()).toBe(until.getTime());
+    expect(a2!.gapAfterMin).toBeUndefined();
+    expect(r.rows[1]!.start.getTime()).toBe(at(5, 15).getTime());
+  });
+
+  it('a moment already passed → no stop, marked', () => {
+    const r = calculateSchedule(
+      settings,
+      [sized('a', [s('a1', { gapEnabled: true, gapUntil: at(3, 10, 30).toISOString() }), s('a2')])],
+      { now: start },
+    );
+    const [a1, a2] = r.rows[0]!.sizeDetails!;
+    expect(a1!.gapPassed).toBe(true);
+    expect(a1!.gapAfterMin).toBe(0);
+    expect(a2!.start.getTime()).toBe(at(3, 11).getTime());
+  });
+
+  it('no stop after a size already made, nor when nothing of the order follows', () => {
+    const r = calculateSchedule(
+      settings,
+      [
+        {
+          ...sized('a', [
+            s('a1', { gapEnabled: true, gapAfterMin: 30 }),
+            s('a2', { gapEnabled: true, gapAfterMin: 30 }),
+            s('a3'),
+          ]),
+          producedSheets: [{ value: 60, sizeIndex: 0 }, { value: 0, sizeIndex: 1 }, { value: 60, sizeIndex: 2 }],
+        },
+      ],
+      { now: start },
+    );
+    const [a1, a2] = r.rows[0]!.sizeDetails!;
+    expect(a1!.gapAfterMin).toBeUndefined();
+    expect(a2!.gapAfterMin).toBeUndefined();
+    expect(r.totalGapMinutes).toBe(0);
+    expect(r.rows[0]!.end.getTime()).toBe(at(3, 11).getTime());
+  });
+
+  it('with a custom queue: after the size\'s step, wherever it is', () => {
+    const r = calculateSchedule(
+      {
+        ...settings,
+        queue: [
+          { orderId: 'a', sizeUid: 'a2' },
+          { orderId: 'a', sizeUid: 'a1' },
+        ],
+      },
+      [sized('a', [s('a1', { gapEnabled: true, gapAfterMin: 30 }), s('a2')]), sized('b', [s('b1')])],
+      { now: start },
+    );
+    const [a1, a2] = r.rows[0]!.sizeDetails!;
+    expect(a2!.start.getTime()).toBe(at(3, 10).getTime());
+    expect(a1!.start.getTime()).toBe(at(3, 11).getTime());
+    expect(a1!.gapEnd!.getTime()).toBe(at(3, 12, 30).getTime());
+    expect(r.rows[1]!.start.getTime()).toBe(at(3, 12, 30).getTime());
+  });
+});

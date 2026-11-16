@@ -6,7 +6,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
-import { useFormContext, useWatch } from 'react-hook-form';
+import { get, useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { FormValues } from '../formSchema';
@@ -49,21 +49,25 @@ const KEPT_NOTE_MS = 6000;
  * pause / a reason with a free duration; a fixed one keeps them folded (▸).
  * Or "until" a moment (⏱ / 📅): a stop of days, resuming when picked on the
  * calendar — none when the queue gets there only after it (said so).
+ * With `sizeIdx`: the same, as the stop after that size of the order.
  */
 function PauseCard({
   idx,
-  isLast,
+  sizeIdx,
+  isLast = false,
   onRemove,
-  kept,
+  kept = null,
   clearKept,
 }: {
   idx: number;
-  isLast: boolean;
+  /** The stop after this size of the order (its fields on the size). */
+  sizeIdx?: number;
+  isLast?: boolean;
   /** ✕ — refused (→ `kept`) between two different products. */
   onRemove: () => void;
   /** Set when a removal was just refused: the products around it. */
-  kept: ProductChangeSides | null;
-  clearKept: Dispatch<SetStateAction<number | null>>;
+  kept?: ProductChangeSides | null;
+  clearKept?: Dispatch<SetStateAction<number | null>>;
 }) {
   'use no memo';
   const { t } = useTranslation();
@@ -74,9 +78,15 @@ function PauseCard({
   } = useFormContext<FormValues>();
   const { settings } = useCatalog();
   const reasons = settings.pauseReasons;
-  const reason = useWatch({ control, name: `orders.${idx}.gapReason` });
-  const minutes = Number(useWatch({ control, name: `orders.${idx}.gapAfterMin` })) || 0;
-  const until = useWatch({ control, name: `orders.${idx}.gapUntil` });
+  // Its fields: on the order, or on the size (same names). Typed as the
+  // order's — the size's are the same fields.
+  const P = <K extends 'gapReason' | 'gapAfterMin' | 'gapUntil'>(k: K) =>
+    (sizeIdx === undefined
+      ? `orders.${idx}.${k}`
+      : `orders.${idx}.sizes.${sizeIdx}.${k}`) as `orders.${number}.${K}`;
+  const reason = useWatch({ control, name: P('gapReason') });
+  const minutes = Number(useWatch({ control, name: P('gapAfterMin') })) || 0;
+  const until = useWatch({ control, name: P('gapUntil') });
   // Until a moment ('' → not picked yet), or minutes.
   const untilMode = until !== undefined;
   const untilDate = until ? new Date(until) : null;
@@ -91,18 +101,18 @@ function PauseCard({
   // The "can't remove" note goes away by itself.
   useEffect(() => {
     if (!kept) return;
-    const timer = setTimeout(() => clearKept((k) => (k === idx ? null : k)), KEPT_NOTE_MS);
+    const timer = setTimeout(() => clearKept?.((k) => (k === idx ? null : k)), KEPT_NOTE_MS);
     return () => clearTimeout(timer);
   }, [kept, idx, clearKept]);
 
   const pick = (r: PauseReason | null) => {
-    setValue(`orders.${idx}.gapReason`, r ? reasonSnapshot(r) : undefined, opts);
-    if (r?.durationMin != null) setValue(`orders.${idx}.gapAfterMin`, r.durationMin, opts);
+    setValue(P('gapReason'), r ? reasonSnapshot(r) : undefined, opts);
+    if (r?.durationMin != null) setValue(P('gapAfterMin'), r.durationMin, opts);
     setExpanded(false);
   };
   const standard = reason?.defaultMin ?? null;
-  const err = errors.orders?.[idx]?.gapAfterMin?.message;
-  const untilErr = errors.orders?.[idx]?.gapUntil?.message;
+  const err = (get(errors, P('gapAfterMin')) as { message?: string } | undefined)?.message;
+  const untilErr = (get(errors, P('gapUntil')) as { message?: string } | undefined)?.message;
   // A fixed duration is already set — its minutes fold away (▸ to change them).
   // A moment always shows (it's what the pause is).
   const foldable = standard != null && !untilMode;
@@ -113,7 +123,7 @@ function PauseCard({
   const setUntilMode = (on: boolean) => {
     if (on === untilMode) return;
     if (!on) lastUntil.current = until ?? '';
-    setValue(`orders.${idx}.gapUntil`, on ? lastUntil.current : undefined, {
+    setValue(P('gapUntil'), on ? lastUntil.current : undefined, {
       shouldDirty: true,
       shouldValidate: !on || !!lastUntil.current,
     });
@@ -123,21 +133,25 @@ function PauseCard({
   const result = useTrackedResult();
   const orderId = useWatch({ control, name: `orders.${idx}.id` });
   const row = rowForOrder(result, orderId);
+  // What it was computed from, and its times (the order's / the size's).
+  const src = sizeIdx === undefined ? row?.order : row?.order.sizes?.[sizeIdx];
+  const times = sizeIdx === undefined ? row : row?.sizeDetails?.[sizeIdx];
   // (as it was computed: same minutes / same moment)
   const same =
-    !!row &&
+    !!src &&
+    !!times &&
     (untilMode
-      ? row.order.gapUntil === until
-      : row.order.gapUntil === undefined && row.gapAfterMin === minutes);
+      ? src.gapUntil === until
+      : src.gapUntil === undefined && (times.gapAfterMin ?? 0) === minutes);
   const units = { day: t('units.day'), hour: t('units.hour'), minute: t('units.minute') };
   const span =
-    same && row?.gapStart && row.gapEnd
-      ? `${formatSpan(row.gapStart, row.gapEnd)}${
-          untilMode ? ` · ${formatDuration(row.gapAfterMin, units)}` : ''
+    same && times?.gapStart && times.gapEnd
+      ? `${formatSpan(times.gapStart, times.gapEnd)}${
+          untilMode ? ` · ${formatDuration(times.gapAfterMin ?? 0, units)}` : ''
         }`
       : null;
   // The queue gets there only after the moment: no pause.
-  const passed = same && untilMode && !!row?.gapPassed;
+  const passed = same && untilMode && !!times?.gapPassed;
   // Beside the reason: the minutes, or until when.
   const badge = untilMode
     ? untilValid
@@ -164,7 +178,9 @@ function PauseCard({
           />
         ) : (
           <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-ink">
-            <MarqueeText text={`⏸ ${t('orders.togglePause')}`} />
+            <MarqueeText
+              text={`⏸ ${t(sizeIdx === undefined ? 'orders.togglePause' : 'orders.sizePause')}`}
+            />
             {badge && (
               <span className="shrink-0 text-xs font-normal text-ink-soft">{badge}</span>
             )}
@@ -250,10 +266,10 @@ function PauseCard({
               {...(untilErr ? { 'data-error': t(`validation.${untilErr}`) } : {})}
             >
               <DateTimePicker
-                id={`pause-until-${idx}`}
+                id={sizeIdx === undefined ? `pause-until-${idx}` : `pause-until-${idx}-${sizeIdx}`}
                 selected={untilValid ? untilDate : null}
                 onChange={(d) =>
-                  setValue(`orders.${idx}.gapUntil`, d ? d.toISOString() : '', opts)
+                  setValue(P('gapUntil'), d ? d.toISOString() : '', opts)
                 }
                 timeIntervals={30}
                 placeholder={t('orders.pauseUntilPick')}
@@ -274,11 +290,11 @@ function PauseCard({
           <>
           {/* A tracked calc: "60 min · 1 h", the field on a tap. */}
           <TapToEdit
-            names={[`orders.${idx}.gapAfterMin`]}
+            names={[P('gapAfterMin')]}
             title={t('orders.gapAfter')}
             render={([v], fmt) => (
               <>
-                <EditNum name={`orders.${idx}.gapAfterMin`}>{fmt(v)}</EditNum>
+                <EditNum name={P('gapAfterMin')}>{fmt(v)}</EditNum>
                 <span className="text-ink-soft">
                   min{minutes >= 60 ? ` · ${fmtPause(minutes)}` : ''}
                 </span>
@@ -287,7 +303,7 @@ function PauseCard({
           >
           <div className="w-32 sm:w-36">
             <PauseField
-              idx={idx}
+              name={P('gapAfterMin')}
               t={t}
               error={err ? t(`validation.${err}`) : undefined}
             />
@@ -299,7 +315,7 @@ function PauseCard({
           {standard != null && minutes !== standard && (
             <button
               type="button"
-              onClick={() => setValue(`orders.${idx}.gapAfterMin`, standard, opts)}
+              onClick={() => setValue(P('gapAfterMin'), standard, opts)}
               className="text-xs font-medium text-brand-700 transition hover:text-brand-800"
             >
               ↺ {t('orders.pauseStandard', { d: fmtPause(standard) })}
@@ -461,18 +477,19 @@ function ReasonPicker({
 
 // Minutes: free numeric input + a ▾ list of 30-min slots to pick.
 function PauseField({
-  idx,
+  name,
   t,
   error,
 }: {
-  idx: number;
+  /** The minutes' field (the order's / a size's). */
+  name: `orders.${number}.gapAfterMin`;
   t: TFunction;
   /** Its error: the field framed red, the message in its bubble. */
   error?: string;
 }) {
   'use no memo';
   const { register, setValue, control } = useFormContext<FormValues>();
-  const value = useWatch({ control, name: `orders.${idx}.gapAfterMin` });
+  const value = useWatch({ control, name: name });
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   // Its list stays on screen: below, or above when there's no room.
@@ -495,7 +512,7 @@ function PauseField({
   }, [open]);
 
   const pick = (m: number) => {
-    setValue(`orders.${idx}.gapAfterMin`, m, {
+    setValue(name, m, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -512,7 +529,7 @@ function PauseField({
         aria-label={t('orders.gapAfter')}
         className={inputBase}
         {...errorAttrs(error)}
-        {...register(`orders.${idx}.gapAfterMin`, {
+        {...register(name, {
           setValueAs: numericSetValueAs,
         })}
       />
