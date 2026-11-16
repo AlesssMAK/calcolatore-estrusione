@@ -574,6 +574,8 @@
     "since": "dal {{from}}",
     "change": "Cambia",
     "resume": "Riprendi ora",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "note": "Motivo (facoltativo)",
+    "notePlaceholder": "Es. guasto, manutenzione…"
   }
 }
