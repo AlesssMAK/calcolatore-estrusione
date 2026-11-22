@@ -10,9 +10,11 @@ import './i18n';
 import App from './App.tsx';
 import { installClearOnFocus } from './utils/clearOnFocus';
 import { installErrorBubble } from './utils/errorBubble';
+import { installLiftOnFocus } from './utils/liftOnFocus';
 
 installClearOnFocus();
 installErrorBubble();
+installLiftOnFocus();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

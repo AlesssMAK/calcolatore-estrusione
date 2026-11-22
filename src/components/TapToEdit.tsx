@@ -80,7 +80,17 @@ export default function TapToEdit({
   }, [editing]);
   if (!textMode || editing || inError || values.some(isEmpty)) {
     return (
-      <div ref={ref} className="contents">
+      <div
+        ref={ref}
+        className="contents"
+        // A field shown because it's empty / in error, or opened from
+        // elsewhere (an inherited value's grey text): once it has the focus
+        // it stays a field until left — else the first character typed (not
+        // empty any more) would turn it back to text and lose the focus.
+        onFocus={() => {
+          if (textMode && !editing) setEditing(true);
+        }}
+      >
         {children}
       </div>
     );
