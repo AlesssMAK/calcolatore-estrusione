@@ -32,3 +32,14 @@ export function scrollToTopWithRoom(el: HTMLElement, margin = 12) {
     el.scrollIntoView({ block: 'start', behavior: 'smooth' }),
   );
 }
+
+/** Bring `el` up to `margin` px from the screen's top (smoothly), adding the
+ *  room the page lacks under it — a field taking the focus on a touch screen,
+ *  clear of the keyboard (utils/liftOnFocus). */
+export function liftToTop(el: HTMLElement, margin: number) {
+  const top = el.getBoundingClientRect().top + window.scrollY - margin;
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const need = Math.ceil(top - max);
+  if (need > 0) setTailRoom(room + need);
+  window.setTimeout(() => window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }));
+}
