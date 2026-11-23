@@ -12,6 +12,7 @@ import {
 } from '../lib/catalog';
 import CompaniesTab from '../components/admin/CompaniesTab';
 import GlobalSettingsModal from '../components/admin/GlobalSettingsModal';
+import ChangePasswordModal from '../components/admin/ChangePasswordModal';
 import {
   AdminModal,
   Field,
@@ -23,6 +24,7 @@ import {
   CalcIcon,
   CheckIcon,
   CopyIcon,
+  KeyIcon,
   LogoutIcon,
   SettingsIcon,
 } from '../components/ActionIcons';
@@ -56,6 +58,7 @@ function AdminPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [showGlobal, setShowGlobal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [companySettings, setCompanySettings] = useState<CompanySettings>(
     DEFAULT_COMPANY_SETTINGS,
   );
@@ -238,6 +241,16 @@ function AdminPage() {
               <CalcIcon className={toolIconCls} />
               <span className="hidden sm:inline">Calcolatore</span>
             </a>
+            <button
+              type="button"
+              onClick={() => setShowPassword(true)}
+              aria-label="Cambia password"
+              title="Cambia password"
+              className={toolBtnCls()}
+            >
+              <KeyIcon className={toolIconCls} />
+              <span className="hidden sm:inline">Password</span>
+            </button>
             <button
               type="button"
               onClick={() => void signOut()}
@@ -497,6 +510,12 @@ function AdminPage() {
           initial={companySettings}
           onClose={() => setShowGlobal(false)}
           onSaved={setCompanySettings}
+        />
+      )}
+      {showPassword && user?.email && (
+        <ChangePasswordModal
+          email={user.email}
+          onClose={() => setShowPassword(false)}
         />
       )}
     </div>
