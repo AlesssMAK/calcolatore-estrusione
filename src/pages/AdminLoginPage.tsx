@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { REGISTER_PATH, TURNSTILE_SITE_KEY } from '../lib/signup';
 import { useAuth } from '../contexts/AuthContext';
 import { useCatalog } from '../contexts/CatalogContext';
 import PasswordInput from '../components/admin/PasswordInput';
@@ -135,6 +136,14 @@ function AdminLoginPage() {
               {submitting ? 'Accesso in corso…' : 'Accedi'}
             </button>
           </form>
+          {TURNSTILE_SITE_KEY && (
+            <p className="mt-4 text-center text-sm text-ink-soft">
+              Nuova azienda?{' '}
+              <Link to={REGISTER_PATH} className={authLinkCls}>
+                Registrati
+              </Link>
+            </p>
+          )}
         </>
       ) : (
         <>

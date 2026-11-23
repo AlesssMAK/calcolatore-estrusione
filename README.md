@@ -250,6 +250,21 @@ reload. An order size (`sheets` × `length`) maps 1:1 to a Piramide row (`qty` �
   - `delete-company` — cascades `products` + `admins-mapping`, then deletes the auth users.
     Refuses to delete the super-admin's own company (anti-foot-gun).
   - All three verify `is_super=true` for the caller before doing anything.
+  - **In attesa di approvazione**: companies that signed themselves up, on top, newest first —
+    email (mailto) / phone (tel) / request time / «✓ Email confermata» · «Email non confermata» ·
+    «Link scaduto», with `Approva` (only once the email is confirmed) / `Rifiuta` (asks first) /
+    `Modifica`. The tab shows a badge with their count; `/admin?tab=aziende` opens it (the link in
+    the super-admin's email).
+- **Self-registration** (`/admin/registrati`, «Nuova azienda? Registrati» on the login page): a
+  company creates its own new company + admin account — name, email, optional phone, password
+  twice, Cloudflare **Turnstile** anti-bot check. The address is confirmed through an emailed link
+  (`/admin/conferma#t=…`, 48 h; the token lives in the hash and is removed from the address bar);
+  then the super-admin gets an email and approves or rejects in *Aziende*; the company gets an
+  email either way. Until approved the company is `pending`: its `?company=` link doesn't open and
+  its admin sees only «In attesa di approvazione». Without `VITE_TURNSTILE_SITE_KEY` in the build
+  there's no sign-up (no link; the page says it's unavailable).
+- **Password**: «Password dimenticata?» on the login page (email link → `/admin/reset`), «Cambia
+  password» in the panel's header.
 
 ### Per-company settings
 
@@ -326,6 +341,20 @@ links, back link) so a reload keeps the company context.
 - **Edge Functions**: `create-company`, `update-company`, `delete-company` — run on Deno with the
   service-role key (never exposed to the browser). `company_settings` needs no Edge Function — it
   is written directly via `supabase.from('company_settings').upsert(...)` (RLS gatekeeps).
+- **`company-signup`** Edge Function (source in [`supabase/functions/company-signup`](supabase/functions/company-signup/index.ts),
+  deployed by pasting it in the dashboard, «Verify JWT» off): `register` (Turnstile verified
+  server-side, ≤ 20 sign-ups/hour overall, an unconfirmed earlier attempt with the same email gives
+  way, the same answer whether or not the email already has an account), `confirm`, and
+  `approve` / `reject` (checks the caller's session is a super-admin). Emails go through the
+  **Brevo** API from `noreply@extrusion-calculator.com`. Secrets: `BREVO_API_KEY`,
+  `TURNSTILE_SECRET_KEY`. Supabase's own «Allow new users to sign up» stays **off**: this function
+  (service role) is the only way in.
+- **Sign-up schema** ([`supabase/sql/2026-11-23-company-signup.sql`](supabase/sql/2026-11-23-company-signup.sql)):
+  `companies.status` (`pending` / `active`), private `company_signups` (contact, sha-256 of the
+  confirmation token, expiry, confirmed / approved times — super-admin read only), and
+  RESTRICTIVE policies + a trigger so that from the browser only the super-admin creates/deletes
+  companies, writes `admins`, or changes a company's status; pending companies are hidden from
+  everyone but their own admin and the super-admin.
 - A `public.is_super_admin(uuid)` `SECURITY DEFINER` function bypasses RLS for the super-admin
   policies, sidestepping a self-referential infinite-recursion issue with admins-checks-admins.
 
@@ -341,6 +370,7 @@ links, back link) so a reload keeps the company context.
   `Permissions-Policy` (geolocation / microphone / payment / usb disabled), and a
   **Content-Security-Policy**. The CSP is `default-src 'self'` with just the origins the app really
   uses: `connect-src` for Supabase (REST + realtime) and the Tesseract CDN/langdata,
+  `script-src`/`frame-src` (+ `connect-src`) for Cloudflare Turnstile on the sign-up page,
   `script-src`/`worker-src` allowing `'wasm-unsafe-eval'` + jsDelivr for the OCR WASM,
   `style-src`/`font-src` for Google Fonts, `img-src` for `data:`/`blob:`. `frame-ancestors 'none'`
   and `object-src 'none'` round it off. Verified in-browser with **zero violations** across app
