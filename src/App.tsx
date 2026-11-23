@@ -40,6 +40,7 @@ import { pauseAt } from './utils/pauseAt';
 import { CatalogProvider, useCatalog } from './contexts/CatalogContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
+import AdminResetPage from './pages/AdminResetPage';
 import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
 import type {
@@ -91,7 +92,8 @@ import ProduzionePage from './pages/ProduzionePage';
 import CompletatiPage from './pages/CompletatiPage';
 import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
-import { isSupabaseConfigured } from './lib/supabase';
+import { isSupabaseConfigured, urlAuth } from './lib/supabase';
+import { recoveryPending } from './lib/authUrl';
 import {
   fetchSharedCalc,
   updateSharedCalc,
@@ -1738,6 +1740,10 @@ function PiramideRoute() {
 // the calculator's address shows the page first.
 function CalculatorRoute() {
   const { search } = useLocation();
+  // A reset link landing on the site's root (its own address not among the
+  // project's redirect URLs): on to the page that sets the new password.
+  if (urlAuth.recovery && recoveryPending())
+    return <Navigate to="/admin/reset" replace />;
   if (launchOnProduction()) return <Navigate to={`/produzione${search}`} replace />;
   return <CalculatorApp />;
 }
@@ -1749,6 +1755,7 @@ function App() {
         <CatalogProvider>
           <Routes>
             <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route path="/admin/reset" element={<AdminResetPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/piramide" element={<PiramideRoute />} />
             <Route path="/produzione" element={<ProduzionePage />} />

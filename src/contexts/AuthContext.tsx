@@ -9,6 +9,8 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { setRecoveryPending } from '../lib/authUrl';
+import { authErrorText } from '../lib/password';
 
 interface AdminInfo {
   companyId: string | null;
@@ -30,6 +32,13 @@ interface AuthState {
     password: string,
   ) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
+  /** Emails a link to choose a new password (the page /admin/reset). */
+  sendPasswordReset: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Sets the signed-in user's password; with `current`, checks it first. */
+  updatePassword: (
+    password: string,
+    current?: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
 const AuthCtx = createContext<AuthState>({
@@ -39,6 +48,8 @@ const AuthCtx = createContext<AuthState>({
   loading: false,
   signIn: async () => ({ ok: false, error: 'auth not configured' }),
   signOut: async () => {},
+  sendPasswordReset: async () => ({ ok: false, error: 'auth not configured' }),
+  updatePassword: async () => ({ ok: false, error: 'auth not configured' }),
 });
 
 async function resolveAdminInfo(userId: string | null): Promise<AdminInfo> {
@@ -108,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
       });
-      if (error) return { ok: false, error: error.message };
+      if (error) return { ok: false, error: authErrorText(error) };
       return { ok: true };
     },
     [],
@@ -116,12 +127,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!supabase) return;
+    setRecoveryPending(false);
     await supabase.auth.signOut();
   }, []);
 
+  const sendPasswordReset = useCallback(async (email: string) => {
+    if (!supabase) return { ok: false, error: 'Supabase non configurato' };
+    // Back to the address it was asked from (the site, a preview, localhost —
+    // each listed among the project's redirect URLs).
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/admin/reset`,
+    });
+    if (error) return { ok: false, error: authErrorText(error) };
+    return { ok: true };
+  }, []);
+
+  const updatePassword = useCallback(
+    async (password: string, current?: string) => {
+      if (!supabase) return { ok: false, error: 'Supabase non configurato' };
+      if (current !== undefined) {
+        const email = user?.email;
+        if (!email) return { ok: false, error: 'Sessione scaduta: accedi di nuovo' };
+        // A wrong password leaves the session as it is.
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: current,
+        });
+        if (error)
+          return {
+            ok: false,
+            error:
+              error.code === 'invalid_credentials'
+                ? 'La password attuale non è corretta'
+                : authErrorText(error),
+          };
+      }
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) return { ok: false, error: authErrorText(error) };
+      setRecoveryPending(false);
+      return { ok: true };
+    },
+    [user],
+  );
+
   const value = useMemo<AuthState>(
-    () => ({ user, companyId, isSuper, loading, signIn, signOut }),
-    [user, companyId, isSuper, loading, signIn, signOut],
+    () => ({
+      user,
+      companyId,
+      isSuper,
+      loading,
+      signIn,
+      signOut,
+      sendPasswordReset,
+      updatePassword,
+    }),
+    [user, companyId, isSuper, loading, signIn, signOut, sendPasswordReset, updatePassword],
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
