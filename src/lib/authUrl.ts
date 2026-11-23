@@ -24,6 +24,21 @@ export function readUrlAuth(href: string): UrlAuth {
   };
 }
 
+export const RESET_PATH = '/admin/reset';
+
+/** Where a reset link that landed elsewhere (the site's root: its own address
+ *  not among the project's redirect URLs, or rewritten on the way) belongs —
+ *  the reset page, the tokens kept for the client to read; null when it's
+ *  there already or isn't such a link. Applied before the app starts: moving
+ *  later (a router redirect) dropped the tokens before the client read them. */
+export function authLandingPath(href: string): string | null {
+  const url = new URL(href);
+  const auth = readUrlAuth(href);
+  if (!auth.recovery && !auth.error) return null;
+  if (url.pathname === RESET_PATH) return null;
+  return `${RESET_PATH}${url.search}${url.hash}`;
+}
+
 const RECOVERY_KEY = 'calc.pwRecovery';
 
 /** A reset link was opened in this tab and its new password isn't set yet —
