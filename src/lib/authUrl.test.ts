@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { readUrlAuth, recoveryPending, setRecoveryPending } from './authUrl';
+import {
+  authLandingPath,
+  readUrlAuth,
+  recoveryPending,
+  setRecoveryPending,
+} from './authUrl';
 
 const SITE = 'https://extrusion-calculator.com';
 
@@ -38,6 +43,28 @@ describe('readUrlAuth — the email link the page was opened from', () => {
     expect(
       readUrlAuth(`${SITE}/#access_token=abc&type=signup`).recovery
     ).toBe(false);
+  });
+});
+
+describe('authLandingPath — a reset link landing elsewhere', () => {
+  const TOKENS =
+    '#access_token=abc&expires_in=3600&refresh_token=r&token_type=bearer&type=recovery';
+  it('the site root (Site URL fallback) → the reset page, tokens kept', () => {
+    expect(authLandingPath(`${SITE}/${TOKENS}`)).toBe(`/admin/reset${TOKENS}`);
+    expect(authLandingPath(`${SITE}/?company=acme${TOKENS}`)).toBe(
+      `/admin/reset?company=acme${TOKENS}`
+    );
+  });
+
+  it('a link that failed there too (to say so)', () => {
+    expect(
+      authLandingPath(`${SITE}/#error=access_denied&error_code=otp_expired`)
+    ).toBe('/admin/reset#error=access_denied&error_code=otp_expired');
+  });
+
+  it('already on the reset page, or no link: stays', () => {
+    expect(authLandingPath(`${SITE}/admin/reset${TOKENS}`)).toBeNull();
+    expect(authLandingPath(`${SITE}/produzione?company=acme`)).toBeNull();
   });
 });
 

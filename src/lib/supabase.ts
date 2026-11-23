@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { readUrlAuth, setRecoveryPending, type UrlAuth } from './authUrl';
+import {
+  authLandingPath,
+  readUrlAuth,
+  setRecoveryPending,
+  type UrlAuth,
+} from './authUrl';
 
 // Read from Vite env vars (VITE_ prefix is exposed to the client by design;
 // the publishable/anon key is meant to be public — RLS keeps the data safe).
@@ -11,6 +16,13 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const urlAuth: UrlAuth =
   typeof window === 'undefined' ? { recovery: false } : readUrlAuth(window.location.href);
 if (urlAuth.recovery) setRecoveryPending(true);
+// A reset link landing on another page (the site's root): to the reset page
+// now — before the router starts and before the client below reads the URL
+// (it does so a moment later), so the tokens go along.
+if (typeof window !== 'undefined') {
+  const landing = authLandingPath(window.location.href);
+  if (landing) window.history.replaceState(window.history.state, '', landing);
+}
 
 // `null` when the project is built without Supabase configured — the app
 // keeps working as a stand-alone calculator (no catalog dropdown).

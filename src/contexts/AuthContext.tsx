@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { setRecoveryPending } from '../lib/authUrl';
+import { RESET_PATH, setRecoveryPending } from '../lib/authUrl';
 import { authErrorText } from '../lib/password';
 
 interface AdminInfo {
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Back to the address it was asked from (the site, a preview, localhost —
     // each listed among the project's redirect URLs).
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/admin/reset`,
+      redirectTo: `${window.location.origin}${RESET_PATH}`,
     });
     if (error) return { ok: false, error: authErrorText(error) };
     return { ok: true };

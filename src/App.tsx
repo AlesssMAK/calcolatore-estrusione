@@ -92,8 +92,8 @@ import ProduzionePage from './pages/ProduzionePage';
 import CompletatiPage from './pages/CompletatiPage';
 import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
-import { isSupabaseConfigured, urlAuth } from './lib/supabase';
-import { recoveryPending } from './lib/authUrl';
+import { isSupabaseConfigured } from './lib/supabase';
+import { RESET_PATH } from './lib/authUrl';
 import {
   fetchSharedCalc,
   updateSharedCalc,
@@ -1740,10 +1740,6 @@ function PiramideRoute() {
 // the calculator's address shows the page first.
 function CalculatorRoute() {
   const { search } = useLocation();
-  // A reset link landing on the site's root (its own address not among the
-  // project's redirect URLs): on to the page that sets the new password.
-  if (urlAuth.recovery && recoveryPending())
-    return <Navigate to="/admin/reset" replace />;
   if (launchOnProduction()) return <Navigate to={`/produzione${search}`} replace />;
   return <CalculatorApp />;
 }
@@ -1755,7 +1751,7 @@ function App() {
         <CatalogProvider>
           <Routes>
             <Route path="/admin/login" element={<AdminLoginPage />} />
-            <Route path="/admin/reset" element={<AdminResetPage />} />
+            <Route path={RESET_PATH} element={<AdminResetPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/piramide" element={<PiramideRoute />} />
             <Route path="/produzione" element={<ProduzionePage />} />
