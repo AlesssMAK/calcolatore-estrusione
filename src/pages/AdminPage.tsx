@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { companyUrl } from '../lib/appUrl';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,7 +51,13 @@ const emptyDraft: Draft = {
 function AdminPage() {
   'use no memo';
   const { user, companyId, isSuper, loading: authLoading, signOut } = useAuth();
-  const [tab, setTab] = useState<AdminTab>('products');
+  const [params] = useSearchParams();
+  // ?tab=aziende: the link in the "new company to approve" email.
+  const [tab, setTab] = useState<AdminTab>(() =>
+    params.get('tab') === 'aziende' ? 'companies' : 'products',
+  );
+  /** Companies waiting for approval (the super-admin's «Aziende» badge). */
+  const [pendingCount, setPendingCount] = useState(0);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,9 +68,13 @@ function AdminPage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings>(
     DEFAULT_COMPANY_SETTINGS,
   );
-  const [company, setCompany] = useState<{ slug: string; name: string } | null>(
-    null,
-  );
+  const [company, setCompany] = useState<{
+    slug: string;
+    name: string;
+    /** 'pending' until the super-admin approves a signed-up company. */
+    status: string;
+  } | null>(null);
+  const [companyReady, setCompanyReady] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const reload = useCallback(async () => {
@@ -92,13 +102,35 @@ function AdminPage() {
     if (!companyId || !supabase) return;
     void supabase
       .from('companies')
-      .select('slug, name')
+      // '*': «status» exists once the sign-up's SQL ran (absent = active).
+      .select('*')
       .eq('id', companyId)
       .maybeSingle()
-      .then(({ data }) =>
-        setCompany((data as { slug: string; name: string } | null) ?? null),
-      );
+      .then(({ data }) => {
+        const row = data as {
+          slug: string;
+          name: string;
+          status?: string | null;
+        } | null;
+        setCompany(
+          row
+            ? { slug: row.slug, name: row.name, status: row.status ?? 'active' }
+            : null,
+        );
+        setCompanyReady(true);
+      });
   }, [companyId]);
+
+  useEffect(() => {
+    if (!isSuper || !supabase) return;
+    void supabase
+      .from('companies')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .then(({ count, error: err }) => {
+        if (!err) setPendingCount(count ?? 0);
+      });
+  }, [isSuper]);
 
   const calcHref = company ? `/?company=${encodeURIComponent(company.slug)}` : '/';
   // Always build the shareable link on the canonical production domain, so a
@@ -124,6 +156,37 @@ function AdminPage() {
         <p className="mt-2 text-sm text-ink-soft">
           L'utente <strong>{user.email}</strong> non è associato a nessuna
           azienda. Contatta l'amministratore di sistema.
+        </p>
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="mt-4 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-ink hover:border-brand-500"
+        >
+          Esci
+        </button>
+      </Centered>
+    );
+  }
+  if (!authLoading && user && companyId && !companyReady) {
+    return (
+      <Centered>
+        <p role="status" className="text-sm text-ink-soft">
+          Caricamento…
+        </p>
+      </Centered>
+    );
+  }
+  // A signed-up company before the super-admin's approval: nothing to do yet.
+  if (company?.status === 'pending' && !isSuper) {
+    return (
+      <Centered>
+        <h1 className="text-lg font-semibold">In attesa di approvazione</h1>
+        <p className="mt-2 text-sm text-ink">
+          La richiesta per <strong>{company.name}</strong> è stata ricevuta.
+        </p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Ti scriviamo a <strong className="break-all">{user?.email}</strong>{' '}
+          appena l'azienda è attiva.
         </p>
         <button
           type="button"
@@ -316,13 +379,22 @@ function AdminPage() {
                 }
               >
                 {label}
+                {key === 'companies' && pendingCount > 0 && (
+                  <span
+                    aria-label={`${pendingCount} in attesa`}
+                    title={`${pendingCount} in attesa di approvazione`}
+                    className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-xs font-semibold text-ink"
+                  >
+                    {pendingCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         )}
 
-        {tab === 'companies' ? (
-          <CompaniesTab />
+        {isSuper && tab === 'companies' ? (
+          <CompaniesTab onPendingCount={setPendingCount} />
         ) : (
           <>
             <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">

@@ -94,6 +94,9 @@ import { applyPiramideToOrder } from './utils/piramideApply';
 import { loadDraft, clearDraft } from './lib/formDraft';
 import { isSupabaseConfigured } from './lib/supabase';
 import { RESET_PATH } from './lib/authUrl';
+import { CONFIRM_PATH, REGISTER_PATH } from './lib/signup';
+import AdminRegisterPage from './pages/AdminRegisterPage';
+import AdminConfirmPage from './pages/AdminConfirmPage';
 import {
   fetchSharedCalc,
   updateSharedCalc,
@@ -1752,6 +1755,8 @@ function App() {
           <Routes>
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path={RESET_PATH} element={<AdminResetPage />} />
+            <Route path={REGISTER_PATH} element={<AdminRegisterPage />} />
+            <Route path={CONFIRM_PATH} element={<AdminConfirmPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/piramide" element={<PiramideRoute />} />
             <Route path="/produzione" element={<ProduzionePage />} />
