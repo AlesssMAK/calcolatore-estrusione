@@ -1,4 +1,4 @@
-import { calculateSchedule, progressAsOf } from './calculator';
+import { calculateSchedule, nextProductionAt, progressAsOf } from './calculator';
 import { queueStatus } from './queue';
 import {
   blockMateIds,
@@ -490,11 +490,16 @@ export function toggleTracking(
   entry: SavedCalculation,
   now: Date,
   currentSchedule: ScheduleSnapshot,
+  /** Starting it again while the schedule has the line off or warming up:
+   *  true = «Avvia adesso» (the line is producing now — see lineOnAt), else
+   *  from the next shift on the schedule. */
+  startNow = false,
 ): TrackingPatch | null {
   const { values } = entry;
   if (!values) return null;
 
   if (values.settings.frozen) {
+    const lineOnAt = startNow ? now.toISOString() : undefined;
     const settings: FormValues['settings'] = {
       ...values.settings,
       frozen: false,
@@ -504,6 +509,7 @@ export function toggleTracking(
       // (starts now: no stop held over)
       resumeAt: undefined,
       hold: undefined,
+      lineOnAt,
     };
     const nextValues: FormValues = { ...values, settings };
     // Nothing left to run (every order already completed) → just flip the flag.
@@ -520,7 +526,7 @@ export function toggleTracking(
     return {
       result,
       values: nextValues,
-      snapshot: currentSchedule,
+      snapshot: { ...currentSchedule, lineOnAt },
       completedRows: entry.completedRows,
     };
   }
@@ -532,13 +538,31 @@ export function toggleTracking(
     result: entry.result,
     completedRows: entry.completedRows ?? [],
   };
+  // (paused: the line isn't on any more — the next ▶ says again how it starts)
+  const snapshot = adv ? currentSchedule : entry.snapshot;
   return {
     result: base.result,
     values: {
       ...base.values,
-      settings: { ...base.values.settings, frozen: true, hold: undefined },
+      settings: {
+        ...base.values.settings,
+        frozen: true,
+        hold: undefined,
+        lineOnAt: undefined,
+      },
     },
-    snapshot: adv ? currentSchedule : entry.snapshot,
+    snapshot: snapshot && { ...snapshot, lineOnAt: undefined },
     completedRows: base.completedRows,
   };
+}
+
+/** Starting a paused calc now (▶): when its production would begin on the
+ *  schedule, if that's later than now — the line off or still warming up then
+ *  («Avvia adesso» or from that shift?). Null: it would start right now. */
+export function startsLaterAt(
+  now: Date,
+  currentSchedule: ScheduleSnapshot,
+): Date | null {
+  const at = nextProductionAt(now, { ...currentSchedule, lineOnAt: undefined });
+  return at.getTime() - now.getTime() >= 60_000 ? at : null;
 }

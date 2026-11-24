@@ -129,6 +129,8 @@ const settingsSchema = z.object({
   warmupMinutes: z.number().min(0).max(1440).optional(),
   shutdownMinutes: z.number().min(0).max(1440).optional(),
   noLimits: z.boolean().optional(),
+  // ▶ «Avvia adesso» (see GlobalSettings.lineOnAt).
+  lineOnAt: z.string().optional(),
   frozen: z.boolean().optional(),
   queue: z
     .array(z.object({ orderId: z.string(), sizeUid: z.string().optional() }))

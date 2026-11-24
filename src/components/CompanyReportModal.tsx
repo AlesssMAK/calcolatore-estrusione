@@ -6,6 +6,7 @@ import { stageAt, willBeDone, type ReportStage } from '../utils/companyReport';
 import { formatDateParts } from '../utils/format';
 import OrderNumberTag from './OrderNumberTag';
 import PauseNowNote from './PauseNowNote';
+import LineStoppedNote from './LineStoppedNote';
 import ReportFilters from './ReportFilters';
 import { useReportMoment } from '../hooks/useReportMoment';
 import MarqueeText from './MarqueeText';
@@ -159,6 +160,13 @@ function CompanyReportModal({ onClose, onOpen }: Props) {
                     {stage.pause && (
                       <PauseNowNote
                         pause={stage.pause}
+                        now={new Date(atMs)}
+                        className="mt-1.5"
+                      />
+                    )}
+                    {stage.resumesAt && (
+                      <LineStoppedNote
+                        at={stage.resumesAt}
                         now={new Date(atMs)}
                         className="mt-1.5"
                       />

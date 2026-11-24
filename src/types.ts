@@ -162,6 +162,10 @@ export interface GlobalSettings {
   /** "Senza limiti orari": ignore every time restriction (company schedule,
    *  local weekend, buffers) — the line runs 24/7 starting now. Per calc. */
   noLimits?: boolean;
+  /** ISO. ▶ «Avvia adesso» while the schedule had the line off or warming
+   *  up: it was producing from then on, already warm, and runs on into the
+   *  next block (no stop before it). Per calc; kept through edits/advances. */
+  lineOnAt?: string;
   /** "Calcolo fisso": a plain static result — reopening it never subtracts the
    *  elapsed time (no advance) and it isn't tracked as in production. Per calc. */
   frozen?: boolean;
@@ -212,6 +216,9 @@ export interface ScheduleSnapshot {
   shutdownMinutes: number;
   /** Computed with "Senza limiti orari" → advance it on a 24/7 line too. */
   noLimits?: boolean;
+  /** The calc's GlobalSettings.lineOnAt (the line on early), so its progress
+   *  counts those hours too. */
+  lineOnAt?: string;
 }
 
 /** Per-order production progress as of a given instant — used to auto-advance

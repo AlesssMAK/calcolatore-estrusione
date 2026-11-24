@@ -13,6 +13,7 @@ import SavedCalculationsButton from './SavedCalculationsButton';
 import { CalcIcon, CheckIcon, ProductionIcon } from './ActionIcons';
 import { floatBtnCls, type FloatPlacement } from './floatStyles';
 import { ScrollTopButton } from './ScrollTopButton';
+import { useStartChoice } from '../hooks/useStartChoice';
 
 const btnCls =
   'inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-500 hover:text-brand-600 group-data-row/actions:w-auto';
@@ -64,8 +65,12 @@ export default function PageActions({
   };
   // 🔄: fixed ↔ in step with production (a synced copy pushes the change; a
   // view-only follower's copy is detached — said so, as in the calculator).
-  const onToggleTracking = (entry: SavedCalculation) => {
-    const done = toggleSavedTracking(entry, company ? settings : null, retentionDays);
+  const { ask: askStart, modal: startChoiceModal } = useStartChoice();
+  const onToggleTracking = async (entry: SavedCalculation) => {
+    // ▶ with the line off / warming up on the schedule: now, or next shift?
+    const startNow = await askStart(entry, company ? settings : null);
+    if (startNow === null) return;
+    const done = toggleSavedTracking(entry, company ? settings : null, retentionDays, startNow);
     if (!done) return;
     setRefreshKey((k) => k + 1);
     if (done.push === 'detached') flashNotice(t('company.readOnlySaved'));
@@ -158,6 +163,8 @@ export default function PageActions({
         </div>,
         document.body,
       )}
+
+      {startChoiceModal}
 
       {notice && (
         <div

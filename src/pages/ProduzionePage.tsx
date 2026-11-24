@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import OrderNumberTag from '../components/OrderNumberTag';
 import Header from '../components/Header';
 import PauseNowNote from '../components/PauseNowNote';
+import LineStoppedNote from '../components/LineStoppedNote';
+import { useStartChoice } from '../hooks/useStartChoice';
 import ProducedEditor from '../components/ProducedEditor';
 import { StatusChip } from '../components/CompanyReportModal';
 import ReportFilters from '../components/ReportFilters';
@@ -227,9 +229,18 @@ export default function ProduzionePage() {
     return true;
   };
 
+  const { ask: askStart, modal: startChoiceModal } = useStartChoice();
   const toggleRunning = async (calc: CompanyCalc) => {
+    // ▶ with the line off / warming up on the schedule: now, or next shift?
+    const startNow = await askStart(calc.payload, settings);
+    if (startNow === null) return;
     setBusyId(calc.id);
-    const saved = await toggleCompanyRunning(calc, settings, settings.savedRetentionDays);
+    const saved = await toggleCompanyRunning(
+      calc,
+      settings,
+      settings.savedRetentionDays,
+      startNow,
+    );
     setBusyId(null);
     if (!saved) {
       flashNotice(t('production.saveFailed'));
@@ -383,6 +394,8 @@ export default function ProduzionePage() {
         />
       </main>
 
+      {startChoiceModal}
+
       {notice && (
         <div
           role="alert"
@@ -535,6 +548,9 @@ function ProductionCard({
 
       <div className="px-3 pt-1.5 pb-3 sm:px-4">
         {stage.pause && <PauseNowNote pause={stage.pause} now={at} className="mb-1.5" />}
+        {stage.resumesAt && (
+          <LineStoppedNote at={stage.resumesAt} now={at} className="mb-1.5" />
+        )}
 
         {stage.orderNo !== undefined && (
           <span className="flex min-w-0 items-center gap-2 text-sm">

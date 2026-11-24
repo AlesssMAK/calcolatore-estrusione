@@ -233,6 +233,16 @@ interface Work {
   /** "Senza limiti orari": every day is 00:00–24:00, overriding both the
    *  company schedule and the local weekend → continuous, no buffers/splits. */
   allDay?: boolean;
+  /** ▶ «Avvia adesso»: the line was producing from this moment, already warm,
+   *  whatever the schedule said — see lineOnBlock. */
+  lineOn?: Date;
+}
+
+/** A valid moment from an ISO string, else undefined. */
+function dateOf(iso: string | undefined): Date | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 // getDay() (0=Sun … 6=Sat) → schedule key.
 const DOW_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -446,17 +456,52 @@ function blockStartFrom(d: Date, work?: Work): Date {
   return cursor;
 }
 
-type WorkSnapshot = Pick<ScheduleSnapshot, 'weekend' | 'schedule' | 'noLimits'>;
+type WorkSnapshot = Pick<
+  ScheduleSnapshot,
+  'weekend' | 'schedule' | 'noLimits' | 'lineOnAt'
+> &
+  Partial<Pick<ScheduleSnapshot, 'warmupMinutes' | 'shutdownMinutes'>>;
 
 /** The working-time config of a schedule snapshot (as progressAsOf reads it). */
 function workOf(s: WorkSnapshot): Work {
-  return { weekend: s.weekend, schedule: s.schedule, allDay: !!s.noLimits };
+  return {
+    weekend: s.weekend,
+    schedule: s.schedule,
+    allDay: !!s.noLimits,
+    lineOn: dateOf(s.lineOnAt),
+  };
+}
+
+/** Its warm-up / shutdown buffers. */
+function bufOf(s: WorkSnapshot): Buffers {
+  return {
+    warmup: Math.max(0, s.warmupMinutes ?? 0),
+    shutdown: Math.max(0, s.shutdownMinutes ?? 0),
+  };
 }
 
 /** True when the line is working at `at` (inside a working interval; warm-up /
- *  shutdown time counts as working). */
+ *  shutdown time counts as working) — or turned on early (▶ «Avvia adesso»)
+ *  and running on into the next block. */
 export function isWorkingAt(at: Date, s: WorkSnapshot): boolean {
-  return rawNextWorkingInstant(at, workOf(s)).getTime() === at.getTime();
+  const work = workOf(s);
+  if (rawNextWorkingInstant(at, work).getTime() === at.getTime()) return true;
+  if (!work.lineOn || at.getTime() < work.lineOn.getTime()) return false;
+  const block = lineOnBlock(work, bufOf(s));
+  return !!block && at.getTime() < block.getTime();
+}
+
+/** When production goes on at `at` or next: `at` itself inside a productive
+ *  window, else the next window's start (after a stop and its warm-up). */
+export function nextProductionAt(at: Date, s: WorkSnapshot): Date {
+  const work = workOf(s);
+  if (isContinuous(work)) return new Date(at);
+  const feed = makeWindowFeed(
+    blockStartFrom(rawNextWorkingInstant(at, work), work),
+    work,
+    bufOf(s),
+  );
+  return feedStart(feed, at);
 }
 
 /** When the line next closes: the end of the working run going on at `at`, or
@@ -474,18 +519,39 @@ interface RawSegment {
   end: Date;
 }
 
+/** With the line turned on early (Work.lineOn, ▶ «Avvia adesso»): the start
+ *  of the block it runs into — the first whose productive window ends after
+ *  that moment. That block's window starts right then instead: no warm-up
+ *  (the line is already producing), and across any stop before the block. */
+function lineOnBlock(work: Work | undefined, buf: Buffers): Date | null {
+  const on = work?.lineOn;
+  if (!on) return null;
+  let bStart = blockStartFrom(rawNextWorkingInstant(on, work), work);
+  for (let guard = 0; guard < 30; guard++) {
+    const bEnd = blockEndFrom(bStart, work);
+    if (bEnd.getTime() - buf.shutdown * 60_000 > on.getTime()) return bStart;
+    bStart = rawNextWorkingInstant(bEnd, work);
+  }
+  return null;
+}
+
 /** Lazily generates the productive windows (trimmed blocks) from `from`. */
 function makeWindowFeed(from: Date, work: Work | undefined, buf: Buffers) {
   const wins: RawSegment[] = [];
   let genFrom = new Date(from);
   let genCount = 0;
+  const onBlock = lineOnBlock(work, buf)?.getTime();
   const generateOne = (): boolean => {
     if (genCount > 6000) return false;
     genCount++;
     const bStart = rawNextWorkingInstant(genFrom, work);
     const bEnd = blockEndFrom(bStart, work);
     genFrom = bEnd; // bEnd is non-working (interval end) — next call finds the next block
-    const ps = new Date(bStart.getTime() + buf.warmup * 60_000);
+    let ps = new Date(bStart.getTime() + buf.warmup * 60_000);
+    const on = work?.lineOn;
+    if (on && bStart.getTime() === onBlock && on.getTime() < ps.getTime()) {
+      ps = new Date(on);
+    }
     const pe = new Date(bEnd.getTime() - buf.shutdown * 60_000);
     if (pe.getTime() > ps.getTime()) wins.push({ start: ps, end: pe });
     return true;
@@ -1047,6 +1113,7 @@ export function calculateSchedule(
     weekend: settings.weekend,
     schedule: options.schedule ?? null,
     allDay: !!settings.noLimits,
+    lineOn: dateOf(settings.lineOnAt),
   };
   const buf: Buffers = {
     warmup: Math.max(0, options.warmupMinutes ?? settings.warmupMinutes ?? 0),
@@ -1730,6 +1797,7 @@ export function progressAsOf(
     weekend: snapshot.weekend,
     schedule: snapshot.schedule,
     allDay: !!snapshot.noLimits,
+    lineOn: dateOf(snapshot.lineOnAt),
   };
   const buf: Buffers = {
     warmup: Math.max(0, snapshot.warmupMinutes),

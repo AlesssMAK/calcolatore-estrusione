@@ -97,6 +97,7 @@ import { RESET_PATH } from './lib/authUrl';
 import { CONFIRM_PATH, REGISTER_PATH } from './lib/signup';
 import AdminRegisterPage from './pages/AdminRegisterPage';
 import AdminConfirmPage from './pages/AdminConfirmPage';
+import { useStartChoice } from './hooks/useStartChoice';
 import {
   fetchSharedCalc,
   updateSharedCalc,
@@ -204,6 +205,8 @@ function CalculatorApp() {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const { settings, company } = useCatalog();
+  // ▶ on a paused calc while the line is off / warming up: now or next shift?
+  const { ask: askStart, modal: startChoiceModal } = useStartChoice();
   // Keep the active company link on the Piramide navigation, so a reload of
   // /piramide doesn't lose ?company= and bounce back to the calculator.
   const piramideHref = company
@@ -628,11 +631,15 @@ function CalculatorApp() {
   // place (the list doesn't reorder). Synced calcs push the change (not an
   // original — that waits for "Invia a Produzione"); the calc on screen is
   // reopened so the form/result reflect it.
-  const onToggleTracking = (entry: SavedCalculation) => {
+  const onToggleTracking = async (entry: SavedCalculation) => {
+    // ▶ with the line off / warming up on the schedule: now, or next shift?
+    const startNow = await askStart(entry, company ? settings : null);
+    if (startNow === null) return;
     const done = toggleSavedTracking(
       entry,
       company ? settings : null,
       settings.savedRetentionDays,
+      startNow,
     );
     if (!done) return;
     setSavedRefreshKey((k) => k + 1);
@@ -1059,10 +1066,14 @@ function CalculatorApp() {
     c: CompanyCalc,
   ): Promise<CompanyCalc | null> => {
     const p = c.payload;
+    // ▶ with the line off / warming up on the schedule: now, or next shift?
+    const startNow = await askStart(p, company ? settings : null);
+    if (startNow === null) return null;
     const saved = await toggleCompanyRunningIn(
       c,
       company ? settings : null,
       settings.savedRetentionDays,
+      startNow,
     );
     if (!saved) return null;
     const patch = saved.calc.payload;
@@ -1665,6 +1676,8 @@ function CalculatorApp() {
           t={t}
         />
       )}
+
+      {startChoiceModal}
 
       {compare && (
         <CompareModal

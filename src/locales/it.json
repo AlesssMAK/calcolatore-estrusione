@@ -358,6 +358,13 @@
     "doneWeekHint": "Da lunedì restano solo in Completati.",
     "toCompleted": "Tutti i completati"
   },
+  "startChoice": {
+    "title": "Linea ferma secondo l’orario",
+    "text": "Secondo l’orario la produzione riparte {{when}}. Se la linea sta già producendo, avviala adesso: il conteggio parte da ora, senza riscaldamento.",
+    "now": "Avvia Adesso",
+    "later": "Dal Prossimo Turno",
+    "close": "Chiudi"
+  },
   "report": {
     "title": "Report",
     "open": "Report",
@@ -386,6 +393,7 @@
       "willBeDone": "Sarà completato"
     },
     "pauseUntil": "fino alle {{time}}",
+    "resumesAt": "riparte alle {{time}}",
     "willEnd": "Fine prevista"
   },
   "compare": {

@@ -80,10 +80,12 @@ export function toggleSavedTracking(
   entry: SavedCalculation,
   company: Pick<CompanySettings, 'schedule' | 'warmupMinutes' | 'shutdownMinutes'> | null,
   retentionDays: number,
+  /** ▶ «Avvia adesso» (see toggleTracking). */
+  startNow = false,
 ): { updated: SavedCalculation; push?: SharedPush } | null {
   let patch: TrackingPatch | null = null;
   try {
-    patch = toggleTracking(entry, new Date(), currentSchedule(entry, company));
+    patch = toggleTracking(entry, new Date(), currentSchedule(entry, company), startNow);
   } catch (err) {
     console.error('Failed to toggle tracking', entry.id, err);
   }
