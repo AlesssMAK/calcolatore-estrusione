@@ -8,6 +8,9 @@
 //             → the email confirmed; the super-admin gets an email
 //   approve / reject (super-admin's session)   company_id
 //             → active / deleted; the company gets an email
+//   keepalive (weekly, pg_cron)
+//             → one read from Brevo, so the API key isn't retired for
+//               going unused (Brevo drops a key after 90 days idle)
 //
 // Deploy: Supabase → Edge Functions → Deploy a new function → name
 // «company-signup», paste this file, Deploy; then the function's Details →
@@ -15,7 +18,8 @@
 // CAPTCHA guards register; approve/reject check the caller's session here).
 // Secrets (Edge Functions → Secrets): BREVO_API_KEY, TURNSTILE_SECRET_KEY.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are there already.
-// Needs the SQL in supabase/sql/2026-11-23-company-signup.sql.
+// Needs the SQL in supabase/sql/2026-11-23-company-signup.sql, then (after
+// this is deployed) supabase/sql/2026-11-24-brevo-keepalive.sql.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -87,6 +91,8 @@ Deno.serve(async req => {
       case 'approve':
       case 'reject':
         return await review(req, body, reply);
+      case 'keepalive':
+        return await keepalive(reply);
       default:
         return reply(400, { error: 'Azione sconosciuta' });
     }
@@ -558,6 +564,35 @@ function mail(
     ...(button ? ['', `${button.label}: ${button.href}`] : []),
   ].join('\n');
   return { html, text };
+}
+
+/** Brevo retires an API key after 90 days unused, and sign-ups can be rarer
+ *  than that: a weekly pg_cron job calls this for one cheap read with the key.
+ *  Public like the rest, so it reaches Brevo at most once every 20 hours. */
+async function keepalive(reply: Reply) {
+  const { data, error } = await db
+    .from('service_pings')
+    .update({ last_at: new Date().toISOString() })
+    .eq('name', 'brevo')
+    .lt('last_at', new Date(Date.now() - 20 * 3600e3).toISOString())
+    .select('name');
+  if (error) throw error;
+  if (!data?.length) return reply(200, { ok: true, skipped: true });
+  const key = Deno.env.get('BREVO_API_KEY');
+  if (!key) {
+    console.error('[company-signup] BREVO_API_KEY is not set');
+    return reply(500, { error: 'BREVO_API_KEY is not set' });
+  }
+  const res = await fetch(
+    'https://api.brevo.com/v3/smtp/statistics/aggregatedReport?days=1',
+    { headers: { 'api-key': key, accept: 'application/json' } }
+  );
+  if (!res.ok) {
+    const why = await res.text();
+    console.error('[company-signup] brevo keepalive', res.status, why);
+    return reply(502, { error: 'Brevo', status: res.status });
+  }
+  return reply(200, { ok: true });
 }
 
 async function sendMail(
