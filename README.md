@@ -348,7 +348,10 @@ links, back link) so a reload keeps the company context.
   `approve` / `reject` (checks the caller's session is a super-admin). Emails go through the
   **Brevo** API from `noreply@extrusion-calculator.com`. Secrets: `BREVO_API_KEY`,
   `TURNSTILE_SECRET_KEY`. Supabase's own «Allow new users to sign up» stays **off**: this function
-  (service role) is the only way in.
+  (service role) is the only way in. Brevo retires an API key after 90 days unused, so a weekly
+  **pg_cron** job `brevo-keepalive` ([`supabase/sql/2026-11-24-brevo-keepalive.sql`](supabase/sql/2026-11-24-brevo-keepalive.sql),
+  via `pg_net`) calls the function's `keepalive` action: one read from Brevo, at most once in 20 h
+  (`service_pings`, server-only table).
 - **Sign-up schema** ([`supabase/sql/2026-11-23-company-signup.sql`](supabase/sql/2026-11-23-company-signup.sql)):
   `companies.status` (`pending` / `active`), private `company_signups` (contact, sha-256 of the
   confirmation token, expiry, confirmed / approved times — super-admin read only), and
