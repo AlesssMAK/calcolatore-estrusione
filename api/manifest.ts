@@ -7,7 +7,10 @@
 // page here while the <head> is parsed).
 //
 // Self-contained on purpose: Vercel makes a function of every file in /api, and
-// its ESM output doesn't resolve extensionless imports.
+// its ESM output doesn't resolve extensionless imports. Vercel type-checks it
+// on its own (not through tsconfig.node.json), hence the Node types here.
+
+/// <reference types="node" />
 
 interface Manifest {
   name?: string;
