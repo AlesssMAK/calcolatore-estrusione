@@ -377,6 +377,7 @@ function CalculatorForm({
           ? catalogSettings.shutdownMinutes
           : values.settings.shutdownMinutes) ?? 0,
       noLimits: !!values.settings.noLimits,
+      lineOnAt: values.settings.lineOnAt,
     };
     onResult(outSchedule, outValues, keepCompleted, newlyCompleted, snapshot);
     // Persist the computed result so the user can re-open it from the

@@ -358,6 +358,13 @@
     "doneWeekHint": "Desde el lunes quedan solo en Completados.",
     "toCompleted": "Todos los completados"
   },
+  "startChoice": {
+    "title": "Línea parada según el horario",
+    "text": "Según el horario, la producción se reanuda {{when}}. Si la línea ya está produciendo, iníciala ahora: el conteo empieza desde ahora, sin calentamiento.",
+    "now": "Iniciar Ahora",
+    "later": "Desde el Próximo Turno",
+    "close": "Cerrar"
+  },
   "report": {
     "title": "Informe",
     "open": "Informe",
@@ -386,6 +393,7 @@
       "willBeDone": "Se completará"
     },
     "pauseUntil": "hasta las {{time}}",
+    "resumesAt": "se reanuda a las {{time}}",
     "willEnd": "Fin prevista"
   },
   "compare": {

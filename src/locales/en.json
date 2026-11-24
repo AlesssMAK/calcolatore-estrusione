@@ -358,6 +358,13 @@
     "doneWeekHint": "From Monday they're only in Completed.",
     "toCompleted": "All completed"
   },
+  "startChoice": {
+    "title": "The line is stopped on the schedule",
+    "text": "On the schedule, production starts again {{when}}. If the line is already producing, start it now: counting starts from now, with no warm-up.",
+    "now": "Start Now",
+    "later": "From the Next Shift",
+    "close": "Close"
+  },
   "report": {
     "title": "Report",
     "open": "Report",
@@ -386,6 +393,7 @@
       "willBeDone": "Will be completed"
     },
     "pauseUntil": "until {{time}}",
+    "resumesAt": "restarts at {{time}}",
     "willEnd": "Expected end"
   },
   "compare": {

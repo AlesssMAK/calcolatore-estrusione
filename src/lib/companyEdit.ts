@@ -45,6 +45,8 @@ export function currentSchedule(
       0,
     // Computed 24/7 ("Senza limiti orari") → keep advancing it 24/7.
     noLimits: !!calc.values?.settings.noLimits,
+    // Started with the line on early (▶ «Avvia adesso»): those hours count.
+    lineOnAt: calc.values?.settings.lineOnAt,
   };
 }
 
@@ -108,6 +110,8 @@ export async function toggleCompanyRunning(
   c: CompanyCalc,
   company: Pick<CompanySettings, 'schedule' | 'warmupMinutes' | 'shutdownMinutes'> | null,
   retentionDays: number,
+  /** ▶ «Avvia adesso» (see toggleTracking). */
+  startNow = false,
 ): Promise<{ calc: CompanyCalc; copy?: SavedCalculation } | null> {
   const p = c.payload;
   const local = loadHistory(retentionDays).find((e) => e.sync?.id === c.id);
@@ -125,7 +129,7 @@ export async function toggleCompanyRunning(
   };
   let patch: TrackingPatch | null = null;
   try {
-    patch = toggleTracking(current, new Date(), currentSchedule(current, company));
+    patch = toggleTracking(current, new Date(), currentSchedule(current, company), startNow);
   } catch (err) {
     console.error('Failed to pause / start company calc', c.id, err);
   }

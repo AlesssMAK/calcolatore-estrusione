@@ -1,6 +1,6 @@
 import type { SharedPayload } from '../lib/sharedCalc';
 import type { ScheduleSnapshot } from '../types';
-import { isWorkingAt, progressAsOf } from './calculator';
+import { isWorkingAt, nextProductionAt, progressAsOf } from './calculator';
 import { pauseAt, type RunningPause } from './pauseAt';
 import { completedTotals } from './completedTotals';
 
@@ -44,6 +44,8 @@ export interface ReportStage {
   /** A pause between blocks running at that moment (status "waiting"); the
    *  order fields then describe what comes after it. */
   pause?: RunningPause;
+  /** Line stopped ("stopped"): when production goes on again. */
+  resumesAt?: Date;
   /** End of the whole queue. */
   calcEnd: Date;
 }
@@ -51,15 +53,15 @@ export interface ReportStage {
 /** The schedule a published calc was computed on (what its times follow). */
 export function payloadSnapshot(p: SharedPayload): ScheduleSnapshot {
   const s = p.values?.settings;
-  return (
-    p.snapshot ?? {
-      weekend: s?.weekend,
-      schedule: null,
-      warmupMinutes: s?.warmupMinutes ?? 0,
-      shutdownMinutes: s?.shutdownMinutes ?? 0,
-      noLimits: !!s?.noLimits,
-    }
-  );
+  const base = p.snapshot ?? {
+    weekend: s?.weekend,
+    schedule: null,
+    warmupMinutes: s?.warmupMinutes ?? 0,
+    shutdownMinutes: s?.shutdownMinutes ?? 0,
+    noLimits: !!s?.noLimits,
+  };
+  // The line turned on early (▶ «Avvia adesso») lives with the calc's settings.
+  return s?.lineOnAt ? { ...base, lineOnAt: s.lineOnAt } : base;
 }
 
 interface Step {
@@ -158,6 +160,14 @@ export function stageAt(p: SharedPayload, at: Date): ReportStage {
     sizeIdx: step.sizeIdx,
     calcEnd: result.endAt,
     ...(pause ? { pause } : {}),
+    ...(status === 'stopped'
+      ? {
+          resumesAt:
+            step.start.getTime() > t
+              ? step.start
+              : nextProductionAt(at, snapshot),
+        }
+      : {}),
   };
 }
 
