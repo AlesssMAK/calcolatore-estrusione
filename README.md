@@ -337,6 +337,12 @@ links, back link) so a reload keeps the company context.
   capability that gates live-sync edits). No DELETE policy; a **pg_cron** job
   (`purge-old-shared-calcs`, 03:00 UTC) deletes rows not updated in 90 days. (The payload-only
   `get_shared_calc` is kept for backward compatibility.)
+- **Company lists** (Produzione re-reads every minute): `get_company_calcs_delta(p_company, p_known)`
+  ([`supabase/sql/2026-11-24-company-calcs-delta.sql`](supabase/sql/2026-11-24-company-calcs-delta.sql))
+  reads through `get_company_calcs` but sends a calc's payload only when its version differs from
+  what the app says it has (`{ id: version }`); `loadCompanyCalcs` keeps the list in memory per
+  company and fills in the rest (~115 KB → ~1 KB a read for 11 calcs). Falls back to
+  `get_company_calcs` while the database doesn't have it.
 - **Auth**: email/password, sessions stored in `localStorage` for admin persistence.
 - **Edge Functions**: `create-company`, `update-company`, `delete-company` — run on Deno with the
   service-role key (never exposed to the browser). `company_settings` needs no Edge Function — it
