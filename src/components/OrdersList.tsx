@@ -91,6 +91,7 @@ import { numericSetValueAs } from '../utils/numeric';
 import { errorAttrs } from '../utils/errorBubble';
 import { isJumpTap, notePress } from '../utils/tapToJump';
 import { scrollToTopWithRoom } from '../utils/tailRoom';
+import { isTouchScreen } from '../utils/liftOnFocus';
 import TapToEdit from './TapToEdit';
 import EditNum from './EditNum';
 import { TextModeContext } from '../contexts/textMode';
@@ -793,9 +794,11 @@ function OrdersList({
       setNumberFocusIdx(null);
       target.focus({ preventScroll: true });
       // The new card first on screen: its top at the top (once laid out).
-      // (with room under the page when it ends too soon for that)
+      // (with room under the page when it ends too soon for that) On a touch
+      // screen the field just focused goes to the middle of what the keyboard
+      // leaves instead (utils/liftOnFocus) — one move, not two.
       const card = target.closest<HTMLElement>('[data-order-slot]');
-      if (card) scrollToTopWithRoom(card);
+      if (card && !isTouchScreen()) scrollToTopWithRoom(card);
       return;
     }
     const id = fields[idx]?.id;
