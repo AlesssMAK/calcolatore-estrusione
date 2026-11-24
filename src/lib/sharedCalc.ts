@@ -47,7 +47,12 @@ function shortId(): string {
  *  already-parsed JSON, so the reviver is run over a re-serialized copy). Also
  *  keeps `values.settings.startAt` as an ISO string, which the form expects. */
 function revivePayload(raw: unknown): SharedPayload {
-  const revived = JSON.parse(JSON.stringify(raw), dateReviver) as SharedPayload;
+  return reviveJson(JSON.stringify(raw));
+}
+
+/** Like revivePayload, from the payload's JSON text. */
+function reviveJson(json: string): SharedPayload {
+  const revived = JSON.parse(json, dateReviver) as SharedPayload;
   const s = revived?.values?.settings as { startAt?: unknown } | undefined;
   if (s?.startAt instanceof Date) s.startAt = s.startAt.toISOString();
   return revived;
@@ -169,32 +174,75 @@ export async function loadCompanyCalcs(
   company: string,
 ): Promise<CompanyCalc[] | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc('get_company_calcs', {
-    p_company: company,
-  });
-  if (error || !Array.isArray(data)) return null;
+  // What this app already has of the list: the server sends back only the
+  // calcs that are new or changed since (the Produzione page reads the list
+  // every minute — mostly the same calcs, ~20 KB each).
+  const known = listCache.get(company);
+  let rows: CompanyRow[] | null = null;
+  if (!deltaMissing) {
+    const { data, error } = await supabase.rpc('get_company_calcs_delta', {
+      p_company: company,
+      p_known: Object.fromEntries(
+        [...(known ?? [])].map(([id, k]) => [id, k.version]),
+      ),
+    });
+    if (error) {
+      if (error.code !== 'PGRST202') return null;
+      // The database doesn't have it yet: the whole list, as before.
+      deltaMissing = true;
+    } else {
+      if (!Array.isArray(data)) return null;
+      rows = data;
+    }
+  }
+  if (!rows) {
+    const { data, error } = await supabase.rpc('get_company_calcs', {
+      p_company: company,
+    });
+    if (error || !Array.isArray(data)) return null;
+    rows = data as CompanyRow[];
+  }
+  const next: CompanyList = new Map();
   const out: CompanyCalc[] = [];
-  for (const row of data as {
-    id: string;
-    payload: unknown;
-    version: number;
-    updated_at: string;
-    is_editable: boolean;
-  }[]) {
+  for (const row of rows) {
+    const version = typeof row.version === 'number' ? row.version : 1;
+    // No payload: the one here is still the latest.
+    const json =
+      row.payload == null
+        ? known?.get(row.id)?.json
+        : JSON.stringify(row.payload);
+    if (json === undefined) continue;
     try {
       out.push({
         id: row.id,
-        payload: revivePayload(row.payload),
-        version: typeof row.version === 'number' ? row.version : 1,
+        payload: reviveJson(json),
+        version,
         updatedAt: row.updated_at ?? null,
         isEditable: row.is_editable === true,
       });
+      next.set(row.id, { version, json });
     } catch {
       /* skip malformed rows */
     }
   }
+  listCache.set(company, next);
   return out;
 }
+
+/** A row of a company's list (the payload null: unchanged since p_known). */
+interface CompanyRow {
+  id: string;
+  payload: unknown;
+  version: number | null;
+  updated_at: string | null;
+  is_editable: boolean;
+}
+/** A company's list as last read: each calc's version + its payload's JSON. */
+type CompanyList = Map<string, { version: number; json: string }>;
+/** The lists read so far in this app, by company. */
+const listCache = new Map<string, CompanyList>();
+/** The database has no get_company_calcs_delta yet (SQL 2026-11-24 not run). */
+let deltaMissing = false;
 
 /** Fetch a shared calculation by id + its sync metadata. Returns null when
  *  missing / on error, so a bad or expired link degrades to the normal empty
