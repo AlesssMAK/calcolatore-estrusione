@@ -33,11 +33,14 @@ export function scrollToTopWithRoom(el: HTMLElement, margin = 12) {
   );
 }
 
-/** Bring `el` up to `margin` px from the screen's top (smoothly), adding the
- *  room the page lacks under it — a field taking the focus on a touch screen,
- *  clear of the keyboard (utils/liftOnFocus). */
-export function liftToTop(el: HTMLElement, margin: number) {
-  const top = el.getBoundingClientRect().top + window.scrollY - margin;
+/** Bring `el` to `offset` px under the top of the part of the screen that's
+ *  seen (smoothly), adding the room the page lacks under it — a field taking
+ *  the focus on a touch screen, over the keyboard (utils/liftOnFocus). With
+ *  the keyboard up a phone may show a lower part of the page than the window
+ *  says (iPhone): measured from that part, not the window's top. */
+export function liftToTop(el: HTMLElement, offset: number) {
+  const seenTop = window.visualViewport?.offsetTop ?? 0;
+  const top = el.getBoundingClientRect().top + window.scrollY - seenTop - offset;
   const max = document.documentElement.scrollHeight - window.innerHeight;
   const need = Math.ceil(top - max);
   if (need > 0) setTailRoom(room + need);
