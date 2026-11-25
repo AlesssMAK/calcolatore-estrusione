@@ -12,6 +12,7 @@ import DayHoursRow from '../DayHoursRow';
 import { ModalActions } from './adminUi';
 import { adminLabelCls } from './adminStyles';
 import PauseReasonsSection from './PauseReasonsSection';
+import MarkingsSection from './MarkingsSection';
 import BareButton from '../BareButton';
 import { CloseIcon } from '../ActionIcons';
 
@@ -170,6 +171,15 @@ export default function GlobalSettingsModal({
               />
               Mostra «Piramide» (distribuzione fogli)
             </label>
+            <label className="mt-2 flex items-start gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={draft.showMarcatura}
+                onChange={(e) => setDraft({ ...draft, showMarcatura: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+              />
+              Mostra «Marcatura QR» (testo del marcatore)
+            </label>
           </section>
 
           {/* Orari di lavoro */}
@@ -292,6 +302,11 @@ export default function GlobalSettingsModal({
           <PauseReasonsSection
             reasons={draft.pauseReasons}
             onChange={(pauseReasons) => setDraft({ ...draft, pauseReasons })}
+          />
+
+          <MarkingsSection
+            markings={draft.markings}
+            onChange={(markings) => setDraft({ ...draft, markings })}
           />
 
           {error && (

@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { loadInstalledCompany } from './installedCompany';
 import type { WeekendDay, WeekdayKey, WeekSchedule } from '../types';
 import { normalizePauseReasons, type PauseReason } from './pauseReasons';
+import { normalizeMarkings, type Marking } from './markings';
 export type { WeekdayKey, WeekSchedule } from '../types';
 
 export interface Company {
@@ -28,6 +29,8 @@ export interface CompanySettings {
   modes: CalcModes;
   /** Show the Piramide (nesting) page + footer link. */
   showPiramide: boolean;
+  /** Show the "Marcatura QR" page (the marker's text as a QR code) + link. */
+  showMarcatura: boolean;
   /** Per-day working hours (7 days). null → app default (Mon–Fri 24h). */
   schedule: WeekSchedule | null;
   /** Warm-up / shutdown buffers (minutes) applied at each working-block start /
@@ -47,6 +50,8 @@ export interface CompanySettings {
   completedRetentionDays: number;
   /** "Causali di Fermo": named pauses picked between orders. */
   pauseReasons: PauseReason[];
+  /** The standard markings offered on the Marcatura page. */
+  markings: Marking[];
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
@@ -54,6 +59,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   // Piramide is off by default (removed from the base project); a company
   // opts in via the admin checkbox.
   showPiramide: false,
+  showMarcatura: false,
   schedule: null,
   warmupMinutes: 240,
   shutdownMinutes: 60,
@@ -62,6 +68,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   maxCompanyShared: 10,
   completedRetentionDays: 90,
   pauseReasons: [],
+  markings: [],
 };
 
 function parseDay(raw: unknown): WeekendDay {
@@ -84,6 +91,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
   const modes: CalcModes =
     p.modes === 'sheets' || p.modes === 'profiles' ? p.modes : 'both';
   const showPiramide = p.showPiramide === true; // default false (opt-in)
+  const showMarcatura = p.showMarcatura === true; // likewise
   let schedule: WeekSchedule | null = null;
   if (p.schedule && typeof p.schedule === 'object') {
     const src = p.schedule as Record<string, unknown>;
@@ -98,6 +106,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
   return {
     modes,
     showPiramide,
+    showMarcatura,
     schedule,
     warmupMinutes: num(p.warmupMinutes, 240),
     shutdownMinutes: num(p.shutdownMinutes, 60),
@@ -106,6 +115,7 @@ export function normalizeCompanySettings(raw: unknown): CompanySettings {
     maxCompanyShared: intIn(p.maxCompanyShared, 10, 0, 100),
     completedRetentionDays: intIn(p.completedRetentionDays, 90, 1, 90),
     pauseReasons: normalizePauseReasons(p.pauseReasons),
+    markings: normalizeMarkings(p.markings),
   };
 }
 

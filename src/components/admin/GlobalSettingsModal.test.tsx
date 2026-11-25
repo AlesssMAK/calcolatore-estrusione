@@ -91,3 +91,53 @@ describe('GlobalSettingsModal — Causali di Fermo', () => {
     confirm.mockRestore();
   });
 });
+
+describe('GlobalSettingsModal — Marcatura QR', () => {
+  beforeEach(() => {
+    patch.mockReset();
+    patch.mockImplementation(async (_id, p) => ({
+      settings: { ...initial, ...(p as Partial<CompanySettings>) },
+      error: null,
+    }));
+  });
+
+  it('turns the page on and adds a standard marking, saved with «Salva»', async () => {
+    const { onClose } = setup();
+    fireEvent.click(screen.getByLabelText(/Mostra «Marcatura QR»/));
+    fireEvent.click(screen.getByRole('button', { name: 'Nuova Marcatura' }));
+    const form = screen.getByRole('heading', { name: 'Nuova Marcatura' }).closest('form')!;
+    fireEvent.change(within(form).getByPlaceholderText('es. Stabilit Suisse 1UV'), {
+      target: { value: 'Suisse 1UV' },
+    });
+    const text = within(form).getByPlaceholderText(/nr\. Del LOTTO/);
+    fireEvent.change(text, {
+      target: { value: 'nr. Del LOTTO - CE - nr. DOP 25900260518 - Stabilit Suisse 1UV' },
+    });
+    expect(within(form).getByText(/Contiene il posto del numero ordine/)).toBeInTheDocument();
+    fireEvent.click(within(form).getByRole('button', { name: 'Aggiungi' }));
+    expect(screen.getByText('Marcature Standard (1)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    const saved = patch.mock.calls[0][1] as CompanySettings;
+    expect(saved.showMarcatura).toBe(true);
+    expect(saved.markings).toEqual([
+      {
+        id: expect.any(String),
+        name: 'Suisse 1UV',
+        text: 'nr. Del LOTTO - CE - nr. DOP 25900260518 - Stabilit Suisse 1UV',
+      },
+    ]);
+  });
+
+  it('a marking needs a text and a name of its own', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuova Marcatura' }));
+    const form = screen.getByRole('heading', { name: 'Nuova Marcatura' }).closest('form')!;
+    fireEvent.change(within(form).getByPlaceholderText('es. Stabilit Suisse 1UV'), {
+      target: { value: 'A' },
+    });
+    fireEvent.submit(form);
+    expect(within(form).getByText(/Inserisci il testo/)).toBeInTheDocument();
+  });
+});

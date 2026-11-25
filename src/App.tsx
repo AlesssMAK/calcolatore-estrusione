@@ -43,6 +43,7 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminResetPage from './pages/AdminResetPage';
 import AdminPage from './pages/AdminPage';
 import PiramidePage from './pages/PiramidePage';
+import MarcaturaPage from './pages/MarcaturaPage';
 import type {
   CalculatorMode,
   FormMountState,
@@ -212,6 +213,9 @@ function CalculatorApp() {
   const piramideHref = company
     ? `/piramide?company=${encodeURIComponent(company.slug)}`
     : '/piramide';
+  const marcaturaHref = company
+    ? `/marcatura?company=${encodeURIComponent(company.slug)}`
+    : '/marcatura';
   const [selectedMode, setSelectedMode] = useState<CalculatorMode>('sheets');
   // A company can restrict to a single mode; otherwise the user's tab wins.
   // Derived (not state) so it stays in sync with settings without an effect.
@@ -1430,6 +1434,8 @@ function CalculatorApp() {
             modes={settings.modes}
             showPiramide={settings.showPiramide}
             piramideHref={piramideHref}
+            showMarcatura={settings.showMarcatura}
+            marcaturaHref={marcaturaHref}
             settingsOpen={settingsOpen}
             onToggleSettings={() => setSettingsOpen((v) => !v)}
           />
@@ -1720,6 +1726,14 @@ function CalculatorApp() {
               {t('piramide.openLink')}
             </Link>
           )}
+          {settings.showMarcatura && (
+            <Link
+              to={marcaturaHref}
+              className="font-medium text-brand-700 transition hover:text-brand-800"
+            >
+              {t('marking.openLink')}
+            </Link>
+          )}
           <a
             href={
               company
@@ -1752,6 +1766,13 @@ function PiramideRoute() {
   return <PiramidePage />;
 }
 
+// Likewise Marcatura QR (off unless the company turns it on).
+function MarcaturaRoute() {
+  const { settings, loading } = useCatalog();
+  if (!loading && !settings.showMarcatura) return <Navigate to="/" replace />;
+  return <MarcaturaPage />;
+}
+
 // The Produzione page as the start page (its switch on): the app launching on
 // the calculator's address shows the page first.
 function CalculatorRoute() {
@@ -1772,6 +1793,7 @@ function App() {
             <Route path={CONFIRM_PATH} element={<AdminConfirmPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/piramide" element={<PiramideRoute />} />
+            <Route path="/marcatura" element={<MarcaturaRoute />} />
             <Route path="/produzione" element={<ProduzionePage />} />
             <Route path="/completati" element={<CompletatiPage />} />
             <Route path="*" element={<CalculatorRoute />} />
