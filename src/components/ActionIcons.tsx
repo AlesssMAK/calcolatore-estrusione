@@ -176,6 +176,18 @@ export function CopyIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+/** Three corner squares — a QR code (the marker's marking). */
+export function QrIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M14 14h3v3h-3zM21 14v.01M14 21h.01M17.5 21H21v-3.5" />
+    </svg>
+  );
+}
+
 /** Check mark — done / copied. */
 export function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   return (

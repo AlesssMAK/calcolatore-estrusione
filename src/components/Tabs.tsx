@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { CalculatorMode } from '../types';
 import type { CalcModes } from '../lib/catalog';
+import { QrIcon } from './ActionIcons';
 
 interface Props {
   value: CalculatorMode;
@@ -12,6 +13,9 @@ interface Props {
   showPiramide: boolean;
   /** Piramide link target (carries ?company= when a company is active). */
   piramideHref: string;
+  /** Whether to show the Marcatura QR link, and its target. */
+  showMarcatura: boolean;
+  marcaturaHref: string;
   settingsOpen: boolean;
   onToggleSettings: () => void;
 }
@@ -24,6 +28,8 @@ function Tabs({
   modes,
   showPiramide,
   piramideHref,
+  showMarcatura,
+  marcaturaHref,
   settingsOpen,
   onToggleSettings,
 }: Props) {
@@ -75,6 +81,20 @@ function Tabs({
             </span>
             <span className="hidden whitespace-nowrap sm:inline">
               {t('piramide.title')}
+            </span>
+          </Link>
+        )}
+
+        {showMarcatura && (
+          <Link
+            to={marcaturaHref}
+            aria-label={t('marking.title')}
+            title={t('marking.title')}
+            className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-ink-soft shadow-sm transition hover:border-brand-400 hover:text-ink"
+          >
+            <QrIcon className="h-5 w-5" />
+            <span className="hidden whitespace-nowrap sm:inline">
+              {t('marking.title')}
             </span>
           </Link>
         )}

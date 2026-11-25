@@ -17,6 +17,8 @@ Two extra tools ship alongside the calculator:
 
 - **Piramide** (`/piramide`) — a sheet-nesting / cutting-stock optimiser that lays cut sheets
   onto a bancale as compactly as possible, with photo OCR input and a printable pyramid diagram.
+- **Marcatura QR** (`/marcatura`) — the text the line's marker prints on the profile, made into a
+  QR code for the order sheet (Excel); the marker's scanner reads it there.
 - A **per-company product catalog** (Supabase-backed) that lets office users pick a pre-defined
   product and have its line speed auto-filled — no need to know the speed by heart. Admins
   manage their catalog and **global settings** through a built-in admin panel; a super-admin can
@@ -218,6 +220,20 @@ reload. An order size (`sheets` × `length`) maps 1:1 to a Piramide row (`qty` �
   — each **Calcola distribuzione** auto-saves the layout (deduped by inputs, 7-day retention), and a
   dropdown next to the compute button restores (refills inputs + recomputes) or deletes saved layouts.
 
+### Marcatura QR (`/marcatura`)
+
+For a marker (inkjet) whose scanner reads its text off the order sheet. The office picks a
+**standard marking** (the company's, set in /admin → Impostazioni Globali → «Marcature Standard»)
+or one of **«Le Mie»** (kept on this device, `localStorage` `calc.markings`), or pastes the text from
+the order sheet. The order number's spot — `{ordine}` (button «+ N° Ordine») or the sheets'
+«nr. Del LOTTO» — is filled with the number typed; picking a marking with a spot focuses that field
+in the same tap (an iPhone opens its keyboard only then). The QR follows what's typed
+([`src/lib/markings.ts`](src/lib/markings.ts), `qrcode` loaded only on this page): ECC M, whole
+pixels per module, ~4–5 cm once pasted into Excel. **Copia QR** puts the PNG on the clipboard
+(Ctrl+V in Excel; browsers that refuse it get a note to use **Scarica PNG**), **Condividi** where the
+Web Share API takes files. The text shown under the QR is exactly what's in it (order number
+highlighted). Date / time / shift aren't in the QR: the marker adds them itself.
+
 ### Catalog (Listino)
 
 - Per-company product catalog stored in Supabase (`companies` + `products` tables, RLS-protected).
@@ -275,6 +291,8 @@ company-admin write), read by the calculator via `?company=<slug>`:
 - **`showPiramide`** — whether the Piramide page + links are visible. **Off by default** (Piramide
   is removed from the base project); a company opts in via the checkbox. The `/piramide` route is
   guarded and redirects to the calculator when disabled.
+- **`showMarcatura`** — the Marcatura QR page + links (off by default, guarded like Piramide), and
+  **`markings`** — its standard markings (`{ id, name, text }`).
 - **`schedule`** — an optional full 7-day working schedule (per-day `enabled / 24h / start-end`,
   30-minute slots). When present it drives the scheduler for the whole week.
 
@@ -508,7 +526,7 @@ src/
 ├── components/
 │   ├── Header.tsx                # logo (keeps ?company=) + lang switcher + 🏷 Listino pill
 │   ├── LanguageSwitcher.tsx
-│   ├── Tabs.tsx                  # Sheets / Profiles + Piramide link + settings button
+│   ├── Tabs.tsx                  # Sheets / Profiles + Piramide / Marcatura links + settings button
 │   ├── GlobalSettingsPanel.tsx   # 4 toggles (manualStart / gaps / productName / weekend)
 │   ├── WeekendBanner.tsx         # always-visible "weekend shift active" banner
 │   ├── DayHoursRow.tsx           # form-agnostic per-day hours row (chip + 24h + 30-min selects)
@@ -543,6 +561,7 @@ src/
 ├── pages/
 │   ├── AdminLoginPage.tsx
 │   ├── AdminPage.tsx             # Prodotti + Aziende (super) + ⚙ Impostazioni globali
+│   ├── MarcaturaPage.tsx         # the marker's text as a QR code (copy / download / share)
 │   └── PiramidePage.tsx          # nesting page: OCR input, table, SVG pyramid, plan
 ├── locales/                      # it.json (default), en.json, es.json
 ├── utils/
